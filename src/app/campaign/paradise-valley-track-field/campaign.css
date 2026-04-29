@@ -1,0 +1,1222 @@
+/* Campaign page styles — prefixed cp- to avoid conflicts with globals.css */
+
+/* ── PVCC Campaign palette ── */
+:root {
+  --pvcc-blue:      #1B4FA8;
+  --pvcc-blue-dark: #0E2F6E;
+  --pvcc-blue-deep: #081A3E;
+  --pvcc-sand:      #C4A35A;
+  --pvcc-sand-pale: #F5EAD0;
+}
+
+/* ── NAV ── */
+.cp-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 80px;
+  background: rgba(8, 26, 62, 0.97);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(196, 163, 90, 0.2);
+  padding: 0 5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cp-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.cp-nav-logo-img {
+  height: 52px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.cp-nav-logo-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.cp-live-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  padding: 0.3rem 0.85rem;
+  border-radius: 100px;
+}
+
+/* ── HERO ── */
+.cp-hero {
+  background: var(--pvcc-blue-deep);
+  padding: 0 5%;
+  padding-top: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cp-hero::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  right: -150px;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(27, 79, 168, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cp-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 3.5rem;
+  align-items: center;
+  padding: 1.5rem 0 3rem;
+}
+
+.cp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(27, 79, 168, 0.18);
+  border: 1px solid rgba(27, 79, 168, 0.4);
+  color: #7EB3FF;
+  padding: 0.32rem 0.9rem;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
+
+.cp-hero-text h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 5.5vw, 5rem);
+  line-height: 0.95;
+  color: var(--white);
+  letter-spacing: 0.02em;
+  margin-bottom: 1.25rem;
+}
+
+.cp-hero-text h1 em {
+  font-style: normal;
+  color: var(--pvcc-sand);
+}
+
+.cp-hero-sub {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 460px;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+.cp-hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cp-hero-stat strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--pvcc-sand);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.cp-hero-stat span {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.2rem;
+  display: block;
+}
+
+.cp-stat-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.cp-hero-cta {
+  display: inline-block;
+  background: var(--white);
+  color: var(--pvcc-blue-dark);
+  padding: 0.85rem 2rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.cp-hero-cta:hover {
+  background: var(--pvcc-sand-pale);
+  transform: translateY(-1px);
+}
+
+/* ── PREMIUM IMAGE PLACEHOLDER ── */
+.cp-hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cp-img-placeholder {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(145deg, #040D1F 0%, #081A3E 55%, #0E2F6E 100%);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* Track oval in background */
+.cp-img-placeholder::before {
+  content: '';
+  position: absolute;
+  width: 320px;
+  height: 210px;
+  border: 26px solid rgba(27, 79, 168, 0.1);
+  border-radius: 50%;
+  top: 54%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Subtle horizontal lane lines */
+.cp-img-placeholder::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 22px,
+    rgba(255, 255, 255, 0.018) 22px,
+    rgba(255, 255, 255, 0.018) 23px
+  );
+  pointer-events: none;
+}
+
+/* Sand top accent bar */
+.cp-img-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, var(--pvcc-sand) 40%, #DFC07A 60%, transparent 100%);
+}
+
+.cp-img-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.cp-img-pvcc-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  margin-bottom: 0.3rem;
+}
+
+.cp-img-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pvcc-sand);
+  background: rgba(196, 163, 90, 0.12);
+  border: 1px solid rgba(196, 163, 90, 0.28);
+  padding: 0.28rem 0.85rem;
+  border-radius: 100px;
+}
+
+.cp-img-sport {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.14em;
+  color: var(--pvcc-sand);
+  line-height: 1;
+}
+
+.cp-img-divider {
+  width: 48px;
+  height: 2px;
+  background: rgba(196, 163, 90, 0.4);
+  border-radius: 2px;
+}
+
+.cp-img-year {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+}
+
+/* ── PROGRESS STRIP ── */
+.cp-progress-strip {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-light);
+  padding: 1.25rem 5%;
+}
+
+.cp-section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cp-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.cp-progress-raised {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--navy);
+}
+
+.cp-progress-pct {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--pvcc-blue);
+}
+
+.cp-progress-track {
+  height: 10px;
+  background: var(--gray-light);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.cp-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pvcc-blue), #4A7FD4);
+  border-radius: 100px;
+}
+
+.cp-progress-meta {
+  display: flex;
+  gap: 0.65rem;
+  font-size: 0.8rem;
+  color: var(--gray);
+}
+
+/* ── MAIN TWO-COLUMN ── */
+.cp-main {
+  background: var(--white);
+  padding: 3rem 5%;
+}
+
+.cp-main-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 2rem;
+  align-items: start;
+}
+
+.cp-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cp-right {
+  position: sticky;
+  top: 100px;
+}
+
+/* ── CARDS ── */
+.cp-card {
+  background: var(--white);
+  border: 1px solid var(--gray-light);
+  border-radius: var(--card-radius);
+  padding: 1.75rem;
+  box-shadow: 0 2px 12px rgba(8, 26, 62, 0.05);
+}
+
+.cp-card-title {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  letter-spacing: 0.02em;
+  color: var(--navy);
+  margin-bottom: 0.3rem;
+}
+
+.cp-card-sub {
+  font-size: 0.875rem;
+  color: var(--gray);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* ── SHARE CARD ── */
+.cp-share-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.cp-share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--gray-light);
+  background: var(--off-white);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.cp-share-btn:hover {
+  border-color: var(--pvcc-blue);
+  background: rgba(27, 79, 168, 0.06);
+  transform: translateY(-1px);
+}
+
+.cp-share-icon {
+  font-size: 1rem;
+}
+
+/* ── TABLE ── */
+.cp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.cp-table thead tr {
+  border-bottom: 2px solid var(--gray-light);
+}
+
+.cp-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray);
+  padding: 0 0.65rem 0.65rem;
+}
+
+.cp-table tbody tr {
+  border-bottom: 1px solid var(--gray-light);
+  transition: background 0.15s;
+}
+
+.cp-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.cp-table tbody tr:hover {
+  background: var(--off-white);
+}
+
+.cp-row-gold {
+  background: rgba(27, 79, 168, 0.04);
+}
+
+.cp-table td {
+  padding: 0.8rem 0.65rem;
+}
+
+.cp-td-rank {
+  font-size: 1.05rem;
+  width: 48px;
+}
+
+.cp-td-name {
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.cp-td-event {
+  color: var(--gray);
+  font-size: 0.82rem;
+}
+
+.cp-td-amount {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--pvcc-blue);
+  letter-spacing: 0.02em;
+  text-align: right;
+}
+
+/* ── MISSION ── */
+.cp-mission-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem;
+}
+
+.cp-mission-item {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+}
+
+.cp-mission-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(27, 79, 168, 0.08);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.cp-mission-item h4 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.01em;
+}
+
+.cp-mission-item p {
+  font-size: 0.8rem;
+  color: var(--gray);
+  line-height: 1.55;
+}
+
+/* ── RECENT DONATIONS ── */
+.cp-donations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cp-donation-item {
+  display: flex;
+  gap: 0.875rem;
+  align-items: flex-start;
+  padding: 0.9rem 1rem;
+  background: var(--off-white);
+  border-radius: 10px;
+}
+
+.cp-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--pvcc-blue);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cp-donation-body {
+  flex: 1;
+}
+
+.cp-donation-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+}
+
+.cp-donation-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--navy);
+}
+
+.cp-donation-amount {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--pvcc-blue);
+  letter-spacing: 0.02em;
+}
+
+.cp-donation-msg {
+  font-size: 0.82rem;
+  color: var(--gray);
+  line-height: 1.5;
+  font-style: italic;
+  margin-bottom: 0.25rem;
+}
+
+.cp-donation-time {
+  font-size: 0.72rem;
+  color: rgba(138, 143, 153, 0.65);
+}
+
+/* ── DONATION CARD ── */
+.cp-donate-card {
+  background: var(--white);
+  border: 1px solid var(--gray-light);
+  border-left: 3px solid var(--pvcc-blue);
+  border-radius: var(--card-radius);
+  box-shadow: 0 8px 40px rgba(8, 26, 62, 0.1);
+  overflow: hidden;
+}
+
+.cp-donate-header {
+  background: linear-gradient(135deg, var(--pvcc-blue-dark) 0%, var(--pvcc-blue) 100%);
+  padding: 1.4rem 1.75rem;
+}
+
+.cp-donate-header h2 {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  color: var(--white);
+  letter-spacing: 0.03em;
+  margin-bottom: 0.2rem;
+}
+
+.cp-donate-header p {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cp-donate-body {
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cp-field-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: -0.3rem;
+}
+
+.cp-amounts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.4rem;
+}
+
+.cp-amount-btn {
+  padding: 0.55rem 0.2rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--gray-light);
+  background: var(--off-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  font-family: var(--font-body);
+}
+
+.cp-amount-btn:hover,
+.cp-amount-btn.active {
+  border-color: var(--pvcc-blue);
+  background: rgba(27, 79, 168, 0.09);
+  color: var(--pvcc-blue-dark);
+}
+
+.cp-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cp-form-field label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.cp-optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.72rem;
+  color: rgba(138, 143, 153, 0.65);
+}
+
+.cp-form-field input,
+.cp-form-field select,
+.cp-form-field textarea {
+  background: var(--off-white);
+  border: 1.5px solid var(--gray-light);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  color: var(--navy);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.cp-form-field input::placeholder,
+.cp-form-field textarea::placeholder {
+  color: rgba(138, 143, 153, 0.55);
+}
+
+.cp-form-field input:focus,
+.cp-form-field select:focus,
+.cp-form-field textarea:focus {
+  border-color: var(--pvcc-blue);
+}
+
+.cp-donate-btn {
+  background: var(--pvcc-blue);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.9rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s, transform 0.15s;
+  margin-top: 0.2rem;
+}
+
+.cp-donate-btn:hover {
+  background: var(--pvcc-blue-dark);
+  transform: translateY(-1px);
+}
+
+.cp-stripe-note {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--gray);
+  margin-top: -0.2rem;
+}
+
+/* ── POWERED BY STRIP ── */
+.cp-powered-by {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--off-white);
+  border: 1px solid var(--gray-light);
+  border-radius: 10px;
+}
+
+.cp-powered-logo-img {
+  height: 22px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  opacity: 0.7;
+}
+
+.cp-powered-by span {
+  font-size: 0.7rem;
+  color: var(--gray);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* ── SPONSORS ── */
+.cp-sponsors {
+  background: var(--pvcc-sand-pale);
+  padding: 3.5rem 5%;
+  border-top: 1px solid rgba(196, 163, 90, 0.25);
+}
+
+.cp-sponsors-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3.5vw, 2.75rem);
+  color: var(--navy);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.6rem;
+}
+
+.cp-sponsors-sub {
+  font-size: 0.95rem;
+  color: var(--gray);
+  max-width: 480px;
+  line-height: 1.6;
+  margin-bottom: 2.25rem;
+}
+
+.cp-tier {
+  margin-bottom: 1.75rem;
+}
+
+.cp-tier:last-child {
+  margin-bottom: 0;
+}
+
+.cp-tier-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 100px;
+  display: inline-block;
+}
+
+.cp-tier-gold {
+  background: rgba(27, 79, 168, 0.1);
+  color: var(--pvcc-blue-dark);
+  border: 1px solid rgba(27, 79, 168, 0.3);
+}
+
+.cp-tier-silver {
+  background: rgba(148, 163, 184, 0.13);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.cp-tier-bronze {
+  background: rgba(180, 120, 60, 0.1);
+  color: #92400e;
+  border: 1px solid rgba(180, 120, 60, 0.28);
+}
+
+.cp-tier-logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.cp-sponsor-logo {
+  border-radius: 10px;
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.cp-sponsor-logo:hover {
+  transform: translateY(-2px);
+}
+
+.cp-logo-gold {
+  background: var(--white);
+  border: 2px solid rgba(27, 79, 168, 0.3);
+  padding: 1.1rem 2.25rem;
+  font-size: 1.2rem;
+  color: var(--navy);
+  box-shadow: 0 2px 10px rgba(27, 79, 168, 0.1);
+}
+
+.cp-logo-silver {
+  background: var(--white);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  color: #475569;
+}
+
+.cp-logo-bronze {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(196, 163, 90, 0.2);
+  padding: 0.7rem 1.25rem;
+  font-size: 0.9rem;
+  color: var(--gray);
+}
+
+/* ── FOOTER ── */
+.cp-footer {
+  background: #060F1E;
+  padding: 2.75rem 5%;
+  border-top: 1px solid rgba(196, 163, 90, 0.15);
+}
+
+.cp-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.6rem;
+}
+
+.cp-footer-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+}
+
+.cp-footer-logo-img {
+  height: 64px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
+.cp-footer-logo-text {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.cp-footer-team {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.cp-footer-copy {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.18);
+}
+
+/* ── SCHOOL BRAND HEADER ── */
+.cp-school-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.5rem 0 1.25rem;
+}
+
+.cp-school-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.cp-school-pvcc-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.cp-school-info {
+  flex: 1;
+}
+
+.cp-school-name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--white);
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+}
+
+.cp-school-meta {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.38);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 0.2rem;
+}
+
+.cp-school-season-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pvcc-sand);
+  background: rgba(196, 163, 90, 0.12);
+  border: 1px solid rgba(196, 163, 90, 0.3);
+  padding: 0.35rem 0.9rem;
+  border-radius: 100px;
+  flex-shrink: 0;
+}
+
+/* ── SCHOOL BANNER IMAGE CONTENT ── */
+.cp-img-mascot {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.cp-img-school-name {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cp-img-mascot-name {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 0.06em;
+  color: var(--white);
+  line-height: 0.95;
+}
+
+.cp-img-grass-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, var(--pvcc-blue) 20%, #4A7FD4 50%, var(--pvcc-blue) 80%, transparent 100%);
+}
+
+/* ── PROGRAM IDENTITY CARD ── */
+.cp-identity-card {
+  border-left: 3px solid var(--pvcc-blue);
+}
+
+.cp-identity-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.cp-identity-pvcc-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.cp-identity-header-text .cp-card-title {
+  margin-bottom: 0.1rem;
+}
+
+.cp-identity-header-text .cp-card-sub {
+  margin-bottom: 0;
+}
+
+.cp-identity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 1.75rem;
+}
+
+.cp-identity-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cp-identity-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.cp-identity-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--navy);
+  line-height: 1.4;
+}
+
+.cp-identity-colors {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cp-color-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.cp-swatch-navy  { background: #1B4FA8; }               /* Royal Blue */
+.cp-swatch-green { background: #C4A35A; }               /* Sand */
+.cp-swatch-gold  { background: #FFFFFF; border-color: rgba(0, 0, 0, 0.2); } /* White */
+
+.cp-swatch-labels {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .cp-hero-inner {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    padding: 2rem 0 2.5rem;
+  }
+
+  .cp-hero-visual {
+    display: none;
+  }
+
+  .cp-main-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .cp-right {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .cp-nav-logo-text {
+    display: none;
+  }
+
+  .cp-school-season-badge {
+    display: none;
+  }
+
+  .cp-school-name {
+    font-size: 1rem;
+  }
+
+  .cp-identity-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .cp-hero-text h1 {
+    font-size: 2.75rem;
+  }
+
+  .cp-hero-stats {
+    gap: 1.1rem;
+  }
+
+  .cp-hero-stat strong {
+    font-size: 1.65rem;
+  }
+
+  .cp-mission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cp-share-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cp-amounts {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .cp-amounts .cp-amount-btn:nth-child(4) {
+    grid-column: span 1;
+  }
+
+  .cp-amounts .cp-amount-btn:last-child {
+    grid-column: span 3;
+  }
+
+  .cp-progress-meta {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .cp-table th:nth-child(3),
+  .cp-table td:nth-child(3) {
+    display: none;
+  }
+
+  .cp-sponsors {
+    padding: 2.5rem 5%;
+  }
+
+  .cp-tier-logos {
+    gap: 0.65rem;
+  }
+
+  .cp-footer-logo-text {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .cp-hero-stats {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .cp-stat-divider {
+    display: none;
+  }
+
+  .cp-share-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cp-card {
+    padding: 1.25rem;
+  }
+
+  .cp-donate-body {
+    padding: 1.25rem;
+  }
+
+  .cp-donate-header {
+    padding: 1.1rem 1.25rem;
+  }
+
+  .cp-footer-logo-text {
+    display: none;
+  }
+}
