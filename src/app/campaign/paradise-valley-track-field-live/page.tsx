@@ -4,20 +4,18 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import "./campaign-live.css";
 
-// ── Static data ──────────────────────────────────────────────────────────────
+// ── Static fallback data (replaced by Supabase on mount) ─────────────────────
 
-const goal    = 25000;
-const daysLeft = 23;
+const FALLBACK_GOAL     = 25000;
+const FALLBACK_DAYS_LEFT = 23;
 
-const athletesData = [
+const FALLBACK_ATHLETES = [
   { rank: 1, name: "Marcus Johnson",  event: "Sprints",  raised: 2340 },
   { rank: 2, name: "Aaliyah Rivera",  event: "Distance", raised: 1980 },
   { rank: 3, name: "Tyler Chen",      event: "Jumps",    raised: 1620 },
   { rank: 4, name: "Sofia Martinez",  event: "Throws",   raised: 1410 },
   { rank: 5, name: "Devon Williams",  event: "Hurdles",  raised: 1200 },
 ];
-
-const FILTERS = ["Overall", "Sprints", "Distance", "Jumps", "Throws", "Hurdles"] as const;
 
 const initialDonations = [
   { name: "Robert T.",       amount: 100, message: "Go Pumas! Proud to support Arizona track!",   time: "2 hours ago" },
@@ -27,16 +25,16 @@ const initialDonations = [
   { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                      time: "1 day ago"   },
 ];
 
-const goldSponsors = [
+const FALLBACK_GOLD_SPONSORS = [
   { name: "Desert Auto Group",     url: "https://example.com" },
   { name: "Valley Medical Center", url: "https://example.com" },
 ];
-const silverSponsors = [
+const FALLBACK_SILVER_SPONSORS = [
   { name: "Arizona Roofing Pro", url: "https://example.com" },
   { name: "Mesa Family Chiro",   url: "https://example.com" },
   { name: "Sunbelt Insurance",   url: "https://example.com" },
 ];
-const bronzeSponsors = [
+const FALLBACK_BRONZE_SPONSORS = [
   { name: "Cactus Brewing Co",      url: "https://example.com" },
   { name: "Paradise Valley Diner",  url: "https://example.com" },
   { name: "AZ Sports Therapy",      url: "https://example.com" },
@@ -54,6 +52,15 @@ const missionItems = [
 const rankIcon = (r: number) =>
   r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;
 
+function hexToRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return "27, 79, 168";
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function CampaignLivePage() {
@@ -67,39 +74,90 @@ export default function CampaignLivePage() {
   const [donateError,    setDonateError]    = useState("");
 
   // Leaderboard
-  const [activeFilter, setActiveFilter] = useState<typeof FILTERS[number]>("Overall");
+  const [activeFilter, setActiveFilter] = useState("Overall");
 
   // Share
   const [copyConfirm, setCopyConfirm] = useState(false);
   const [shareNote,   setShareNote]   = useState("");
 
   // Live stats (initialized with fallback data; replaced on mount)
-  const [raised,          setRaised]          = useState(12850);
-  const [donors,          setDonors]          = useState(147);
-  const [athletes,        setAthletes]        = useState(athletesData);
+  const [raised,          setRaised]          = useState(0);
+  const [donors,          setDonors]          = useState(0);
+  const [goal,            setGoal]            = useState(FALLBACK_GOAL);
+  const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
+  const [athletes,        setAthletes]        = useState(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
+  const [goldSponsors,    setGoldSponsors]    = useState(FALLBACK_GOLD_SPONSORS);
+  const [silverSponsors,  setSilverSponsors]  = useState(FALLBACK_SILVER_SPONSORS);
+  const [bronzeSponsors,  setBronzeSponsors]  = useState(FALLBACK_BRONZE_SPONSORS);
+  const [schoolName,      setSchoolName]      = useState("Paradise Valley Community College");
+  const [sportName,       setSportName]       = useState("Track & Field");
+  const [mascot,          setMascot]          = useState("Pumas");
+  const [primaryColor,    setPrimaryColor]    = useState("#1B4FA8");
+  const [secondaryColor,  setSecondaryColor]  = useState("#C4A35A");
+  const [location,        setLocation]        = useState("Paradise Valley, Arizona");
+  const [season,          setSeason]          = useState("2025 Season");
+  const [logoUrl,         setLogoUrl]         = useState("/pvcc-logo.png");
 
   useEffect(() => {
     fetch("/api/campaign-stats")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || typeof data.raised !== "number") return;
-        const { raised: r, donors: d, athleteTotals, recentDonations: rd } = data;
+        const { raised: r, donors: d, athleteTotals, recentDonations: rd,
+                goal: g, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
+                school_name: fetchedSchoolName, sport_name: fetchedSportName,
+                mascot: fetchedMascot,
+                primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
+                location: fetchedLocation, season: fetchedSeason,
+                logo_url: fetchedLogoUrl } = data;
         setRaised(r);
         setDonors(d);
+        if (typeof g === "number") setGoal(g);
+        if (typeof dl === "number") setDaysLeft(dl);
+        if (typeof fetchedSchoolName === "string" && fetchedSchoolName) setSchoolName(fetchedSchoolName);
+        if (typeof fetchedSportName  === "string" && fetchedSportName)  setSportName(fetchedSportName);
+        if (typeof fetchedMascot     === "string" && fetchedMascot)     setMascot(fetchedMascot);
+        if (typeof fetchedPrimary   === "string" && fetchedPrimary)   setPrimaryColor(fetchedPrimary);
+        if (typeof fetchedSecondary === "string" && fetchedSecondary) setSecondaryColor(fetchedSecondary);
+        if (typeof fetchedLocation  === "string" && fetchedLocation)  setLocation(fetchedLocation);
+        if (typeof fetchedSeason    === "string" && fetchedSeason)    setSeason(fetchedSeason);
+        if (typeof fetchedLogoUrl   === "string" && fetchedLogoUrl)   setLogoUrl(fetchedLogoUrl);
+        const base: { name: string; event: string }[] =
+          Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
+            ? fetchedAthletes
+            : FALLBACK_ATHLETES;
         setAthletes(
-          athletesData
-            .map((a) => ({ ...a, raised: athleteTotals[a.name] ?? 0 }))
+          base
+            .map((a) => ({ name: a.name, event: a.event, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
             .sort((a, b) => b.raised - a.raised)
             .map((a, i) => ({ ...a, rank: i + 1 })),
         );
         if (Array.isArray(rd) && rd.length > 0) setRecentDonations(rd);
+        if (Array.isArray(fetchedSponsors)) {
+          const byTier = (t: string) =>
+            fetchedSponsors
+              .filter((s: { tier: string }) => s.tier === t)
+              .map((s: { name: string; url: string }) => ({ name: s.name, url: s.url }));
+          setGoldSponsors(byTier("gold"));
+          setSilverSponsors(byTier("silver"));
+          setBronzeSponsors(byTier("bronze"));
+        }
       })
       .catch(() => {/* keep fallback data */});
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--cl-primary",       primaryColor);
+    root.style.setProperty("--cl-primary-rgb",   hexToRgb(primaryColor));
+    root.style.setProperty("--cl-secondary",     secondaryColor);
+    root.style.setProperty("--cl-secondary-rgb", hexToRgb(secondaryColor));
+  }, [primaryColor, secondaryColor]);
+
   // ── Derived values ──
   const percent = Math.round((raised / goal) * 100);
+  const filters = ["Overall", ...Array.from(new Set(athletes.map((a) => a.event)))];
 
   const displayAmount =
     selectedAmount === "Custom"
@@ -109,7 +167,7 @@ export default function CampaignLivePage() {
   const donateLabel =
     selectedAthlete
       ? `Donate ${displayAmount} for ${selectedAthlete} →`
-      : `Donate ${displayAmount} to the Pumas →`;
+      : `Donate ${displayAmount} to the ${mascot} →`;
 
   const filteredAthletes = (
     activeFilter === "Overall"
@@ -165,13 +223,13 @@ export default function CampaignLivePage() {
 
   const handleText = () => {
     const body = encodeURIComponent(
-      `Support the Paradise Valley Pumas Track & Field! ${window.location.href}`
+      `Support ${schoolName} ${sportName}! ${window.location.href}`
     );
     window.open(`sms:?body=${body}`);
   };
 
   const handleEmail = () => {
-    const subject = encodeURIComponent("Support PVCC Track & Field");
+    const subject = encodeURIComponent(`Support ${schoolName} ${sportName}`);
     const body    = encodeURIComponent(
       `I wanted to share this fundraiser with you:\n\n${window.location.href}`
     );
@@ -182,8 +240,8 @@ export default function CampaignLivePage() {
     if (typeof navigator.share === "function") {
       try {
         await navigator.share({
-          title: "Support PVCC Track & Field",
-          text:  "Help the Paradise Valley Pumas compete this season!",
+          title: `Support ${schoolName} ${sportName}`,
+          text:  `Help the ${schoolName} team compete this season!`,
           url:   window.location.href,
         });
         return;
@@ -227,34 +285,33 @@ export default function CampaignLivePage() {
         {/* School branding strip */}
         <div className="cl-school-header">
           <div className="cl-school-header-inner">
-            <Image
-              src="/pvcc-logo.png"
-              alt="Paradise Valley Community College"
+            <img
+              src={logoUrl}
+              alt={schoolName}
               width={56}
               height={56}
               className="cl-school-pvcc-logo"
             />
             <div className="cl-school-info">
-              <div className="cl-school-name">PARADISE VALLEY PUMAS</div>
+              <div className="cl-school-name">{schoolName.toUpperCase()} {mascot.toUpperCase()}</div>
               <div className="cl-school-meta">
-                Track &amp; Field &nbsp;·&nbsp; Paradise Valley, Arizona &nbsp;·&nbsp; 2025 Season
+                {sportName} &nbsp;·&nbsp; {location} &nbsp;·&nbsp; {season}
               </div>
             </div>
-            <div className="cl-school-season-badge">🐾 2025 SEASON</div>
+            <div className="cl-school-season-badge">🐾 {season.toUpperCase()}</div>
           </div>
         </div>
 
         <div className="cl-hero-inner">
           <div className="cl-hero-text">
-            <div className="cl-badge">🏃 Track &amp; Field · Paradise Valley, AZ</div>
+            <div className="cl-badge">🏃 {sportName} · {location}</div>
             <h1>
-              PARADISE VALLEY<br />
-              COMMUNITY COLLEGE<br />
-              <em>TRACK &amp; FIELD</em>
+              {schoolName.toUpperCase()}<br />
+              <em>{sportName.toUpperCase()}</em>
             </h1>
             <p className="cl-hero-sub">
-              Support the Paradise Valley Pumas Track &amp; Field program as they prepare
-              for another competitive season representing Paradise Valley Community College.
+              Support the {schoolName} {sportName} program as they prepare
+              for another competitive season.
             </p>
             <div className="cl-hero-stats">
               <div className="cl-hero-stat">
@@ -279,17 +336,17 @@ export default function CampaignLivePage() {
             <div className="cl-img-placeholder">
               <div className="cl-img-accent" />
               <div className="cl-img-content">
-                <Image
-                  src="/pvcc-logo.png"
-                  alt="PVCC"
+                <img
+                  src={logoUrl}
+                  alt={schoolName}
                   width={68}
                   height={68}
                   className="cl-img-pvcc-logo"
                 />
-                <div className="cl-img-school-name">PARADISE VALLEY</div>
-                <div className="cl-img-mascot-name">PUMAS</div>
+                <div className="cl-img-school-name">{schoolName.toUpperCase()}</div>
+                <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
                 <div className="cl-img-divider" />
-                <div className="cl-img-sport">TRACK &amp; FIELD</div>
+                <div className="cl-img-sport">{sportName.toUpperCase()}</div>
                 <div className="cl-img-year">2025 SEASON · ARIZONA</div>
               </div>
               <div className="cl-img-grass-bar" />
@@ -331,7 +388,7 @@ export default function CampaignLivePage() {
               <p className="cl-card-sub">Top fundraisers on the team this season</p>
 
               <div className="cl-filter-tabs">
-                {FILTERS.map((f) => (
+                {filters.map((f) => (
                   <button
                     key={f}
                     className={`cl-filter-tab${activeFilter === f ? " active" : ""}`}
@@ -376,39 +433,37 @@ export default function CampaignLivePage() {
             {/* PROGRAM IDENTITY */}
             <div className="cl-card cl-identity-card">
               <div className="cl-identity-header">
-                <Image
-                  src="/pvcc-logo.png"
-                  alt="PVCC"
+                <img
+                  src={logoUrl}
+                  alt={schoolName}
                   width={52}
                   height={52}
                   className="cl-identity-pvcc-logo"
                 />
                 <div className="cl-identity-header-text">
                   <h2 className="cl-card-title">PROGRAM IDENTITY</h2>
-                  <p className="cl-card-sub">Paradise Valley Community College Athletics</p>
+                  <p className="cl-card-sub">{schoolName} Athletics</p>
                 </div>
               </div>
               <div className="cl-identity-grid">
                 <div className="cl-identity-item">
                   <div className="cl-identity-label">Mascot</div>
-                  <div className="cl-identity-value">🐾 Pumas</div>
+                  <div className="cl-identity-value">🐾 {mascot}</div>
                 </div>
                 <div className="cl-identity-item">
                   <div className="cl-identity-label">Colors</div>
                   <div className="cl-identity-value cl-identity-colors">
-                    <span className="cl-color-swatch cl-swatch-blue"  title="Royal Blue" />
-                    <span className="cl-color-swatch cl-swatch-sand"  title="Sand" />
-                    <span className="cl-color-swatch cl-swatch-white" title="White" />
-                    <span className="cl-swatch-labels">Royal Blue · Sand · White</span>
+                    <span className="cl-color-swatch" style={{ background: primaryColor }} />
+                    <span className="cl-color-swatch" style={{ background: secondaryColor }} />
                   </div>
                 </div>
                 <div className="cl-identity-item">
                   <div className="cl-identity-label">Program</div>
-                  <div className="cl-identity-value">Men&apos;s &amp; Women&apos;s Track &amp; Field</div>
+                  <div className="cl-identity-value">{sportName}</div>
                 </div>
                 <div className="cl-identity-item">
                   <div className="cl-identity-label">School</div>
-                  <div className="cl-identity-value">Paradise Valley Community College</div>
+                  <div className="cl-identity-value">{schoolName}</div>
                 </div>
               </div>
             </div>
@@ -463,7 +518,7 @@ export default function CampaignLivePage() {
             {/* RECENT DONATIONS */}
             <div className="cl-card" id="donations">
               <h2 className="cl-card-title">RECENT DONATIONS</h2>
-              <p className="cl-card-sub">Join the supporters cheering on the Pumas</p>
+              <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
               <div className="cl-donations-list">
                 {recentDonations.map((d, i) => (
                   <div className="cl-donation-item" key={i}>
@@ -488,8 +543,8 @@ export default function CampaignLivePage() {
           <div className="cl-right">
             <div className="cl-donate-card" id="donate">
               <div className="cl-donate-header">
-                <h2>DONATE TO THE PUMAS</h2>
-                <p>Support Paradise Valley Track &amp; Field</p>
+                <h2>DONATE TO THE {mascot.toUpperCase()}</h2>
+                <p>Support {schoolName} {sportName}</p>
               </div>
               <div className="cl-donate-body">
                 <p className="cl-field-label">Choose an amount</p>
@@ -551,7 +606,7 @@ export default function CampaignLivePage() {
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="Go Pumas! We're rooting for you this season."
+                    placeholder={`Go ${mascot}! We're rooting for you this season.`}
                     value={donationMessage}
                     onChange={(e) => setDonationMessage(e.target.value)}
                   />
@@ -665,7 +720,7 @@ export default function CampaignLivePage() {
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">
-            Paradise Valley Community College · Track &amp; Field · 2025 Season
+            {schoolName} · {sportName} · {season}
           </p>
           <p className="cl-footer-copy">
             © 2025 Elite Level Fundraising · Arizona · All rights reserved

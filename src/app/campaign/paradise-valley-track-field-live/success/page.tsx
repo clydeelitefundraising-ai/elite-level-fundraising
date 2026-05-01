@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { insertDonation } from "@/lib/supabase";
+import { insertDonation, donationExists } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +77,12 @@ async function saveDonation(sessionId: string) {
     const session = await res.json();
     console.log("[success] payment_status:", session.payment_status, "amount_total:", session.amount_total);
     if (session.payment_status !== "paid") return;
+
+    const alreadySaved = await donationExists(sessionId);
+    if (alreadySaved) {
+      console.log("[success] duplicate session, skipping insert:", sessionId);
+      return;
+    }
 
     await insertDonation({
       stripe_session_id: sessionId,
