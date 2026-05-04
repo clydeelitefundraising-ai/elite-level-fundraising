@@ -369,6 +369,53 @@ html {
   margin-bottom: 0.3rem;
 }
 
+.cl-logo-small {
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+.cl-logo-small img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.cl-header-logo-wrap {
+  width: 96px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cl-header-logo-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.cl-identity-logo-wrap {
+  width: 96px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cl-identity-logo-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 .cl-img-school-name {
   font-size: 0.65rem;
   font-weight: 700;

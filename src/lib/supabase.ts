@@ -16,6 +16,7 @@ export type DonationRow = {
   amount_cents: number;
   athlete_name: string | null;
   donation_message: string | null;
+  campaign_slug?: string | null;
   created_at: string;
 };
 
@@ -85,6 +86,26 @@ export async function getCampaignSettings(slug: string): Promise<CampaignSetting
   if (!res.ok) return null;
   const rows: CampaignSettings[] = await res.json();
   return rows[0] ?? null;
+}
+
+export async function createCampaignSettings(data: CampaignSettings): Promise<void> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(
+    `${BASE}/rest/v1/campaign_settings?on_conflict=campaign_slug`,
+    {
+      method: "POST",
+      headers: headers(key, { Prefer: "resolution=ignore-duplicates,return=representation" }),
+      body: JSON.stringify(data),
+    },
+  );
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Supabase insert failed (${res.status}): ${msg}`);
+  }
+  const rows = await res.json();
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error(`Campaign slug "${data.campaign_slug}" already exists.`);
+  }
 }
 
 export async function updateCampaignSettings(
@@ -215,10 +236,22 @@ export async function deleteSponsor(id: string): Promise<void> {
   }
 }
 
-export async function getDonations(): Promise<DonationRow[]> {
+export async function getAllCampaignSlugs(): Promise<string[]> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
-    `${BASE}/rest/v1/donations?select=*&order=created_at.desc`,
+    `${BASE}/rest/v1/campaign_settings?select=campaign_slug&order=campaign_slug.asc`,
+    { headers: headers(key), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  const rows: { campaign_slug: string }[] = await res.json();
+  return rows.map(r => r.campaign_slug);
+}
+
+export async function getDonations(slug?: string): Promise<DonationRow[]> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const filter = slug ? `&campaign_slug=eq.${encodeURIComponent(slug)}` : "";
+  const res = await fetch(
+    `${BASE}/rest/v1/donations?select=*&order=created_at.desc${filter}`,
     { headers: headers(key), cache: "no-store" },
   );
   if (!res.ok) {

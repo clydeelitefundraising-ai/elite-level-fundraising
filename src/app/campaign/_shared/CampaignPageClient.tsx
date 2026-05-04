@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import "./campaign-live.css";
+import "../paradise-valley-track-field-live/campaign-live.css";
 
-// ── Static fallback data (replaced by Supabase on mount) ─────────────────────
-
-const FALLBACK_GOAL     = 25000;
+const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
 const FALLBACK_ATHLETES = [
@@ -18,33 +16,22 @@ const FALLBACK_ATHLETES = [
 ];
 
 const initialDonations = [
-  { name: "Robert T.",       amount: 100, message: "Go Pumas! Proud to support Arizona track!",   time: "2 hours ago" },
-  { name: "Sarah K.",        amount: 50,  message: "Best of luck this season!",                   time: "4 hours ago" },
-  { name: "Anonymous",       amount: 250, message: "Keep running strong!",                        time: "6 hours ago" },
-  { name: "Mike & Janet L.", amount: 75,  message: "Our daughter loves this team. Go Pumas!",     time: "1 day ago"   },
-  { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                      time: "1 day ago"   },
+  { name: "Robert T.",       amount: 100, message: "Go team! Proud to support this program!",  time: "2 hours ago" },
+  { name: "Sarah K.",        amount: 50,  message: "Best of luck this season!",                time: "4 hours ago" },
+  { name: "Anonymous",       amount: 250, message: "Keep running strong!",                     time: "6 hours ago" },
+  { name: "Mike & Janet L.", amount: 75,  message: "Our daughter loves this team!",            time: "1 day ago"   },
+  { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                   time: "1 day ago"   },
 ];
 
-const FALLBACK_GOLD_SPONSORS = [
-  { name: "Desert Auto Group",     url: "https://example.com" },
-  { name: "Valley Medical Center", url: "https://example.com" },
-];
-const FALLBACK_SILVER_SPONSORS = [
-  { name: "Arizona Roofing Pro", url: "https://example.com" },
-  { name: "Mesa Family Chiro",   url: "https://example.com" },
-  { name: "Sunbelt Insurance",   url: "https://example.com" },
-];
-const FALLBACK_BRONZE_SPONSORS = [
-  { name: "Cactus Brewing Co",      url: "https://example.com" },
-  { name: "Paradise Valley Diner",  url: "https://example.com" },
-  { name: "AZ Sports Therapy",      url: "https://example.com" },
-];
+const FALLBACK_GOLD_SPONSORS   = [{ name: "Local Business",    url: "https://example.com" }];
+const FALLBACK_SILVER_SPONSORS = [{ name: "Community Partner", url: "https://example.com" }];
+const FALLBACK_BRONZE_SPONSORS = [{ name: "Area Sponsor",      url: "https://example.com" }];
 
 const missionItems = [
-  { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete across Arizona and beyond." },
+  { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
   { icon: "📋", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
-  { icon: "👟", label: "Equipment & Gear",         desc: "Spikes, throwing implements, poles, hurdles, and training tools." },
-  { icon: "👕", label: "Uniforms",                 desc: "Competition singlets, warm-up suits, and team apparel for all athletes." },
+  { icon: "👟", label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
+  { icon: "👕", label: "Uniforms",                 desc: "Competition uniforms, warm-up suits, and team apparel for all athletes." },
   { icon: "💪", label: "Recovery Tools",           desc: "Foam rollers, resistance bands, ice packs, and injury prevention equipment." },
   { icon: "🍱", label: "Team Meals",               desc: "Pre-meet fueling and post-competition meals to keep athletes performing at their best." },
 ];
@@ -61,26 +48,19 @@ function hexToRgb(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
-
-export default function CampaignLivePage() {
-  // Donation form
-  const [selectedAmount, setSelectedAmount] = useState("$50");
-  const [customAmount,   setCustomAmount]   = useState("");
-  const [donorName,      setDonorName]      = useState("");
+export default function CampaignPageClient({ slug }: { slug: string }) {
+  const [selectedAmount,  setSelectedAmount]  = useState("$50");
+  const [customAmount,    setCustomAmount]    = useState("");
+  const [donorName,       setDonorName]       = useState("");
   const [selectedAthlete, setSelectedAthlete] = useState("");
   const [donationMessage, setDonationMessage] = useState("");
-  const [donating,       setDonating]       = useState(false);
-  const [donateError,    setDonateError]    = useState("");
+  const [donating,        setDonating]        = useState(false);
+  const [donateError,     setDonateError]     = useState("");
 
-  // Leaderboard
   const [activeFilter, setActiveFilter] = useState("Overall");
+  const [copyConfirm,  setCopyConfirm]  = useState(false);
+  const [shareNote,    setShareNote]    = useState("");
 
-  // Share
-  const [copyConfirm, setCopyConfirm] = useState(false);
-  const [shareNote,   setShareNote]   = useState("");
-
-  // Live stats (initialized with fallback data; replaced on mount)
   const [raised,          setRaised]          = useState(0);
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
@@ -90,27 +70,29 @@ export default function CampaignLivePage() {
   const [goldSponsors,    setGoldSponsors]    = useState(FALLBACK_GOLD_SPONSORS);
   const [silverSponsors,  setSilverSponsors]  = useState(FALLBACK_SILVER_SPONSORS);
   const [bronzeSponsors,  setBronzeSponsors]  = useState(FALLBACK_BRONZE_SPONSORS);
-  const [schoolName,      setSchoolName]      = useState("Paradise Valley Community College");
-  const [sportName,       setSportName]       = useState("Track & Field");
-  const [mascot,          setMascot]          = useState("Pumas");
+  const [schoolName,      setSchoolName]      = useState("School Name");
+  const [sportName,       setSportName]       = useState("Athletics");
+  const [mascot,          setMascot]          = useState("Team");
   const [primaryColor,    setPrimaryColor]    = useState("#1B4FA8");
   const [secondaryColor,  setSecondaryColor]  = useState("#C4A35A");
-  const [location,        setLocation]        = useState("Paradise Valley, Arizona");
+  const [location,        setLocation]        = useState("");
   const [season,          setSeason]          = useState("2025 Season");
-  const [logoUrl,         setLogoUrl]         = useState("/pvcc-logo.png");
+  const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
 
   useEffect(() => {
-    fetch("/api/campaign-stats")
+    fetch(`/api/campaign-stats/${slug}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data || typeof data.raised !== "number") return;
-        const { raised: r, donors: d, athleteTotals, recentDonations: rd,
-                goal: g, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
-                school_name: fetchedSchoolName, sport_name: fetchedSportName,
-                mascot: fetchedMascot,
-                primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
-                location: fetchedLocation, season: fetchedSeason,
-                logo_url: fetchedLogoUrl } = data;
+        const {
+          raised: r, donors: d, athleteTotals, recentDonations: rd,
+          goal: g, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
+          school_name: fetchedSchoolName, sport_name: fetchedSportName,
+          mascot: fetchedMascot,
+          primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
+          location: fetchedLocation, season: fetchedSeason,
+          logo_url: fetchedLogoUrl,
+        } = data;
         setRaised(r);
         setDonors(d);
         if (typeof g === "number") setGoal(g);
@@ -118,11 +100,11 @@ export default function CampaignLivePage() {
         if (typeof fetchedSchoolName === "string" && fetchedSchoolName) setSchoolName(fetchedSchoolName);
         if (typeof fetchedSportName  === "string" && fetchedSportName)  setSportName(fetchedSportName);
         if (typeof fetchedMascot     === "string" && fetchedMascot)     setMascot(fetchedMascot);
-        if (typeof fetchedPrimary   === "string" && fetchedPrimary)   setPrimaryColor(fetchedPrimary);
-        if (typeof fetchedSecondary === "string" && fetchedSecondary) setSecondaryColor(fetchedSecondary);
-        if (typeof fetchedLocation  === "string" && fetchedLocation)  setLocation(fetchedLocation);
-        if (typeof fetchedSeason    === "string" && fetchedSeason)    setSeason(fetchedSeason);
-        if (typeof fetchedLogoUrl   === "string" && fetchedLogoUrl)   setLogoUrl(fetchedLogoUrl);
+        if (typeof fetchedPrimary    === "string" && fetchedPrimary)    setPrimaryColor(fetchedPrimary);
+        if (typeof fetchedSecondary  === "string" && fetchedSecondary)  setSecondaryColor(fetchedSecondary);
+        if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
+        if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
+        if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
         const base: { name: string; event: string }[] =
           Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
             ? fetchedAthletes
@@ -145,7 +127,7 @@ export default function CampaignLivePage() {
         }
       })
       .catch(() => {/* keep fallback data */});
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -155,7 +137,6 @@ export default function CampaignLivePage() {
     root.style.setProperty("--cl-secondary-rgb", hexToRgb(secondaryColor));
   }, [primaryColor, secondaryColor]);
 
-  // ── Derived values ──
   const percent = Math.round((raised / goal) * 100);
   const filters = ["Overall", ...Array.from(new Set(athletes.map((a) => a.event)))];
 
@@ -175,27 +156,25 @@ export default function CampaignLivePage() {
       : athletes.filter((a) => a.event === activeFilter)
   ).map((a, i) => ({ ...a, displayRank: i + 1 }));
 
-  // ── Handlers ──
   const handleDonate = async () => {
     setDonateError("");
-
     const raw = selectedAmount === "Custom" ? customAmount : selectedAmount.replace("$", "");
     const parsed = parseFloat(raw);
     if (!parsed || parsed < 1) {
       setDonateError("Please enter a valid donation amount.");
       return;
     }
-
     setDonating(true);
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountCents:      Math.round(parsed * 100),
-          athleteName:      selectedAthlete   || null,
-          donorName:        donorName         || null,
-          donationMessage:  donationMessage   || null,
+          amountCents:     Math.round(parsed * 100),
+          athleteName:     selectedAthlete  || null,
+          donorName:       donorName        || null,
+          donationMessage: donationMessage  || null,
+          campaignSlug:    slug,
         }),
       });
       const data = await res.json();
@@ -212,42 +191,28 @@ export default function CampaignLivePage() {
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-    } catch {
-      // clipboard blocked; still show confirm
-    }
+    try { await navigator.clipboard.writeText(window.location.href); } catch { /* blocked */ }
     setCopyConfirm(true);
     setTimeout(() => setCopyConfirm(false), 2500);
   };
 
   const handleText = () => {
-    const body = encodeURIComponent(
-      `Support ${schoolName} ${sportName}! ${window.location.href}`
-    );
+    const body = encodeURIComponent(`Support ${schoolName} ${sportName}! ${window.location.href}`);
     window.open(`sms:?body=${body}`);
   };
 
   const handleEmail = () => {
     const subject = encodeURIComponent(`Support ${schoolName} ${sportName}`);
-    const body    = encodeURIComponent(
-      `I wanted to share this fundraiser with you:\n\n${window.location.href}`
-    );
+    const body    = encodeURIComponent(`I wanted to share this fundraiser with you:\n\n${window.location.href}`);
     window.open(`mailto:?subject=${subject}&body=${body}`);
   };
 
   const handleSocial = async () => {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({
-          title: `Support ${schoolName} ${sportName}`,
-          text:  `Help the ${schoolName} team compete this season!`,
-          url:   window.location.href,
-        });
+        await navigator.share({ title: `Support ${schoolName} ${sportName}`, text: `Help the ${schoolName} team compete this season!`, url: window.location.href });
         return;
-      } catch {
-        // user cancelled or API unavailable
-      }
+      } catch { /* cancelled or unavailable */ }
     }
     setShareNote("Copy the URL above to share on social media.");
     setTimeout(() => setShareNote(""), 3000);
@@ -255,34 +220,23 @@ export default function CampaignLivePage() {
 
   return (
     <>
-      {/* ── NAV ─────────────────────────────────────────────────────────── */}
+      {/* NAV */}
       <nav className="cl-nav">
         <a href="/" className="cl-nav-logo">
-          <Image
-            src="/ELF.LOGO.png"
-            alt="Elite Level Fundraising"
-            width={180}
-            height={52}
-            className="cl-nav-logo-img"
-            priority
-          />
+          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={180} height={52} className="cl-nav-logo-img" priority />
           <span className="cl-nav-logo-text">Elite Level Fundraising</span>
         </a>
-
         <div className="cl-nav-links">
           <a href="#leaderboard" className="cl-nav-link">Leaderboard</a>
           <a href="#donate"      className="cl-nav-link cl-nav-link-cta">Donate</a>
           <a href="#sponsors"    className="cl-nav-link">Sponsors</a>
           <a href="#share"       className="cl-nav-link">Share</a>
         </div>
-
         <span className="cl-live-badge">● LIVE CAMPAIGN</span>
       </nav>
 
-      {/* ── HERO ────────────────────────────────────────────────────────── */}
+      {/* HERO */}
       <header className="cl-hero">
-
-        {/* School branding strip */}
         <div className="cl-school-header">
           <div className="cl-school-header-inner">
             <div className="cl-header-logo-wrap">
@@ -306,8 +260,7 @@ export default function CampaignLivePage() {
               <em>{sportName.toUpperCase()}</em>
             </h1>
             <p className="cl-hero-sub">
-              Support the {schoolName} {sportName} program as they prepare
-              for another competitive season.
+              Support the {schoolName} {sportName} program as they prepare for another competitive season.
             </p>
             <div className="cl-hero-stats">
               <div className="cl-hero-stat">
@@ -339,7 +292,7 @@ export default function CampaignLivePage() {
                 <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
                 <div className="cl-img-divider" />
                 <div className="cl-img-sport">{sportName.toUpperCase()}</div>
-                <div className="cl-img-year">2025 SEASON · ARIZONA</div>
+                <div className="cl-img-year">2025 SEASON</div>
               </div>
               <div className="cl-img-grass-bar" />
             </div>
@@ -347,7 +300,7 @@ export default function CampaignLivePage() {
         </div>
       </header>
 
-      {/* ── PROGRESS STRIP ──────────────────────────────────────────────── */}
+      {/* PROGRESS STRIP */}
       <div className="cl-progress-strip">
         <div className="cl-section-inner">
           <div className="cl-progress-labels">
@@ -367,46 +320,34 @@ export default function CampaignLivePage() {
         </div>
       </div>
 
-      {/* ── MAIN TWO-COLUMN ─────────────────────────────────────────────── */}
+      {/* MAIN TWO-COLUMN */}
       <div className="cl-main">
         <div className="cl-main-inner">
 
-          {/* ── LEFT COLUMN ── */}
+          {/* LEFT COLUMN */}
           <div className="cl-left">
 
             {/* LEADERBOARD */}
             <div className="cl-card" id="leaderboard">
               <h2 className="cl-card-title">ATHLETE LEADERBOARD</h2>
               <p className="cl-card-sub">Top fundraisers on the team this season</p>
-
               <div className="cl-filter-tabs">
                 {filters.map((f) => (
-                  <button
-                    key={f}
-                    className={`cl-filter-tab${activeFilter === f ? " active" : ""}`}
-                    onClick={() => setActiveFilter(f)}
-                  >
+                  <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`} onClick={() => setActiveFilter(f)}>
                     {f}
                   </button>
                 ))}
               </div>
-
               {filteredAthletes.length > 0 ? (
                 <table className="cl-table">
                   <thead>
                     <tr>
-                      <th>Rank</th>
-                      <th>Athlete</th>
-                      <th>Event</th>
-                      <th>Raised</th>
+                      <th>Rank</th><th>Athlete</th><th>Event</th><th>Raised</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAthletes.map((a) => (
-                      <tr
-                        key={a.rank}
-                        className={a.displayRank === 1 ? "cl-row-top" : ""}
-                      >
+                      <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
                         <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
                         <td className="cl-td-name">{a.name}</td>
                         <td className="cl-td-event">{a.event}</td>
@@ -416,18 +357,16 @@ export default function CampaignLivePage() {
                   </tbody>
                 </table>
               ) : (
-                <div className="cl-filter-empty">
-                  No athletes in this event group yet.
-                </div>
+                <div className="cl-filter-empty">No athletes in this event group yet.</div>
               )}
             </div>
 
             {/* PROGRAM IDENTITY */}
             <div className="cl-card cl-identity-card">
               <div className="cl-identity-header">
-              <div className="cl-identity-logo-wrap">
-                <img src={logoUrl} alt={schoolName} />
-              </div>
+                <div className="cl-identity-logo-wrap">
+                  <img src={logoUrl} alt={schoolName} />
+                </div>
                 <div className="cl-identity-header-text">
                   <h2 className="cl-card-title">PROGRAM IDENTITY</h2>
                   <p className="cl-card-sub">{schoolName} Athletics</p>
@@ -461,10 +400,7 @@ export default function CampaignLivePage() {
               <h2 className="cl-card-title">SHARE THIS CAMPAIGN</h2>
               <p className="cl-card-sub">Help us reach our goal — every share brings us closer</p>
               <div className="cl-share-grid">
-                <button
-                  className={`cl-share-btn${copyConfirm ? " copied" : ""}`}
-                  onClick={handleCopyLink}
-                >
+                <button className={`cl-share-btn${copyConfirm ? " copied" : ""}`} onClick={handleCopyLink}>
                   <span className="cl-share-icon">🔗</span>
                   {copyConfirm ? "Copied!" : "Copy Link"}
                 </button>
@@ -478,12 +414,8 @@ export default function CampaignLivePage() {
                   <span className="cl-share-icon">📲</span> Social
                 </button>
               </div>
-              {copyConfirm && (
-                <p className="cl-share-confirm">✓ Campaign link copied to clipboard!</p>
-              )}
-              {shareNote && (
-                <p className="cl-share-confirm">{shareNote}</p>
-              )}
+              {copyConfirm && <p className="cl-share-confirm">✓ Campaign link copied to clipboard!</p>}
+              {shareNote   && <p className="cl-share-confirm">{shareNote}</p>}
             </div>
 
             {/* MISSION */}
@@ -516,9 +448,7 @@ export default function CampaignLivePage() {
                         <span className="cl-donation-name">{d.name}</span>
                         <span className="cl-donation-amount">${d.amount}</span>
                       </div>
-                      {d.message && (
-                        <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>
-                      )}
+                      {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
                       <span className="cl-donation-time">{d.time}</span>
                     </div>
                   </div>
@@ -527,7 +457,7 @@ export default function CampaignLivePage() {
             </div>
           </div>
 
-          {/* ── RIGHT COLUMN — sticky donation card ── */}
+          {/* RIGHT COLUMN — sticky donation card */}
           <div className="cl-right">
             <div className="cl-donate-card" id="donate">
               <div className="cl-donate-header">
@@ -551,35 +481,18 @@ export default function CampaignLivePage() {
                 {selectedAmount === "Custom" && (
                   <div className="cl-form-field cl-custom-amount-field">
                     <label>Enter amount ($)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Enter amount"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                    />
+                    <input type="number" min="1" placeholder="Enter amount" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} />
                   </div>
                 )}
 
                 <div className="cl-form-field">
                   <label>Your Name</label>
-                  <input
-                    type="text"
-                    placeholder="Jane Smith"
-                    value={donorName}
-                    onChange={(e) => setDonorName(e.target.value)}
-                  />
+                  <input type="text" placeholder="Jane Smith" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
                 </div>
 
                 <div className="cl-form-field">
-                  <label>
-                    Support a specific athlete{" "}
-                    <span className="cl-optional">(optional)</span>
-                  </label>
-                  <select
-                    value={selectedAthlete}
-                    onChange={(e) => setSelectedAthlete(e.target.value)}
-                  >
+                  <label>Support a specific athlete <span className="cl-optional">(optional)</span></label>
+                  <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)}>
                     <option value="">— Team General Fund —</option>
                     {athletes.map((a) => (
                       <option key={a.name} value={a.name}>{a.name}</option>
@@ -588,67 +501,38 @@ export default function CampaignLivePage() {
                 </div>
 
                 <div className="cl-form-field">
-                  <label>
-                    Leave a message{" "}
-                    <span className="cl-optional">(optional)</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder={`Go ${mascot}! We're rooting for you this season.`}
-                    value={donationMessage}
-                    onChange={(e) => setDonationMessage(e.target.value)}
-                  />
+                  <label>Leave a message <span className="cl-optional">(optional)</span></label>
+                  <textarea rows={3} placeholder={`Go ${mascot}! We're rooting for you this season.`} value={donationMessage} onChange={(e) => setDonationMessage(e.target.value)} />
                 </div>
 
-                <button
-                  className="cl-donate-btn"
-                  onClick={handleDonate}
-                  disabled={donating}
-                >
+                <button className="cl-donate-btn" onClick={handleDonate} disabled={donating}>
                   {donating ? "Redirecting to Stripe…" : donateLabel}
                 </button>
-                {donateError && (
-                  <p className="cl-donate-error">{donateError}</p>
-                )}
+                {donateError && <p className="cl-donate-error">{donateError}</p>}
                 <p className="cl-stripe-note">🔒 Secure checkout powered by Stripe</p>
               </div>
             </div>
 
-            {/* Powered by ELF */}
             <div className="cl-powered-by">
-              <Image
-                src="/ELF.LOGO.png"
-                alt="Elite Level Fundraising"
-                width={100}
-                height={28}
-                className="cl-powered-logo-img"
-              />
+              <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={100} height={28} className="cl-powered-logo-img" />
               <span>Powered by Elite Level Fundraising</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── SPONSORS ────────────────────────────────────────────────────── */}
+      {/* SPONSORS */}
       <section className="cl-sponsors" id="sponsors">
         <div className="cl-section-inner">
           <p className="section-label">Community Partners</p>
           <h2 className="cl-sponsors-title">OUR LOCAL SPONSORS</h2>
-          <p className="cl-sponsors-sub">
-            Arizona businesses investing in Paradise Valley student athletes
-          </p>
+          <p className="cl-sponsors-sub">Businesses investing in our student athletes</p>
 
           <div className="cl-tier">
             <div className="cl-tier-label cl-tier-gold">🥇 Gold Sponsors</div>
             <div className="cl-tier-logos">
               {goldSponsors.map((s) => (
-                <a
-                  key={s.name}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cl-sponsor-logo cl-logo-gold"
-                >
+                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-gold">
                   <span className="cl-sponsor-name">{s.name}</span>
                   <span className="cl-sponsor-visit">Visit →</span>
                 </a>
@@ -660,13 +544,7 @@ export default function CampaignLivePage() {
             <div className="cl-tier-label cl-tier-silver">🥈 Silver Sponsors</div>
             <div className="cl-tier-logos">
               {silverSponsors.map((s) => (
-                <a
-                  key={s.name}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cl-sponsor-logo cl-logo-silver"
-                >
+                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-silver">
                   <span className="cl-sponsor-name">{s.name}</span>
                   <span className="cl-sponsor-visit">Visit →</span>
                 </a>
@@ -678,13 +556,7 @@ export default function CampaignLivePage() {
             <div className="cl-tier-label cl-tier-bronze">🥉 Bronze Sponsors</div>
             <div className="cl-tier-logos">
               {bronzeSponsors.map((s) => (
-                <a
-                  key={s.name}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="cl-sponsor-logo cl-logo-bronze"
-                >
+                <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-bronze">
                   <span className="cl-sponsor-name">{s.name}</span>
                   <span className="cl-sponsor-visit">Visit →</span>
                 </a>
@@ -694,25 +566,15 @@ export default function CampaignLivePage() {
         </div>
       </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
+      {/* FOOTER */}
       <footer className="cl-footer">
         <div className="cl-footer-inner">
           <div className="cl-footer-logo">
-            <Image
-              src="/ELF.LOGO.png"
-              alt="Elite Level Fundraising"
-              width={200}
-              height={64}
-              className="cl-footer-logo-img"
-            />
+            <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={200} height={64} className="cl-footer-logo-img" />
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
-          <p className="cl-footer-team">
-            {schoolName} · {sportName} · {season}
-          </p>
-          <p className="cl-footer-copy">
-            © 2025 Elite Level Fundraising · Arizona · All rights reserved
-          </p>
+          <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
+          <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
         </div>
       </footer>
     </>

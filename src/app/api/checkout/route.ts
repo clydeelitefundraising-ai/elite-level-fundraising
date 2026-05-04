@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { amountCents, athleteName, donorName, donationMessage } =
+  const { amountCents, athleteName, donorName, donationMessage, campaignSlug } =
     await req.json();
 
   if (!amountCents || amountCents < 100) {
@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
   }
 
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
-  const campaignUrl = `${origin}/campaign/paradise-valley-track-field-live`;
+  const slug = campaignSlug ?? "paradise-valley-track-field-live";
+  const campaignUrl = `${origin}/campaign/${slug}`;
 
   const productName = athleteName
     ? `Donation for ${athleteName} — Paradise Valley Pumas`
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
   if (donorName)        params.set("metadata[donor_name]",        donorName);
   if (athleteName)      params.set("metadata[athlete_name]",      athleteName);
   if (donationMessage)  params.set("metadata[donation_message]",  donationMessage);
+  params.set("metadata[campaign_slug]", slug);
 
   const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
