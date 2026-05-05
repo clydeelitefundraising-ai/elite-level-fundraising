@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDonations, getCampaignSettings, getAthletes, getSponsors } from "@/lib/supabase";
+import { getDonations, getCampaignSettings, getAthletes, getSponsors, getFundUses } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +43,7 @@ export async function GET(
     let archived: boolean | undefined;
     let athletes: { name: string; event: string }[] | undefined;
     let sponsors: { name: string; url: string; tier: string }[] | undefined;
+    let fundUses: { icon: string; title: string; description: string }[] | undefined;
 
     try {
       const settings = await getCampaignSettings(slug);
@@ -72,6 +73,11 @@ export async function GET(
       if (rows.length > 0) sponsors = rows.map(s => ({ name: s.name, url: s.url, tier: s.tier }));
     } catch { /* keep undefined */ }
 
+    try {
+      const rows = await getFundUses(slug);
+      if (rows.length > 0) fundUses = rows.map(f => ({ icon: f.icon, title: f.title, description: f.description }));
+    } catch { /* keep undefined */ }
+
     return NextResponse.json({
       raised, donors, athleteTotals, recentDonations,
       ...(goal           !== undefined && { goal }),
@@ -87,6 +93,7 @@ export async function GET(
       ...(athletes       !== undefined && { athletes }),
       ...(sponsors       !== undefined && { sponsors }),
       ...(archived       !== undefined && { archived }),
+      ...(fundUses       !== undefined && { fund_uses: fundUses }),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load stats";

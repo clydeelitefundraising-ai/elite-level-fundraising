@@ -5,6 +5,9 @@ import { useState, useEffect } from "react";
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string };
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
+type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
+
+const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
@@ -119,6 +122,11 @@ export function AdminDashboard() {
   const [newSTier,  setNewSTier]  = useState<Sponsor["tier"]>("gold");
   const [editA,     setEditA]     = useState<Athlete | null>(null);
   const [editS,     setEditS]     = useState<Sponsor | null>(null);
+  const [fundUses,   setFundUses]   = useState<FundUse[]>([]);
+  const [editFU,     setEditFU]     = useState<FundUse | null>(null);
+  const [newFUTitle, setNewFUTitle] = useState("");
+  const [newFUDesc,  setNewFUDesc]  = useState("");
+  const [newFUIcon,  setNewFUIcon]  = useState("💰");
   const [createOpen, setCreateOpen] = useState(false);
 
   type NewCampaign = { campaign_slug: string; school_name: string; sport_name: string; mascot: string; goal_dollars: string; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string };
@@ -138,16 +146,18 @@ export function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    setEditA(null); setEditS(null);
+    setEditA(null); setEditS(null); setEditFU(null);
     Promise.all([
       fetch(`/api/admin/campaign?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/athletes?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/sponsors?slug=${selectedSlug}`).then(r => r.json()),
-    ]).then(([c, a, s]) => {
+      fetch(`/api/admin/fund-uses?slug=${selectedSlug}`).then(r => r.json()),
+    ]).then(([c, a, s, fu]) => {
       setSettings(c && !c.error ? c : blank);
       setArchived(c?.archived === true);
       setAthletes(Array.isArray(a) ? a : []);
       setSponsors(Array.isArray(s) ? s : []);
+      setFundUses(Array.isArray(fu) ? fu : []);
     }).catch(() => {});
   }, [selectedSlug]);
 
@@ -192,6 +202,25 @@ export function AdminDashboard() {
     if (!confirm("Delete this sponsor?")) return;
     const res = await fetch(`/api/admin/sponsors/${id}`, { method: "DELETE" });
     if (res.ok) { setSponsors(p => p.filter(s => s.id !== id)); flash("Sponsor deleted."); }
+  };
+
+  const addFundUse = async () => {
+    if (!newFUTitle.trim()) return;
+    const nextOrder = fundUses.length > 0 ? Math.max(...fundUses.map(f => f.sort_order)) + 1 : 0;
+    const res = await fetch("/api/admin/fund-uses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, title: newFUTitle.trim(), description: newFUDesc.trim(), icon: newFUIcon, sort_order: nextOrder }) });
+    if (res.ok) { const f = await res.json(); setFundUses(p => [...p, f]); setNewFUTitle(""); setNewFUDesc(""); setNewFUIcon("💰"); flash("Item added."); }
+  };
+
+  const saveFundUse = async () => {
+    if (!editFU) return;
+    const res = await fetch(`/api/admin/fund-uses/${editFU.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: editFU.title, description: editFU.description, icon: editFU.icon, sort_order: editFU.sort_order }) });
+    if (res.ok) { setFundUses(p => p.map(f => f.id === editFU.id ? editFU : f)); setEditFU(null); flash("Item updated."); }
+  };
+
+  const deleteFundUse = async (id: string) => {
+    if (!confirm("Delete this item?")) return;
+    const res = await fetch(`/api/admin/fund-uses/${id}`, { method: "DELETE" });
+    if (res.ok) { setFundUses(p => p.filter(f => f.id !== id)); flash("Item deleted."); }
   };
 
   const logout = async () => { await fetch("/api/admin/logout", { method: "POST" }); window.location.reload(); };
@@ -465,7 +494,7 @@ export function AdminDashboard() {
         </div>
 
         {/* ── 6. Sponsors ── */}
-        <div style={{ ...C.card, marginBottom: "3rem" }}>
+        <div style={C.card}>
           <SectionHeader title="Sponsors" desc={`${sponsors.length} sponsor${sponsors.length !== 1 ? "s" : ""} on this campaign`} />
           <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #f3f4f6", borderRadius: 8, overflow: "hidden" }}>
@@ -531,6 +560,99 @@ export function AdminDashboard() {
               </select>
             </label>
             <Btn color="#16a34a" onClick={addSponsor}>+ Add</Btn>
+          </div>
+        </div>
+
+        {/* ── 7. Where Your Money Goes ── */}
+        <div style={{ ...C.card, marginBottom: "3rem" }}>
+          <SectionHeader title="Where Your Money Goes" desc={`${fundUses.length} item${fundUses.length !== 1 ? "s" : ""} on this campaign`} />
+          <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #f3f4f6", borderRadius: 8, overflow: "hidden" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...C.th, width: 60 }}>Icon</th>
+                  <th style={C.th}>Title</th>
+                  <th style={C.th}>Description</th>
+                  <th style={{ ...C.th, width: 72 }}>Order</th>
+                  <th style={{ ...C.th, width: 140 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fundUses.map(f => (
+                  editFU?.id === f.id ? (
+                    <tr key={f.id} style={{ background: "#fafafa" }}>
+                      <td style={{ ...C.td, verticalAlign: "top", paddingTop: ".75rem" }}>
+                        <input style={{ ...C.input, width: 54, textAlign: "center", fontSize: "1.2rem", marginBottom: ".4rem" }}
+                          value={editFU.icon} onChange={e => setEditFU(v => v ? { ...v, icon: e.target.value } : v)} />
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: ".2rem" }}>
+                          {EMOJI_PICKS.map(e => (
+                            <button key={e} type="button" onClick={() => setEditFU(v => v ? { ...v, icon: e } : v)}
+                              style={{ fontSize: ".9rem", padding: ".15rem .2rem", background: editFU.icon === e ? "#e0e7ff" : "#f9fafb", border: editFU.icon === e ? "2px solid #6366f1" : "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", lineHeight: 1 }}>
+                              {e}
+                            </button>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={C.td}><input style={C.input} value={editFU.title} onChange={e => setEditFU(v => v ? { ...v, title: e.target.value } : v)} /></td>
+                      <td style={C.td}><input style={C.input} value={editFU.description} onChange={e => setEditFU(v => v ? { ...v, description: e.target.value } : v)} /></td>
+                      <td style={C.td}><input type="number" style={{ ...C.input, width: 56 }} value={editFU.sort_order} onChange={e => setEditFU(v => v ? { ...v, sort_order: parseInt(e.target.value) || 0 } : v)} /></td>
+                      <td style={C.td}>
+                        <div style={{ display: "flex", gap: ".4rem" }}>
+                          <Btn onClick={saveFundUse}>Save</Btn>
+                          <Btn color="#6b7280" onClick={() => setEditFU(null)}>Cancel</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={f.id}>
+                      <td style={{ ...C.td, fontSize: "1.4rem", textAlign: "center" }}>{f.icon}</td>
+                      <td style={{ ...C.td, fontWeight: 600 }}>{f.title}</td>
+                      <td style={{ ...C.td, color: "#6b7280" }}>{f.description}</td>
+                      <td style={{ ...C.td, color: "#9ca3af", textAlign: "center" }}>{f.sort_order}</td>
+                      <td style={C.td}>
+                        <div style={{ display: "flex", gap: ".4rem" }}>
+                          <Btn onClick={() => setEditFU({ ...f })}>Edit</Btn>
+                          <Btn color="#dc2626" onClick={() => deleteFundUse(f.id)}>Delete</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                ))}
+                {fundUses.length === 0 && (
+                  <tr><td colSpan={5} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No items yet. Add one below.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Add form */}
+          <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: ".75rem" }}>
+              <label style={{ ...C.label, gridColumn: "1 / -1" }}>
+                Title
+                <input style={C.input} value={newFUTitle} onChange={e => setNewFUTitle(e.target.value)} placeholder="e.g. Travel & Transportation" />
+              </label>
+              <label style={{ ...C.label, gridColumn: "1 / -1" }}>
+                Description
+                <input style={C.input} value={newFUDesc} onChange={e => setNewFUDesc(e.target.value)} placeholder="e.g. Away meets, regional championships, and travel to compete." />
+              </label>
+              <label style={{ ...C.label, gridColumn: "1 / -1" }}>
+                Icon
+                <div style={{ display: "flex", gap: ".5rem", alignItems: "center", marginBottom: ".35rem" }}>
+                  <input style={{ ...C.input, width: 64, textAlign: "center", fontSize: "1.2rem" }} value={newFUIcon} onChange={e => setNewFUIcon(e.target.value)} />
+                  <span style={{ fontSize: ".72rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>or pick one:</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
+                  {EMOJI_PICKS.map(e => (
+                    <button key={e} type="button" onClick={() => setNewFUIcon(e)}
+                      style={{ fontSize: "1.1rem", padding: ".2rem .35rem", background: newFUIcon === e ? "#e0e7ff" : "#f9fafb", border: newFUIcon === e ? "2px solid #6366f1" : "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", lineHeight: 1 }}>
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+            <Btn color="#16a34a" onClick={addFundUse}>+ Add Item</Btn>
           </div>
         </div>
 

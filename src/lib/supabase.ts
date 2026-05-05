@@ -248,6 +248,72 @@ export async function getAllCampaignSlugs(): Promise<{ campaign_slug: string; ar
   return rows;
 }
 
+export type FundUseRow = {
+  id: string;
+  campaign_slug: string;
+  title: string;
+  description: string;
+  icon: string;
+  sort_order: number;
+  created_at: string;
+};
+
+export async function getFundUses(slug: string): Promise<FundUseRow[]> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(
+    `${BASE}/rest/v1/fund_uses?campaign_slug=eq.${encodeURIComponent(slug)}&order=sort_order.asc`,
+    { headers: headers(key), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function addFundUse(data: Omit<FundUseRow, "id" | "created_at">): Promise<FundUseRow> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(`${BASE}/rest/v1/fund_uses`, {
+    method: "POST",
+    headers: headers(key, { Prefer: "return=representation" }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Supabase insert failed (${res.status}): ${msg}`);
+  }
+  const rows: FundUseRow[] = await res.json();
+  return rows[0];
+}
+
+export async function updateFundUse(
+  id: string,
+  data: { title: string; description: string; icon: string; sort_order: number },
+): Promise<void> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(
+    `${BASE}/rest/v1/fund_uses?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: headers(key, { Prefer: "return=minimal" }),
+      body: JSON.stringify(data),
+    },
+  );
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Supabase update failed (${res.status}): ${msg}`);
+  }
+}
+
+export async function deleteFundUse(id: string): Promise<void> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(
+    `${BASE}/rest/v1/fund_uses?id=eq.${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: headers(key, { Prefer: "return=minimal" }) },
+  );
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Supabase delete failed (${res.status}): ${msg}`);
+  }
+}
+
 export async function getDonations(slug?: string): Promise<DonationRow[]> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const filter = slug ? `&campaign_slug=eq.${encodeURIComponent(slug)}` : "";

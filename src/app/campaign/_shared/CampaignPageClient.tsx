@@ -27,7 +27,7 @@ const FALLBACK_GOLD_SPONSORS   = [{ name: "Local Business",    url: "https://exa
 const FALLBACK_SILVER_SPONSORS = [{ name: "Community Partner", url: "https://example.com" }];
 const FALLBACK_BRONZE_SPONSORS = [{ name: "Area Sponsor",      url: "https://example.com" }];
 
-const missionItems = [
+const FALLBACK_MISSION = [
   { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
   { icon: "📋", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
   { icon: "👟", label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
@@ -79,6 +79,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [season,          setSeason]          = useState("2025 Season");
   const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
   const [archived,        setArchived]        = useState(false);
+  const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
 
   useEffect(() => {
     fetch(`/api/campaign-stats/${slug}`)
@@ -119,6 +120,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             .map((a, i) => ({ ...a, rank: i + 1 })),
         );
         if (Array.isArray(rd) && rd.length > 0) setRecentDonations(rd);
+        if (Array.isArray(data.fund_uses) && data.fund_uses.length > 0) {
+          setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
+        }
         if (Array.isArray(fetchedSponsors)) {
           const byTier = (t: string) =>
             fetchedSponsors
