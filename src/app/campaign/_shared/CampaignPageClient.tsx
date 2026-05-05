@@ -78,6 +78,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [location,        setLocation]        = useState("");
   const [season,          setSeason]          = useState("2025 Season");
   const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
+  const [archived,        setArchived]        = useState(false);
 
   useEffect(() => {
     fetch(`/api/campaign-stats/${slug}`)
@@ -92,7 +93,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
           location: fetchedLocation, season: fetchedSeason,
           logo_url: fetchedLogoUrl,
+          archived: fetchedArchived,
         } = data;
+        setArchived(fetchedArchived === true);
         setRaised(r);
         setDonors(d);
         if (typeof g === "number") setGoal(g);
@@ -217,6 +220,36 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     setShareNote("Copy the URL above to share on social media.");
     setTimeout(() => setShareNote(""), 3000);
   };
+
+  if (archived) {
+    return (
+      <>
+        <nav className="cl-nav">
+          <a href="/" className="cl-nav-logo">
+            <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={180} height={52} className="cl-nav-logo-img" priority />
+            <span className="cl-nav-logo-text">Elite Level Fundraising</span>
+          </a>
+        </nav>
+        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}>
+          <div style={{ textAlign: "center", maxWidth: 480, padding: "2rem" }}>
+            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🏁</div>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 .75rem" }}>This fundraising campaign has ended.</h1>
+            <p style={{ color: "#6b7280", fontSize: "1rem", margin: 0 }}>Thank you to everyone who supported {schoolName} {sportName}.</p>
+          </div>
+        </div>
+        <footer className="cl-footer">
+          <div className="cl-footer-inner">
+            <div className="cl-footer-logo">
+              <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={200} height={64} className="cl-footer-logo-img" />
+              <span className="cl-footer-logo-text">Elite Level Fundraising</span>
+            </div>
+            <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
+            <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+          </div>
+        </footer>
+      </>
+    );
+  }
 
   return (
     <>

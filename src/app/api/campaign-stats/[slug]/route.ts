@@ -40,6 +40,7 @@ export async function GET(
     let location: string | undefined;
     let season: string | undefined;
     let logoUrl: string | undefined;
+    let archived: boolean | undefined;
     let athletes: { name: string; event: string }[] | undefined;
     let sponsors: { name: string; url: string; tier: string }[] | undefined;
 
@@ -57,6 +58,7 @@ export async function GET(
         if (settings.location)        location       = settings.location;
         if (settings.season)          season         = settings.season;
         if (settings.logo_url)        logoUrl        = settings.logo_url;
+        archived = settings.archived ?? false;
       }
     } catch { /* keep undefined — settings may not exist yet */ }
 
@@ -84,6 +86,7 @@ export async function GET(
       ...(logoUrl        !== undefined && { logo_url:        logoUrl }),
       ...(athletes       !== undefined && { athletes }),
       ...(sponsors       !== undefined && { sponsors }),
+      ...(archived       !== undefined && { archived }),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load stats";

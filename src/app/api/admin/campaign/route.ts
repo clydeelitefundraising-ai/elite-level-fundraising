@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { slug: bodySlug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, location, season, logo_url } = await req.json();
+  const { slug: bodySlug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, location, season, logo_url, archived } = await req.json();
   const slug = bodySlug ?? DEFAULT_SLUG;
-  await updateCampaignSettings(slug, { school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, location, season, logo_url });
+  await updateCampaignSettings(slug, { school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, location, season, logo_url, archived });
   return NextResponse.json({ ok: true });
 }

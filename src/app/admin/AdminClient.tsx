@@ -109,7 +109,8 @@ export function AdminDashboard() {
   const [toast,        setToast]        = useState("");
   const [saving,       setSaving]       = useState(false);
   const [selectedSlug, setSelectedSlug] = useState("paradise-valley-track-field-live");
-  const [allSlugs,     setAllSlugs]     = useState<string[]>(["paradise-valley-track-field-live"]);
+  const [allSlugs,     setAllSlugs]     = useState<{ campaign_slug: string; archived: boolean }[]>([{ campaign_slug: "paradise-valley-track-field-live", archived: false }]);
+  const [archived,     setArchived]     = useState(false);
 
   const [newAName,  setNewAName]  = useState("");
   const [newAEvent, setNewAEvent] = useState("");
@@ -132,7 +133,7 @@ export function AdminDashboard() {
   useEffect(() => {
     fetch("/api/admin/campaign-slugs")
       .then(r => r.ok ? r.json() : [])
-      .then((slugs: string[]) => { if (Array.isArray(slugs) && slugs.length > 0) setAllSlugs(slugs); })
+      .then((items: { campaign_slug: string; archived: boolean }[]) => { if (Array.isArray(items) && items.length > 0) setAllSlugs(items); })
       .catch(() => {});
   }, []);
 
@@ -144,6 +145,7 @@ export function AdminDashboard() {
       fetch(`/api/admin/sponsors?slug=${selectedSlug}`).then(r => r.json()),
     ]).then(([c, a, s]) => {
       setSettings(c && !c.error ? c : blank);
+      setArchived(c?.archived === true);
       setAthletes(Array.isArray(a) ? a : []);
       setSponsors(Array.isArray(s) ? s : []);
     }).catch(() => {});
@@ -194,6 +196,18 @@ export function AdminDashboard() {
 
   const logout = async () => { await fetch("/api/admin/logout", { method: "POST" }); window.location.reload(); };
 
+  const archiveCampaign = async (newArchived: boolean) => {
+    if (newArchived && !confirm(`Archive "${selectedSlug}"? It will no longer be publicly visible.`)) return;
+    const res = await fetch("/api/admin/campaign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: selectedSlug, archived: newArchived }) });
+    if (res.ok) {
+      setArchived(newArchived);
+      setAllSlugs(p => p.map(s => s.campaign_slug === selectedSlug ? { ...s, archived: newArchived } : s));
+      flash(newArchived ? "Campaign archived." : "Campaign restored.");
+    } else {
+      flash("Error updating campaign.");
+    }
+  };
+
   const createCampaign = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(""); setCreating(true);
@@ -202,7 +216,7 @@ export function AdminDashboard() {
     setCreating(false);
     if (!res.ok) { setCreateError(data.error ?? "Failed to create campaign."); return; }
     setCreatedSlug(data.slug);
-    setAllSlugs(p => p.includes(data.slug) ? p : [...p, data.slug]);
+    setAllSlugs(p => p.some(s => s.campaign_slug === data.slug) ? p : [...p, { campaign_slug: data.slug, archived: false }]);
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -230,7 +244,7 @@ export function AdminDashboard() {
         <span style={{ fontSize: ".78rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", whiteSpace: "nowrap" }}>Campaign</span>
         <select value={selectedSlug} onChange={e => setSelectedSlug(e.target.value)}
           style={{ ...C.input, width: "auto", minWidth: 260, maxWidth: 380, fontWeight: 600, color: "#0b1e3d" }}>
-          {allSlugs.map(s => <option key={s} value={s}>{s}</option>)}
+          {allSlugs.map(s => <option key={s.campaign_slug} value={s.campaign_slug}>{s.campaign_slug}{s.archived ? " (Archived)" : ""}</option>)}
         </select>
         <a href={`/campaign/${selectedSlug}`} target="_blank" rel="noopener noreferrer"
           style={{ fontSize: ".8rem", color: "#0b1e3d", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -304,6 +318,12 @@ export function AdminDashboard() {
         {/* ── 2. Campaign Identity ── */}
         <div style={C.card}>
           <SectionHeader title="Campaign Identity" desc="School, sport, location, and logo" />
+          <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: "1rem" }}>
+            <span style={{ fontSize: ".78rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em" }}>Status</span>
+            <span style={{ padding: ".2rem .75rem", borderRadius: 100, fontSize: ".78rem", fontWeight: 700, background: archived ? "#f3f4f6" : "#dcfce7", color: archived ? "#6b7280" : "#15803d" }}>
+              {archived ? "Archived" : "Active"}
+            </span>
+          </div>
           <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", flex: 1 }}>
               <label style={C.label}>School Name   <input style={C.input} value={settings.school_name}  onChange={e => setSettings(s => ({ ...s, school_name: e.target.value }))} /></label>
@@ -343,8 +363,12 @@ export function AdminDashboard() {
               </div>
             </div>
           </div>
-          <div style={{ marginTop: "1.25rem" }}>
+          <div style={{ marginTop: "1.25rem", display: "flex", gap: ".75rem", alignItems: "center" }}>
             <Btn onClick={saveSettings} disabled={saving}>{saving ? "Saving…" : "Save Identity"}</Btn>
+            {archived
+              ? <Btn color="#16a34a" onClick={() => archiveCampaign(false)}>Restore Campaign</Btn>
+              : <Btn color="#6b7280" onClick={() => archiveCampaign(true)}>Archive Campaign</Btn>
+            }
           </div>
         </div>
 

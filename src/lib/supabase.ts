@@ -58,6 +58,7 @@ export type CampaignSettings = {
   location: string;
   season: string;
   logo_url: string;
+  archived?: boolean;
 };
 
 export type AthleteRow = {
@@ -236,15 +237,15 @@ export async function deleteSponsor(id: string): Promise<void> {
   }
 }
 
-export async function getAllCampaignSlugs(): Promise<string[]> {
+export async function getAllCampaignSlugs(): Promise<{ campaign_slug: string; archived: boolean }[]> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
-    `${BASE}/rest/v1/campaign_settings?select=campaign_slug&order=campaign_slug.asc`,
+    `${BASE}/rest/v1/campaign_settings?select=campaign_slug,archived&order=campaign_slug.asc`,
     { headers: headers(key), cache: "no-store" },
   );
   if (!res.ok) return [];
-  const rows: { campaign_slug: string }[] = await res.json();
-  return rows.map(r => r.campaign_slug);
+  const rows: { campaign_slug: string; archived: boolean }[] = await res.json();
+  return rows;
 }
 
 export async function getDonations(slug?: string): Promise<DonationRow[]> {
