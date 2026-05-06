@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string };
+type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium" };
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
@@ -105,7 +105,7 @@ export function LoginView() {
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "" };
+  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic" };
   const [settings, setSettings] = useState<Settings>(blank);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -153,7 +153,17 @@ export function AdminDashboard() {
       fetch(`/api/admin/sponsors?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/fund-uses?slug=${selectedSlug}`).then(r => r.json()),
     ]).then(([c, a, s, fu]) => {
-      setSettings(c && !c.error ? c : blank);
+      setSettings(c && !c.error ? {
+        ...c,
+        show_leaderboard:      c.show_leaderboard      ?? true,
+        show_program_identity: c.show_program_identity ?? true,
+        show_share_section:    c.show_share_section    ?? true,
+        show_fund_uses:        c.show_fund_uses        ?? true,
+        show_recent_donations: c.show_recent_donations ?? true,
+        show_sponsors:         c.show_sponsors         ?? true,
+        show_donation_card:    c.show_donation_card    ?? true,
+        layout_variant:        c.layout_variant        ?? "classic",
+      } : blank);
       setArchived(c?.archived === true);
       setAthletes(Array.isArray(a) ? a : []);
       setSponsors(Array.isArray(s) ? s : []);
@@ -442,7 +452,44 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* ── 5. Athletes ── */}
+        {/* ── 5. Layout & Page Sections ── */}
+        <div style={C.card}>
+          <SectionHeader title="Layout & Visible Page Sections" desc="Choose a layout variant and toggle which sections appear on the public campaign page." />
+          <div style={{ marginBottom: "1.25rem" }}>
+            <label style={C.label}>
+              Layout Variant
+              <select style={{ ...C.input, width: "auto", minWidth: 200 }}
+                value={settings.layout_variant}
+                onChange={e => setSettings(s => ({ ...s, layout_variant: e.target.value as "classic" | "premium" }))}>
+                <option value="classic">Classic</option>
+                <option value="premium">Premium</option>
+              </select>
+            </label>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".65rem" }}>
+            {([
+              ["show_leaderboard",      "Athlete Leaderboard"],
+              ["show_program_identity", "Program Identity"],
+              ["show_share_section",    "Share This Campaign"],
+              ["show_fund_uses",        "Where Your Money Goes"],
+              ["show_recent_donations", "Recent Donations"],
+              ["show_sponsors",         "Sponsors"],
+              ["show_donation_card",    "Donation Card"],
+            ] as [keyof Settings, string][]).map(([key, label]) => (
+              <label key={key} style={{ display: "flex", alignItems: "center", gap: ".6rem", cursor: "pointer", fontSize: ".875rem", fontWeight: 500, color: "#374151" }}>
+                <input type="checkbox" checked={!!settings[key]}
+                  onChange={e => setSettings(s => ({ ...s, [key]: e.target.checked }))}
+                  style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0b1e3d", flexShrink: 0 }} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div style={{ marginTop: "1.25rem" }}>
+            <Btn onClick={saveSettings} disabled={saving}>{saving ? "Saving…" : "Save Visibility Settings"}</Btn>
+          </div>
+        </div>
+
+        {/* ── 6. Athletes ── */}
         <div style={C.card}>
           <SectionHeader title="Athletes" desc={`${athletes.length} athlete${athletes.length !== 1 ? "s" : ""} on this campaign`} />
           <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>

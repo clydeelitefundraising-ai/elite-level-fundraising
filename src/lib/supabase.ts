@@ -59,6 +59,14 @@ export type CampaignSettings = {
   season: string;
   logo_url: string;
   archived?: boolean;
+  show_leaderboard?: boolean;
+  show_program_identity?: boolean;
+  show_share_section?: boolean;
+  show_fund_uses?: boolean;
+  show_recent_donations?: boolean;
+  show_sponsors?: boolean;
+  show_donation_card?: boolean;
+  layout_variant?: "classic" | "premium";
 };
 
 export type AthleteRow = {

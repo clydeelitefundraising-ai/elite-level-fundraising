@@ -41,6 +41,8 @@ export async function GET(
     let season: string | undefined;
     let logoUrl: string | undefined;
     let archived: boolean | undefined;
+    let layoutVariant: "classic" | "premium" | undefined;
+    let visibility: Record<string, boolean> | undefined;
     let athletes: { name: string; event: string }[] | undefined;
     let sponsors: { name: string; url: string; tier: string }[] | undefined;
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
@@ -60,6 +62,16 @@ export async function GET(
         if (settings.season)          season         = settings.season;
         if (settings.logo_url)        logoUrl        = settings.logo_url;
         archived = settings.archived ?? false;
+        layoutVariant = settings.layout_variant ?? "classic";
+        visibility = {
+          show_leaderboard:      settings.show_leaderboard      ?? true,
+          show_program_identity: settings.show_program_identity ?? true,
+          show_share_section:    settings.show_share_section    ?? true,
+          show_fund_uses:        settings.show_fund_uses        ?? true,
+          show_recent_donations: settings.show_recent_donations ?? true,
+          show_sponsors:         settings.show_sponsors         ?? true,
+          show_donation_card:    settings.show_donation_card    ?? true,
+        };
       }
     } catch { /* keep undefined — settings may not exist yet */ }
 
@@ -93,7 +105,9 @@ export async function GET(
       ...(athletes       !== undefined && { athletes }),
       ...(sponsors       !== undefined && { sponsors }),
       ...(archived       !== undefined && { archived }),
-      ...(fundUses       !== undefined && { fund_uses: fundUses }),
+      ...(layoutVariant  !== undefined && { layout_variant: layoutVariant }),
+      ...(visibility     !== undefined && visibility),
+      ...(fundUses    !== undefined && { fund_uses: fundUses }),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load stats";
