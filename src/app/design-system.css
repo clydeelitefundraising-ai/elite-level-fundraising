@@ -1,0 +1,672 @@
+/*
+ * Elite Level Fundraising — Design System
+ * Shared component classes using design tokens from globals.css
+ *
+ * Naming: all classes prefixed .elf- to avoid collision with existing styles.
+ * Safe to import alongside globals.css — zero selector overlap.
+ */
+
+/* ─────────────────────────────────────────────
+   BUTTONS
+   Base + variants + size modifiers
+───────────────────────────────────────────── */
+
+.elf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 48px;
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition:
+    background var(--duration-base) var(--ease-default),
+    color      var(--duration-base) var(--ease-default),
+    transform  var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-base) var(--ease-default),
+    border-color var(--duration-base) var(--ease-default);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.elf-btn:focus-visible {
+  outline: 2px solid var(--color-gold-bright);
+  outline-offset: 3px;
+}
+
+/* Primary — gold fill */
+.elf-btn-primary {
+  background: var(--color-gold-bright);
+  color: var(--color-navy-900);
+}
+
+.elf-btn-primary:hover {
+  background: var(--color-gold-mid);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-gold);
+}
+
+.elf-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Secondary — ghost/outline */
+.elf-btn-secondary {
+  background: transparent;
+  color: var(--color-gold-bright);
+  border: 1.5px solid var(--color-gold-bright);
+}
+
+.elf-btn-secondary:hover {
+  background: var(--color-gold-glow);
+  border-color: var(--color-gold-bright);
+  transform: translateY(-2px);
+}
+
+.elf-btn-secondary:active {
+  transform: translateY(0);
+}
+
+/* Ghost — text only */
+.elf-btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 0 var(--space-4);
+}
+
+.elf-btn-ghost:hover {
+  color: var(--color-text-primary-dark);
+}
+
+/* Danger — red fill */
+.elf-btn-danger {
+  background: var(--color-error);
+  color: #ffffff;
+}
+
+.elf-btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+/* Donate — campaign CTA, gold gradient, larger */
+.elf-btn-donate {
+  height: 60px;
+  padding: 0 var(--space-8);
+  background: linear-gradient(135deg, var(--color-gold-bright), var(--color-gold-mid));
+  color: var(--color-navy-900);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  width: 100%;
+  box-shadow: var(--shadow-gold);
+}
+
+.elf-btn-donate:hover {
+  background: linear-gradient(135deg, var(--color-gold-mid), var(--color-gold-muted));
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(244, 196, 48, 0.40);
+}
+
+.elf-btn-donate:active {
+  transform: translateY(0);
+}
+
+/* Size modifiers */
+.elf-btn-sm {
+  height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.elf-btn-lg {
+  height: 56px;
+  padding: 0 var(--space-10);
+  font-size: var(--text-lg);
+}
+
+
+/* ─────────────────────────────────────────────
+   CARDS
+   Dark-first with light variant available
+───────────────────────────────────────────── */
+
+.elf-card {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--duration-base) var(--ease-default),
+    box-shadow   var(--duration-base) var(--ease-default),
+    transform    var(--duration-base) var(--ease-default);
+}
+
+.elf-card:hover {
+  border-color: var(--color-gold-border);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Elevated — deeper shadow, slightly lighter surface */
+.elf-card-elevated {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+}
+
+.elf-card-elevated:hover {
+  border-color: var(--color-gold-border);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+}
+
+/* Gold — dark card with 3px gold left border */
+.elf-card-gold {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  border-left: 3px solid var(--color-gold-bright);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+}
+
+/* Light — for campaign/donor-facing pages on light backgrounds */
+.elf-card-light {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition:
+    box-shadow var(--duration-base) var(--ease-default),
+    transform  var(--duration-base) var(--ease-default);
+}
+
+.elf-card-light:hover {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+  transform: translateY(-2px);
+}
+
+
+/* ─────────────────────────────────────────────
+   BADGES
+   Pill-shaped status indicators
+───────────────────────────────────────────── */
+
+.elf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Live — green with pulsing dot */
+.elf-badge-live {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.30);
+}
+
+.elf-badge-live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  animation: elf-pulse 2s ease infinite;
+  flex-shrink: 0;
+}
+
+/* Upcoming — blue */
+.elf-badge-upcoming {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-info);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+/* Ending soon — amber */
+.elf-badge-ending {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--color-warning);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.elf-badge-ending::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-warning);
+  animation: elf-pulse 1.5s ease infinite;
+  flex-shrink: 0;
+}
+
+/* Ended — muted gray */
+.elf-badge-ended {
+  background: rgba(55, 65, 81, 0.5);
+  color: var(--color-text-muted);
+  border: 1px solid var(--surface-3);
+}
+
+/* Premium — gold gradient */
+.elf-badge-premium {
+  background: linear-gradient(135deg, var(--color-gold-bright), var(--color-gold-mid));
+  color: var(--color-navy-900);
+  border: none;
+  font-weight: 700;
+}
+
+@keyframes elf-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+
+/* ─────────────────────────────────────────────
+   PROGRESS BARS
+   Track + fill with size and color variants
+───────────────────────────────────────────── */
+
+.elf-progress {
+  width: 100%;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  height: 10px; /* default — overridden by size modifiers */
+}
+
+.elf-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--color-success), #34d399);
+  transition: width var(--duration-reveal) var(--ease-enter);
+}
+
+/* Gold fill variant */
+.elf-progress-gold {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--color-gold-mid), var(--color-gold-bright));
+  transition: width var(--duration-reveal) var(--ease-enter);
+}
+
+/* Size modifiers — applied to .elf-progress container */
+.elf-progress-sm {
+  height: 6px;
+}
+
+.elf-progress-md {
+  height: 10px;
+}
+
+.elf-progress-lg {
+  height: 14px;
+  box-shadow: 0 0 0 1px var(--surface-3);
+}
+
+/* Glow tip effect on large progress bars */
+.elf-progress-lg .elf-progress-fill,
+.elf-progress-lg .elf-progress-gold {
+  box-shadow: 2px 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.elf-progress-lg .elf-progress-gold {
+  box-shadow: 2px 0 8px rgba(244, 196, 48, 0.5);
+}
+
+
+/* ─────────────────────────────────────────────
+   STAT CARDS
+   Metric display with label, value, trend
+───────────────────────────────────────────── */
+
+.elf-stat-card {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.elf-stat-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.elf-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: var(--color-gold-bright);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.elf-stat-trend {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.elf-stat-trend-up {
+  color: var(--color-success);
+}
+
+.elf-stat-trend-down {
+  color: var(--color-error);
+}
+
+
+/* ─────────────────────────────────────────────
+   FORM INPUTS
+   Dark-first with light variant, amount chips
+───────────────────────────────────────────── */
+
+.elf-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.elf-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.elf-label-light {
+  color: var(--color-text-muted);
+}
+
+/* Dark input — for admin/dashboard */
+.elf-input {
+  width: 100%;
+  height: 48px;
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text-primary-dark);
+  outline: none;
+  transition:
+    border-color var(--duration-base) var(--ease-default),
+    box-shadow   var(--duration-base) var(--ease-default);
+}
+
+.elf-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.elf-input:focus {
+  border-color: var(--color-gold-bright);
+  box-shadow: 0 0 0 3px var(--color-gold-glow);
+}
+
+/* Light input — for campaign/donor pages */
+.elf-input-light {
+  width: 100%;
+  height: 48px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text-primary-light);
+  outline: none;
+  transition:
+    border-color var(--duration-base) var(--ease-default),
+    box-shadow   var(--duration-base) var(--ease-default);
+}
+
+.elf-input-light::placeholder {
+  color: #94a3b8;
+}
+
+.elf-input-light:focus {
+  border-color: var(--color-gold-mid);
+  box-shadow: 0 0 0 3px var(--color-gold-glow);
+}
+
+/* Textarea variant — inherits input styles, adds height */
+.elf-textarea {
+  height: auto;
+  min-height: 96px;
+  padding: var(--space-3) var(--space-4);
+  resize: vertical;
+}
+
+/* Donation amount chips — pill buttons for preset amounts */
+.elf-amount-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--surface-3);
+  background: var(--surface-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-primary-dark);
+  cursor: pointer;
+  transition:
+    background      var(--duration-fast) var(--ease-default),
+    border-color    var(--duration-fast) var(--ease-default),
+    color           var(--duration-fast) var(--ease-default),
+    transform       var(--duration-fast) var(--ease-bounce);
+  user-select: none;
+}
+
+.elf-amount-chip:hover {
+  border-color: var(--color-gold-bright);
+  color: var(--color-gold-bright);
+}
+
+.elf-amount-chip.active,
+.elf-amount-chip[aria-pressed="true"] {
+  background: var(--color-gold-bright);
+  border-color: var(--color-gold-bright);
+  color: var(--color-navy-900);
+  transform: scale(1.05);
+}
+
+/* Large donation amount input — Mono font, $ prefix layout */
+.elf-donate-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--surface-2);
+  border: 1.5px solid var(--surface-3);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition:
+    border-color var(--duration-base) var(--ease-default),
+    box-shadow   var(--duration-base) var(--ease-default);
+}
+
+.elf-donate-input-wrap:focus-within {
+  border-color: var(--color-gold-bright);
+  box-shadow: 0 0 0 3px var(--color-gold-glow);
+}
+
+.elf-donate-input-prefix {
+  padding: 0 var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 500;
+  color: var(--color-gold-bright);
+  border-right: 1px solid var(--surface-3);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.elf-donate-input {
+  flex: 1;
+  height: 60px;
+  background: transparent;
+  border: none;
+  padding: 0 var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 500;
+  color: var(--color-text-primary-dark);
+  outline: none;
+}
+
+.elf-donate-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+
+/* ─────────────────────────────────────────────
+   SECTION CONTAINERS
+   Layout primitives for page structure
+───────────────────────────────────────────── */
+
+/* Base section — vertical padding + horizontal gutter */
+.elf-section {
+  padding: var(--space-24) 5%;
+}
+
+/* Dark background variant */
+.elf-section-dark {
+  background: var(--surface-base);
+}
+
+/* Slightly elevated surface */
+.elf-section-surface {
+  background: var(--surface-1);
+}
+
+/* Max-width content wrappers */
+.elf-container {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.elf-container-md {
+  max-width: 768px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Section eyebrow label — 12px gold tracked uppercase */
+.elf-section-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-gold-bright);
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.elf-section-label::before {
+  content: '◆';
+  font-size: 0.6em;
+  opacity: 0.8;
+}
+
+/* Section display title — Bebas Neue */
+.elf-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-display-sm);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--color-text-primary-dark);
+  margin-bottom: var(--space-4);
+}
+
+/* Light-bg title variant */
+.elf-section-title-dark {
+  color: var(--color-text-primary-light);
+}
+
+/* Section subheading body copy */
+.elf-section-sub {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: 1.7;
+  color: var(--color-text-muted);
+  max-width: 560px;
+}
+
+
+/* ─────────────────────────────────────────────
+   DIVIDER
+   Subtle horizontal rule
+───────────────────────────────────────────── */
+
+.elf-divider {
+  border: none;
+  border-top: 1px solid var(--surface-2);
+  margin: var(--space-6) 0;
+}
+
+.elf-divider-gold {
+  border-top-color: var(--color-gold-border);
+}
+
+
+/* ─────────────────────────────────────────────
+   REDUCED MOTION
+   Respect system accessibility preferences
+───────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .elf-btn,
+  .elf-card,
+  .elf-card-elevated,
+  .elf-card-light,
+  .elf-progress-fill,
+  .elf-progress-gold,
+  .elf-amount-chip {
+    transition: none;
+  }
+
+  .elf-badge-live::before,
+  .elf-badge-ending::before {
+    animation: none;
+  }
+}

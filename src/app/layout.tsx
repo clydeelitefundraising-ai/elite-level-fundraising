@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./design-system.css";
 
 export const metadata: Metadata = {
   title: "Elite Level Fundraising | Arizona School Sports Teams",

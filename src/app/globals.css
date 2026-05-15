@@ -1,6 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
+  /* ── EXISTING TOKENS (untouched — referenced throughout app) ── */
   --navy: #0B1E3D;
   --navy-light: #132850;
   --gold: #D4A017;
@@ -12,6 +13,105 @@
   --card-radius: 16px;
   --font-display: 'Bebas Neue', sans-serif;
   --font-body: 'DM Sans', sans-serif;
+
+  /* ── GROUP A: EXTENDED COLOR PALETTE ── */
+  --color-navy-950: #060911;
+  --color-navy-900: #0A0E1A;
+  --color-navy-800: #111827;
+  --color-navy-700: #1E293B;
+  --color-navy-600: #1F2937;
+  --color-navy-500: #374151;
+  --color-navy-400: #4B5563;
+
+  --color-gold-bright: #F4C430;
+  --color-gold-mid:    #D4A017;
+  --color-gold-muted:  #92700A;
+  --color-gold-glow:   rgba(244, 196, 48, 0.15);
+  --color-gold-border: rgba(244, 196, 48, 0.25);
+
+  --color-sand-light: #F5F0E8;
+  --color-sand-mid:   #E8DCC8;
+  --color-sand-warm:  #C4A882;
+
+  --color-text-primary-dark:  #F9FAFB;
+  --color-text-primary-light: #0F172A;
+  --color-text-muted:         #6B7280;
+  --color-text-dim:           #374151;
+
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error:   #EF4444;
+  --color-info:    #3B82F6;
+
+  /* ── GROUP B: SURFACE SYSTEM ── */
+  --surface-base:    #0A0E1A;
+  --surface-1:       #111827;
+  --surface-2:       #1F2937;
+  --surface-3:       #374151;
+  --surface-overlay: rgba(0, 0, 0, 0.5);
+
+  /* ── GROUP C: FONT FAMILIES ── */
+  --font-sans: 'Inter', 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* ── GROUP D: TYPE SCALE ── */
+  --text-xs:          0.75rem;
+  --text-sm:          0.875rem;
+  --text-base:        1rem;
+  --text-lg:          1.125rem;
+  --text-xl:          1.25rem;
+  --text-2xl:         1.5rem;
+  --text-3xl:         1.875rem;
+  --text-4xl:         2.25rem;
+  --text-5xl:         3rem;
+  --text-6xl:         3.75rem;
+  --text-display-sm:  2.5rem;
+  --text-display-md:  3.5rem;
+  --text-display-lg:  5rem;
+  --text-display-xl:  clamp(3.5rem, 8vw, 7rem);
+
+  /* ── GROUP E: SPACING SCALE (8pt grid) ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-32: 128px;
+
+  /* ── GROUP F: SHADOW SYSTEM ── */
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md:   0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-xl:   0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-gold: 0 8px 24px rgba(244, 196, 48, 0.30);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.40);
+
+  /* ── GROUP G: BORDER RADIUS SCALE ── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-2xl:  20px;
+  --radius-full: 9999px;
+
+  /* ── GROUP H: ANIMATION TOKENS ── */
+  --duration-fast:   100ms;
+  --duration-base:   200ms;
+  --duration-slow:   400ms;
+  --duration-slower: 600ms;
+  --duration-reveal: 800ms;
+
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-enter:   cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-exit:    cubic-bezier(0.4, 0.0, 1.0, 1);
+  --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 * {
