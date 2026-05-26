@@ -6,6 +6,7 @@ type Settings   = { school_name: string; sport_name: string; mascot: string; goa
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
+type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach"; campaign_slug: string; created_at: string };
 
 const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
@@ -129,6 +130,13 @@ export function AdminDashboard() {
   const [newFUIcon,  setNewFUIcon]  = useState("💰");
   const [createOpen, setCreateOpen] = useState(false);
 
+  const [coaches,    setCoaches]    = useState<Coach[]>([]);
+  const [newCName,   setNewCName]   = useState("");
+  const [newCEmail,  setNewCEmail]  = useState("");
+  const [newCRole,   setNewCRole]   = useState<Coach["role"]>("head_coach");
+  const [newCPass,   setNewCPass]   = useState("");
+  const [coachError, setCoachError] = useState("");
+
   type NewCampaign = { campaign_slug: string; school_name: string; sport_name: string; mascot: string; goal_dollars: string; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string };
   const nc0: NewCampaign = { campaign_slug: "", school_name: "", sport_name: "", mascot: "", goal_dollars: "", deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "" };
   const [newC,        setNewC]        = useState<NewCampaign>(nc0);
@@ -152,7 +160,8 @@ export function AdminDashboard() {
       fetch(`/api/admin/athletes?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/sponsors?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/fund-uses?slug=${selectedSlug}`).then(r => r.json()),
-    ]).then(([c, a, s, fu]) => {
+      fetch(`/api/admin/coaches?slug=${selectedSlug}`).then(r => r.json()),
+    ]).then(([c, a, s, fu, co]) => {
       setSettings(c && !c.error ? {
         ...c,
         show_leaderboard:      c.show_leaderboard      ?? true,
@@ -168,6 +177,7 @@ export function AdminDashboard() {
       setAthletes(Array.isArray(a) ? a : []);
       setSponsors(Array.isArray(s) ? s : []);
       setFundUses(Array.isArray(fu) ? fu : []);
+      setCoaches(Array.isArray(co) ? co : []);
     }).catch(() => {});
   }, [selectedSlug]);
 
@@ -231,6 +241,33 @@ export function AdminDashboard() {
     if (!confirm("Delete this item?")) return;
     const res = await fetch(`/api/admin/fund-uses/${id}`, { method: "DELETE" });
     if (res.ok) { setFundUses(p => p.filter(f => f.id !== id)); flash("Item deleted."); }
+  };
+
+  const addCoach = async () => {
+    setCoachError("");
+    if (!newCName.trim() || !newCEmail.trim() || !newCPass.trim()) {
+      setCoachError("Name, email, and password are required.");
+      return;
+    }
+    const res = await fetch("/api/admin/coaches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaign_slug: selectedSlug, name: newCName.trim(), email: newCEmail.trim(), role: newCRole, password: newCPass }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setCoaches(p => [...p, data]);
+      setNewCName(""); setNewCEmail(""); setNewCPass(""); setNewCRole("head_coach");
+      flash("Coach added.");
+    } else {
+      setCoachError(data.error ?? "Failed to add coach.");
+    }
+  };
+
+  const deleteCoach = async (id: string) => {
+    if (!confirm("Remove this coach? They will no longer be able to log in to the team hub.")) return;
+    const res = await fetch(`/api/admin/coaches/${id}`, { method: "DELETE" });
+    if (res.ok) { setCoaches(p => p.filter(c => c.id !== id)); flash("Coach removed."); }
   };
 
   const logout = async () => { await fetch("/api/admin/logout", { method: "POST" }); window.location.reload(); };
@@ -700,6 +737,61 @@ export function AdminDashboard() {
               </label>
             </div>
             <Btn color="#16a34a" onClick={addFundUse}>+ Add Item</Btn>
+          </div>
+        </div>
+
+        {/* ── 8. Team Coaches ── */}
+        <div style={{ ...C.card, marginBottom: "3rem" }}>
+          <SectionHeader title="Team Coaches" desc={`${coaches.length} coach${coaches.length !== 1 ? "es" : ""} on this campaign · can log in to the team hub`} />
+          <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #f3f4f6", borderRadius: 8, overflow: "hidden" }}>
+              <thead>
+                <tr>
+                  <th style={C.th}>Name</th>
+                  <th style={C.th}>Email</th>
+                  <th style={C.th}>Role</th>
+                  <th style={{ ...C.th, width: 110 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coaches.map(c => (
+                  <tr key={c.id}>
+                    <td style={{ ...C.td, fontWeight: 600 }}>{c.name}</td>
+                    <td style={{ ...C.td, color: "#6b7280" }}>{c.email}</td>
+                    <td style={C.td}>
+                      <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: c.role === "head_coach" ? "#dbeafe" : "#f3f4f6", color: c.role === "head_coach" ? "#1d4ed8" : "#374151" }}>
+                        {c.role === "head_coach" ? "Head Coach" : "Asst. Coach"}
+                      </span>
+                    </td>
+                    <td style={C.td}>
+                      <Btn color="#dc2626" onClick={() => deleteCoach(c.id)}>Remove</Btn>
+                    </td>
+                  </tr>
+                ))}
+                {coaches.length === 0 && (
+                  <tr><td colSpan={4} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No coaches yet. Add one below.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: ".75rem" }}>
+              <label style={C.label}>Name <input style={C.input} value={newCName} onChange={e => setNewCName(e.target.value)} placeholder="Coach name" /></label>
+              <label style={C.label}>Email <input type="email" style={C.input} value={newCEmail} onChange={e => setNewCEmail(e.target.value)} placeholder="coach@school.edu" /></label>
+              <label style={C.label}>
+                Role
+                <select style={C.input} value={newCRole} onChange={e => setNewCRole(e.target.value as Coach["role"])}>
+                  <option value="head_coach">Head Coach</option>
+                  <option value="assistant_coach">Assistant Coach</option>
+                </select>
+              </label>
+              <label style={C.label}>
+                Temporary Password
+                <input type="password" style={C.input} value={newCPass} onChange={e => setNewCPass(e.target.value)} placeholder="Set a login password" />
+              </label>
+            </div>
+            {coachError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{coachError}</p>}
+            <Btn color="#16a34a" onClick={addCoach}>+ Add Coach</Btn>
           </div>
         </div>
 

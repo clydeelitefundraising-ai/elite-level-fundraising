@@ -67,6 +67,7 @@ export type CampaignSettings = {
   show_sponsors?: boolean;
   show_donation_card?: boolean;
   layout_variant?: "classic" | "premium";
+  team_photo?: string;
 };
 
 export type AthleteRow = {
