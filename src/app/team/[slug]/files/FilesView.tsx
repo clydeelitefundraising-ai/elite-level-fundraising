@@ -73,25 +73,23 @@ export default function FilesView({
   initialFiles: TeamFileRow[];
   coach: CoachSession | null;
 }) {
-  const [files,       setFiles]       = useState<TeamFileRow[]>(initialFiles);
-  const [uploading,   setUploading]   = useState(false);
-  const [progress,    setProgress]    = useState(0);
-  const [uploadError, setUploadError] = useState("");
-  const [editing,     setEditing]     = useState<TeamFileRow | null>(null);
-  const [editName,    setEditName]    = useState("");
-  const [editSaving,  setEditSaving]  = useState(false);
-  const [editError,   setEditError]   = useState("");
+  const [files,        setFiles]        = useState<TeamFileRow[]>(initialFiles);
+  const [uploading,    setUploading]    = useState(false);
+  const [uploadFile,   setUploadFile]   = useState("");
+  const [progress,     setProgress]     = useState(0);
+  const [uploadError,  setUploadError]  = useState("");
+  const [dragOver,     setDragOver]     = useState(false);
+  const [editing,      setEditing]      = useState<TeamFileRow | null>(null);
+  const [editName,     setEditName]     = useState("");
+  const [editSaving,   setEditSaving]   = useState(false);
+  const [editError,    setEditError]    = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Upload ──
 
   const openUpload = () => { setUploadError(""); fileInputRef.current?.click(); };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (fileInputRef.current) fileInputRef.current.value = "";
-
+  const processUpload = async (file: File) => {
     if (!ALLOWED_MIME.includes(file.type)) {
       setUploadError("File type not allowed. Use PDF, PNG, JPG, DOC, or DOCX.");
       return;
@@ -103,10 +101,10 @@ export default function FilesView({
 
     setUploading(true);
     setProgress(0);
+    setUploadFile(file.name);
     setUploadError("");
 
     try {
-      // 1 — Get signed upload URL
       const signRes = await fetch(`/api/team/${slug}/files/sign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,7 +118,6 @@ export default function FilesView({
         fileType: string;
       };
 
-      // 2 — Upload directly to Supabase Storage with progress
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (ev) => {
@@ -136,7 +133,6 @@ export default function FilesView({
         xhr.send(file);
       });
 
-      // 3 — Save metadata
       const metaRes = await fetch(`/api/team/${slug}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,7 +146,24 @@ export default function FilesView({
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setUploading(false);
+      setUploadFile("");
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    await processUpload(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
+  const handleDragLeave = () => setDragOver(false);
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await processUpload(file);
   };
 
   // ── Rename ──
@@ -185,12 +198,23 @@ export default function FilesView({
 
   return (
     <>
-      {/* Section header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".75rem" }}>
-        <h2 style={{ margin: 0, fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>
-          Files · {files.length} attachment{files.length !== 1 ? "s" : ""}
-        </h2>
-        <CoachBar coach={coach} label="Upload File" onAdd={openUpload} />
+      {/* ── Section header ── */}
+      <div style={{ marginBottom: ".625rem" }}>
+        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
+          Documents
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+            Team Files
+          </h2>
+          {files.length > 0 && (
+            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .45rem", lineHeight: 1.4 }}>
+              {files.length} file{files.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
+          <CoachBar coach={coach} label="Upload File" onAdd={openUpload} />
+        </div>
       </div>
 
       {/* Hidden file input */}
@@ -202,15 +226,51 @@ export default function FilesView({
         onChange={handleFileSelect}
       />
 
-      {/* Upload progress bar */}
-      {uploading && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: "1rem 1.1rem", border: "1px solid #e5e7eb", marginBottom: ".875rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".5rem" }}>
-            <span style={{ fontSize: ".82rem", color: "#374151", fontWeight: 600 }}>Uploading…</span>
-            <span style={{ fontSize: ".78rem", color: "#6b7280" }}>{progress}%</span>
+      {/* Upload zone — coaches only */}
+      {coach && !uploading && (
+        <div
+          onClick={openUpload}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          style={{
+            border: `2px dashed ${dragOver ? "#0b1e3d" : "#d1d5db"}`,
+            borderRadius: 12,
+            padding: "1.5rem 1rem",
+            textAlign: "center",
+            cursor: "pointer",
+            background: dragOver ? "#f0f4ff" : "#fafafa",
+            marginBottom: ".75rem",
+            transition: "all .15s ease",
+          }}
+        >
+          <div style={{ fontSize: "1.5rem", marginBottom: ".35rem", opacity: dragOver ? 1 : .5 }}>☁️</div>
+          <div style={{ fontSize: ".82rem", fontWeight: 700, color: dragOver ? "#0b1e3d" : "#6b7280" }}>
+            {dragOver ? "Drop to upload" : "Tap to upload"}
           </div>
-          <div style={{ background: "#f3f4f6", borderRadius: 100, height: 6, overflow: "hidden" }}>
-            <div style={{ background: "#0b1e3d", borderRadius: 100, height: "100%", width: `${progress}%`, transition: "width .1s ease" }} />
+          <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".2rem" }}>
+            PDF, PNG, JPG, DOC · max 25 MB
+          </div>
+        </div>
+      )}
+
+      {/* Upload progress */}
+      {uploading && (
+        <div style={{ background: "#fff", borderRadius: 12, padding: ".875rem 1rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".45rem" }}>
+            <span style={{ fontSize: ".78rem", fontWeight: 600, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
+              {uploadFile || "Uploading…"}
+            </span>
+            <span style={{ fontSize: ".72rem", color: "#6b7280", flexShrink: 0 }}>{progress}%</span>
+          </div>
+          <div style={{ background: "#f3f4f6", borderRadius: 100, height: 8, overflow: "hidden" }}>
+            <div style={{
+              background: "linear-gradient(90deg, #0b1e3d, #1e4d7b)",
+              borderRadius: 100,
+              height: "100%",
+              width: `${progress}%`,
+              transition: "width .1s ease",
+            }} />
           </div>
         </div>
       )}
@@ -222,40 +282,65 @@ export default function FilesView({
 
       {/* File list */}
       {files.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 12, padding: "2rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".9rem", border: "1px solid #f0f0f0" }}>
+        <div style={{ background: "#fff", borderRadius: 12, padding: "2.5rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".88rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
+          <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .4 }}>📎</div>
           No files uploaded yet.
         </div>
       ) : (
-        <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06)", border: "1px solid #f0f0f0" }}>
+        <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
           {files.map((file, i) => {
             const s    = FILE_STYLE[file.file_type] ?? FILE_STYLE["other"];
             const size = formatSize(file.size_bytes);
             return (
-              <div key={file.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".875rem 1.1rem", borderBottom: i < files.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                {/* Icon */}
-                <span style={{ fontSize: "1.5rem", flexShrink: 0, width: 36, textAlign: "center" }}>{s.icon}</span>
+              <div key={file.id} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: ".75rem",
+                padding: ".75rem .9rem",
+                borderBottom: i < files.length - 1 ? "1px solid #f3f4f6" : "none",
+              }}>
+                {/* Colored icon circle */}
+                <div style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: s.bg,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "1.1rem",
+                  flexShrink: 0,
+                }}>
+                  {s.icon}
+                </div>
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: ".9rem", color: "#111827", marginBottom: ".2rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: ".18rem" }}>
                     {file.name}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
-                    <span style={{ padding: ".1rem .45rem", borderRadius: 100, fontSize: ".6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: s.bg, color: s.color }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap" }}>
+                    <span style={{ padding: ".05rem .38rem", borderRadius: 100, fontSize: ".55rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: s.bg, color: s.color, flexShrink: 0 }}>
                       {file.file_type}
                     </span>
-                    {size && <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>{size}</span>}
-                    <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>
-                      {file.uploaded_by} · {formatDate(file.created_at)}
-                    </span>
+                    {size && <span style={{ fontSize: ".68rem", color: "#9ca3af" }}>{size}</span>}
+                  </div>
+                  <div style={{ fontSize: ".65rem", color: "#9ca3af", marginTop: ".1rem" }}>
+                    {file.uploaded_by} · {formatDate(file.created_at)}
                   </div>
                   {coach && (
-                    <div style={{ display: "flex", gap: ".35rem", marginTop: ".35rem" }}>
-                      <button onClick={() => openEdit(file)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#6b7280", padding: 0, textDecoration: "underline", textUnderlineOffset: 2 }}>
+                    <div style={{ display: "flex", gap: ".1rem", marginTop: ".2rem" }}>
+                      <button
+                        onClick={() => openEdit(file)}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                      >
                         Rename
                       </button>
                       {coach.role === "head_coach" && (
-                        <button onClick={() => handleDelete(file.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#dc2626", padding: 0, textDecoration: "underline", textUnderlineOffset: 2 }}>
+                        <button
+                          onClick={() => handleDelete(file.id)}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                        >
                           Delete
                         </button>
                       )}
@@ -263,14 +348,25 @@ export default function FilesView({
                   )}
                 </div>
 
-                {/* Download — routes through API to generate a signed URL */}
+                {/* Download — navy pill */}
                 <a
                   href={`/api/team/${slug}/files/${file.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ flexShrink: 0, padding: ".4rem .8rem", background: "#f3f4f6", color: "#374151", borderRadius: 8, fontSize: ".78rem", fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}
+                  style={{
+                    flexShrink: 0,
+                    padding: ".35rem .7rem",
+                    background: "#0b1e3d",
+                    color: "#fff",
+                    borderRadius: 8,
+                    fontSize: ".72rem",
+                    fontWeight: 700,
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                    letterSpacing: ".01em",
+                  }}
                 >
-                  Download
+                  ↓ Download
                 </a>
               </div>
             );

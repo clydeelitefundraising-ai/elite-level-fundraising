@@ -6,7 +6,7 @@ import type { CoachSession } from "@/lib/teamSession";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
-// ── Style tokens ─────────────────────────────────────────────────────────────────
+// ── Style tokens ──────────────────────────────────────────────────────────────
 
 const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
@@ -30,20 +30,20 @@ const lbl: React.CSSProperties = {
   letterSpacing: ".04em",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
 }
 
 function avatarColor(name: string): string {
-  const colors = ["#bfdbfe", "#bbf7d0", "#fde68a", "#fecaca", "#e9d5ff", "#fed7aa", "#cffafe", "#d1fae5"];
+  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return colors[hash % colors.length];
+  return palette[hash % palette.length];
 }
 
-// ── Form type ─────────────────────────────────────────────────────────────────────
+// ── Form type ─────────────────────────────────────────────────────────────────
 
 type AthForm = {
   name: string;
@@ -63,7 +63,7 @@ function fromRow(a: TeamAthleteRow): AthForm {
   };
 }
 
-// ── Main component ────────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function RosterView({
   slug,
@@ -81,10 +81,8 @@ export default function RosterView({
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
 
-  const openAdd = () => { setForm(BLANK); setError(""); setShowAdd(true); };
-
+  const openAdd  = () => { setForm(BLANK); setError(""); setShowAdd(true); };
   const openEdit = (a: TeamAthleteRow) => { setForm(fromRow(a)); setError(""); setEditing(a); };
-
   const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
 
   const handleAdd = async () => {
@@ -125,7 +123,9 @@ export default function RosterView({
     if (!res.ok) { setError(data.error ?? "Failed to update athlete."); return; }
     setAthletes(prev => prev.map(a =>
       a.id === editing.id
-        ? { ...a, name: form.name.trim(), event: form.event.trim(), jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null, grad_year: form.grad_year ? parseInt(form.grad_year) : null }
+        ? { ...a, name: form.name.trim(), event: form.event.trim(),
+            jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
+            grad_year: form.grad_year ? parseInt(form.grad_year) : null }
         : a
     ));
     closeModal();
@@ -142,45 +142,141 @@ export default function RosterView({
 
   return (
     <>
-      {/* Section header + CoachBar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".75rem" }}>
-        <h2 style={{ margin: 0, fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>
-          Roster · {athletes.length} athlete{athletes.length !== 1 ? "s" : ""}
-        </h2>
-        <CoachBar coach={coach} label="Add Athlete" onAdd={openAdd} />
+      {/* ── Section header ── */}
+      <div style={{ marginBottom: ".625rem" }}>
+        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
+          Team
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+            Roster
+          </h2>
+          {athletes.length > 0 && (
+            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .45rem", lineHeight: 1.4 }}>
+              {athletes.length} athlete{athletes.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          <div style={{ flex: 1 }} />
+          <CoachBar coach={coach} label="Add Athlete" onAdd={openAdd} />
+        </div>
       </div>
 
+      {/* ── Grid ── */}
       {athletes.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 12, padding: "2rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".9rem", border: "1px solid #f0f0f0" }}>
+        <div style={{ background: "#fff", borderRadius: 12, padding: "2.5rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".88rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
+          <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .4 }}>👥</div>
           Roster coming soon.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))", gap: ".75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: ".6rem" }}>
           {athletes.map(a => {
             const bg = avatarColor(a.name);
             return (
-              <div key={a.id} style={{ background: "#fff", borderRadius: 12, padding: "1rem", boxShadow: "0 1px 3px rgba(0,0,0,.06)", border: "1px solid #f0f0f0", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: ".5rem" }}>
-                {a.profile_photo ? (
-                  <img src={a.profile_photo} alt={a.name} style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.05rem", color: "#374151" }}>
-                    {initials(a.name)}
+              <div key={a.id} style={{
+                background: "#fff",
+                borderRadius: 12,
+                padding: ".85rem .8rem .7rem .75rem",
+                boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+                borderLeft: "3px solid #0b1e3d",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+                position: "relative",
+              }}>
+
+                {/* Jersey number — top-right pill */}
+                {a.jersey_number != null && (
+                  <span style={{
+                    position: "absolute",
+                    top: ".55rem",
+                    right: ".6rem",
+                    background: "#0b1e3d",
+                    color: "#fff",
+                    borderRadius: 6,
+                    fontSize: ".55rem",
+                    fontWeight: 800,
+                    padding: ".1rem .34rem",
+                    lineHeight: 1.4,
+                    letterSpacing: ".03em",
+                  }}>
+                    #{a.jersey_number}
+                  </span>
+                )}
+
+                {/* Avatar */}
+                <div style={{ marginBottom: ".45rem" }}>
+                  {a.profile_photo ? (
+                    <img
+                      src={a.profile_photo}
+                      alt={a.name}
+                      style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: "50%",
+                      background: bg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 800,
+                      fontSize: "1rem",
+                      color: "#fff",
+                      letterSpacing: ".02em",
+                    }}>
+                      {initials(a.name)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Name */}
+                <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d", lineHeight: 1.2, marginBottom: ".28rem" }}>
+                  {a.name}
+                </div>
+
+                {/* Event badge */}
+                {a.event && (
+                  <span style={{
+                    display: "inline-block",
+                    padding: ".07rem .4rem",
+                    borderRadius: 100,
+                    fontSize: ".55rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: ".04em",
+                    background: "#f0f4ff",
+                    color: "#1d4ed8",
+                    marginBottom: ".18rem",
+                  }}>
+                    {a.event}
+                  </span>
+                )}
+
+                {/* Grad year */}
+                {a.grad_year != null && (
+                  <div style={{ fontSize: ".63rem", color: "#9ca3af" }}>
+                    Class of &apos;{String(a.grad_year).slice(-2)}
                   </div>
                 )}
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827", lineHeight: 1.2 }}>
-                    {a.name}
-                    {a.jersey_number != null && <span style={{ marginLeft: ".35rem", fontSize: ".78rem", color: "#6b7280", fontWeight: 600 }}>#{a.jersey_number}</span>}
-                  </div>
-                  {a.event && <div style={{ fontSize: ".78rem", color: "#6b7280", marginTop: ".2rem" }}>{a.event}</div>}
-                  {a.grad_year != null && <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".15rem" }}>Class of &apos;{String(a.grad_year).slice(-2)}</div>}
-                </div>
+
                 {/* Coach actions */}
                 {coach && (
-                  <div style={{ display: "flex", gap: ".35rem", marginTop: ".1rem" }}>
-                    <button onClick={() => openEdit(a)} style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: ".2rem .55rem", fontSize: ".7rem", color: "#374151", cursor: "pointer", fontWeight: 600 }}>Edit</button>
+                  <div style={{ display: "flex", gap: ".1rem", justifyContent: "center", marginTop: ".4rem" }}>
+                    <button
+                      onClick={() => openEdit(a)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                    >
+                      Edit
+                    </button>
                     {coach.role === "head_coach" && (
-                      <button onClick={() => handleDelete(a.id)} style={{ background: "none", border: "1px solid #fecaca", borderRadius: 6, padding: ".2rem .55rem", fontSize: ".7rem", color: "#dc2626", cursor: "pointer", fontWeight: 600 }}>Delete</button>
+                      <button
+                        onClick={() => handleDelete(a.id)}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                      >
+                        Remove
+                      </button>
                     )}
                   </div>
                 )}
@@ -190,7 +286,7 @@ export default function RosterView({
         </div>
       )}
 
-      {/* Add / Edit Modal */}
+      {/* ── Add / Edit Modal ── */}
       {modalOpen && (
         <Modal title={isEditing ? "Edit Athlete" : "Add Athlete"} onClose={closeModal}>
           <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
