@@ -1,8 +1,12 @@
-import { announcements, fundraisingData, calendarEvents, heroStats, spotlightAthlete } from "../_data/mockData";
+"use client";
+
+import { useAppStore } from "../../_store/AppStore";
 import SponsorCarousel from "../_components/SponsorCarousel";
 import AnimatedProgress from "../_components/AnimatedProgress";
 
 export default function HomePage() {
+  const { announcements, fundraisingData, calendarEvents, heroStats, spotlightAthlete, teamInfo } = useAppStore();
+
   const pct = Math.round((fundraisingData.raised / fundraisingData.goal) * 100);
   const nextEvent = calendarEvents[0];
   const nextGame  = calendarEvents.find((e) => e.type === "game");
@@ -10,11 +14,7 @@ export default function HomePage() {
   return (
     <div className="ta-page-enter">
 
-      {/* ────────────────────────────────────────────────────────
-          HERO BANNER
-          TODO: replace static bg with a real team photo via
-          background-image: url(teamInfo.heroPhotoUrl)
-      ──────────────────────────────────────────────────────── */}
+      {/* ── HERO BANNER ── */}
       <div
         style={{
           position: "relative",
@@ -40,7 +40,7 @@ export default function HomePage() {
             pointerEvents: "none",
           }}
         />
-        {/* Bottom gradient fade into page bg */}
+        {/* Bottom gradient fade */}
         <div
           style={{
             position: "absolute", bottom: 0, left: 0, right: 0, height: 48,
@@ -62,11 +62,11 @@ export default function HomePage() {
           >
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#C9A84C" }} />
             <span style={{ fontSize: 11, fontWeight: 600, color: "#C9A84C", letterSpacing: "0.05em" }}>
-              Track &amp; Field &nbsp;&middot;&nbsp; Spring 2025
+              {teamInfo.sport}&nbsp;&middot;&nbsp;{teamInfo.season}
             </span>
           </div>
 
-          {/* Team name — Bebas Neue */}
+          {/* Team name */}
           <div>
             <p
               style={{
@@ -75,7 +75,7 @@ export default function HomePage() {
                 color: "rgba(255,255,255,0.4)", lineHeight: 1, marginBottom: 2,
               }}
             >
-              PARADISE VALLEY
+              {teamInfo.shortName.toUpperCase()}
             </p>
             <p
               style={{
@@ -84,7 +84,7 @@ export default function HomePage() {
                 color: "#FFFFFF", lineHeight: 0.9,
               }}
             >
-              TROJANS
+              {teamInfo.mascot.toUpperCase()}
             </p>
           </div>
 
@@ -149,7 +149,6 @@ export default function HomePage() {
                 {nextGame.time} &middot; {nextGame.location}
               </p>
             </div>
-            {/* Chevron */}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
@@ -269,7 +268,6 @@ export default function HomePage() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-              {/* Avatar — TODO: replace with athlete photo */}
               <div
                 style={{
                   width: 62, height: 62, borderRadius: "50%", flexShrink: 0,
@@ -303,12 +301,7 @@ export default function HomePage() {
             </div>
 
             {/* Stats row */}
-            <div
-              style={{
-                display: "flex",
-                borderTop: "1px solid rgba(255,255,255,0.08)",
-              }}
-            >
+            <div style={{ display: "flex", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
               {spotlightAthlete.stats.map((s, i) => (
                 <div
                   key={s.label}
@@ -334,57 +327,58 @@ export default function HomePage() {
           <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
             Team Sponsors
           </p>
-          {/* TODO: sponsor logos will come from sponsors.logoUrl in Supabase */}
           <SponsorCarousel />
         </div>
 
         {/* ── Upcoming event preview ── */}
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
-            Next Up
-          </p>
-          <div
-            className="ta-pressable"
-            style={{
-              background: "#FFFFFF",
-              borderRadius: 20, padding: "14px 16px",
-              boxShadow: "0 2px 14px rgba(0,0,0,0.07)",
-              display: "flex", alignItems: "center", gap: 14,
-            }}
-          >
+        {nextEvent && (
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>
+              Next Up
+            </p>
             <div
+              className="ta-pressable"
               style={{
-                width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-                background: "#F5F0EA",
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center",
+                background: "#FFFFFF",
+                borderRadius: 20, padding: "14px 16px",
+                boxShadow: "0 2px 14px rgba(0,0,0,0.07)",
+                display: "flex", alignItems: "center", gap: 14,
               }}
             >
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.06em" }}>
-                {nextEvent.date.split(" ")[0].toUpperCase()}
-              </span>
-              <span style={{ fontSize: 22, fontWeight: 800, color: "#0B1E3D", lineHeight: 1 }}>
-                {nextEvent.date.split(" ")[1].replace(",", "")}
-              </span>
-            </div>
+              <div
+                style={{
+                  width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+                  background: "#F5F0EA",
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.06em" }}>
+                  {nextEvent.date.split(" ")[0].toUpperCase()}
+                </span>
+                <span style={{ fontSize: 22, fontWeight: 800, color: "#0B1E3D", lineHeight: 1 }}>
+                  {nextEvent.date.split(" ")[1].replace(",", "")}
+                </span>
+              </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A" }}>
-                {nextEvent.title}
-              </p>
-              <p style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
-                {nextEvent.time}
-              </p>
-              <p style={{ fontSize: 11, color: "#9CA3AF" }}>
-                {nextEvent.location}
-              </p>
-            </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A" }}>
+                  {nextEvent.title}
+                </p>
+                <p style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>
+                  {nextEvent.time}
+                </p>
+                <p style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  {nextEvent.location}
+                </p>
+              </div>
 
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

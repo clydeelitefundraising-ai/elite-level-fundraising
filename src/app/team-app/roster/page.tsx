@@ -1,8 +1,9 @@
-import { athletes, teamInfo } from "../_data/mockData";
+"use client";
+
+import { useAppStore } from "../../_store/AppStore";
 
 const positions = ["All", "Sprints", "Distance", "Jumps", "Hurdles", "Throws", "Relays", "Field Events"];
 
-// Consistent avatar gradient per slot
 const avatarGrads = [
   { bg: "linear-gradient(135deg, #0B1E3D, #1A3A5C)", text: "#C9A84C" },
   { bg: "linear-gradient(135deg, #C9A84C, #F0C040)",  text: "#0B1E3D" },
@@ -11,6 +12,8 @@ const avatarGrads = [
 ];
 
 export default function RosterPage() {
+  const { athletes, teamInfo } = useAppStore();
+
   return (
     <div className="ta-page-enter">
       <div style={{ padding: "16px 16px 32px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -42,7 +45,6 @@ export default function RosterPage() {
         </div>
 
         {/* Search bar placeholder */}
-        {/* TODO: wire to real athlete search via Supabase full-text search */}
         <div
           style={{
             display: "flex", alignItems: "center", gap: 10,
@@ -77,81 +79,76 @@ export default function RosterPage() {
         </div>
 
         {/* Athlete list */}
-        {/* TODO (Supabase): load from athletes table where team_id = teamId */}
-        <div
-          style={{
-            background: "#FFFFFF", borderRadius: 20,
-            boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
-            overflow: "hidden",
-          }}
-        >
-          {athletes.map((athlete, i) => {
-            const pal = avatarGrads[i % avatarGrads.length];
-            return (
-              <div
-                key={athlete.id}
-                className="ta-pressable ta-stagger-child"
-                style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
-                  borderBottom: i < athletes.length - 1 ? "1px solid #F5F1EC" : "none",
-                  "--i": i,
-                } as React.CSSProperties}
-              >
-                {/* Avatar — TODO: replace with <Image src={athlete.photoUrl} /> */}
+        {athletes.length > 0 ? (
+          <div
+            style={{
+              background: "#FFFFFF", borderRadius: 20,
+              boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
+              overflow: "hidden",
+            }}
+          >
+            {athletes.map((athlete, i) => {
+              const pal = avatarGrads[i % avatarGrads.length];
+              return (
                 <div
+                  key={athlete.id}
+                  className="ta-pressable ta-stagger-child"
                   style={{
-                    width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-                    background: pal.bg,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 13, fontWeight: 800, color: pal.text,
-                  }}
+                    display: "flex", alignItems: "center", gap: 12, padding: "12px 16px",
+                    borderBottom: i < athletes.length - 1 ? "1px solid #F5F1EC" : "none",
+                    "--i": i,
+                  } as React.CSSProperties}
                 >
-                  {athlete.initials}
-                </div>
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2 }}>
-                    {athlete.name}
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
-                    <span
-                      style={{
-                        fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 5,
-                        background: "#F5F0EA", color: "#0B1E3D",
-                      }}
-                    >
-                      #{athlete.number}
-                    </span>
-                    <span style={{ fontSize: 12, color: "#6B7280" }}>{athlete.position}</span>
-                    <span style={{ fontSize: 11, color: "#C4BEB6" }}>
-                      &apos;{String(athlete.gradYear).slice(2)}
-                    </span>
+                  <div
+                    style={{
+                      width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
+                      background: pal.bg,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 800, color: pal.text,
+                    }}
+                  >
+                    {athlete.initials}
                   </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2 }}>
+                      {athlete.name}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                      <span
+                        style={{
+                          fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 5,
+                          background: "#F5F0EA", color: "#0B1E3D",
+                        }}
+                      >
+                        #{athlete.number}
+                      </span>
+                      <span style={{ fontSize: 12, color: "#6B7280" }}>{athlete.position}</span>
+                      <span style={{ fontSize: 11, color: "#C4BEB6" }}>
+                        &apos;{String(athlete.gradYear).slice(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    style={{
+                      padding: "6px 12px", borderRadius: 10,
+                      background: "#F5F0EA", color: "#9CA3AF",
+                      fontSize: 12, fontWeight: 600, border: "none", cursor: "not-allowed",
+                    }}
+                    disabled
+                  >
+                    Edit
+                  </button>
+
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                 </div>
-
-                {/* Edit placeholder — TODO: admin-only, opens athlete edit sheet */}
-                <button
-                  style={{
-                    padding: "6px 12px", borderRadius: 10,
-                    background: "#F5F0EA", color: "#9CA3AF",
-                    fontSize: 12, fontWeight: 600, border: "none", cursor: "not-allowed",
-                  }}
-                  disabled
-                >
-                  Edit
-                </button>
-
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Empty state */}
-        {athletes.length === 0 && (
+              );
+            })}
+          </div>
+        ) : (
           <div style={{ textAlign: "center", padding: "48px 24px" }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>👥</div>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#0A0A0A" }}>No athletes yet</p>
@@ -161,7 +158,6 @@ export default function RosterPage() {
           </div>
         )}
 
-        {/* Add athlete — TODO: admin-only */}
         <button
           style={{
             width: "100%", padding: "14px", borderRadius: 18,

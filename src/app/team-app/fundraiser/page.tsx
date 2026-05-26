@@ -1,9 +1,10 @@
-import { fundraisingData, leaderboard } from "../_data/mockData";
+"use client";
+
+import { useAppStore } from "../../_store/AppStore";
 import AnimatedProgress from "../_components/AnimatedProgress";
 
 const medals = ["🥇", "🥈", "🥉"];
 
-// Avatar gradient palettes — same slot each render for consistent color per athlete
 const avatarGrads = [
   "linear-gradient(135deg, #C9A84C, #F0C040)",
   "linear-gradient(135deg, #0B1E3D, #1A3A5C)",
@@ -13,6 +14,8 @@ const avatarGrads = [
 ];
 
 export default function FundraiserPage() {
+  const { fundraisingData, leaderboard } = useAppStore();
+
   const pct = Math.round((fundraisingData.raised / fundraisingData.goal) * 100);
   const topRaiser = leaderboard[0];
   const remaining = fundraisingData.goal - fundraisingData.raised;
@@ -39,7 +42,6 @@ export default function FundraiserPage() {
             {pct}%
           </span>
         </div>
-        {/* Mini progress — not animated here since it's always visible */}
         <div style={{ height: 4, borderRadius: 2, background: "#E8E3DC", overflow: "hidden" }}>
           <div
             style={{
@@ -61,7 +63,6 @@ export default function FundraiserPage() {
             boxShadow: "0 10px 40px rgba(11,30,61,0.35)",
           }}
         >
-          {/* Raised / Goal */}
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <p style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
@@ -85,7 +86,6 @@ export default function FundraiserPage() {
             </div>
           </div>
 
-          {/* Animated progress bar */}
           <AnimatedProgress
             pct={pct}
             height={10}
@@ -124,121 +124,118 @@ export default function FundraiserPage() {
         </div>
 
         {/* ── Top raiser callout ── */}
-        <div
-          style={{
-            background: "rgba(201,168,76,0.09)",
-            border: "1px solid rgba(201,168,76,0.28)",
-            borderRadius: 18, padding: "14px 16px",
-            display: "flex", alignItems: "center", gap: 14,
-          }}
-        >
+        {topRaiser && (
           <div
             style={{
-              width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
-              background: "linear-gradient(135deg, #C9A84C, #F0C040)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 18,
+              background: "rgba(201,168,76,0.09)",
+              border: "1px solid rgba(201,168,76,0.28)",
+              borderRadius: 18, padding: "14px 16px",
+              display: "flex", alignItems: "center", gap: 14,
             }}
           >
-            🏆
+            <div
+              style={{
+                width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
+                background: "linear-gradient(135deg, #C9A84C, #F0C040)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18,
+              }}
+            >
+              🏆
+            </div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Top Fundraiser
+              </p>
+              <p style={{ fontSize: 15, fontWeight: 800, color: "#0A0A0A", marginTop: 2 }}>
+                {topRaiser.name}
+              </p>
+              <p style={{ fontSize: 12, color: "#6B7280", marginTop: 1 }}>
+                ${topRaiser.raised.toLocaleString()} raised &middot; {topRaiser.donors} donors
+              </p>
+            </div>
           </div>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#C9A84C", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Top Fundraiser
-            </p>
-            <p style={{ fontSize: 15, fontWeight: 800, color: "#0A0A0A", marginTop: 2 }}>
-              {topRaiser.name}
-            </p>
-            <p style={{ fontSize: 12, color: "#6B7280", marginTop: 1 }}>
-              ${topRaiser.raised.toLocaleString()} raised &middot; {topRaiser.donors} donors
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* ── Leaderboard ── */}
-        <div>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
-            Athlete Leaderboard
-          </p>
+        {leaderboard.length > 0 && (
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>
+              Athlete Leaderboard
+            </p>
 
-          <div
-            style={{
-              background: "#FFFFFF", borderRadius: 20,
-              boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
-              overflow: "hidden",
-            }}
-          >
-            {leaderboard.map((athlete, i) => {
-              const barPct = Math.round((athlete.raised / leaderboard[0].raised) * 100);
-              return (
-                <div
-                  key={athlete.id}
-                  className="ta-stagger-child"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "12px 16px",
-                    borderBottom: i < leaderboard.length - 1 ? "1px solid #F5F1EC" : "none",
-                    "--i": i,
-                  } as React.CSSProperties}
-                >
-                  {/* Rank */}
-                  <div style={{ width: 22, textAlign: "center", flexShrink: 0 }}>
-                    {i < 3 ? (
-                      <span style={{ fontSize: 16 }}>{medals[i]}</span>
-                    ) : (
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>#{i + 1}</span>
-                    )}
-                  </div>
-
-                  {/* Avatar — TODO: replace with athlete photo */}
+            <div
+              style={{
+                background: "#FFFFFF", borderRadius: 20,
+                boxShadow: "0 2px 16px rgba(0,0,0,0.07)",
+                overflow: "hidden",
+              }}
+            >
+              {leaderboard.map((athlete, i) => {
+                const barPct = Math.round((athlete.raised / leaderboard[0].raised) * 100);
+                return (
                   <div
+                    key={athlete.id}
+                    className="ta-stagger-child"
                     style={{
-                      width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                      background: avatarGrads[i % avatarGrads.length],
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 800,
-                      color: i === 0 ? "#0B1E3D" : "#FFFFFF",
-                    }}
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "12px 16px",
+                      borderBottom: i < leaderboard.length - 1 ? "1px solid #F5F1EC" : "none",
+                      "--i": i,
+                    } as React.CSSProperties}
                   >
-                    {athlete.initials}
-                  </div>
+                    <div style={{ width: 22, textAlign: "center", flexShrink: 0 }}>
+                      {i < 3 ? (
+                        <span style={{ fontSize: 16 }}>{medals[i]}</span>
+                      ) : (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF" }}>#{i + 1}</span>
+                      )}
+                    </div>
 
-                  {/* Name + mini bar */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2 }}>
-                      {athlete.name}
-                    </p>
-                    <div style={{ marginTop: 5, height: 4, borderRadius: 2, background: "#F3F4F6", overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%", width: `${barPct}%`,
-                          background: i === 0 ? "linear-gradient(90deg, #C9A84C, #F0C040)" : "#0B1E3D",
-                          borderRadius: 2,
-                          opacity: i === 0 ? 1 : 0.5 + i * 0.08,
-                        }}
-                      />
+                    <div
+                      style={{
+                        width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+                        background: avatarGrads[i % avatarGrads.length],
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 800,
+                        color: i === 0 ? "#0B1E3D" : "#FFFFFF",
+                      }}
+                    >
+                      {athlete.initials}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2 }}>
+                        {athlete.name}
+                      </p>
+                      <div style={{ marginTop: 5, height: 4, borderRadius: 2, background: "#F3F4F6", overflow: "hidden" }}>
+                        <div
+                          style={{
+                            height: "100%", width: `${barPct}%`,
+                            background: i === 0 ? "linear-gradient(90deg, #C9A84C, #F0C040)" : "#0B1E3D",
+                            borderRadius: 2,
+                            opacity: i === 0 ? 1 : 0.5 + i * 0.08,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: "#0B1E3D" }}>
+                        ${athlete.raised.toLocaleString()}
+                      </p>
+                      <p style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
+                        {athlete.donors} donors
+                      </p>
                     </div>
                   </div>
-
-                  {/* Amount */}
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: "#0B1E3D" }}>
-                      ${athlete.raised.toLocaleString()}
-                    </p>
-                    <p style={{ fontSize: 10, color: "#9CA3AF", marginTop: 1 }}>
-                      {athlete.donors} donors
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* ── Donate CTA ──
-            TODO (Stripe): wire to POST /api/checkout with { campaignId, amount, athleteId? }
-            See existing /api/checkout/route.ts for the Stripe session handler.
-        */}
+        {/* ── Donate CTA ── */}
         <div>
           <button
             className="ta-gold-pulse"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sponsors } from "../_data/mockData";
+import { useAppStore } from "../../_store/AppStore";
 
 const tierStyles = {
   Gold:   { bg: "rgba(201,168,76,0.1)",  border: "rgba(201,168,76,0.35)",  text: "#92700A",  badge: "#C9A84C"  },
@@ -10,10 +10,14 @@ const tierStyles = {
 };
 
 export default function SponsorCarousel() {
+  const { sponsors } = useAppStore();
   const [active, setActive] = useState(0);
   const [visible, setVisible] = useState(true);
 
+  const safeActive = sponsors.length > 0 ? Math.min(active, sponsors.length - 1) : 0;
+
   useEffect(() => {
+    if (sponsors.length === 0) return;
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
@@ -22,9 +26,17 @@ export default function SponsorCarousel() {
       }, 240);
     }, 3800);
     return () => clearInterval(id);
-  }, []);
+  }, [sponsors.length]);
 
-  const sponsor = sponsors[active];
+  if (sponsors.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "24px", background: "#FFFFFF", borderRadius: 20, boxShadow: "0 2px 16px rgba(0,0,0,0.08)" }}>
+        <p style={{ fontSize: 13, color: "#9CA3AF" }}>No sponsors yet</p>
+      </div>
+    );
+  }
+
+  const sponsor = sponsors[safeActive];
   const style = tierStyles[sponsor.tier];
 
   function goTo(i: number) {
@@ -49,7 +61,6 @@ export default function SponsorCarousel() {
           gap: 14,
         }}
       >
-        {/* Logo placeholder — TODO: replace with sponsor.logoUrl */}
         <div
           style={{
             width: 56, height: 56, borderRadius: 14, flexShrink: 0,
@@ -90,8 +101,8 @@ export default function SponsorCarousel() {
             onClick={() => goTo(i)}
             aria-label={`Sponsor ${i + 1}`}
             style={{
-              width: active === i ? 20 : 6, height: 6, borderRadius: 3,
-              background: active === i ? "#C9A84C" : "#D1D5DB",
+              width: safeActive === i ? 20 : 6, height: 6, borderRadius: 3,
+              background: safeActive === i ? "#C9A84C" : "#D1D5DB",
               border: "none", padding: 0, cursor: "pointer",
               transition: "all 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
             }}

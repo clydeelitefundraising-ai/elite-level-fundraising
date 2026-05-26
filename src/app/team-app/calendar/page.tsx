@@ -1,4 +1,6 @@
-import { calendarEvents, teamInfo } from "../_data/mockData";
+"use client";
+
+import { useAppStore } from "../../_store/AppStore";
 
 type EventType = "game" | "practice" | "fundraiser" | "team";
 
@@ -12,9 +14,8 @@ const eventConfig: Record<EventType, {
   team:       { label: "Team Event", dot: "#0B1E3D", bg: "rgba(11,30,61,0.05)",    badgeBg: "rgba(11,30,61,0.08)",  badgeText: "#0B1E3D", icon: "🤝" },
 };
 
-// Group events by month for display
-function groupByMonth(events: typeof calendarEvents) {
-  const groups: Record<string, typeof calendarEvents> = {};
+function groupByMonth(events: { id: number; title: string; date: string; time: string; location: string; type: EventType }[]) {
+  const groups: Record<string, typeof events> = {};
   events.forEach((e) => {
     const month = e.date.split(" ")[0];
     if (!groups[month]) groups[month] = [];
@@ -24,7 +25,8 @@ function groupByMonth(events: typeof calendarEvents) {
 }
 
 export default function CalendarPage() {
-  const grouped = groupByMonth(calendarEvents);
+  const { calendarEvents, teamInfo } = useAppStore();
+  const grouped = groupByMonth(calendarEvents as { id: number; title: string; date: string; time: string; location: string; type: EventType }[]);
 
   return (
     <div className="ta-page-enter">
@@ -60,113 +62,106 @@ export default function CalendarPage() {
         </div>
 
         {/* Events grouped by month */}
-        {/* TODO (Supabase): load from events table where team_id = teamId and event_date >= now() */}
-        {Object.entries(grouped).map(([month, events]) => (
-          <div key={month}>
-            {/* Month header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <p style={{ fontSize: 13, fontWeight: 800, color: "#0A0A0A", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {month}
-              </p>
-              <div style={{ flex: 1, height: 1, background: "#EDE9E3" }} />
-              <span
-                style={{
-                  fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100,
-                  background: "#F5F0EA", color: "#9CA3AF",
-                }}
-              >
-                {events.length} events
-              </span>
-            </div>
+        {calendarEvents.length > 0 ? (
+          Object.entries(grouped).map(([month, events]) => (
+            <div key={month}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: "#0A0A0A", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {month}
+                </p>
+                <div style={{ flex: 1, height: 1, background: "#EDE9E3" }} />
+                <span
+                  style={{
+                    fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100,
+                    background: "#F5F0EA", color: "#9CA3AF",
+                  }}
+                >
+                  {events.length} events
+                </span>
+              </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {events.map((event, i) => {
-                const cfg = eventConfig[event.type];
-                const day = event.date.split(" ")[1].replace(",", "");
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {events.map((event, i) => {
+                  const cfg = eventConfig[event.type];
+                  const day = event.date.split(" ")[1].replace(",", "");
 
-                return (
-                  <div
-                    key={event.id}
-                    className="ta-pressable ta-stagger-child"
-                    style={{
-                      display: "flex", alignItems: "stretch",
-                      background: "#FFFFFF", borderRadius: 18,
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
-                      overflow: "hidden",
-                      "--i": i,
-                    } as React.CSSProperties}
-                  >
-                    {/* Left color strip */}
-                    <div style={{ width: 4, flexShrink: 0, background: cfg.dot }} />
-
-                    {/* Date column */}
+                  return (
                     <div
+                      key={event.id}
+                      className="ta-pressable ta-stagger-child"
                       style={{
-                        width: 54, flexShrink: 0,
-                        background: cfg.bg,
-                        display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "center",
-                        padding: "12px 0",
-                      }}
+                        display: "flex", alignItems: "stretch",
+                        background: "#FFFFFF", borderRadius: 18,
+                        boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
+                        overflow: "hidden",
+                        "--i": i,
+                      } as React.CSSProperties}
                     >
-                      <span style={{ fontSize: 9, fontWeight: 800, color: cfg.dot, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                        {month.slice(0, 3)}
-                      </span>
-                      <span style={{ fontSize: 24, fontWeight: 900, color: "#0A0A0A", lineHeight: 1 }}>
-                        {day}
-                      </span>
-                    </div>
+                      <div style={{ width: 4, flexShrink: 0, background: cfg.dot }} />
 
-                    {/* Event info */}
-                    <div style={{ flex: 1, padding: "12px 14px", minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2, flex: 1, minWidth: 0 }}>
-                          {event.title}
-                        </p>
-                        <span
-                          style={{
-                            fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 5,
-                            background: cfg.badgeBg, color: cfg.badgeText,
-                            textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0,
-                          }}
-                        >
-                          {cfg.label}
+                      <div
+                        style={{
+                          width: 54, flexShrink: 0,
+                          background: cfg.bg,
+                          display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: "center",
+                          padding: "12px 0",
+                        }}
+                      >
+                        <span style={{ fontSize: 9, fontWeight: 800, color: cfg.dot, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                          {month.slice(0, 3)}
+                        </span>
+                        <span style={{ fontSize: 24, fontWeight: 900, color: "#0A0A0A", lineHeight: 1 }}>
+                          {day}
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", gap: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12 6 12 12 16 14" />
-                          </svg>
-                          <span style={{ fontSize: 11, color: "#9CA3AF" }}>{event.time}</span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
-                            <path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z" />
-                            <circle cx="12" cy="10" r="3" />
-                          </svg>
-                          <span style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {event.location}
+                      <div style={{ flex: 1, padding: "12px 14px", minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: "#0A0A0A", lineHeight: 1.2, flex: 1, minWidth: 0 }}>
+                            {event.title}
+                          </p>
+                          <span
+                            style={{
+                              fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 5,
+                              background: cfg.badgeBg, color: cfg.badgeText,
+                              textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0,
+                            }}
+                          >
+                            {cfg.label}
                           </span>
                         </div>
+
+                        <div style={{ display: "flex", gap: 14 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            <span style={{ fontSize: 11, color: "#9CA3AF" }}>{event.time}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
+                              <path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            <span style={{ fontSize: 11, color: "#9CA3AF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {event.location}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", paddingRight: 14 }}>
+                        <span style={{ fontSize: 20 }}>{cfg.icon}</span>
                       </div>
                     </div>
-
-                    {/* Event type icon */}
-                    <div style={{ display: "flex", alignItems: "center", paddingRight: 14 }}>
-                      <span style={{ fontSize: 20 }}>{cfg.icon}</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-
-        {/* Empty state */}
-        {calendarEvents.length === 0 && (
+          ))
+        ) : (
           <div style={{ textAlign: "center", padding: "48px 24px" }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>📅</div>
             <p style={{ fontSize: 16, fontWeight: 700, color: "#0A0A0A" }}>No events scheduled</p>
@@ -176,7 +171,6 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Add event — TODO: admin-only */}
         <button
           style={{
             width: "100%", padding: "14px", borderRadius: 18,

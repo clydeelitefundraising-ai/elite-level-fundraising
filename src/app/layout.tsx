@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./design-system.css";
+import { AppStoreProvider } from "./_store/AppStore";
 
 export const metadata: Metadata = {
   title: "Elite Level Fundraising | Arizona School Sports Teams",
@@ -15,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><AppStoreProvider>{children}</AppStoreProvider></body>
     </html>
   );
 }

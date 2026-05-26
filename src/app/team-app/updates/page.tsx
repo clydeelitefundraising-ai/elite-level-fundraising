@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { teamUpdates } from "../_data/mockData";
+import { useAppStore } from "../../_store/AppStore";
 import type { TeamUpdate, UpdateCategory, UpdateAttachment } from "../_data/mockData";
 
 type Filter = "all" | UpdateCategory;
@@ -251,11 +251,12 @@ function UpdateCard({ u, index = 0, isPinned = false }: { u: TeamUpdate; index?:
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function UpdatesPage() {
+  const { teamUpdates } = useAppStore();
   const [filter, setFilter] = useState<Filter>("all");
 
   const filtered = useMemo(
     () => filter === "all" ? teamUpdates : teamUpdates.filter(u => u.category === filter),
-    [filter],
+    [filter, teamUpdates],
   );
 
   const pinned  = filtered.filter(u => u.priority === "pinned");

@@ -1,0 +1,177 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Team App Admin — isolated styles
+   Scoped to /team-app-admin. Does not affect campaign pages, team app, or live site.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Form elements ── */
+.ta-adm-input,
+.ta-adm-textarea,
+.ta-adm-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1.5px solid #E5E7EB;
+  background: #FFFFFF;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ta-adm-input:focus,
+.ta-adm-textarea:focus,
+.ta-adm-select:focus {
+  border-color: #C9A84C;
+  box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.12);
+}
+.ta-adm-textarea {
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.6;
+}
+.ta-adm-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* ── Sidebar nav links ── */
+.ta-adm-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.58);
+  transition: background 0.14s ease, color 0.14s ease;
+  margin-bottom: 1px;
+}
+.ta-adm-nav-link:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.9);
+}
+.ta-adm-nav-link.active {
+  background: rgba(201, 168, 76, 0.14);
+  color: #C9A84C;
+  font-weight: 700;
+}
+
+/* ── Card ── */
+.ta-adm-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* ── Icon button ── */
+.ta-adm-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #9CA3AF;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+.ta-adm-icon-btn:hover       { background: #F3F4F6; color: #374151; }
+.ta-adm-icon-btn.danger:hover{ background: rgba(220,38,38,0.08); color: #DC2626; }
+
+/* ── Table rows ── */
+.ta-adm-row {
+  transition: background 0.1s ease;
+}
+.ta-adm-row:hover { background: #FAFAF9; }
+
+/* ── Toggle switch ── */
+.ta-adm-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.ta-adm-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.ta-adm-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: #D1D5DB;
+  transition: background 0.2s ease;
+}
+.ta-adm-toggle-track::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  transition: transform 0.2s ease;
+}
+.ta-adm-toggle input:checked + .ta-adm-toggle-track { background: #C9A84C; }
+.ta-adm-toggle input:checked + .ta-adm-toggle-track::after { transform: translateX(16px); }
+
+/* ── Color swatch selector ── */
+.ta-adm-swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2.5px solid transparent;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  flex-shrink: 0;
+}
+.ta-adm-swatch:hover  { transform: scale(1.1); }
+.ta-adm-swatch.active { border-color: #0A0A0A; transform: scale(1.1); }
+
+/* ── Badge / pill ── */
+.ta-adm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* ── Stats card hover ── */
+.ta-adm-stat-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  padding: 20px 22px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.ta-adm-stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+  transform: translateY(-1px);
+}
+
+/* ── Page fade in ── */
+.ta-adm-page {
+  animation: ta-adm-fade 0.22s ease both;
+}
+@keyframes ta-adm-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}

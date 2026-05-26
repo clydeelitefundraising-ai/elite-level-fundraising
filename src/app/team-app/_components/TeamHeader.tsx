@@ -1,24 +1,27 @@
-import { teamInfo } from "../_data/mockData";
+"use client";
+
+import { useAppStore } from "../../_store/AppStore";
 
 export default function TeamHeader() {
+  const { teamInfo, primaryColor, secondaryColor } = useAppStore();
+
   return (
     <div
       className="flex items-center gap-3 flex-shrink-0"
       style={{
-        background: "linear-gradient(90deg, #0A1828 0%, #0B1E3D 100%)",
+        background: primaryColor,
         padding: "10px 16px 11px",
         borderBottom: "1px solid rgba(255,255,255,0.06)",
       }}
     >
-      {/* Team logo placeholder — TODO: replace with <Image src={teamInfo.logoUrl} /> */}
       <div
         style={{
           width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
-          background: "linear-gradient(135deg, #C9A84C, #F0C040)",
+          background: secondaryColor,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, fontWeight: 900, color: "#0B1E3D",
+          fontSize: 14, fontWeight: 900, color: primaryColor,
           letterSpacing: "0.03em",
-          boxShadow: "0 2px 8px rgba(201,168,76,0.4), 0 0 0 2px rgba(201,168,76,0.2)",
+          boxShadow: `0 2px 8px ${secondaryColor}66, 0 0 0 2px ${secondaryColor}33`,
         }}
       >
         {teamInfo.logoInitials}
@@ -34,13 +37,12 @@ export default function TeamHeader() {
         >
           {teamInfo.school}
         </p>
-        <p style={{ fontSize: 11, color: "rgba(201,168,76,0.85)", marginTop: 1 }}>
+        <p style={{ fontSize: 11, color: `${secondaryColor}CC`, marginTop: 1 }}>
           {teamInfo.sport}&nbsp;&middot;&nbsp;{teamInfo.season}
         </p>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {/* Notification bell — TODO: wire to in-app notifications */}
         <button
           style={{
             width: 34, height: 34, borderRadius: 10,
@@ -57,7 +59,6 @@ export default function TeamHeader() {
           </svg>
         </button>
 
-        {/* Settings gear — TODO: wire to team settings page */}
         <button
           style={{
             width: 34, height: 34, borderRadius: 10,
