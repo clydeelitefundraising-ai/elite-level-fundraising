@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
+import { sendPushToTeam } from "@/lib/push";
 
 const BASE   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET = "team-files";
@@ -84,5 +85,10 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   const rows = await metaRes.json();
+  void sendPushToTeam(slug, {
+    title: "New File Available",
+    body:  file.name,
+    url:   `/team/${slug}/files`,
+  });
   return NextResponse.json(rows[0]);
 }

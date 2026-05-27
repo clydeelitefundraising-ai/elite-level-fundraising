@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
+import { sendPushToTeam } from "@/lib/push";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -59,5 +60,12 @@ export async function POST(
   }
 
   const rows = await res.json();
+  if (safePriority !== "normal") {
+    void sendPushToTeam(slug, {
+      title: title.trim(),
+      body:  (body?.trim() ?? "").slice(0, 100),
+      url:   `/team/${slug}/home`,
+    });
+  }
   return NextResponse.json(rows[0]);
 }

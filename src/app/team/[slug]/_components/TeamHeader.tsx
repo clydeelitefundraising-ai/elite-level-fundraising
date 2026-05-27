@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CampaignSettings } from "@/lib/supabase";
+import PushOptIn from "./PushOptIn";
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
@@ -68,14 +69,9 @@ export default function TeamHeader({ settings }: { settings: CampaignSettings })
           )}
         </div>
 
-        {/* Icon tray — notification bell (decorative) + settings/login */}
+        {/* Icon tray — push opt-in bell + settings/login */}
         <div style={{ display: "flex", gap: ".15rem", flexShrink: 0, alignItems: "center" }}>
-          <span
-            aria-hidden="true"
-            style={{ fontSize: "1.2rem", opacity: .75, padding: ".3rem", lineHeight: 1, display: "block" }}
-          >
-            🔔
-          </span>
+          <PushOptIn slug={settings.campaign_slug} />
           <Link
             href={`/team/${settings.campaign_slug}/login`}
             aria-label="Coach login"

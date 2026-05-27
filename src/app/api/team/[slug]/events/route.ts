@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
+import { sendPushToTeam } from "@/lib/push";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -49,5 +50,10 @@ export async function POST(
   }
 
   const rows = await res.json();
+  void sendPushToTeam(slug, {
+    title: `Event Added: ${title.trim()}`,
+    body:  [event_date, location?.trim()].filter(Boolean).join(" · "),
+    url:   `/team/${slug}/calendar`,
+  });
   return NextResponse.json(rows[0]);
 }
