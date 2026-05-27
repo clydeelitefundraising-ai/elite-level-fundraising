@@ -3,6 +3,7 @@ import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta } from "@/lib/teamData";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
+import TeamPullRefresh from "./_components/TeamPullRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,15 @@ export default async function TeamLayout({
 
   return (
     <>
-    <style>{`@media(min-width:431px){.elf-shell{padding:2rem 0}}`}</style>
+    <style>{`
+      @media(min-width:431px){.elf-shell{padding:2rem 0}}
+      @keyframes elf-fadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+      @keyframes elf-modalIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+      @keyframes elf-backdropIn{from{opacity:0}to{opacity:1}}
+      @keyframes elf-spin{to{transform:rotate(360deg)}}
+      @keyframes elf-shimmer{from{background-position:-400px 0}to{background-position:400px 0}}
+      @keyframes elf-ptrPop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+    `}</style>
     <div className="elf-shell" style={{
       minHeight: "100vh",
       background: "#0b1e3d",
@@ -41,6 +50,7 @@ export default async function TeamLayout({
         flexDirection: "column",
       }}>
         <TeamHeader settings={settings} />
+        <TeamPullRefresh />
         <main style={{
           flex: 1,
           padding: "1rem .875rem 5.5rem",

@@ -26,7 +26,7 @@ export async function POST(
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, body, category, priority } = await req.json();
+  const { title, body, category, priority, attachment_id } = await req.json();
   if (!title?.trim()) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
@@ -35,19 +35,22 @@ export async function POST(
   const safePriority = VALID_PRIORITIES.has(priority)  ? priority : "normal";
   const roleLabel    = coach.role === "head_coach" ? "Head Coach" : "Assistant Coach";
 
+  const payload: Record<string, unknown> = {
+    campaign_slug: slug,
+    title:        title.trim(),
+    body:         body?.trim() ?? "",
+    category:     safeCategory,
+    priority:     safePriority,
+    author_name:  coach.name,
+    author_role:  roleLabel,
+    coach_id:     coach.id,
+  };
+  if (attachment_id) payload.attachment_id = attachment_id;
+
   const res = await fetch(`${BASE}/rest/v1/announcements`, {
     method: "POST",
     headers: h({ Prefer: "return=representation" }),
-    body: JSON.stringify({
-      campaign_slug: slug,
-      title:        title.trim(),
-      body:         body?.trim() ?? "",
-      category:     safeCategory,
-      priority:     safePriority,
-      author_name:  coach.name,
-      author_role:  roleLabel,
-      coach_id:     coach.id,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {

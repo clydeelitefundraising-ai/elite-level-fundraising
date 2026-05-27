@@ -25,13 +25,14 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, body, category, priority } = await req.json();
+  const { title, body, category, priority, attachment_id } = await req.json();
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (title?.trim())                        patch.title    = title.trim();
-  if (body !== undefined)                   patch.body     = body?.trim() ?? "";
-  if (VALID_CATEGORIES.has(category))       patch.category = category;
-  if (VALID_PRIORITIES.has(priority))       patch.priority = priority;
+  if (title?.trim())                        patch.title         = title.trim();
+  if (body !== undefined)                   patch.body          = body?.trim() ?? "";
+  if (VALID_CATEGORIES.has(category))       patch.category      = category;
+  if (VALID_PRIORITIES.has(priority))       patch.priority      = priority;
+  if (attachment_id !== undefined)          patch.attachment_id = attachment_id ?? null;
 
   const res = await fetch(
     `${BASE}/rest/v1/announcements?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,

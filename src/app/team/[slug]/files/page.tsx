@@ -1,6 +1,8 @@
-import { getTeamFiles } from "@/lib/teamData";
+import { getAnnouncements, getTeamFiles } from "@/lib/teamData";
 import { getCoachSession } from "@/lib/teamSession";
-import FilesView from "./FilesView";
+import UpdatesView from "./UpdatesView";
+
+export const dynamic = "force-dynamic";
 
 export default async function FilesPage({
   params,
@@ -8,9 +10,17 @@ export default async function FilesPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [files, coach] = await Promise.all([
+  const [updates, files, coach] = await Promise.all([
+    getAnnouncements(slug),
     getTeamFiles(slug),
     getCoachSession(slug),
   ]);
-  return <FilesView slug={slug} initialFiles={files} coach={coach} />;
+  return (
+    <UpdatesView
+      slug={slug}
+      initialUpdates={updates}
+      initialFiles={files}
+      coach={coach}
+    />
+  );
 }

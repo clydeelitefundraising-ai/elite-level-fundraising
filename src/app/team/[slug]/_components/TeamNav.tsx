@@ -14,7 +14,7 @@ const TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "home",       label: "Home",       icon: "🏠" },
   { href: "roster",     label: "Roster",     icon: "👥" },
   { href: "calendar",   label: "Calendar",   icon: "📅" },
-  { href: "files",      label: "Files",      icon: "📎" },
+  { href: "files",      label: "Updates",    icon: "📢" },
   { href: "fundraiser", label: "Fundraiser", icon: "💰" },
 ];
 

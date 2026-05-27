@@ -29,8 +29,8 @@ const FILE_STYLE: Record<string, { bg: string; color: string; icon: string }> = 
 
 const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
+  border: "1.5px solid #e5e7eb",
+  borderRadius: 9,
   fontSize: ".875rem",
   width: "100%",
   boxSizing: "border-box",
@@ -42,11 +42,11 @@ const lbl: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: ".3rem",
-  fontSize: ".75rem",
+  fontSize: ".72rem",
   fontWeight: 700,
   color: "#374151",
   textTransform: "uppercase",
-  letterSpacing: ".04em",
+  letterSpacing: ".05em",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -83,6 +83,7 @@ export default function FilesView({
   const [editName,     setEditName]     = useState("");
   const [editSaving,   setEditSaving]   = useState(false);
   const [editError,    setEditError]    = useState("");
+  const [hoveredId,    setHoveredId]    = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Upload ──
@@ -105,43 +106,30 @@ export default function FilesView({
     setUploadError("");
 
     try {
-      const signRes = await fetch(`/api/team/${slug}/files/sign`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileSize: file.size, mimeType: file.type }),
-      });
-      const signData = await signRes.json();
-      if (!signRes.ok) throw new Error(signData.error ?? "Failed to start upload.");
-      const { signedUploadUrl, storagePath, fileType } = signData as {
-        signedUploadUrl: string;
-        storagePath: string;
-        fileType: string;
-      };
+      const form = new FormData();
+      form.append("file", file);
 
-      await new Promise<void>((resolve, reject) => {
+      // XHR to our own API (same origin) — no CORS, progress tracking works
+      const newFile = await new Promise<TeamFileRow>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
         };
         xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Storage upload failed (${xhr.status})`));
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) resolve(data as TeamFileRow);
+            else reject(new Error(data.error ?? `Upload failed (${xhr.status})`));
+          } catch {
+            reject(new Error(`Upload failed (${xhr.status})`));
+          }
         };
         xhr.onerror = () => reject(new Error("Network error during upload."));
-        xhr.open("PUT", signedUploadUrl);
-        xhr.setRequestHeader("Content-Type", file.type);
-        xhr.send(file);
+        xhr.open("POST", `/api/team/${slug}/files/upload`);
+        xhr.send(form);
       });
 
-      const metaRes = await fetch(`/api/team/${slug}/files`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, storagePath, fileType, sizeBytes: file.size }),
-      });
-      const metaData = await metaRes.json();
-      if (!metaRes.ok) throw new Error(metaData.error ?? "File uploaded but record save failed.");
-
-      setFiles(prev => [metaData as TeamFileRow, ...prev]);
+      setFiles(prev => [newFile, ...prev]);
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -197,10 +185,10 @@ export default function FilesView({
   // ── Render ──
 
   return (
-    <>
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Section header ── */}
-      <div style={{ marginBottom: ".625rem" }}>
-        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
+      <div style={{ marginBottom: ".65rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Documents
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
@@ -208,7 +196,7 @@ export default function FilesView({
             Team Files
           </h2>
           {files.length > 0 && (
-            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .45rem", lineHeight: 1.4 }}>
+            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
               {files.length} file{files.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -256,7 +244,7 @@ export default function FilesView({
 
       {/* Upload progress */}
       {uploading && (
-        <div style={{ background: "#fff", borderRadius: 12, padding: ".875rem 1rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
+        <div style={{ background: "#fff", borderRadius: 12, padding: ".875rem 1rem", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".45rem" }}>
             <span style={{ fontSize: ".78rem", fontWeight: 600, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>
               {uploadFile || "Uploading…"}
@@ -277,28 +265,46 @@ export default function FilesView({
 
       {/* Upload error */}
       {uploadError && (
-        <p style={{ margin: "0 0 .75rem", color: "#dc2626", fontSize: ".82rem" }}>{uploadError}</p>
+        <p style={{ margin: "0 0 .75rem", padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+          {uploadError}
+        </p>
       )}
 
       {/* File list */}
       {files.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 12, padding: "2.5rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".88rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
-          <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .4 }}>📎</div>
-          No files uploaded yet.
+        <div style={{
+          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
+          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        }}>
+          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📎</div>
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+            No files uploaded yet
+          </div>
+          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+            {coach ? "Upload your first file above." : "Files coming soon."}
+          </div>
         </div>
       ) : (
-        <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
+        <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
           {files.map((file, i) => {
-            const s    = FILE_STYLE[file.file_type] ?? FILE_STYLE["other"];
-            const size = formatSize(file.size_bytes);
+            const s       = FILE_STYLE[file.file_type] ?? FILE_STYLE["other"];
+            const size    = formatSize(file.size_bytes);
+            const hovered = hoveredId === file.id;
             return (
-              <div key={file.id} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: ".75rem",
-                padding: ".75rem .9rem",
-                borderBottom: i < files.length - 1 ? "1px solid #f3f4f6" : "none",
-              }}>
+              <div
+                key={file.id}
+                onMouseEnter={() => setHoveredId(file.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: ".75rem",
+                  padding: ".75rem .9rem",
+                  borderBottom: i < files.length - 1 ? "1px solid #f3f4f6" : "none",
+                  background: hovered ? "#fafbff" : "#fff",
+                  transition: "background .13s ease",
+                }}
+              >
                 {/* Colored icon circle */}
                 <div style={{
                   width: 38,
@@ -310,6 +316,8 @@ export default function FilesView({
                   justifyContent: "center",
                   fontSize: "1.1rem",
                   flexShrink: 0,
+                  transition: "transform .13s ease",
+                  transform: hovered ? "scale(1.06)" : "scale(1)",
                 }}>
                   {s.icon}
                 </div>
@@ -356,7 +364,7 @@ export default function FilesView({
                   style={{
                     flexShrink: 0,
                     padding: ".35rem .7rem",
-                    background: "#0b1e3d",
+                    background: hovered ? "#1e4d7b" : "#0b1e3d",
                     color: "#fff",
                     borderRadius: 8,
                     fontSize: ".72rem",
@@ -364,6 +372,7 @@ export default function FilesView({
                     textDecoration: "none",
                     whiteSpace: "nowrap",
                     letterSpacing: ".01em",
+                    transition: "background .13s ease",
                   }}
                 >
                   ↓ Download
@@ -382,16 +391,22 @@ export default function FilesView({
               File Name *
               <input style={inp} value={editName} onChange={e => setEditName(e.target.value)} autoFocus />
             </label>
-            {editError && <p style={{ margin: 0, color: "#dc2626", fontSize: ".82rem" }}>{editError}</p>}
+            {editError && (
+              <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+                {editError}
+              </p>
+            )}
             <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", paddingTop: ".25rem" }}>
-              <button onClick={closeEdit} style={{ padding: ".45rem .9rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 8, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleRename} disabled={editSaving} style={{ padding: ".45rem .9rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, fontSize: ".85rem", fontWeight: 600, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? .7 : 1 }}>
+              <button onClick={closeEdit} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleRename} disabled={editSaving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? .7 : 1 }}>
                 {editSaving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
         </Modal>
       )}
-    </>
+    </div>
   );
 }

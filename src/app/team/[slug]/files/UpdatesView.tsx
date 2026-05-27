@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
+import { useRef, useState } from "react";
+import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import FilesView from "./FilesView";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -30,7 +31,18 @@ const lbl: React.CSSProperties = {
   letterSpacing: ".05em",
 };
 
-// ── Category + event type colors ──────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ALLOWED_MIME = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const MAX_BYTES = 25 * 1024 * 1024;
+
+// ── Category styles ───────────────────────────────────────────────────────────
 
 const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string }> = {
   "schedule":   { bg: "#dbeafe", color: "#1d4ed8", accent: "#3b82f6" },
@@ -41,11 +53,11 @@ const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string
   "team":       { bg: "#f3f4f6", color: "#374151", accent: "#9ca3af" },
 };
 
-const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
-  practice:   { bg: "#dbeafe", color: "#1d4ed8" },
-  meet:       { bg: "#ede9fe", color: "#6d28d9" },
-  fundraiser: { bg: "#fef3c7", color: "#b45309" },
-  team:       { bg: "#f3f4f6", color: "#374151" },
+const FILE_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
+  pdf:   { bg: "#fee2e2", color: "#dc2626", icon: "📄" },
+  image: { bg: "#dbeafe", color: "#1d4ed8", icon: "🖼️" },
+  doc:   { bg: "#ede9fe", color: "#6d28d9", icon: "📝" },
+  other: { bg: "#f3f4f6", color: "#374151", icon: "📎" },
 };
 
 const FILTER_CHIPS = [
@@ -79,14 +91,11 @@ function relativeTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
 }
 
-function labelDate(d: string): string {
-  const today    = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-  if (d === today)    return "Today";
-  if (d === tomorrow) return "Tomorrow";
-  const [y, m, day] = d.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
-    .format(new Date(y, m - 1, day));
+function formatSize(bytes: number): string {
+  if (!bytes) return "";
+  if (bytes < 1_024)     return `${bytes} B`;
+  if (bytes < 1_048_576) return `${(bytes / 1_024).toFixed(0)} KB`;
+  return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
 function roleLabel(raw: string): string {
@@ -95,7 +104,7 @@ function roleLabel(raw: string): string {
   return raw;
 }
 
-// ── Subcomponents ─────────────────────────────────────────────────────────────
+// ── Section divider ───────────────────────────────────────────────────────────
 
 function SectionLabel({ label }: { label: string }) {
   return (
@@ -108,13 +117,17 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-function AnnouncementCard({
+// ── Update card ───────────────────────────────────────────────────────────────
+
+function UpdateCard({
   a,
+  slug,
   coach,
   onEdit,
   onDelete,
 }: {
   a: AnnouncementRow;
+  slug: string;
   coach: CoachSession | null;
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
@@ -129,6 +142,7 @@ function AnnouncementCard({
   const role        = roleLabel(a.author_role ?? "");
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
+  const attStyle    = att ? (FILE_STYLE[att.file_type] ?? FILE_STYLE["other"]) : null;
 
   return (
     <div
@@ -207,19 +221,33 @@ function AnnouncementCard({
         </p>
       )}
 
-      {/* Attachment */}
-      {att && (
+      {/* Attachment row */}
+      {att && attStyle && (
         <a
-          href={`/api/team/${a.campaign_slug}/files/${att.id}`}
+          href={`/api/team/${slug}/files/${att.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".5rem", padding: ".45rem .65rem", background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 9, textDecoration: "none" }}
+          style={{
+            display: "flex", alignItems: "center", gap: ".55rem",
+            marginTop: ".6rem", padding: ".55rem .7rem",
+            background: "#f8f9fb", border: "1px solid #e5e7eb",
+            borderRadius: 10, textDecoration: "none",
+          }}
         >
-          <span style={{ fontSize: ".8rem" }}>📎</span>
-          <span style={{ fontSize: ".75rem", fontWeight: 600, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
-            {att.name}
-          </span>
-          <span style={{ fontSize: ".7rem", color: "#9ca3af", flexShrink: 0 }}>↓</span>
+          <div style={{
+            width: 30, height: 30, borderRadius: 8, background: attStyle.bg,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: ".9rem", flexShrink: 0,
+          }}>
+            {attStyle.icon}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: ".8rem", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {att.name}
+            </div>
+            <div style={{ fontSize: ".64rem", color: "#9ca3af" }}>{formatSize(att.size_bytes)}</div>
+          </div>
+          <span style={{ fontSize: ".75rem", color: "#0b1e3d", fontWeight: 700, flexShrink: 0 }}>↓</span>
         </a>
       )}
 
@@ -246,100 +274,83 @@ function AnnouncementCard({
   );
 }
 
-function UpcomingEventRow({ ev }: { ev: CalendarEventRow }) {
-  const s = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE["team"];
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: ".75rem", padding: ".7rem 0", borderBottom: "1px solid #f3f4f6" }}>
-      <div style={{ flexShrink: 0, width: 44, textAlign: "center", paddingTop: ".1rem" }}>
-        <div style={{ fontSize: ".62rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em" }}>
-          {labelDate(ev.event_date).slice(0, 3)}
-        </div>
-        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>
-          {ev.event_date.split("-")[2]}
-        </div>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".18rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{ev.title}</span>
-          <span style={{ padding: ".08rem .42rem", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: s.bg, color: s.color, flexShrink: 0 }}>
-            {ev.type}
-          </span>
-        </div>
-        {(ev.event_time || ev.location) && (
-          <div style={{ fontSize: ".78rem", color: "#6b7280" }}>
-            {[ev.event_time, ev.location].filter(Boolean).join(" · ")}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── Form type ─────────────────────────────────────────────────────────────────
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type AForm = {
+type UForm = {
   title: string;
   body: string;
   category: string;
   priority: "normal" | "high" | "pinned";
+  attachment_id: string | null;
+  attachmentPreview: TeamFileRow | null;
 };
 
-const BLANK: AForm = { title: "", body: "", category: "team", priority: "normal" };
+const BLANK: UForm = {
+  title: "", body: "", category: "team", priority: "normal",
+  attachment_id: null, attachmentPreview: null,
+};
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function HomeView({
+export default function UpdatesView({
   slug,
-  initialAnnouncements,
-  initialUpcoming,
+  initialUpdates,
+  initialFiles,
   coach,
 }: {
   slug: string;
-  initialAnnouncements: AnnouncementRow[];
-  initialUpcoming: CalendarEventRow[];
+  initialUpdates: AnnouncementRow[];
+  initialFiles: TeamFileRow[];
   coach: CoachSession | null;
 }) {
-  const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
-  const [form,      setForm]      = useState<AForm>(BLANK);
+  const [items,     setItems]     = useState<AnnouncementRow[]>(initialUpdates);
+  const [form,      setForm]      = useState<UForm>(BLANK);
   const [editing,   setEditing]   = useState<AnnouncementRow | null>(null);
   const [showAdd,   setShowAdd]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [error,     setError]     = useState("");
   const [filterCat, setFilterCat] = useState("all");
-  const [unread,    setUnread]    = useState(0);
 
-  const next3 = initialUpcoming.slice(0, 3);
+  const [attUploading, setAttUploading] = useState(false);
+  const [attProgress,  setAttProgress]  = useState(0);
+  const [attError,     setAttError]     = useState("");
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const lastRead = localStorage.getItem(`elf_home_read_${slug}`);
-    setUnread(lastRead
-      ? items.filter(a => a.created_at > lastRead).length
-      : items.length,
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Modal handlers ────────────────────────────────────────────────────────
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-
-  const openAdd  = () => { setForm(BLANK); setError(""); setShowAdd(true); };
+  const openAdd = () => { setForm(BLANK); setError(""); setAttError(""); setShowAdd(true); };
   const openEdit = (a: AnnouncementRow) => {
-    setForm({ title: a.title, body: a.body, category: a.category, priority: a.priority });
-    setError(""); setEditing(a);
+    setForm({
+      title:             a.title,
+      body:              a.body,
+      category:          a.category,
+      priority:          a.priority,
+      attachment_id:     a.attachment_id ?? null,
+      attachmentPreview: a.attachment    ?? null,
+    });
+    setError(""); setAttError(""); setEditing(a);
   };
-  const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
+  const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); setAttError(""); };
+
+  // ── CRUD ──────────────────────────────────────────────────────────────────
 
   const handleAdd = async () => {
     if (!form.title.trim()) { setError("Title is required."); return; }
     setSaving(true); setError("");
+    const payload: Record<string, unknown> = {
+      title: form.title, body: form.body,
+      category: form.category, priority: form.priority,
+    };
+    if (form.attachment_id) payload.attachment_id = form.attachment_id;
     const res  = await fetch(`/api/team/${slug}/announcements`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { setError(data.error ?? "Failed to post announcement."); return; }
-    setItems(prev => [data, ...prev]);
+    if (!res.ok) { setError(data.error ?? "Failed to post update."); return; }
+    setItems(prev => [{ ...data, attachment: form.attachmentPreview }, ...prev]);
     closeModal();
   };
 
@@ -349,22 +360,75 @@ export default function HomeView({
     const res  = await fetch(`/api/team/${slug}/announcements/${editing.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        title: form.title, body: form.body,
+        category: form.category, priority: form.priority,
+        attachment_id: form.attachment_id,
+      }),
     });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { setError(data.error ?? "Failed to update announcement."); return; }
-    setItems(prev => prev.map(a => a.id === editing.id ? { ...a, ...form } : a));
+    if (!res.ok) { setError(data.error ?? "Failed to update."); return; }
+    setItems(prev => prev.map(a =>
+      a.id === editing.id
+        ? { ...a, title: form.title, body: form.body, category: form.category,
+            priority: form.priority, attachment_id: form.attachment_id,
+            attachment: form.attachmentPreview }
+        : a
+    ));
     closeModal();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this announcement?")) return;
+    if (!confirm("Delete this update?")) return;
     const res = await fetch(`/api/team/${slug}/announcements/${id}`, { method: "DELETE" });
     if (res.ok) setItems(prev => prev.filter(a => a.id !== id));
   };
 
-  // ── Feed grouping ──────────────────────────────────────────────────────────
+  // ── Attachment upload ─────────────────────────────────────────────────────
+
+  const handleAttachmentSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (attachInputRef.current) attachInputRef.current.value = "";
+
+    if (!ALLOWED_MIME.includes(file.type)) { setAttError("File type not allowed. Use PDF, PNG, JPG, DOC, or DOCX."); return; }
+    if (file.size > MAX_BYTES)             { setAttError("File exceeds 25 MB limit."); return; }
+
+    setAttUploading(true); setAttProgress(0); setAttError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploaded = await new Promise<TeamFileRow>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) setAttProgress(Math.round((ev.loaded / ev.total) * 100));
+        };
+        xhr.onload = () => {
+          try {
+            const d = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) resolve(d as TeamFileRow);
+            else reject(new Error(d.error ?? `Upload failed (${xhr.status})`));
+          } catch {
+            reject(new Error(`Upload failed (${xhr.status})`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload."));
+        xhr.open("POST", `/api/team/${slug}/files/upload`);
+        xhr.send(formData);
+      });
+
+      setForm(f => ({ ...f, attachment_id: uploaded.id, attachmentPreview: uploaded }));
+    } catch (err: unknown) {
+      setAttError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setAttUploading(false);
+    }
+  };
+
+  // ── Feed grouping ─────────────────────────────────────────────────────────
 
   const today     = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
@@ -376,31 +440,14 @@ export default function HomeView({
   const yesterdayItems = nonPinned.filter(a => a.created_at.slice(0, 10) === yesterday);
   const earlierItems   = nonPinned.filter(a => a.created_at.slice(0, 10) < yesterday);
 
-  const isEditing = editing !== null;
-  const modalOpen = showAdd || isEditing;
+  const isEditing   = editing !== null;
+  const modalOpen   = showAdd || isEditing;
+  const previewStyle = form.attachmentPreview
+    ? (FILE_STYLE[form.attachmentPreview.file_type] ?? FILE_STYLE["other"])
+    : null;
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      {/* ── Upcoming Events ── */}
-      {next3.length > 0 && (
-        <div style={{
-          background: "#fff",
-          borderRadius: 14,
-          padding: ".9rem 1rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          marginBottom: ".8rem",
-        }}>
-          <h2 style={{ margin: "0 0 .2rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
-            Upcoming
-          </h2>
-          {next3.map((ev, i) => (
-            <div key={ev.id} style={i === next3.length - 1 ? { borderBottom: "none" } : {}}>
-              <UpcomingEventRow ev={ev} />
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".5rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
@@ -408,19 +455,15 @@ export default function HomeView({
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-            Team Communications
+            Team Updates
           </h2>
-          {unread > 0 && (
-            <span style={{
-              background: "#dc2626", color: "#fff", borderRadius: 100,
-              fontSize: ".55rem", fontWeight: 700, padding: ".14rem .48rem",
-              lineHeight: 1.4, whiteSpace: "nowrap",
-            }}>
-              {unread} new
+          {items.length > 0 && (
+            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
+              {items.length} post{items.length !== 1 ? "s" : ""}
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Post" onAdd={openAdd} />
+          <CoachBar coach={coach} label="Post Update" onAdd={openAdd} />
         </div>
       </div>
 
@@ -436,17 +479,12 @@ export default function HomeView({
               key={chip.id}
               onClick={() => setFilterCat(chip.id)}
               style={{
-                flexShrink: 0,
-                padding: ".3rem .75rem",
-                borderRadius: 100,
+                flexShrink: 0, padding: ".3rem .75rem", borderRadius: 100,
                 border: active ? "none" : "1px solid #e5e7eb",
                 background: active ? "#0b1e3d" : "#fff",
                 color: active ? "#fff" : "#6b7280",
-                fontSize: ".7rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                lineHeight: 1.4,
+                fontSize: ".7rem", fontWeight: 600, cursor: "pointer",
+                whiteSpace: "nowrap", lineHeight: 1.4,
                 transition: "background .13s ease, color .13s ease, border-color .13s ease",
               }}
             >
@@ -462,12 +500,12 @@ export default function HomeView({
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📣</div>
+          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📢</div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            {filterCat === "all" ? "No announcements yet" : `No ${filterCat} posts yet`}
+            {filterCat === "all" ? "No updates yet" : `No ${filterCat} posts yet`}
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Use the Post button to get started." : "Check back soon."}
+            {coach ? "Post your first update above." : "Check back soon."}
           </div>
         </div>
       ) : (
@@ -475,49 +513,46 @@ export default function HomeView({
           {pinned.length > 0 && (
             <>
               <SectionLabel label="📌 Pinned" />
-              {pinned.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
+              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {todayItems.length > 0 && (
             <>
               <SectionLabel label="Today" />
-              {todayItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
+              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {yesterdayItems.length > 0 && (
             <>
               <SectionLabel label="Yesterday" />
-              {yesterdayItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
+              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {earlierItems.length > 0 && (
             <>
               <SectionLabel label="Earlier" />
-              {earlierItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
+              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
         </>
       )}
 
-      {/* ── Add / Edit Modal ── */}
+      {/* ── Standalone files section ── */}
+      <div style={{ marginTop: "1.75rem" }}>
+        <FilesView slug={slug} initialFiles={initialFiles} coach={coach} />
+      </div>
+
+      {/* ── Composer modal ── */}
       {modalOpen && (
-        <Modal title={isEditing ? "Edit Announcement" : "New Announcement"} onClose={closeModal}>
+        <Modal title={isEditing ? "Edit Update" : "Post Update"} onClose={closeModal}>
           <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
             <label style={lbl}>
               Title *
-              <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Practice moved to Tuesday" autoFocus />
+              <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Bus departs at 6:45am" autoFocus />
             </label>
             <label style={lbl}>
-              Body
-              <textarea style={{ ...inp, minHeight: 80, resize: "vertical" }} value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} placeholder="Optional details…" />
+              Message
+              <textarea style={{ ...inp, minHeight: 80, resize: "vertical" } as React.CSSProperties} value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} placeholder="Optional details…" />
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>
               <label style={lbl}>
@@ -533,13 +568,72 @@ export default function HomeView({
               </label>
               <label style={lbl}>
                 Priority
-                <select style={inp} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as AForm["priority"] }))}>
+                <select style={inp} value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as UForm["priority"] }))}>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
                   <option value="pinned">Pinned</option>
                 </select>
               </label>
             </div>
+
+            {/* Attachment */}
+            <div>
+              <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".4rem" }}>
+                Attachment
+              </div>
+              {form.attachmentPreview && previewStyle ? (
+                <div style={{ display: "flex", alignItems: "center", gap: ".55rem", padding: ".6rem .75rem", background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: previewStyle.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".9rem", flexShrink: 0 }}>
+                    {previewStyle.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: ".82rem", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {form.attachmentPreview.name}
+                    </div>
+                    <div style={{ fontSize: ".65rem", color: "#9ca3af" }}>{formatSize(form.attachmentPreview.size_bytes)}</div>
+                  </div>
+                  <button
+                    onClick={() => setForm(f => ({ ...f, attachment_id: null, attachmentPreview: null }))}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".75rem", color: "#9ca3af", padding: ".25rem", lineHeight: 1, flexShrink: 0 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : attUploading ? (
+                <div style={{ background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".65rem .75rem" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".35rem" }}>
+                    <span style={{ fontSize: ".75rem", fontWeight: 600, color: "#374151" }}>Uploading…</span>
+                    <span style={{ fontSize: ".7rem", color: "#6b7280" }}>{attProgress}%</span>
+                  </div>
+                  <div style={{ background: "#e5e7eb", borderRadius: 100, height: 5, overflow: "hidden" }}>
+                    <div style={{ background: "linear-gradient(90deg, #0b1e3d, #1e4d7b)", height: "100%", width: `${attProgress}%`, borderRadius: 100, transition: "width .1s" }} />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setAttError(""); attachInputRef.current?.click(); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: ".4rem",
+                    padding: ".55rem .75rem", background: "#f8f9fb",
+                    border: "1.5px dashed #d1d5db", borderRadius: 10,
+                    cursor: "pointer", fontSize: ".78rem", fontWeight: 600,
+                    color: "#6b7280", width: "100%", justifyContent: "center",
+                    transition: "border-color .12s, background .12s",
+                  }}
+                >
+                  📎 Attach a file
+                </button>
+              )}
+              {attError && <p style={{ margin: ".3rem 0 0", color: "#dc2626", fontSize: ".75rem" }}>{attError}</p>}
+              <input
+                ref={attachInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                style={{ display: "none" }}
+                onChange={handleAttachmentSelect}
+              />
+            </div>
+
             {error && (
               <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
                 {error}
@@ -549,8 +643,12 @@ export default function HomeView({
               <button onClick={closeModal} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
                 Cancel
               </button>
-              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
-                {saving ? "Saving…" : isEditing ? "Save Changes" : "Post"}
+              <button
+                onClick={isEditing ? handleEdit : handleAdd}
+                disabled={saving || attUploading}
+                style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: (saving || attUploading) ? "not-allowed" : "pointer", opacity: (saving || attUploading) ? .7 : 1 }}
+              >
+                {saving ? "Posting…" : isEditing ? "Save Changes" : "Post Update"}
               </button>
             </div>
           </div>

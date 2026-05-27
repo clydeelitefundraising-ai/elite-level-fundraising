@@ -29,6 +29,8 @@ export type AnnouncementRow = {
   author_role: string;
   created_at: string;
   updated_at: string;
+  attachment_id: string | null;
+  attachment?: TeamFileRow | null;
 };
 
 export type CalendarEventRow = {
@@ -70,7 +72,7 @@ export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
 
 export async function getAnnouncements(slug: string): Promise<AnnouncementRow[]> {
   const res = await fetch(
-    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}&order=created_at.desc`,
+    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}&select=*,attachment:team_files!attachment_id(*)&order=created_at.desc`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];

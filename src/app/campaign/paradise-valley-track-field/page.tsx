@@ -1,3 +1,4 @@
+// @deprecated — static hardcoded demo. Superseded by /campaign/[slug]. Do not link here.
 import Image from "next/image";
 import "./campaign.css";
 

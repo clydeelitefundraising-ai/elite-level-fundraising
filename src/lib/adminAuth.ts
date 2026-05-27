@@ -3,7 +3,8 @@ import { createHash } from "crypto";
 export function getAdminToken(): string | null {
   const pw = process.env.ADMIN_PASSWORD;
   if (!pw) return null;
-  return createHash("sha256").update(pw + "elf_admin_2025").digest("hex");
+  const pepper = process.env.ADMIN_PEPPER ?? "elf_admin_2025";
+  return createHash("sha256").update(pw + pepper).digest("hex");
 }
 
 export function verifyToken(token: string | undefined): boolean {

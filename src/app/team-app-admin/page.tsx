@@ -1,3 +1,4 @@
+// @deprecated — prototype. Superseded by /admin. Do not link here.
 "use client";
 
 import Link from "next/link";

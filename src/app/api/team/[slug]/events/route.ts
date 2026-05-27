@@ -40,7 +40,6 @@ export async function POST(
       event_time: event_time?.trim() ?? "",
       location:   location?.trim() ?? "",
       type:       safeType,
-      coach_id:   coach.id,
     }),
   });
 

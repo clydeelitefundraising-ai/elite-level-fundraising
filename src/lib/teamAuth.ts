@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 
-const PEPPER = "elf_team_2025";
+const PEPPER = process.env.TEAM_COACH_PEPPER ?? "elf_team_2025";
 
 export function generateSalt(): string {
   return randomBytes(16).toString("hex");

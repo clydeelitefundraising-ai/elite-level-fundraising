@@ -10,8 +10,8 @@ import Modal from "../_components/Modal";
 
 const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
+  border: "1.5px solid #e5e7eb",
+  borderRadius: 9,
   fontSize: ".875rem",
   width: "100%",
   boxSizing: "border-box",
@@ -23,11 +23,11 @@ const lbl: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: ".3rem",
-  fontSize: ".75rem",
+  fontSize: ".72rem",
   fontWeight: 700,
   color: "#374151",
   textTransform: "uppercase",
-  letterSpacing: ".04em",
+  letterSpacing: ".05em",
 };
 
 // ── Event type styles ─────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string; accent: stri
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function todayISO(): string  { return new Date().toISOString().slice(0, 10); }
+function todayISO():    string { return new Date().toISOString().slice(0, 10); }
 function tomorrowISO(): string { return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10); }
 
 function parseDateHeader(d: string): { dayNum: string; weekday: string; monthYear: string } {
@@ -52,6 +52,146 @@ function parseDateHeader(d: string): { dayNum: string; weekday: string; monthYea
     weekday:   new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(dt),
     monthYear: new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(dt),
   };
+}
+
+// ── Date group card ───────────────────────────────────────────────────────────
+
+function DateGroupCard({
+  date,
+  evs,
+  isToday,
+  isTomorrow,
+  coach,
+  onEdit,
+  onDelete,
+}: {
+  date: string;
+  evs: CalendarEventRow[];
+  isToday: boolean;
+  isTomorrow: boolean;
+  coach: CoachSession | null;
+  onEdit: (ev: CalendarEventRow) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const { dayNum, weekday, monthYear } = parseDateHeader(date);
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: "#fff",
+        borderRadius: 14,
+        overflow: "hidden",
+        boxShadow: hovered
+          ? "0 4px 18px rgba(0,0,0,.09), 0 0 0 1px rgba(0,0,0,.05)"
+          : "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        marginBottom: ".75rem",
+        transform: hovered ? "translateY(-1px)" : "none",
+        transition: "transform .14s ease, box-shadow .14s ease",
+      }}
+    >
+      {/* Date header */}
+      <div style={{
+        padding: ".7rem 1rem .65rem",
+        borderBottom: "1px solid #f3f4f6",
+        display: "flex",
+        alignItems: "center",
+        gap: ".75rem",
+        background: isToday ? "linear-gradient(135deg, #f0f4ff 0%, #fff 60%)" : "#fff",
+      }}>
+        <div style={{
+          fontWeight: 800,
+          fontSize: "1.7rem",
+          color: isToday ? "#0b1e3d" : "#374151",
+          lineHeight: 1,
+          minWidth: 30,
+          textAlign: "center",
+        }}>
+          {dayNum}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827", lineHeight: 1.2 }}>
+            {weekday}
+          </div>
+          <div style={{ fontSize: ".64rem", color: "#9ca3af", marginTop: ".06rem" }}>
+            {monthYear}
+          </div>
+        </div>
+        {isToday && (
+          <span style={{ background: "#0b1e3d", color: "#fff", borderRadius: 100, fontSize: ".57rem", fontWeight: 700, padding: ".14rem .55rem", lineHeight: 1.4, flexShrink: 0 }}>
+            Today
+          </span>
+        )}
+        {isTomorrow && !isToday && (
+          <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".57rem", fontWeight: 700, padding: ".14rem .55rem", lineHeight: 1.4, flexShrink: 0 }}>
+            Tomorrow
+          </span>
+        )}
+      </div>
+
+      {/* Event rows */}
+      {evs.map((ev, i) => {
+        const s = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE["team"];
+        return (
+          <div key={ev.id} style={{
+            display: "flex",
+            alignItems: "stretch",
+            borderBottom: i < evs.length - 1 ? "1px solid #f6f6f8" : "none",
+          }}>
+            {/* Left accent bar */}
+            <div style={{ width: 3, background: s.accent, flexShrink: 0 }} />
+
+            {/* Content */}
+            <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: ".7rem", padding: ".65rem .9rem .65rem .75rem" }}>
+              {/* Time column */}
+              <div style={{ flexShrink: 0, width: 52, paddingTop: ".14rem", textAlign: "right" }}>
+                <span style={{ fontSize: ".72rem", fontWeight: 600, color: ev.event_time ? "#374151" : "#d1d5db" }}>
+                  {ev.event_time || "—"}
+                </span>
+              </div>
+
+              {/* Title + meta */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".12rem" }}>
+                  <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{ev.title}</span>
+                  <span style={{
+                    padding: ".07rem .42rem", borderRadius: 100,
+                    fontSize: ".55rem", fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: ".04em", background: s.bg, color: s.color, flexShrink: 0,
+                  }}>
+                    {ev.type}
+                  </span>
+                </div>
+                {ev.location && (
+                  <div style={{ fontSize: ".74rem", color: "#6b7280" }}>📍 {ev.location}</div>
+                )}
+                {coach && (
+                  <div style={{ display: "flex", gap: ".1rem", marginTop: ".28rem" }}>
+                    <button
+                      onClick={() => onEdit(ev)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                    >
+                      Edit
+                    </button>
+                    {coach.role === "head_coach" && (
+                      <button
+                        onClick={() => onDelete(ev.id)}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── Form type ─────────────────────────────────────────────────────────────────
@@ -88,7 +228,7 @@ export default function CalendarView({
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
 
-  const openAdd = () => { setForm({ ...BLANK, event_date: todayISO() }); setError(""); setShowAdd(true); };
+  const openAdd  = () => { setForm({ ...BLANK, event_date: todayISO() }); setError(""); setShowAdd(true); };
   const openEdit = (ev: CalendarEventRow) => { setForm(fromRow(ev)); setError(""); setEditing(ev); };
   const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
 
@@ -139,7 +279,6 @@ export default function CalendarView({
     if (res.ok) setEvents(prev => prev.filter(e => e.id !== id));
   };
 
-  // Group by date
   const groups = new Map<string, CalendarEventRow[]>();
   for (const ev of events) {
     if (!groups.has(ev.event_date)) groups.set(ev.event_date, []);
@@ -152,10 +291,10 @@ export default function CalendarView({
   const modalOpen = showAdd || isEditing;
 
   return (
-    <>
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Section header ── */}
-      <div style={{ marginBottom: ".625rem" }}>
-        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
+      <div style={{ marginBottom: ".65rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Schedule
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
@@ -163,7 +302,7 @@ export default function CalendarView({
             Team Calendar
           </h2>
           {events.length > 0 && (
-            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .45rem", lineHeight: 1.4 }}>
+            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
               {events.length} event{events.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -174,117 +313,31 @@ export default function CalendarView({
 
       {/* ── Feed ── */}
       {events.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 12, padding: "2.5rem 1.25rem", textAlign: "center", color: "#9ca3af", fontSize: ".88rem", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
-          <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .4 }}>📅</div>
-          No events scheduled yet.
+        <div style={{
+          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
+          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        }}>
+          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📅</div>
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+            No events scheduled
+          </div>
+          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+            {coach ? "Add the first event above." : "Check back soon for schedule updates."}
+          </div>
         </div>
       ) : (
-        Array.from(groups.entries()).map(([date, evs]) => {
-          const { dayNum, weekday, monthYear } = parseDateHeader(date);
-          const isToday    = date === today;
-          const isTomorrow = date === tomorrow;
-
-          return (
-            <div key={date} style={{
-              background: "#fff",
-              borderRadius: 12,
-              overflow: "hidden",
-              boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-              marginBottom: ".75rem",
-            }}>
-              {/* Date header */}
-              <div style={{ padding: ".65rem 1rem .6rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".75rem" }}>
-                <div style={{ fontWeight: 800, fontSize: "1.65rem", color: isToday ? "#0b1e3d" : "#374151", lineHeight: 1, minWidth: 28, textAlign: "center" }}>
-                  {dayNum}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: ".82rem", color: "#111827", lineHeight: 1.2 }}>
-                    {weekday}
-                  </div>
-                  <div style={{ fontSize: ".64rem", color: "#9ca3af", marginTop: ".06rem" }}>
-                    {monthYear}
-                  </div>
-                </div>
-                {isToday && (
-                  <span style={{ background: "#0b1e3d", color: "#fff", borderRadius: 100, fontSize: ".57rem", fontWeight: 700, padding: ".14rem .5rem", lineHeight: 1.4, flexShrink: 0 }}>
-                    Today
-                  </span>
-                )}
-                {isTomorrow && !isToday && (
-                  <span style={{ background: "#f3f4f6", color: "#374151", borderRadius: 100, fontSize: ".57rem", fontWeight: 700, padding: ".14rem .5rem", lineHeight: 1.4, flexShrink: 0 }}>
-                    Tomorrow
-                  </span>
-                )}
-              </div>
-
-              {/* Event rows */}
-              {evs.map((ev, i) => {
-                const s = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE["team"];
-                return (
-                  <div key={ev.id} style={{
-                    display: "flex",
-                    alignItems: "stretch",
-                    borderBottom: i < evs.length - 1 ? "1px solid #f6f6f8" : "none",
-                  }}>
-                    {/* Left accent bar */}
-                    <div style={{ width: 3, background: s.accent, flexShrink: 0 }} />
-
-                    {/* Content */}
-                    <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: ".7rem", padding: ".65rem .9rem .65rem .75rem" }}>
-                      {/* Time column */}
-                      <div style={{ flexShrink: 0, width: 52, paddingTop: ".14rem", textAlign: "right" }}>
-                        <span style={{ fontSize: ".72rem", fontWeight: 600, color: ev.event_time ? "#374151" : "#d1d5db" }}>
-                          {ev.event_time || "—"}
-                        </span>
-                      </div>
-
-                      {/* Title + meta */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".12rem" }}>
-                          <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{ev.title}</span>
-                          <span style={{
-                            padding: ".07rem .4rem",
-                            borderRadius: 100,
-                            fontSize: ".55rem",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: ".04em",
-                            background: s.bg,
-                            color: s.color,
-                            flexShrink: 0,
-                          }}>
-                            {ev.type}
-                          </span>
-                        </div>
-                        {ev.location && (
-                          <div style={{ fontSize: ".74rem", color: "#6b7280" }}>📍 {ev.location}</div>
-                        )}
-                        {coach && (
-                          <div style={{ display: "flex", gap: ".1rem", marginTop: ".28rem" }}>
-                            <button
-                              onClick={() => openEdit(ev)}
-                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-                            >
-                              Edit
-                            </button>
-                            {coach.role === "head_coach" && (
-                              <button
-                                onClick={() => handleDelete(ev.id)}
-                                style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })
+        Array.from(groups.entries()).map(([date, evs]) => (
+          <DateGroupCard
+            key={date}
+            date={date}
+            evs={evs}
+            isToday={date === today}
+            isTomorrow={date === tomorrow}
+            coach={coach}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+          />
+        ))
       )}
 
       {/* ── Add / Edit Modal ── */}
@@ -318,16 +371,22 @@ export default function CalendarView({
                 <option value="team">Team</option>
               </select>
             </label>
-            {error && <p style={{ margin: 0, color: "#dc2626", fontSize: ".82rem" }}>{error}</p>}
+            {error && (
+              <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+                {error}
+              </p>
+            )}
             <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", paddingTop: ".25rem" }}>
-              <button onClick={closeModal} style={{ padding: ".45rem .9rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 8, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} style={{ padding: ".45rem .9rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
+              <button onClick={closeModal} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
                 {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Event"}
               </button>
             </div>
           </div>
         </Modal>
       )}
-    </>
+    </div>
   );
 }
