@@ -73,8 +73,8 @@ export default function TeamHeader({ settings }: { settings: CampaignSettings })
         <div style={{ display: "flex", gap: ".15rem", flexShrink: 0, alignItems: "center" }}>
           <PushOptIn slug={settings.campaign_slug} />
           <Link
-            href={`/team/${settings.campaign_slug}/login`}
-            aria-label="Coach login"
+            href={`/team/${settings.campaign_slug}/settings`}
+            aria-label="Team settings"
             style={{ fontSize: "1.2rem", opacity: .75, padding: ".3rem", lineHeight: 1, display: "block", textDecoration: "none" }}
           >
             ⚙️

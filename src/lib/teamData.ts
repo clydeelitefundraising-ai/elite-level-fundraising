@@ -61,6 +61,21 @@ export type DonationStats = {
   donor_count: number;
 };
 
+export type JoinCodeRow = {
+  id: string;
+  campaign_slug: string;
+  code: string;
+  expires_at: string | null;
+  revoked: boolean;
+};
+
+export type ActiveJoinCode = {
+  id: string;
+  code: string;
+  expires_at: string | null;
+  created_at: string;
+};
+
 export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
   const res = await fetch(
     `${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&order=created_at.asc`,
@@ -112,6 +127,32 @@ export async function getAnnouncementMeta(
   if (!res.ok) return { count: 0, latestAt: null };
   const rows: { created_at: string }[] = await res.json();
   return { count: rows.length, latestAt: rows[0]?.created_at ?? null };
+}
+
+export async function getActiveJoinCode(slug: string): Promise<ActiveJoinCode | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_join_codes?campaign_slug=eq.${encodeURIComponent(slug)}&revoked=eq.false&select=id,code,expires_at,created_at&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: ActiveJoinCode[] = await res.json();
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const row = rows[0];
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
+  return row;
+}
+
+export async function getJoinCode(code: string): Promise<JoinCodeRow | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_join_codes?code=eq.${encodeURIComponent(code)}&revoked=eq.false&select=id,campaign_slug,code,expires_at,revoked&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: JoinCodeRow[] = await res.json();
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const row = rows[0];
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
+  return row;
 }
 
 export async function getDonationStats(slug: string): Promise<DonationStats> {
