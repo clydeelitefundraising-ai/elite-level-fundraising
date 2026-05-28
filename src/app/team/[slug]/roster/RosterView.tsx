@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
+import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -184,12 +185,13 @@ function AthleteCard({
 export default function RosterView({
   slug,
   initialAthletes,
-  coach,
+  actor,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
-  coach: CoachSession | null;
+  actor: TeamActor;
 }) {
+  const coach = coachSession(actor);
   const [athletes, setAthletes] = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,     setForm]     = useState<AthForm>(BLANK);
   const [editing,  setEditing]  = useState<TeamAthleteRow | null>(null);

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
+import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
@@ -296,13 +297,14 @@ export default function UpdatesView({
   slug,
   initialUpdates,
   initialFiles,
-  coach,
+  actor,
 }: {
   slug: string;
   initialUpdates: AnnouncementRow[];
   initialFiles: TeamFileRow[];
-  coach: CoachSession | null;
+  actor: TeamActor;
 }) {
+  const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialUpdates);
   const [form,      setForm]      = useState<UForm>(BLANK);
   const [editing,   setEditing]   = useState<AnnouncementRow | null>(null);
@@ -539,7 +541,7 @@ export default function UpdatesView({
 
       {/* ── Standalone files section ── */}
       <div style={{ marginTop: "1.75rem" }}>
-        <FilesView slug={slug} initialFiles={initialFiles} coach={coach} />
+        <FilesView slug={slug} initialFiles={initialFiles} actor={actor} />
       </div>
 
       {/* ── Composer modal ── */}

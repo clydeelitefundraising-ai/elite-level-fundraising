@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { TeamFileRow } from "@/lib/teamData";
-import type { CoachSession } from "@/lib/teamSession";
+import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -67,12 +67,13 @@ function formatDate(iso: string): string {
 export default function FilesView({
   slug,
   initialFiles,
-  coach,
+  actor,
 }: {
   slug: string;
   initialFiles: TeamFileRow[];
-  coach: CoachSession | null;
+  actor: TeamActor;
 }) {
+  const coach = coachSession(actor);
   const [files,        setFiles]        = useState<TeamFileRow[]>(initialFiles);
   const [uploading,    setUploading]    = useState(false);
   const [uploadFile,   setUploadFile]   = useState("");

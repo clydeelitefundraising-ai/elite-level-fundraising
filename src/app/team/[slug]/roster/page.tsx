@@ -1,5 +1,5 @@
 import { getTeamAthletes } from "@/lib/teamData";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor } from "@/lib/permissions.server";
 import RosterView from "./RosterView";
 
 export default async function RosterPage({
@@ -8,9 +8,9 @@ export default async function RosterPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [athletes, coach] = await Promise.all([
+  const [athletes, actor] = await Promise.all([
     getTeamAthletes(slug),
-    getCoachSession(slug),
+    getTeamActor(slug),
   ]);
-  return <RosterView slug={slug} initialAthletes={athletes} coach={coach} />;
+  return <RosterView slug={slug} initialAthletes={athletes} actor={actor} />;
 }

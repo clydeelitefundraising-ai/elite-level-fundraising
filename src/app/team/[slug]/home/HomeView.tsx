@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
+import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -292,13 +293,14 @@ export default function HomeView({
   slug,
   initialAnnouncements,
   initialUpcoming,
-  coach,
+  actor,
 }: {
   slug: string;
   initialAnnouncements: AnnouncementRow[];
   initialUpcoming: CalendarEventRow[];
-  coach: CoachSession | null;
+  actor: TeamActor;
 }) {
+  const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
   const [form,      setForm]      = useState<AForm>(BLANK);
   const [editing,   setEditing]   = useState<AnnouncementRow | null>(null);

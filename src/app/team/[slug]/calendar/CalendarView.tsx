@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
+import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -215,12 +216,13 @@ function fromRow(e: CalendarEventRow): EvForm {
 export default function CalendarView({
   slug,
   initialEvents,
-  coach,
+  actor,
 }: {
   slug: string;
   initialEvents: CalendarEventRow[];
-  coach: CoachSession | null;
+  actor: TeamActor;
 }) {
+  const coach = coachSession(actor);
   const [events,  setEvents]  = useState<CalendarEventRow[]>(initialEvents);
   const [form,    setForm]    = useState<EvForm>(BLANK);
   const [editing, setEditing] = useState<CalendarEventRow | null>(null);

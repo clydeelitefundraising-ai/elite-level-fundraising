@@ -1,5 +1,5 @@
 import { getCalendarEvents } from "@/lib/teamData";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor } from "@/lib/permissions.server";
 import CalendarView from "./CalendarView";
 
 export default async function CalendarPage({
@@ -8,9 +8,9 @@ export default async function CalendarPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [events, coach] = await Promise.all([
+  const [events, actor] = await Promise.all([
     getCalendarEvents(slug),
-    getCoachSession(slug),
+    getTeamActor(slug),
   ]);
-  return <CalendarView slug={slug} initialEvents={events} coach={coach} />;
+  return <CalendarView slug={slug} initialEvents={events} actor={actor} />;
 }
