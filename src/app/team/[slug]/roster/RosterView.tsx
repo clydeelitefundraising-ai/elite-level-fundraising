@@ -52,9 +52,13 @@ type AthForm = {
   event: string;
   jersey_number: string;
   grad_year: string;
+  goal_cents: string;   // stored as dollars in UI
+  profile_photo: string;
 };
 
-const BLANK: AthForm = { name: "", event: "", jersey_number: "", grad_year: "" };
+const BLANK: AthForm = {
+  name: "", event: "", jersey_number: "", grad_year: "", goal_cents: "", profile_photo: "",
+};
 
 function fromRow(a: TeamAthleteRow): AthForm {
   return {
@@ -62,6 +66,8 @@ function fromRow(a: TeamAthleteRow): AthForm {
     event:         a.event,
     jersey_number: a.jersey_number != null ? String(a.jersey_number) : "",
     grad_year:     a.grad_year     != null ? String(a.grad_year)     : "",
+    goal_cents:    a.goal_cents    != null ? String(a.goal_cents / 100) : "",
+    profile_photo: a.profile_photo ?? "",
   };
 }
 
@@ -107,7 +113,6 @@ function AthleteCard({
         cursor: "pointer",
       }}
     >
-      {/* Jersey number */}
       {a.jersey_number != null && (
         <span style={{
           position: "absolute", top: ".55rem", right: ".6rem",
@@ -119,7 +124,6 @@ function AthleteCard({
         </span>
       )}
 
-      {/* Avatar */}
       <div style={{ marginBottom: ".5rem" }}>
         {a.profile_photo ? (
           <img
@@ -139,12 +143,10 @@ function AthleteCard({
         )}
       </div>
 
-      {/* Name */}
       <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d", lineHeight: 1.2, marginBottom: ".28rem" }}>
         {a.name}
       </div>
 
-      {/* Event badge */}
       {a.event && (
         <span style={{
           display: "inline-block", padding: ".07rem .42rem", borderRadius: 100,
@@ -156,14 +158,12 @@ function AthleteCard({
         </span>
       )}
 
-      {/* Grad year */}
       {a.grad_year != null && (
         <div style={{ fontSize: ".63rem", color: "#9ca3af" }}>
           Class of &apos;{String(a.grad_year).slice(-2)}
         </div>
       )}
 
-      {/* Coach actions — stopPropagation prevents card onClick from firing */}
       {coach && (
         <div style={{ display: "flex", gap: ".1rem", justifyContent: "center", marginTop: ".45rem" }}>
           <button
@@ -198,16 +198,53 @@ export default function RosterView({
   actor: TeamActor;
 }) {
   const coach = coachSession(actor);
-  const [athletes, setAthletes] = useState<TeamAthleteRow[]>(initialAthletes);
-  const [form,     setForm]     = useState<AthForm>(BLANK);
-  const [editing,  setEditing]  = useState<TeamAthleteRow | null>(null);
-  const [showAdd,  setShowAdd]  = useState(false);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
+  const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
+  const [form,           setForm]           = useState<AthForm>(BLANK);
+  const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
+  const [showAdd,        setShowAdd]        = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [error,          setError]          = useState("");
+  const [photoPreview,   setPhotoPreview]   = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError,     setPhotoError]     = useState("");
 
-  const openAdd  = () => { setForm(BLANK); setError(""); setShowAdd(true); };
-  const openEdit = (a: TeamAthleteRow) => { setForm(fromRow(a)); setError(""); setEditing(a); };
-  const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
+  const resetPhoto = () => { setPhotoPreview(""); setPhotoError(""); setPhotoUploading(false); };
+
+  const openAdd = () => {
+    setForm(BLANK); setError(""); resetPhoto(); setShowAdd(true);
+  };
+
+  const openEdit = (a: TeamAthleteRow) => {
+    setForm(fromRow(a)); setError("");
+    setPhotoPreview(a.profile_photo ?? ""); setPhotoError(""); setPhotoUploading(false);
+    setEditing(a);
+  };
+
+  const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); resetPhoto(); };
+
+  const handlePhotoUpload = async (file: File) => {
+    setPhotoUploading(true);
+    setPhotoError("");
+    const localPreview = URL.createObjectURL(file);
+    setPhotoPreview(localPreview);
+
+    const fd = new FormData();
+    fd.append("photo", file);
+    const res = await fetch(`/api/team/${slug}/roster/photo`, { method: "POST", body: fd });
+    const data = await res.json();
+
+    URL.revokeObjectURL(localPreview);
+    setPhotoUploading(false);
+
+    if (!res.ok) {
+      setPhotoError(data.error ?? "Upload failed");
+      setPhotoPreview(form.profile_photo);
+      return;
+    }
+
+    setPhotoPreview(data.url);
+    setForm(f => ({ ...f, profile_photo: data.url }));
+  };
 
   const handleAdd = async () => {
     if (!form.name.trim() || !form.event.trim()) { setError("Name and event are required."); return; }
@@ -220,6 +257,8 @@ export default function RosterView({
         event:         form.event.trim(),
         jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
+        goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
+        profile_photo: form.profile_photo || null,
       }),
     });
     const data = await res.json();
@@ -240,6 +279,8 @@ export default function RosterView({
         event:         form.event.trim(),
         jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
+        goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
+        profile_photo: form.profile_photo || null,
       }),
     });
     const data = await res.json();
@@ -247,9 +288,15 @@ export default function RosterView({
     if (!res.ok) { setError(data.error ?? "Failed to update athlete."); return; }
     setAthletes(prev => prev.map(a =>
       a.id === editing.id
-        ? { ...a, name: form.name.trim(), event: form.event.trim(),
+        ? {
+            ...a,
+            name:          form.name.trim(),
+            event:         form.event.trim(),
             jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
-            grad_year: form.grad_year ? parseInt(form.grad_year) : null }
+            grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
+            goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
+            profile_photo: form.profile_photo || null,
+          }
         : a
     ));
     closeModal();
@@ -335,7 +382,63 @@ export default function RosterView({
                 Grad Year
                 <input type="number" style={inp} value={form.grad_year} onChange={e => setForm(f => ({ ...f, grad_year: e.target.value }))} placeholder="e.g. 2027" />
               </label>
+              <label style={{ ...lbl, gridColumn: "1 / -1" }}>
+                Fundraising Goal
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: ".75rem", top: "50%", transform: "translateY(-50%)", color: "#9ca3af", fontSize: ".875rem", pointerEvents: "none" }}>$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    style={{ ...inp, paddingLeft: "1.5rem" }}
+                    value={form.goal_cents}
+                    onChange={e => setForm(f => ({ ...f, goal_cents: e.target.value }))}
+                    placeholder="500"
+                  />
+                </div>
+              </label>
             </div>
+
+            {/* ── Photo upload ── */}
+            <div style={lbl}>
+              Photo
+              <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginTop: ".1rem" }}>
+                {(photoPreview || form.profile_photo) && (
+                  <img
+                    src={photoPreview || form.profile_photo}
+                    alt="Preview"
+                    style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "0 2px 6px rgba(0,0,0,.12)" }}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  <label style={{
+                    display: "inline-block", padding: ".4rem .85rem",
+                    background: photoUploading ? "#f9fafb" : "#f3f4f6",
+                    border: "1.5px solid #e5e7eb", borderRadius: 8,
+                    fontSize: ".78rem", fontWeight: 600, color: photoUploading ? "#9ca3af" : "#374151",
+                    cursor: photoUploading ? "not-allowed" : "pointer",
+                  }}>
+                    {photoUploading ? "Uploading…" : photoPreview || form.profile_photo ? "Change Photo" : "Choose Photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      disabled={photoUploading}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); }}
+                    />
+                  </label>
+                  <div style={{ fontSize: ".65rem", color: "#9ca3af", marginTop: ".25rem", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                    JPEG, PNG, HEIC · max 10MB · auto-resized
+                  </div>
+                </div>
+              </div>
+              {photoError && (
+                <p style={{ margin: 0, color: "#dc2626", fontSize: ".75rem", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                  {photoError}
+                </p>
+              )}
+            </div>
+
             {error && (
               <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
                 {error}
@@ -345,7 +448,7 @@ export default function RosterView({
               <button onClick={closeModal} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
                 Cancel
               </button>
-              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
+              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving || photoUploading} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving || photoUploading ? "not-allowed" : "pointer", opacity: saving || photoUploading ? .7 : 1 }}>
                 {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Athlete"}
               </button>
             </div>

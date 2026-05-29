@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, event, jersey_number, grad_year, profile_photo } = await req.json();
+  const { name, event, jersey_number, grad_year, profile_photo, goal_cents } = await req.json();
 
   const patch: Record<string, unknown> = {};
   if (name?.trim())   patch.name  = name.trim();
@@ -29,6 +29,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   if (jersey_number  !== undefined) patch.jersey_number  = jersey_number;
   if (grad_year      !== undefined) patch.grad_year      = grad_year;
   if (profile_photo  !== undefined) patch.profile_photo  = profile_photo;
+  if (goal_cents     !== undefined) patch.goal_cents     = goal_cents;
 
   const res = await fetch(
     `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
