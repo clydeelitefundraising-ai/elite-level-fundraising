@@ -112,6 +112,11 @@ export default function AthleteProfileView({
   const teamPct    = teamGoal > 0 ? (teamRaisedCents / teamGoal) * 100 : 0;
   const amtCents   = preset !== null ? preset * 100 : Math.round((parseFloat(custom) || 0) * 100);
 
+  // Canonical URL for sharing — prefer NEXT_PUBLIC_SITE_URL over window.location.origin
+  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
+    ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const shareUrl = `${siteOrigin}/team/${slug}/athlete/${athleteId}`;
+
   const handleDonate = async () => {
     if (amtCents < 100) { setDonateErr("Minimum donation is $1."); return; }
     setDonating(true);
@@ -141,7 +146,7 @@ export default function AthleteProfileView({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* ignore on unsupported browsers */ }
@@ -153,7 +158,7 @@ export default function AthleteProfileView({
         await navigator.share({
           title: `Support ${athlete.name}`,
           text: `Help ${firstName} reach their fundraising goal!`,
-          url: window.location.href,
+          url: shareUrl,
         });
       } catch { /* user cancelled or not supported */ }
     } else {

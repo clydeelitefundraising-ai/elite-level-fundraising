@@ -219,34 +219,35 @@ function AthleteView({
   const pct        = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
   const profilePath = `/team/${slug}/athlete/${athlete.id}`;
 
+  // Prefer the canonical site URL so QR codes and share links work outside localhost
+  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
+    ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const profileUrl = `${siteOrigin}${profilePath}`;
+
   // Generate QR code data URL client-side on mount
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fullUrl = `${window.location.origin}${profilePath}`;
     import("qrcode").then(QRCode => {
-      QRCode.default.toDataURL(fullUrl, { width: 240, margin: 2, color: { dark: "#0b1e3d" } })
+      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#0b1e3d" } })
         .then(url => setQrDataUrl(url))
         .catch(() => { /* silently ignore if qrcode fails */ });
     });
-  }, [profilePath]);
+  }, [profileUrl]);
 
   const handleCopy = async () => {
     try {
-      const url = `${window.location.origin}${profilePath}`;
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(profileUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* ignore */ }
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}${profilePath}`;
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
           title: `Support ${athlete.name}`,
           text: `Help ${firstName} reach their fundraising goal!`,
-          url,
+          url: profileUrl,
         });
       } catch { /* cancelled */ }
     } else {
