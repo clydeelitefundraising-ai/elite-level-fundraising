@@ -176,6 +176,72 @@ export async function getTeamSponsors(slug: string): Promise<SponsorRow[]> {
   return res.json();
 }
 
+// ── Shop types ────────────────────────────────────────────────────────────────
+
+export type TeamVariantRow = {
+  id:          string;
+  product_id:  string;
+  name:        string;
+  price_delta: number;
+};
+
+export type TeamProductRow = {
+  id:            string;
+  campaign_slug: string;
+  name:          string;
+  description:   string | null;
+  category:      string;
+  price_cents:   number;
+  cost_cents:    number | null;
+  image_url:     string | null;
+  visible:       boolean;
+  display_order: number;
+  created_at:    string;
+  variants:      TeamVariantRow[];
+};
+
+export type TeamOrderItemRow = {
+  id:           string;
+  order_id:     string;
+  product_id:   string | null;
+  variant_id:   string | null;
+  product_name: string;
+  variant_name: string | null;
+  price_cents:  number;
+  quantity:     number;
+};
+
+export type TeamOrderRow = {
+  id:                string;
+  campaign_slug:     string;
+  stripe_session_id: string;
+  customer_name:     string | null;
+  customer_email:    string | null;
+  status:            "pending" | "paid" | "fulfilled" | "cancelled";
+  total_cents:       number;
+  notes:             string | null;
+  created_at:        string;
+  items:             TeamOrderItemRow[];
+};
+
+export async function getAllTeamProducts(slug: string): Promise<TeamProductRow[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_products?campaign_slug=eq.${encodeURIComponent(slug)}&select=*,variants:team_product_variants(id,name,price_delta)&order=display_order.asc,created_at.asc`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function getTeamOrders(slug: string): Promise<TeamOrderRow[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_orders?campaign_slug=eq.${encodeURIComponent(slug)}&select=*,items:team_order_items(id,product_name,variant_name,price_cents,quantity)&order=created_at.desc`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function getDonationStats(slug: string): Promise<DonationStats> {
   const res = await fetch(
     `${BASE}/rest/v1/donations?campaign_slug=eq.${encodeURIComponent(slug)}&select=amount_cents`,
