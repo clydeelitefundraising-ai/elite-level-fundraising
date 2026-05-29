@@ -87,9 +87,10 @@ async function saveDonation(sessionId: string) {
     await insertDonation({
       stripe_session_id: sessionId,
       donor_name:        session.metadata?.donor_name       ?? null,
-      amount_cents:     session.amount_total,
-      athlete_name:     session.metadata?.athlete_name     ?? null,
-      donation_message: session.metadata?.donation_message ?? null,
+      amount_cents:      session.amount_total,
+      athlete_name:      session.metadata?.athlete_name     ?? null,
+      donation_message:  session.metadata?.donation_message ?? null,
+      campaign_slug:     session.metadata?.campaign_slug    ?? "paradise-valley-track-field-live",
     });
     console.log("[success] donation saved to Supabase");
   } catch (err) {
