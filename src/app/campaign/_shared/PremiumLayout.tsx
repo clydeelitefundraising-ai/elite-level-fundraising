@@ -27,9 +27,12 @@ export type PremiumLayoutProps = {
   activeFilter: string;
   setActiveFilter: (v: string) => void;
   recentDonations: { name: string; amount: number; message: string; time: string }[];
-  goldSponsors: { name: string; url: string }[];
-  silverSponsors: { name: string; url: string }[];
-  bronzeSponsors: { name: string; url: string }[];
+  titleSponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
+  platinumSponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
+  goldSponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
+  silverSponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
+  bronzeSponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
+  communitySponsors: { name: string; url: string; logo_url?: string | null; description?: string | null }[];
   missionItems: { icon: string; label: string; desc: string }[];
   showLeaderboard: boolean;
   showProgramIdentity: boolean;
@@ -66,7 +69,7 @@ export default function PremiumLayout({
   raised, donors, goal, daysLeft, percent,
   athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
   recentDonations,
-  goldSponsors, silverSponsors, bronzeSponsors,
+  titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
   missionItems,
   showLeaderboard, showProgramIdentity, showShareSection,
   showFundUses, showRecentDonations, showSponsors, showDonationCard,
@@ -357,39 +360,33 @@ export default function PremiumLayout({
             <p className="section-label">Community Partners</p>
             <h2 className="cl-sponsors-title">OUR LOCAL SPONSORS</h2>
             <p className="cl-sponsors-sub">Businesses investing in our student athletes</p>
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-gold">🥇 Gold Sponsors</div>
-              <div className="cl-tier-logos">
-                {goldSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-gold">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
+            {([
+              { key: "title",             items: titleSponsors,     label: "👑 Title Sponsor",      cls: "cl-logo-title"     },
+              { key: "platinum",          items: platinumSponsors,  label: "💎 Platinum Sponsors",  cls: "cl-logo-platinum"  },
+              { key: "gold",              items: goldSponsors,      label: "🥇 Gold Sponsors",      cls: "cl-logo-gold"      },
+              { key: "silver",            items: silverSponsors,    label: "🥈 Silver Sponsors",    cls: "cl-logo-silver"    },
+              { key: "bronze",            items: bronzeSponsors,    label: "🥉 Bronze Sponsors",    cls: "cl-logo-bronze"    },
+              { key: "community_partner", items: communitySponsors, label: "🤝 Community Partners", cls: "cl-logo-community" },
+            ] as const).filter(g => g.items.length > 0).map(g => (
+              <div key={g.key} className="cl-tier">
+                <div className={`cl-tier-label cl-tier-${g.key}`}>{g.label}</div>
+                <div className="cl-tier-logos">
+                  {g.items.map((s) => (
+                    <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className={`cl-sponsor-logo ${g.cls}`}>
+                      <div className="cl-sponsor-logo-area">
+                        {s.logo_url
+                          ? <img src={s.logo_url} alt={s.name} className="cl-sponsor-logo-img" />
+                          : <span className="cl-sponsor-logo-fallback">{s.name[0]?.toUpperCase() ?? "S"}</span>
+                        }
+                      </div>
+                      <span className="cl-sponsor-name">{s.name}</span>
+                      {s.description && <span className="cl-sponsor-desc">{s.description}</span>}
+                      <span className="cl-sponsor-visit">Visit →</span>
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-silver">🥈 Silver Sponsors</div>
-              <div className="cl-tier-logos">
-                {silverSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-silver">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-bronze">🥉 Bronze Sponsors</div>
-              <div className="cl-tier-logos">
-                {bronzeSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-bronze">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </section>
       )}

@@ -1,4 +1,5 @@
-import type { AthleteRow } from "@/lib/supabase";
+import type { AthleteRow, SponsorRow } from "@/lib/supabase";
+export type { SponsorRow };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -164,6 +165,15 @@ export async function getJoinCode(code: string): Promise<JoinCodeRow | null> {
   const row = rows[0];
   if (row.expires_at && new Date(row.expires_at) < new Date()) return null;
   return row;
+}
+
+export async function getTeamSponsors(slug: string): Promise<SponsorRow[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&order=display_order.asc,created_at.asc`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function getDonationStats(slug: string): Promise<DonationStats> {

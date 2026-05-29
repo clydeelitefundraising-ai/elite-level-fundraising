@@ -84,7 +84,15 @@ export type SponsorRow = {
   campaign_slug: string;
   name: string;
   url: string;
-  tier: "gold" | "silver" | "bronze";
+  tier: "title" | "platinum" | "gold" | "silver" | "bronze" | "community_partner";
+  logo_url: string | null;
+  description: string | null;
+  display_order: number;
+  visible: boolean;
+  sponsorship_amount_cents: number | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
   created_at: string;
 };
 
@@ -194,14 +202,14 @@ export async function deleteAthlete(id: string): Promise<void> {
 export async function getSponsors(slug: string): Promise<SponsorRow[]> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
-    `${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&order=created_at.asc`,
+    `${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&visible=eq.true&order=display_order.asc,created_at.asc`,
     { headers: headers(key), cache: "no-store" },
   );
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function addSponsor(data: Omit<SponsorRow, "id" | "created_at">): Promise<SponsorRow> {
+export async function addSponsor(data: Pick<SponsorRow, "campaign_slug" | "name" | "url" | "tier"> & Partial<Omit<SponsorRow, "id" | "created_at" | "campaign_slug" | "name" | "url" | "tier">>): Promise<SponsorRow> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(`${BASE}/rest/v1/sponsors`, {
     method: "POST",
@@ -218,7 +226,7 @@ export async function addSponsor(data: Omit<SponsorRow, "id" | "created_at">): P
 
 export async function updateSponsor(
   id: string,
-  data: { name: string; url: string; tier: string },
+  data: Partial<Omit<SponsorRow, "id" | "campaign_slug" | "created_at">>,
 ): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(

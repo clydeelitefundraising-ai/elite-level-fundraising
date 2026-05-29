@@ -16,6 +16,7 @@ const TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "calendar",   label: "Calendar",   icon: "📅" },
   { href: "files",      label: "Updates",    icon: "📢" },
   { href: "fundraiser", label: "Fundraiser", icon: "💰" },
+  { href: "sponsors",   label: "Sponsors",   icon: "🤝" },
 ];
 
 export default function TeamNav({

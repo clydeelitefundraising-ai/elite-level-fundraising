@@ -24,6 +24,8 @@ const initialDonations = [
   { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                   time: "1 day ago"   },
 ];
 
+type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
+
 const FALLBACK_GOLD_SPONSORS   = [{ name: "Local Business",    url: "https://example.com" }];
 const FALLBACK_SILVER_SPONSORS = [{ name: "Community Partner", url: "https://example.com" }];
 const FALLBACK_BRONZE_SPONSORS = [{ name: "Area Sponsor",      url: "https://example.com" }];
@@ -68,9 +70,12 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
   const [athletes,        setAthletes]        = useState(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
-  const [goldSponsors,    setGoldSponsors]    = useState(FALLBACK_GOLD_SPONSORS);
-  const [silverSponsors,  setSilverSponsors]  = useState(FALLBACK_SILVER_SPONSORS);
-  const [bronzeSponsors,  setBronzeSponsors]  = useState(FALLBACK_BRONZE_SPONSORS);
+  const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
+  const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
+  const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>(FALLBACK_GOLD_SPONSORS);
+  const [silverSponsors,    setSilverSponsors]    = useState<SponsorItem[]>(FALLBACK_SILVER_SPONSORS);
+  const [bronzeSponsors,    setBronzeSponsors]    = useState<SponsorItem[]>(FALLBACK_BRONZE_SPONSORS);
+  const [communitySponsors, setCommunitySponsors] = useState<SponsorItem[]>([]);
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");
   const [mascot,          setMascot]          = useState("Team");
@@ -143,13 +148,18 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
         }
         if (Array.isArray(fetchedSponsors)) {
-          const byTier = (t: string) =>
+          const byTier = (t: string): SponsorItem[] =>
             fetchedSponsors
               .filter((s: { tier: string }) => s.tier === t)
-              .map((s: { name: string; url: string }) => ({ name: s.name, url: s.url }));
+              .map((s: { name: string; url: string; logo_url?: string | null; description?: string | null }) => ({
+                name: s.name, url: s.url, logo_url: s.logo_url ?? null, description: s.description ?? null,
+              }));
+          setTitleSponsors(byTier("title"));
+          setPlatinumSponsors(byTier("platinum"));
           setGoldSponsors(byTier("gold"));
           setSilverSponsors(byTier("silver"));
           setBronzeSponsors(byTier("bronze"));
+          setCommunitySponsors(byTier("community_partner"));
         }
       })
       .catch(() => {/* keep fallback data */});
@@ -251,7 +261,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     raised,       donors,    goal,   daysLeft,     percent,
     athletes,     filteredAthletes,  filters,      activeFilter, setActiveFilter,
     recentDonations,
-    goldSponsors, silverSponsors, bronzeSponsors,
+    titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
     missionItems,
     showLeaderboard, showProgramIdentity, showShareSection,
     showFundUses,    showRecentDonations, showSponsors, showDonationCard,
@@ -619,41 +629,33 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             <h2 className="cl-sponsors-title">OUR LOCAL SPONSORS</h2>
             <p className="cl-sponsors-sub">Businesses investing in our student athletes</p>
 
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-gold">🥇 Gold Sponsors</div>
-              <div className="cl-tier-logos">
-                {goldSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-gold">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
+            {([
+              { key: "title",             items: titleSponsors,     label: "👑 Title Sponsor",      cls: "cl-logo-title"    },
+              { key: "platinum",          items: platinumSponsors,  label: "💎 Platinum Sponsors",  cls: "cl-logo-platinum" },
+              { key: "gold",              items: goldSponsors,      label: "🥇 Gold Sponsors",      cls: "cl-logo-gold"     },
+              { key: "silver",            items: silverSponsors,    label: "🥈 Silver Sponsors",    cls: "cl-logo-silver"   },
+              { key: "bronze",            items: bronzeSponsors,    label: "🥉 Bronze Sponsors",    cls: "cl-logo-bronze"   },
+              { key: "community_partner", items: communitySponsors, label: "🤝 Community Partners", cls: "cl-logo-community"},
+            ] as const).filter(g => g.items.length > 0).map(g => (
+              <div key={g.key} className="cl-tier">
+                <div className={`cl-tier-label cl-tier-${g.key}`}>{g.label}</div>
+                <div className="cl-tier-logos">
+                  {g.items.map((s) => (
+                    <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className={`cl-sponsor-logo ${g.cls}`}>
+                      <div className="cl-sponsor-logo-area">
+                        {s.logo_url
+                          ? <img src={s.logo_url} alt={s.name} className="cl-sponsor-logo-img" />
+                          : <span className="cl-sponsor-logo-fallback">{s.name[0]?.toUpperCase() ?? "S"}</span>
+                        }
+                      </div>
+                      <span className="cl-sponsor-name">{s.name}</span>
+                      {s.description && <span className="cl-sponsor-desc">{s.description}</span>}
+                      <span className="cl-sponsor-visit">Visit →</span>
+                    </a>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-silver">🥈 Silver Sponsors</div>
-              <div className="cl-tier-logos">
-                {silverSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-silver">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-
-            <div className="cl-tier">
-              <div className="cl-tier-label cl-tier-bronze">🥉 Bronze Sponsors</div>
-              <div className="cl-tier-logos">
-                {bronzeSponsors.map((s) => (
-                  <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="cl-sponsor-logo cl-logo-bronze">
-                    <span className="cl-sponsor-name">{s.name}</span>
-                    <span className="cl-sponsor-visit">Visit →</span>
-                  </a>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </section>
       )}
