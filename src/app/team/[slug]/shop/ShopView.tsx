@@ -380,7 +380,27 @@ function ProductModal({
   };
 
   return (
-    <Modal title={isEditing ? "Edit Product" : "Add Product"} onClose={onClose}>
+    <Modal
+      title={isEditing ? "Edit Product" : "Add Product"}
+      onClose={onClose}
+      footer={
+        <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
+          {formError && (
+            <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              {formError}
+            </p>
+          )}
+          <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
+            <button onClick={onClose} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+              Cancel
+            </button>
+            <button onClick={onSave} disabled={saving || imageUploading} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving || imageUploading ? "not-allowed" : "pointer", opacity: saving || imageUploading ? .7 : 1 }}>
+              {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Product"}
+            </button>
+          </div>
+        </div>
+      }
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
 
         <label style={lbl}>
@@ -472,18 +492,6 @@ function ProductModal({
           </div>
         </div>
 
-        {formError && (
-          <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
-            {formError}
-          </p>
-        )}
-
-        <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", paddingTop: ".25rem" }}>
-          <button onClick={onClose} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-          <button onClick={onSave} disabled={saving || imageUploading} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving || imageUploading ? "not-allowed" : "pointer", opacity: saving || imageUploading ? .7 : 1 }}>
-            {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Product"}
-          </button>
-        </div>
       </div>
     </Modal>
   );
