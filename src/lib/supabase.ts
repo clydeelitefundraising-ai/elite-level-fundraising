@@ -15,6 +15,7 @@ export type DonationRow = {
   donor_name: string | null;
   amount_cents: number;
   athlete_name: string | null;
+  athlete_id?: string | null;
   donation_message: string | null;
   campaign_slug?: string | null;
   created_at: string;

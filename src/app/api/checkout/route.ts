@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { amountCents, athleteName, donorName, donationMessage, campaignSlug } =
+  const { amountCents, athleteName, athleteId, donorName, donationMessage, campaignSlug } =
     await req.json();
 
   if (!amountCents || amountCents < 100) {
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
 
   if (donorName)        params.set("metadata[donor_name]",        donorName);
   if (athleteName)      params.set("metadata[athlete_name]",      athleteName);
+  if (athleteId)        params.set("metadata[athlete_id]",        athleteId);
   if (donationMessage)  params.set("metadata[donation_message]",  donationMessage);
   params.set("metadata[campaign_slug]", slug);
 

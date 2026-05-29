@@ -11,11 +11,12 @@ function h() {
   };
 }
 
-// Extends the existing AthleteRow with the optional columns added in Phase 1
+// Extends the existing AthleteRow with the optional columns added in Phase 11 + 12
 export type TeamAthleteRow = AthleteRow & {
   jersey_number: number | null;
   grad_year: number | null;
   profile_photo: string | null;
+  goal_cents: number | null;
 };
 
 export type AnnouncementRow = {
@@ -75,6 +76,16 @@ export type ActiveJoinCode = {
   expires_at: string | null;
   created_at: string;
 };
+
+export async function getAthleteById(id: string): Promise<TeamAthleteRow | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: TeamAthleteRow[] = await res.json();
+  return rows[0] ?? null;
+}
 
 export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
   const res = await fetch(

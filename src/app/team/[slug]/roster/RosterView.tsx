@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { coachSession, type TeamActor } from "@/lib/permissions";
@@ -68,20 +69,24 @@ function fromRow(a: TeamAthleteRow): AthForm {
 
 function AthleteCard({
   a,
+  slug,
   coach,
   onEdit,
   onDelete,
 }: {
   a: TeamAthleteRow;
+  slug: string;
   coach: CoachSession | null;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const bg = avatarColor(a.name);
+  const router  = useRouter();
+  const bg      = avatarColor(a.name);
 
   return (
     <div
+      onClick={() => router.push(`/team/${slug}/athlete/${a.id}`)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -99,6 +104,7 @@ function AthleteCard({
         position: "relative",
         transform: hovered ? "translateY(-2px)" : "none",
         transition: "transform .15s ease, box-shadow .15s ease",
+        cursor: "pointer",
       }}
     >
       {/* Jersey number */}
@@ -157,18 +163,18 @@ function AthleteCard({
         </div>
       )}
 
-      {/* Coach actions */}
+      {/* Coach actions — stopPropagation prevents card onClick from firing */}
       {coach && (
         <div style={{ display: "flex", gap: ".1rem", justifyContent: "center", marginTop: ".45rem" }}>
           <button
-            onClick={() => onEdit(a)}
+            onClick={e => { e.stopPropagation(); onEdit(a); }}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
           >
             Edit
           </button>
           {coach.role === "head_coach" && (
             <button
-              onClick={() => onDelete(a.id)}
+              onClick={e => { e.stopPropagation(); onDelete(a.id); }}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
             >
               Remove
@@ -299,6 +305,7 @@ export default function RosterView({
             <AthleteCard
               key={a.id}
               a={a}
+              slug={slug}
               coach={coach}
               onEdit={openEdit}
               onDelete={handleDelete}
