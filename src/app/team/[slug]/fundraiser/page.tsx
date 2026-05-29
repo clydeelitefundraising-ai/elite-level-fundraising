@@ -351,6 +351,24 @@ function TeamCampaignView({
           </div>
         </div>
       )}
+
+      {/* ── Analytics entry point ── */}
+      <a
+        href={`/team/${settings.campaign_slug}/analytics`}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: ".75rem 1rem",
+          background: "#fff", borderRadius: 14,
+          boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          textDecoration: "none",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#0b1e3d" }}>View Full Analytics</div>
+          <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".1rem" }}>Progress table, pace, top donors, exports</div>
+        </div>
+        <span style={{ fontSize: ".85rem", color: "#9ca3af", flexShrink: 0 }}>→</span>
+      </a>
     </div>
   );
 }
