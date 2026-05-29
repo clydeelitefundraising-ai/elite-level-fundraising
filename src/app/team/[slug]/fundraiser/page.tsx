@@ -1,14 +1,15 @@
 import { redirect, notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
-import { getDonationStats, getAthleteById, getTeamAthletes } from "@/lib/teamData";
+import type { CampaignSettings, DonationRow } from "@/lib/supabase";
+import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
+import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
-import type { CampaignSettings } from "@/lib/supabase";
-import type { DonationStats } from "@/lib/teamData";
 import FundraiserView from "./FundraiserView";
+import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 
 export const dynamic = "force-dynamic";
 
-// ── Coach view (unchanged from original) ──────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -20,23 +21,108 @@ function daysLeft(deadline: string): number {
   return Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000));
 }
 
+function timeAgo(iso: string): string {
+  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 60)    return "just now";
+  if (sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+}
+
+function initials(name: string): string {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
+}
+
+function avatarBg(name: string): string {
+  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return palette[h % palette.length];
+}
+
+// ── Data builders ─────────────────────────────────────────────────────────────
+
+function buildLeaderboard(
+  athletes: TeamAthleteRow[],
+  donations: DonationRow[],
+): LeaderboardEntry[] {
+  const nameToId: Record<string, string> = {};
+  for (const a of athletes) nameToId[a.name] = a.id;
+
+  const totals:      Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
+  const donorCounts: Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
+
+  for (const d of donations) {
+    if (d.athlete_id && totals[d.athlete_id] !== undefined) {
+      totals[d.athlete_id]      += d.amount_cents;
+      donorCounts[d.athlete_id] += 1;
+    } else if (!d.athlete_id && d.athlete_name) {
+      const aid = nameToId[d.athlete_name];
+      if (aid) {
+        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
+        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
+      }
+    }
+  }
+
+  return athletes
+    .map(a => ({
+      id:            a.id,
+      name:          a.name,
+      profile_photo: a.profile_photo,
+      event:         a.event,
+      raisedCents:   totals[a.id]      ?? 0,
+      goalCents:     a.goal_cents      ?? null,
+      donorCount:    donorCounts[a.id] ?? 0,
+      rank:          0,
+    }))
+    .sort((a, b) => b.raisedCents - a.raisedCents)
+    .map((a, i) => ({ ...a, rank: i + 1 }));
+}
+
+function buildTeamFeed(
+  athletes: TeamAthleteRow[],
+  donations: DonationRow[],
+  limit = 15,
+): FeedDonation[] {
+  const idToName: Record<string, string> = {};
+  for (const a of athletes) idToName[a.id] = a.name;
+
+  return donations.slice(0, limit).map(d => ({
+    donor_name:       d.donor_name,
+    amount_cents:     d.amount_cents,
+    athlete_label:    (d.athlete_id && idToName[d.athlete_id])
+                        ? idToName[d.athlete_id]
+                        : (d.athlete_name ?? null),
+    donation_message: d.donation_message,
+    created_at:       d.created_at,
+  }));
+}
+
+// ── Coach view ────────────────────────────────────────────────────────────────
+
 function TeamCampaignView({
   settings,
-  stats,
+  raisedCents,
+  donorCount,
+  leaderboard,
+  teamFeed,
 }: {
-  settings: CampaignSettings;
-  stats: DonationStats;
+  settings:    CampaignSettings;
+  raisedCents: number;
+  donorCount:  number;
+  leaderboard: LeaderboardEntry[];
+  teamFeed:    FeedDonation[];
 }) {
-  const pct = settings.goal_cents > 0
-    ? Math.min(100, Math.round((stats.raised_cents / settings.goal_cents) * 100))
+  const pct        = settings.goal_cents > 0
+    ? Math.min(100, Math.round((raisedCents / settings.goal_cents) * 100))
     : 0;
-  const remaining = settings.deadline ? daysLeft(settings.deadline) : null;
-  const avgDonation = stats.donor_count > 0
-    ? Math.round(stats.raised_cents / stats.donor_count)
-    : null;
+  const remaining  = settings.deadline ? daysLeft(settings.deadline) : null;
+  const avgDonation = donorCount > 0 ? Math.round(raisedCents / donorCount) : null;
 
   return (
     <div>
+      {/* ── Section header ── */}
       <div style={{ marginBottom: ".625rem" }}>
         <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
           Fundraiser
@@ -46,6 +132,7 @@ function TeamCampaignView({
         </h2>
       </div>
 
+      {/* ── Progress card ── */}
       <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
         <div style={{ background: settings.primary_color, padding: "1.25rem 1.25rem .875rem", color: "#fff" }}>
           {settings.season && (
@@ -65,7 +152,7 @@ function TeamCampaignView({
         <div style={{ padding: "1.25rem" }}>
           <div style={{ marginBottom: ".875rem" }}>
             <span style={{ fontSize: "2rem", fontWeight: 800, color: "#111827" }}>
-              {fmt(stats.raised_cents)}
+              {fmt(raisedCents)}
             </span>
             {settings.goal_cents > 0 && (
               <span style={{ fontSize: ".9rem", color: "#6b7280", marginLeft: ".35rem" }}>
@@ -87,8 +174,8 @@ function TeamCampaignView({
 
           <div style={{ display: "flex", gap: "1rem", paddingTop: ".875rem", borderTop: "1px solid #f3f4f6" }}>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{stats.donor_count}</div>
-              <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>donor{stats.donor_count !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{donorCount}</div>
+              <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>donor{donorCount !== 1 ? "s" : ""}</div>
             </div>
             {avgDonation !== null && (
               <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
@@ -98,7 +185,7 @@ function TeamCampaignView({
             )}
             {settings.goal_cents > 0 && avgDonation === null && (
               <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(Math.max(0, settings.goal_cents - stats.raised_cents))}</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(Math.max(0, settings.goal_cents - raisedCents))}</div>
                 <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>still needed</div>
               </div>
             )}
@@ -112,6 +199,7 @@ function TeamCampaignView({
         </div>
       </div>
 
+      {/* ── Share link ── */}
       <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
         <div style={{ padding: "1rem 1.1rem .875rem" }}>
           <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".5rem" }}>
@@ -133,6 +221,136 @@ function TeamCampaignView({
           </a>
         </div>
       </div>
+
+      {/* ── Team leaderboard ── */}
+      {leaderboard.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
+          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+              Team Leaderboard
+            </div>
+            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
+              {leaderboard.length}
+            </span>
+          </div>
+          <div style={{ padding: ".25rem 0" }}>
+            {leaderboard.map((entry, i) => {
+              const pctEntry = entry.goalCents && entry.goalCents > 0
+                ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
+                : null;
+              const bg = avatarBg(entry.name);
+              return (
+                <div
+                  key={entry.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: ".65rem",
+                    padding: ".6rem 1rem",
+                    borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+                  }}
+                >
+                  <div style={{ width: 22, fontWeight: 800, fontSize: ".72rem", color: entry.rank <= 3 ? "#0b1e3d" : "#9ca3af", flexShrink: 0, paddingTop: ".2rem", textAlign: "center" }}>
+                    #{entry.rank}
+                  </div>
+                  <div style={{ flexShrink: 0 }}>
+                    {entry.profile_photo ? (
+                      <img src={entry.profile_photo} alt={entry.name} style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: 34, height: 34, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".65rem", color: "#fff" }}>
+                        {initials(entry.name)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
+                      <span style={{ fontWeight: 700, fontSize: ".83rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "55%" }}>
+                        {entry.name}
+                      </span>
+                      <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d", flexShrink: 0 }}>
+                        {fmt(entry.raisedCents)}
+                      </span>
+                    </div>
+                    {entry.event && (
+                      <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: ".25rem" }}>
+                        {entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
+                      </div>
+                    )}
+                    {pctEntry !== null && (
+                      <div>
+                        <div style={{ height: 5, background: "#f3f4f6", borderRadius: 100, overflow: "hidden", marginBottom: ".18rem" }}>
+                          <div style={{ height: "100%", width: `${pctEntry}%`, background: settings.primary_color, borderRadius: 100 }} />
+                        </div>
+                        <div style={{ fontSize: ".63rem", color: settings.primary_color, fontWeight: 700 }}>
+                          {pctEntry}% of goal
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team donation feed ── */}
+      {teamFeed.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
+          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+              Recent Donations
+            </div>
+            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
+              {donorCount}
+            </span>
+          </div>
+          <div style={{ padding: ".25rem 0" }}>
+            {teamFeed.map((d, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  gap: ".65rem",
+                  padding: ".6rem 1rem",
+                  borderBottom: i < teamFeed.length - 1 ? "1px solid #f9fafb" : "none",
+                  alignItems: "flex-start",
+                }}
+              >
+                <div style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: settings.secondary_color || "#1d4ed8",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontWeight: 700, fontSize: ".62rem", color: "#fff", flexShrink: 0,
+                }}>
+                  {d.donor_name ? initials(d.donor_name) : "?"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
+                    <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669" }}>
+                      {fmt(d.amount_cents)}
+                    </span>
+                    <span style={{ fontSize: ".62rem", color: "#9ca3af", flexShrink: 0 }}>
+                      {timeAgo(d.created_at)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: ".75rem", color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {d.donor_name ?? "Anonymous"}
+                    {d.athlete_label && (
+                      <span style={{ color: "#9ca3af" }}> → {d.athlete_label}</span>
+                    )}
+                  </div>
+                  {d.donation_message && (
+                    <div style={{ fontSize: ".7rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
+                      &ldquo;{d.donation_message}&rdquo;
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -156,10 +374,24 @@ export default async function FundraiserPage({
   if (!settings) notFound();
   if (actor.kind === "public") redirect(`/team/${slug}/login`);
 
-  // ── Coach: existing team view, untouched ──
+  // ── Coach ──
   if (actor.kind === "coach") {
-    const stats = await getDonationStats(slug);
-    return <TeamCampaignView settings={settings} stats={stats} />;
+    const [athletes, donations] = await Promise.all([
+      getTeamAthletes(slug),
+      getDonations(slug),
+    ]);
+    const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
+    const leaderboard = buildLeaderboard(athletes, donations);
+    const teamFeed    = buildTeamFeed(athletes, donations);
+    return (
+      <TeamCampaignView
+        settings={settings}
+        raisedCents={raisedCents}
+        donorCount={donations.length}
+        leaderboard={leaderboard}
+        teamFeed={teamFeed}
+      />
+    );
   }
 
   // ── Member ──
@@ -176,13 +408,12 @@ export default async function FundraiserPage({
     getDonations(slug),
   ]);
 
-  // Athlete may have been deleted from roster — fall back to claim step
   if (!athlete) {
     const roster = await getTeamAthletes(slug);
     return <FundraiserView mode="claim" slug={slug} roster={roster} settings={settings} />;
   }
 
-  // Compute per-athlete totals (id-first, name fallback for old donations)
+  // Per-athlete totals (id-first, name fallback for legacy donations)
   const nameToId: Record<string, string> = {};
   for (const a of athletes) nameToId[a.name] = a.id;
   const totals: Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
@@ -202,16 +433,14 @@ export default async function FundraiserPage({
     d.athlete_id === athleteId || (!d.athlete_id && d.athlete_name === athlete.name),
   ).length;
 
-  const ranked = Object.entries(totals).sort(([, a], [, b]) => b - a);
+  const ranked  = Object.entries(totals).sort(([, a], [, b]) => b - a);
   const rankIdx = ranked.findIndex(([id]) => id === athleteId);
-  const rank = rankIdx >= 0 ? rankIdx + 1 : athletes.length;
+  const rank    = rankIdx >= 0 ? rankIdx + 1 : athletes.length;
 
   const goalCents = athlete.goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
 
   const recentDonations = donations
-    .filter(d =>
-      d.athlete_id === athleteId || (!d.athlete_id && d.athlete_name === athlete.name),
-    )
+    .filter(d => d.athlete_id === athleteId || (!d.athlete_id && d.athlete_name === athlete.name))
     .slice(0, 5)
     .map(d => ({
       donor_name:       d.donor_name,
@@ -219,6 +448,9 @@ export default async function FundraiserPage({
       donation_message: d.donation_message,
       created_at:       d.created_at,
     }));
+
+  const leaderboard = buildLeaderboard(athletes, donations);
+  const teamFeed    = buildTeamFeed(athletes, donations);
 
   return (
     <FundraiserView
@@ -232,6 +464,8 @@ export default async function FundraiserPage({
       totalAthletes={athletes.length}
       donorCount={donorCount}
       recentDonations={recentDonations}
+      leaderboard={leaderboard}
+      teamFeed={teamFeed}
     />
   );
 }

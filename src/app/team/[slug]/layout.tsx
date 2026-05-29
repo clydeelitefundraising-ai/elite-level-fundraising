@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
-import { getAnnouncementMeta } from "@/lib/teamData";
+import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
@@ -16,9 +16,10 @@ export default async function TeamLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [settings, announcementMeta] = await Promise.all([
+  const [settings, announcementMeta, donationStats] = await Promise.all([
     getCampaignSettings(slug),
     getAnnouncementMeta(slug),
+    getDonationStats(slug),
   ]);
   if (!settings) notFound();
 
@@ -64,6 +65,7 @@ export default async function TeamLayout({
           primaryColor={settings.primary_color}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
+          donorCount={donationStats.donor_count}
         />
       </div>
     </div>

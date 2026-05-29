@@ -9,11 +9,13 @@ export default function TeamNavWithBadge({
   primaryColor,
   announcementCount,
   latestAnnouncementAt,
+  donorCount,
 }: {
   slug: string;
   primaryColor: string;
   announcementCount: number;
   latestAnnouncementAt: string | null;
+  donorCount: number;
 }) {
   const pathname = usePathname();
   const storageKey = `elf_home_read_${slug}`;
@@ -40,7 +42,7 @@ export default function TeamNavWithBadge({
     <TeamNav
       slug={slug}
       primaryColor={primaryColor}
-      badgeCounts={{ home: badge }}
+      badgeCounts={{ home: badge, fundraiser: donorCount }}
     />
   );
 }

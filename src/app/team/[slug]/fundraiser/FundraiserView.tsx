@@ -6,7 +6,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
 export type RecentDonation = {
   donor_name:       string | null;
@@ -14,6 +14,27 @@ export type RecentDonation = {
   donation_message: string | null;
   created_at:       string;
 };
+
+export type LeaderboardEntry = {
+  id:            string;
+  name:          string;
+  profile_photo: string | null;
+  event:         string;
+  raisedCents:   number;
+  goalCents:     number | null;
+  donorCount:    number;
+  rank:          number;
+};
+
+export type FeedDonation = {
+  donor_name:       string | null;
+  amount_cents:     number;
+  athlete_label:    string | null;
+  donation_message: string | null;
+  created_at:       string;
+};
+
+// ── Prop types ────────────────────────────────────────────────────────────────
 
 type AthleteMode = {
   mode:                "athlete";
@@ -26,6 +47,8 @@ type AthleteMode = {
   totalAthletes:       number;
   donorCount:          number;
   recentDonations:     RecentDonation[];
+  leaderboard:         LeaderboardEntry[];
+  teamFeed:            FeedDonation[];
 };
 
 type ClaimMode = {
@@ -37,7 +60,7 @@ type ClaimMode = {
 
 type Props = AthleteMode | ClaimMode;
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function initials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
@@ -68,12 +91,218 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   return (
     <div style={{ background: "#e5e7eb", borderRadius: 100, height: 10, overflow: "hidden" }}>
       <div style={{
-        background: color,
-        borderRadius: 100,
-        height: "100%",
+        background: color, borderRadius: 100, height: "100%",
         width: `${Math.min(100, Math.max(0, pct))}%`,
         transition: "width .6s ease",
       }} />
+    </div>
+  );
+}
+
+// ── Leaderboard section ───────────────────────────────────────────────────────
+
+function LeaderboardSection({
+  leaderboard,
+  currentAthleteId,
+  primary,
+}: {
+  leaderboard:       LeaderboardEntry[];
+  currentAthleteId:  string;
+  primary:           string;
+}) {
+  if (leaderboard.length === 0) return null;
+
+  return (
+    <div style={{
+      background: "#fff",
+      borderRadius: 16,
+      overflow: "hidden",
+      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      marginBottom: ".65rem",
+    }}>
+      <div style={{
+        padding: ".875rem 1.25rem .6rem",
+        borderBottom: "1px solid #f3f4f6",
+        display: "flex",
+        alignItems: "center",
+        gap: ".5rem",
+      }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Team Leaderboard
+        </div>
+        <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
+          {leaderboard.length}
+        </span>
+      </div>
+
+      <div style={{ padding: ".2rem 0" }}>
+        {leaderboard.map((entry, i) => {
+          const isCurrent = entry.id === currentAthleteId;
+          const pct = entry.goalCents && entry.goalCents > 0
+            ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
+            : null;
+          const bg = avatarColor(entry.name);
+
+          return (
+            <div
+              key={entry.id}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: ".65rem",
+                padding: ".6rem 1.25rem",
+                background: isCurrent ? `${primary}08` : "transparent",
+                borderLeft: isCurrent ? `3px solid ${primary}` : "3px solid transparent",
+                borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+              }}
+            >
+              {/* Rank */}
+              <div style={{
+                width: 20, fontWeight: 800, fontSize: ".7rem",
+                color: entry.rank <= 3 ? "#0b1e3d" : "#c4c9d4",
+                flexShrink: 0, paddingTop: ".25rem", textAlign: "center",
+              }}>
+                #{entry.rank}
+              </div>
+
+              {/* Avatar */}
+              <div style={{ flexShrink: 0 }}>
+                {entry.profile_photo ? (
+                  <img
+                    src={entry.profile_photo}
+                    alt={entry.name}
+                    style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", background: bg,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: ".65rem", color: "#fff",
+                  }}>
+                    {initials(entry.name)}
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
+                  <span style={{
+                    fontWeight: isCurrent ? 800 : 700,
+                    fontSize: ".84rem",
+                    color: isCurrent ? primary : "#0b1e3d",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    maxWidth: "58%",
+                  }}>
+                    {entry.name}{isCurrent ? " (you)" : ""}
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d", flexShrink: 0 }}>
+                    {fmt(entry.raisedCents)}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: pct !== null ? ".3rem" : 0 }}>
+                  {entry.event}
+                  {entry.donorCount > 0
+                    ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}`
+                    : ""}
+                </div>
+
+                {pct !== null && (
+                  <div>
+                    <div style={{ height: 5, background: "#f3f4f6", borderRadius: 100, overflow: "hidden", marginBottom: ".2rem" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: isCurrent ? primary : "#d1d5db", borderRadius: 100 }} />
+                    </div>
+                    <div style={{ fontSize: ".63rem", fontWeight: 700, color: isCurrent ? primary : "#9ca3af" }}>
+                      {pct}% of goal
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Team donation feed ─────────────────────────────────────────────────────────
+
+function TeamDonationFeed({
+  teamFeed,
+  secondary,
+}: {
+  teamFeed:  FeedDonation[];
+  secondary: string;
+}) {
+  if (teamFeed.length === 0) return null;
+
+  return (
+    <div style={{
+      background: "#fff",
+      borderRadius: 16,
+      overflow: "hidden",
+      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      marginBottom: ".65rem",
+    }}>
+      <div style={{ padding: ".875rem 1.25rem .6rem", borderBottom: "1px solid #f3f4f6" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Team Donations
+        </div>
+      </div>
+
+      <div style={{ padding: ".2rem 0" }}>
+        {teamFeed.map((d, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              gap: ".65rem",
+              padding: ".65rem 1.25rem",
+              borderBottom: i < teamFeed.length - 1 ? "1px solid #f9fafb" : "none",
+              alignItems: "flex-start",
+            }}
+          >
+            {/* Donor bubble */}
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%",
+              background: secondary,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontWeight: 700, fontSize: ".62rem", color: "#fff", flexShrink: 0,
+            }}>
+              {d.donor_name ? initials(d.donor_name) : "?"}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Amount + time */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".18rem" }}>
+                <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#059669" }}>
+                  {fmt(d.amount_cents)}
+                </span>
+                <span style={{ fontSize: ".62rem", color: "#9ca3af", flexShrink: 0 }}>
+                  {timeAgo(d.created_at)}
+                </span>
+              </div>
+
+              {/* Donor → athlete */}
+              <div style={{ fontSize: ".75rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {d.donor_name ?? "Anonymous"}
+                {d.athlete_label && (
+                  <span style={{ color: "#9ca3af" }}> → {d.athlete_label}</span>
+                )}
+              </div>
+
+              {/* Message */}
+              {d.donation_message && (
+                <div style={{ fontSize: ".7rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
+                  &ldquo;{d.donation_message}&rdquo;
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -119,9 +348,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
       </div>
 
       <div style={{
-        background: "#fff",
-        borderRadius: 16,
-        padding: "1.5rem 1.25rem",
+        background: "#fff", borderRadius: 16, padding: "1.5rem 1.25rem",
         boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         borderTop: `4px solid ${primary}`,
       }}>
@@ -143,15 +370,11 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
               value={selected}
               onChange={e => { setSelected(e.target.value); setError(""); }}
               style={{
-                width: "100%",
-                padding: ".6rem .75rem",
+                width: "100%", padding: ".6rem .75rem",
                 border: `1.5px solid ${selected ? primary : "#e5e7eb"}`,
-                borderRadius: 10,
-                fontSize: ".875rem",
+                borderRadius: 10, fontSize: ".875rem",
                 color: selected ? "#111827" : "#9ca3af",
-                background: "#fff",
-                cursor: "pointer",
-                boxSizing: "border-box",
+                background: "#fff", cursor: "pointer", boxSizing: "border-box",
               }}
             >
               <option value="">Select your name…</option>
@@ -175,10 +398,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
                 padding: ".75rem",
                 background: selected ? primary : "#e5e7eb",
                 color: selected ? "#fff" : "#9ca3af",
-                border: "none",
-                borderRadius: 12,
-                fontWeight: 700,
-                fontSize: ".95rem",
+                border: "none", borderRadius: 12, fontWeight: 700, fontSize: ".95rem",
                 cursor: selected && !saving ? "pointer" : "not-allowed",
               }}
             >
@@ -198,38 +418,30 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
 // ── Athlete dashboard ──────────────────────────────────────────────────────────
 
 function AthleteView({
-  slug,
-  athlete,
-  settings,
-  athleteRaisedCents,
-  goalCents,
-  rank,
-  totalAthletes,
-  donorCount,
-  recentDonations,
+  slug, athlete, settings,
+  athleteRaisedCents, goalCents, rank, totalAthletes, donorCount,
+  recentDonations, leaderboard, teamFeed,
 }: AthleteMode) {
   const [copied,    setCopied]    = useState(false);
   const [showQr,    setShowQr]    = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
-  const primary    = settings?.primary_color   ?? "#0b1e3d";
-  const secondary  = settings?.secondary_color ?? "#1d4ed8";
-  const bg         = avatarColor(athlete.name);
-  const firstName  = athlete.name.split(" ")[0];
-  const pct        = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
+  const primary   = settings?.primary_color   ?? "#0b1e3d";
+  const secondary = settings?.secondary_color ?? "#1d4ed8";
+  const bg        = avatarColor(athlete.name);
+  const firstName = athlete.name.split(" ")[0];
+  const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
   const profilePath = `/team/${slug}/athlete/${athlete.id}`;
 
-  // Prefer the canonical site URL so QR codes and share links work outside localhost
   const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
     ?? (typeof window !== "undefined" ? window.location.origin : "");
   const profileUrl = `${siteOrigin}${profilePath}`;
 
-  // Generate QR code data URL client-side on mount
   useEffect(() => {
     import("qrcode").then(QRCode => {
       QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#0b1e3d" } })
         .then(url => setQrDataUrl(url))
-        .catch(() => { /* silently ignore if qrcode fails */ });
+        .catch(() => { /* silently ignore */ });
     });
   }, [profileUrl]);
 
@@ -244,20 +456,14 @@ function AthleteView({
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({
-          title: `Support ${athlete.name}`,
-          text: `Help ${firstName} reach their fundraising goal!`,
-          url: profileUrl,
-        });
+        await navigator.share({ title: `Support ${athlete.name}`, text: `Help ${firstName} reach their fundraising goal!`, url: profileUrl });
       } catch { /* cancelled */ }
     } else {
       handleCopy();
     }
   };
 
-  const teamLabel = [settings?.school_name, settings?.mascot, settings?.sport_name]
-    .filter(Boolean)
-    .join(" ");
+  const teamLabel = [settings?.school_name, settings?.mascot, settings?.sport_name].filter(Boolean).join(" ");
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -274,47 +480,25 @@ function AthleteView({
 
       {/* ── Hero card ── */}
       <div style={{
-        background: "#fff",
-        borderRadius: 16,
-        padding: "1.25rem 1rem 1rem",
-        textAlign: "center",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        borderTop: `4px solid ${primary}`,
-        marginBottom: ".65rem",
+        background: "#fff", borderRadius: 16, padding: "1.25rem 1rem 1rem",
+        textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        borderTop: `4px solid ${primary}`, marginBottom: ".65rem",
       }}>
-        {/* Avatar */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: ".65rem" }}>
           {athlete.profile_photo ? (
-            <img
-              src={athlete.profile_photo}
-              alt={athlete.name}
-              style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", boxShadow: "0 2px 10px rgba(0,0,0,.13)" }}
-            />
+            <img src={athlete.profile_photo} alt={athlete.name} style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", boxShadow: "0 2px 10px rgba(0,0,0,.13)" }} />
           ) : (
-            <div style={{
-              width: 72, height: 72, borderRadius: "50%", background: bg,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 800, fontSize: "1.35rem", color: "#fff",
-              boxShadow: "0 2px 10px rgba(0,0,0,.16)",
-            }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.35rem", color: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.16)" }}>
               {initials(athlete.name)}
             </div>
           )}
         </div>
-
-        {/* Name */}
         <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "#0b1e3d", lineHeight: 1.15, marginBottom: ".25rem" }}>
           {athlete.name}
         </div>
-
-        {/* Team */}
         {teamLabel && (
-          <div style={{ fontSize: ".75rem", color: "#6b7280", marginBottom: ".45rem" }}>
-            {teamLabel}
-          </div>
+          <div style={{ fontSize: ".75rem", color: "#6b7280", marginBottom: ".45rem" }}>{teamLabel}</div>
         )}
-
-        {/* Badges */}
         <div style={{ display: "flex", justifyContent: "center", gap: ".35rem", flexWrap: "wrap" }}>
           {athlete.event && (
             <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: "#f0f4ff", color: "#1d4ed8" }}>
@@ -331,13 +515,10 @@ function AthleteView({
 
       {/* ── Stats card ── */}
       <div style={{
-        background: "#fff",
-        borderRadius: 16,
-        padding: "1.25rem",
+        background: "#fff", borderRadius: 16, padding: "1.25rem",
         boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         marginBottom: ".65rem",
       }}>
-        {/* Raised / Goal */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: "1.65rem", color: "#0b1e3d", lineHeight: 1 }}>
@@ -352,34 +533,33 @@ function AthleteView({
         </div>
 
         <ProgressBar pct={pct} color={primary} />
-
         <div style={{ fontSize: ".68rem", color: "#6b7280", marginTop: ".4rem", textAlign: "right" }}>
           {Math.round(pct)}% complete
         </div>
 
-        {/* Rank + Donors */}
         <div style={{ display: "flex", gap: ".5rem", marginTop: ".875rem", paddingTop: ".875rem", borderTop: "1px solid #f3f4f6" }}>
           <div style={{ flex: 1, textAlign: "center" }}>
             <div style={{ fontWeight: 800, fontSize: "1.15rem", color: primary }}>#{rank}</div>
-            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>
-              of {totalAthletes} athletes
-            </div>
+            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>of {totalAthletes} athletes</div>
           </div>
           <div style={{ width: 1, background: "#f3f4f6", flexShrink: 0 }} />
           <div style={{ flex: 1, textAlign: "center" }}>
             <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#0b1e3d" }}>{donorCount}</div>
-            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>
-              {donorCount === 1 ? "donor" : "donors"}
-            </div>
+            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>{donorCount === 1 ? "donor" : "donors"}</div>
           </div>
         </div>
       </div>
 
+      {/* ── Team leaderboard ── */}
+      <LeaderboardSection
+        leaderboard={leaderboard}
+        currentAthleteId={athlete.id}
+        primary={primary}
+      />
+
       {/* ── Share actions ── */}
       <div style={{
-        background: "#fff",
-        borderRadius: 16,
-        padding: "1rem 1.25rem",
+        background: "#fff", borderRadius: 16, padding: "1rem 1.25rem",
         boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         marginBottom: ".65rem",
       }}>
@@ -387,88 +567,41 @@ function AthleteView({
           Share your fundraising page
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: ".5rem" }}>
-          <button
-            onClick={handleCopy}
-            style={{
-              padding: ".65rem .25rem",
-              background: "#f3f4f6",
-              color: "#374151",
-              border: "none",
-              borderRadius: 10,
-              fontSize: ".78rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button onClick={handleCopy} style={{ padding: ".65rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
             {copied ? "✓ Copied" : "Copy Link"}
           </button>
-          <button
-            onClick={handleShare}
-            style={{
-              padding: ".65rem .25rem",
-              background: primary,
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              fontSize: ".78rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button onClick={handleShare} style={{ padding: ".65rem .25rem", background: primary, color: "#fff", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
             Share ↗
           </button>
-          <button
-            onClick={() => setShowQr(true)}
-            style={{
-              padding: ".65rem .25rem",
-              background: "#f3f4f6",
-              color: "#374151",
-              border: "none",
-              borderRadius: 10,
-              fontSize: ".78rem",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
+          <button onClick={() => setShowQr(true)} style={{ padding: ".65rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
             QR Code
           </button>
         </div>
       </div>
 
-      {/* ── Recent donations ── */}
+      {/* ── My recent donations ── */}
       {recentDonations.length > 0 && (
         <div style={{
-          background: "#fff",
-          borderRadius: 16,
-          padding: "1rem 1.25rem",
+          background: "#fff", borderRadius: 16, padding: "1rem 1.25rem",
           boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          marginBottom: ".65rem",
         }}>
           <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
-            Recent Donations
+            My Recent Donations
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
             {recentDonations.map((d, i) => (
               <div
                 key={i}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: ".75rem",
+                  display: "flex", alignItems: "center", gap: ".75rem",
                   paddingBottom: i < recentDonations.length - 1 ? ".55rem" : 0,
                   borderBottom: i < recentDonations.length - 1 ? "1px solid #f3f4f6" : "none",
                 }}
               >
-                {/* Donor initials bubble */}
-                <div style={{
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: secondary,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 700, fontSize: ".65rem", color: "#fff",
-                  flexShrink: 0,
-                }}>
-                  {d.donor_name ? initials(d.donor_name) : "?"}
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: secondary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: ".65rem", color: "#fff", flexShrink: 0 }}>
+                  {d.donor_name ? d.donor_name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("") : "?"}
                 </div>
-
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: ".83rem", color: "#0b1e3d" }}>
                     {d.donor_name ?? "Anonymous"}
@@ -479,9 +612,8 @@ function AthleteView({
                     </div>
                   )}
                 </div>
-
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>
+                  <div style={{ fontWeight: 800, fontSize: ".95rem", color: "#059669" }}>
                     {fmt(d.amount_cents)}
                   </div>
                   <div style={{ fontSize: ".65rem", color: "#9ca3af" }}>
@@ -494,26 +626,20 @@ function AthleteView({
         </div>
       )}
 
+      {/* ── Team donation feed ── */}
+      <TeamDonationFeed teamFeed={teamFeed} secondary={secondary} />
+
       {/* ── QR Code modal ── */}
       {showQr && (
         <Modal title="Your Fundraising QR Code" onClose={() => setShowQr(false)}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", paddingBottom: ".5rem" }}>
             {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt={`QR code for ${athlete.name}'s fundraising page`}
-                style={{ width: 220, height: 220, borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,.10)" }}
-              />
+              <img src={qrDataUrl} alt={`QR code for ${athlete.name}'s fundraising page`} style={{ width: 220, height: 220, borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,.10)" }} />
             ) : (
-              <div style={{
-                width: 220, height: 220, borderRadius: 12, background: "#f3f4f6",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: ".82rem", color: "#9ca3af",
-              }}>
+              <div style={{ width: 220, height: 220, borderRadius: 12, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".82rem", color: "#9ca3af" }}>
                 Generating…
               </div>
             )}
-
             <div style={{ textAlign: "center" }}>
               <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d", marginBottom: ".2rem" }}>
                 Scan to donate to {firstName}
@@ -522,21 +648,7 @@ function AthleteView({
                 /team/{slug}/athlete/{athlete.id}
               </div>
             </div>
-
-            <button
-              onClick={handleCopy}
-              style={{
-                width: "100%",
-                padding: ".65rem",
-                background: "#f3f4f6",
-                color: "#374151",
-                border: "none",
-                borderRadius: 10,
-                fontSize: ".85rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
               {copied ? "✓ Link Copied!" : "Copy Link"}
             </button>
           </div>

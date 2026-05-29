@@ -82,6 +82,7 @@ export default function AthleteProfileView({
   rank,
   totalAthletes,
   donorCount,
+  topSupporter,
 }: {
   slug: string;
   athlete: TeamAthleteRow;
@@ -93,6 +94,7 @@ export default function AthleteProfileView({
   rank: number;
   totalAthletes: number;
   donorCount: number;
+  topSupporter: { name: string | null; amount_cents: number } | null;
 }) {
   const [showDonate, setShowDonate] = useState(false);
   const [preset,    setPreset]    = useState<number | null>(50);
@@ -312,6 +314,30 @@ export default function AthleteProfileView({
             </div>
           </div>
         </div>
+
+        {/* Top supporter */}
+        {topSupporter && donorCount > 0 && (
+          <div style={{
+            marginTop: ".75rem",
+            paddingTop: ".75rem",
+            borderTop: "1px solid #f3f4f6",
+            display: "flex",
+            alignItems: "center",
+            gap: ".5rem",
+          }}>
+            <span style={{ fontSize: ".82rem" }}>⭐</span>
+            <div style={{ fontSize: ".72rem", color: "#6b7280" }}>
+              <span style={{ fontWeight: 700, color: "#0b1e3d" }}>
+                {topSupporter.name ?? "Anonymous"}
+              </span>
+              {" · "}
+              <span style={{ fontWeight: 700, color: "#059669" }}>
+                {(topSupporter.amount_cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
+              </span>
+              <span style={{ color: "#9ca3af" }}> top supporter</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Donate button ── */}

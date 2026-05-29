@@ -58,6 +58,13 @@ export default async function AthleteProfilePage({
 
   const goalCents = athlete.goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
 
+  const topSupporterDonation = donations
+    .filter(d => d.athlete_id === id || (!d.athlete_id && d.athlete_name === athlete.name))
+    .sort((a, b) => b.amount_cents - a.amount_cents)[0] ?? null;
+  const topSupporter = topSupporterDonation
+    ? { name: topSupporterDonation.donor_name, amount_cents: topSupporterDonation.amount_cents }
+    : null;
+
   return (
     <AthleteProfileView
       slug={slug}
@@ -70,6 +77,7 @@ export default async function AthleteProfilePage({
       rank={rank}
       totalAthletes={athletes.length}
       donorCount={donorCount}
+      topSupporter={topSupporter}
     />
   );
 }
