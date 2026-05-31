@@ -10,6 +10,40 @@ type Coach      = { id: string; name: string; email: string; role: "head_coach" 
 
 const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
+const STORE_PROVIDERS_LIST = ["Shopify", "SquadLocker", "BSN Sports", "Game One", "Custom"];
+
+type WizardData = {
+  campaign_slug:      string;
+  school_name:        string;
+  sport_name:         string;
+  mascot:             string;
+  season:             string;
+  location:           string;
+  primary_color:      string;
+  secondary_color:    string;
+  logo_url:           string;
+  goal_dollars:       string;
+  deadline:           string;
+  external_store_url: string;
+  store_provider:     string;
+  coach_name:         string;
+  coach_email:        string;
+  coach_password:     string;
+  seed_fund_uses:     boolean;
+  starter_athletes:   { name: string; event: string }[];
+};
+
+type LaunchResult = { slug: string; join_code: string; coach_email: string };
+
+const WIZARD_BLANK: WizardData = {
+  campaign_slug: "", school_name: "", sport_name: "", mascot: "",
+  season: "", location: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A",
+  logo_url: "", goal_dollars: "", deadline: "",
+  external_store_url: "", store_provider: "",
+  coach_name: "", coach_email: "", coach_password: "",
+  seed_fund_uses: true, starter_athletes: [],
+};
+
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
 const C = {
@@ -128,7 +162,8 @@ export function AdminDashboard() {
   const [newFUTitle, setNewFUTitle] = useState("");
   const [newFUDesc,  setNewFUDesc]  = useState("");
   const [newFUIcon,  setNewFUIcon]  = useState("💰");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [wizardOpen,   setWizardOpen]   = useState(false);
+  const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
 
   const [coaches,    setCoaches]    = useState<Coach[]>([]);
   const [newCName,   setNewCName]   = useState("");
@@ -137,12 +172,6 @@ export function AdminDashboard() {
   const [newCPass,   setNewCPass]   = useState("");
   const [coachError, setCoachError] = useState("");
 
-  type NewCampaign = { campaign_slug: string; school_name: string; sport_name: string; mascot: string; goal_dollars: string; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string };
-  const nc0: NewCampaign = { campaign_slug: "", school_name: "", sport_name: "", mascot: "", goal_dollars: "", deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "" };
-  const [newC,        setNewC]        = useState<NewCampaign>(nc0);
-  const [creating,    setCreating]    = useState(false);
-  const [createError, setCreateError] = useState("");
-  const [createdSlug, setCreatedSlug] = useState<string | null>(null);
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -284,16 +313,6 @@ export function AdminDashboard() {
     }
   };
 
-  const createCampaign = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateError(""); setCreating(true);
-    const res = await fetch("/api/admin/campaigns", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: newC.campaign_slug.trim(), school_name: newC.school_name, sport_name: newC.sport_name, mascot: newC.mascot, goal_cents: Math.round(parseFloat(newC.goal_dollars || "0") * 100) || 0, deadline: newC.deadline, primary_color: newC.primary_color, secondary_color: newC.secondary_color, location: newC.location, season: newC.season, logo_url: newC.logo_url }) });
-    const data = await res.json();
-    setCreating(false);
-    if (!res.ok) { setCreateError(data.error ?? "Failed to create campaign."); return; }
-    setCreatedSlug(data.slug);
-    setAllSlugs(p => p.some(s => s.campaign_slug === data.slug) ? p : [...p, { campaign_slug: data.slug, archived: false }]);
-  };
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -337,57 +356,50 @@ export function AdminDashboard() {
 
       <div style={{ maxWidth: 960, margin: "1.75rem auto", padding: "0 1.25rem" }}>
 
-        {/* ── 1. Create New Campaign ── */}
+        {/* ── 1. Launch New School ── */}
         <div style={C.card}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }} onClick={() => { if (!createdSlug) setCreateOpen(o => !o); }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0b1e3d" }}>Create New Campaign</h2>
-              {!createOpen && !createdSlug && <p style={{ margin: ".2rem 0 0", fontSize: ".8rem", color: "#9ca3af" }}>Add a new fundraising campaign</p>}
+              <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0b1e3d" }}>Launch New School</h2>
+              <p style={{ margin: ".2rem 0 0", fontSize: ".8rem", color: "#9ca3af" }}>
+                Campaign · Coach account · Join code · Team hub — all in one guided flow.
+              </p>
             </div>
-            {!createdSlug && (
-              <span style={{ fontSize: "1.25rem", color: "#6b7280", lineHeight: 1, userSelect: "none" }}>{createOpen ? "−" : "+"}</span>
-            )}
+            <Btn color="#16a34a" onClick={() => setWizardOpen(true)}>Launch New School →</Btn>
           </div>
 
-          {createdSlug && (
-            <div style={{ marginTop: "1rem", padding: "1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
-              <p style={{ margin: "0 0 .5rem", color: "#15803d", fontWeight: 700, fontSize: ".9rem" }}>✓ Campaign created successfully.</p>
-              <a href={`/campaign/${createdSlug}`} target="_blank" rel="noopener noreferrer"
-                style={{ fontSize: ".85rem", color: "#0b1e3d", fontWeight: 600 }}>
-                /campaign/{createdSlug} ↗
-              </a>
-              <div style={{ marginTop: ".75rem" }}>
-                <Btn color="#6b7280" onClick={() => { setCreatedSlug(null); setNewC(nc0); setCreateError(""); setCreateOpen(false); }}>+ Create Another</Btn>
+          {launchResult && (
+            <div style={{ marginTop: "1.1rem", padding: "1.1rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+              <div style={{ fontWeight: 800, fontSize: ".95rem", color: "#15803d", marginBottom: ".7rem" }}>
+                ✓ {launchResult.slug} is live
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: ".45rem", fontSize: ".85rem" }}>
+                <div style={{ display: "flex", gap: ".6rem", alignItems: "center" }}>
+                  <span style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", minWidth: 88 }}>Campaign</span>
+                  <a href={`/campaign/${launchResult.slug}`} target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontWeight: 600 }}>/campaign/{launchResult.slug} ↗</a>
+                </div>
+                <div style={{ display: "flex", gap: ".6rem", alignItems: "center" }}>
+                  <span style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", minWidth: 88 }}>Team Hub</span>
+                  <a href={`/team/${launchResult.slug}/home`} target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontWeight: 600 }}>/team/{launchResult.slug}/home ↗</a>
+                </div>
+                <div style={{ display: "flex", gap: ".6rem", alignItems: "center" }}>
+                  <span style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", minWidth: 88 }}>Join Code</span>
+                  <code style={{ background: "#dcfce7", color: "#15803d", padding: ".15rem .65rem", borderRadius: 6, fontWeight: 800, fontSize: ".9rem", letterSpacing: ".12em" }}>{launchResult.join_code}</code>
+                  <span style={{ fontSize: ".75rem", color: "#6b7280" }}>/join/{launchResult.join_code}</span>
+                </div>
+                <div style={{ display: "flex", gap: ".6rem", alignItems: "center" }}>
+                  <span style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", minWidth: 88 }}>Coach Login</span>
+                  <span style={{ color: "#374151" }}>{launchResult.coach_email} ·</span>
+                  <a href="/coach-login" target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontWeight: 600, fontSize: ".82rem" }}>/coach-login ↗</a>
+                </div>
+                <p style={{ margin: ".3rem 0 0", fontSize: ".75rem", color: "#6b7280", fontStyle: "italic" }}>
+                  ⚠ Share the temporary password securely — it cannot be recovered from this panel.
+                </p>
+              </div>
+              <div style={{ marginTop: ".85rem" }}>
+                <Btn color="#6b7280" onClick={() => setLaunchResult(null)}>Dismiss</Btn>
               </div>
             </div>
-          )}
-
-          {createOpen && !createdSlug && (
-            <form onSubmit={createCampaign} style={{ marginTop: "1.25rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                <label style={{ ...C.label, gridColumn: "1 / -1" }}>
-                  Campaign Slug <span style={{ color: "#dc2626", fontWeight: 400 }}>*</span>
-                  <input style={C.input} required value={newC.campaign_slug} placeholder="e.g. mesa-soccer-2026"
-                    onChange={e => setNewC(v => ({ ...v, campaign_slug: e.target.value }))} />
-                  <span style={{ fontSize: ".72rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>Lowercase letters, numbers, and hyphens only · becomes the URL</span>
-                </label>
-                <label style={C.label}>School Name <input style={C.input} value={newC.school_name} onChange={e => setNewC(v => ({ ...v, school_name: e.target.value }))} /></label>
-                <label style={C.label}>Sport Name  <input style={C.input} value={newC.sport_name}  onChange={e => setNewC(v => ({ ...v, sport_name: e.target.value }))} /></label>
-                <label style={C.label}>Mascot      <input style={C.input} value={newC.mascot} placeholder="e.g. Jaguars" onChange={e => setNewC(v => ({ ...v, mascot: e.target.value }))} /></label>
-                <label style={C.label}>Goal ($)    <input type="number" min="1" style={C.input} value={newC.goal_dollars} onChange={e => setNewC(v => ({ ...v, goal_dollars: e.target.value }))} /></label>
-                <label style={C.label}>Deadline    <input type="date" style={C.input} value={newC.deadline} onChange={e => setNewC(v => ({ ...v, deadline: e.target.value }))} /></label>
-                <label style={C.label}>Location    <input style={C.input} value={newC.location} placeholder="e.g. Mesa, Arizona" onChange={e => setNewC(v => ({ ...v, location: e.target.value }))} /></label>
-                <label style={C.label}>Season      <input style={C.input} value={newC.season} placeholder="e.g. 2026 Season" onChange={e => setNewC(v => ({ ...v, season: e.target.value }))} /></label>
-                <ColorField label="Primary Color"   value={newC.primary_color}   onChange={v => setNewC(x => ({ ...x, primary_color: v }))} />
-                <ColorField label="Secondary Color" value={newC.secondary_color} onChange={v => setNewC(x => ({ ...x, secondary_color: v }))} />
-                <label style={{ ...C.label, gridColumn: "1 / -1" }}>
-                  Logo URL
-                  <input style={C.input} value={newC.logo_url} placeholder="/logo.png or https://…" onChange={e => setNewC(v => ({ ...v, logo_url: e.target.value }))} />
-                </label>
-              </div>
-              {createError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{createError}</p>}
-              <Btn type="submit" disabled={creating} color="#16a34a">{creating ? "Creating…" : "Create Campaign"}</Btn>
-            </form>
           )}
         </div>
 
@@ -793,6 +805,402 @@ export function AdminDashboard() {
             {coachError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{coachError}</p>}
             <Btn color="#16a34a" onClick={addCoach}>+ Add Coach</Btn>
           </div>
+        </div>
+
+      </div>
+
+      {wizardOpen && (
+        <OnboardWizard
+          onClose={() => setWizardOpen(false)}
+          onComplete={(result: LaunchResult) => {
+            setLaunchResult(result);
+            setWizardOpen(false);
+            setAllSlugs(p => p.some(s => s.campaign_slug === result.slug) ? p : [...p, { campaign_slug: result.slug, archived: false }]);
+            setSelectedSlug(result.slug);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Wizard helpers ─────────────────────────────────────────────────────────────
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: ".1rem" }}>{label}</div>
+      <div style={{ fontSize: ".875rem", color: "#111827", fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}
+      style={{ background: "none", border: "1px solid #d1d5db", borderRadius: 5, cursor: "pointer", fontSize: ".72rem", color: copied ? "#15803d" : "#6b7280", padding: ".15rem .45rem", fontWeight: 600, flexShrink: 0 }}
+    >
+      {copied ? "✓ Copied" : "Copy"}
+    </button>
+  );
+}
+
+// ── OnboardWizard ─────────────────────────────────────────────────────────────
+
+function OnboardWizard({
+  onClose,
+  onComplete,
+}: {
+  onClose:    () => void;
+  onComplete: (result: LaunchResult) => void;
+}) {
+  const [step,          setStep]          = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [d,             setD]             = useState<WizardData>(WIZARD_BLANK);
+  const [stepErr,       setStepErr]       = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [launching,     setLaunching]     = useState(false);
+  const [launchErr,     setLaunchErr]     = useState("");
+
+  const upd = (patch: Partial<WizardData>) => setD(prev => ({ ...prev, ...patch }));
+
+  const STEP_LABELS: Record<number, string> = {
+    1: "Identity & Branding",
+    2: "Campaign Settings",
+    3: "Head Coach Account",
+    4: "Starter Content",
+    5: "Review & Launch",
+  };
+
+  const validate = (s: number): string | null => {
+    if (s === 1) {
+      const slug = d.campaign_slug.trim();
+      if (!slug) return "Campaign slug is required.";
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return "Slug: lowercase letters, numbers, hyphens. Must start with a letter or number.";
+      if (slug.length < 3) return "Slug must be at least 3 characters.";
+      if (!d.school_name.trim()) return "School name is required.";
+      if (!d.sport_name.trim())  return "Sport name is required.";
+    }
+    if (s === 3) {
+      if (!d.coach_name.trim())                             return "Coach name is required.";
+      if (!d.coach_email.trim() || !d.coach_email.includes("@")) return "Valid coach email is required.";
+      if (d.coach_password.length < 8)                     return "Password must be at least 8 characters.";
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const err = validate(step);
+    if (err) { setStepErr(err); return; }
+    setStepErr("");
+    setStep(s => (s < 5 ? s + 1 : 5) as 1 | 2 | 3 | 4 | 5);
+  };
+
+  const goBack = () => {
+    setStepErr(""); setLaunchErr("");
+    setStep(s => (s > 1 ? s - 1 : 1) as 1 | 2 | 3 | 4 | 5);
+  };
+
+  const uploadLogo = async (file: File) => {
+    setLogoUploading(true); setStepErr("");
+    const fd = new FormData(); fd.append("logo", file);
+    const res  = await fetch("/api/admin/logo-upload", { method: "POST", body: fd });
+    const data = await res.json();
+    setLogoUploading(false);
+    if (!res.ok) { setStepErr(data.error ?? "Logo upload failed."); return; }
+    upd({ logo_url: data.url });
+  };
+
+  const launch = async () => {
+    setLaunchErr(""); setLaunching(true);
+    const res = await fetch("/api/admin/onboard", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        campaign_slug:      d.campaign_slug.trim(),
+        school_name:        d.school_name.trim(),
+        sport_name:         d.sport_name.trim(),
+        mascot:             d.mascot.trim(),
+        season:             d.season.trim(),
+        location:           d.location.trim(),
+        primary_color:      d.primary_color,
+        secondary_color:    d.secondary_color,
+        logo_url:           d.logo_url.trim(),
+        goal_cents:         d.goal_dollars ? Math.round(parseFloat(d.goal_dollars) * 100) : 0,
+        deadline:           d.deadline,
+        external_store_url: d.external_store_url.trim() || null,
+        store_provider:     d.store_provider || null,
+        coach_name:         d.coach_name.trim(),
+        coach_email:        d.coach_email.trim(),
+        coach_password:     d.coach_password,
+        seed_fund_uses:     d.seed_fund_uses,
+        starter_athletes:   d.starter_athletes.filter(a => a.name.trim()),
+      }),
+    });
+    const data = await res.json();
+    setLaunching(false);
+    if (!res.ok) { setLaunchErr(data.error ?? "Launch failed. Please try again."); return; }
+    onComplete(data as LaunchResult);
+  };
+
+  const I = C.input;
+  const L = C.label;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 200,
+      background: "rgba(0,0,0,.55)", display: "flex",
+      alignItems: "flex-start", justifyContent: "center",
+      overflowY: "auto", padding: "2rem 1rem",
+    }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 640, boxShadow: "0 24px 80px rgba(0,0,0,.35)", overflow: "hidden" }}>
+
+        {/* Header */}
+        <div style={{ background: "#0b1e3d", padding: "1.1rem 1.5rem", display: "flex", alignItems: "center", gap: ".75rem" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Launch New School</div>
+            <div style={{ fontSize: ".72rem", color: "rgba(255,255,255,.55)", marginTop: ".1rem" }}>
+              Step {step} of 5 — {STEP_LABELS[step]}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,.12)", border: "none", color: "#fff", borderRadius: 6, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".85rem", flexShrink: 0 }}>✕</button>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ display: "flex", height: 4, background: "#e5e7eb" }}>
+          {[1, 2, 3, 4, 5].map(s => (
+            <div key={s} style={{ flex: 1, background: s <= step ? "#0b1e3d" : "transparent", transition: "background .2s" }} />
+          ))}
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "1.5rem", overflowY: "auto", maxHeight: "66vh" }}>
+
+          {/* ── Step 1: Identity & Branding ── */}
+          {step === 1 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <label style={L}>
+                Campaign Slug *
+                <input style={I} placeholder="e.g. mesa-soccer-2026" value={d.campaign_slug}
+                  onChange={e => upd({ campaign_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} autoFocus />
+                <span style={{ fontSize: ".7rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>Lowercase, numbers, hyphens only · becomes the public URL</span>
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>
+                <label style={L}>School Name * <input style={I} value={d.school_name} onChange={e => upd({ school_name: e.target.value })} placeholder="Mesa High School" /></label>
+                <label style={L}>Sport * <input style={I} value={d.sport_name} onChange={e => upd({ sport_name: e.target.value })} placeholder="Soccer" /></label>
+                <label style={L}>Mascot <input style={I} value={d.mascot} onChange={e => upd({ mascot: e.target.value })} placeholder="Jaguars" /></label>
+                <label style={L}>Season <input style={I} value={d.season} onChange={e => upd({ season: e.target.value })} placeholder="2026 Season" /></label>
+                <label style={{ ...L, gridColumn: "1 / -1" }}>Location <input style={I} value={d.location} onChange={e => upd({ location: e.target.value })} placeholder="Mesa, Arizona" /></label>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>
+                <ColorField label="Primary Color"   value={d.primary_color}   onChange={v => upd({ primary_color: v })} />
+                <ColorField label="Secondary Color" value={d.secondary_color} onChange={v => upd({ secondary_color: v })} />
+              </div>
+              <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", height: 32 }}>
+                <div style={{ flex: 1, background: d.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Primary · {d.primary_color}</span>
+                </div>
+                <div style={{ flex: 1, background: d.secondary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Secondary · {d.secondary_color}</span>
+                </div>
+              </div>
+              {/* Logo upload */}
+              <div style={L}>
+                Team Logo
+                <div style={{ display: "flex", alignItems: "center", gap: ".65rem", marginTop: ".25rem", flexWrap: "wrap" }}>
+                  {d.logo_url && (
+                    <img src={d.logo_url} alt="Logo preview" style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 6, border: "1px solid #e5e7eb", flexShrink: 0, background: "#f9fafb" }} />
+                  )}
+                  <label style={{ display: "inline-block", padding: ".4rem .85rem", background: logoUploading ? "#f9fafb" : "#f3f4f6", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: ".78rem", fontWeight: 600, color: logoUploading ? "#9ca3af" : "#374151", cursor: logoUploading ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                    {logoUploading ? "Uploading…" : d.logo_url ? "Change" : "Upload Logo"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={logoUploading}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                  </label>
+                  <input style={{ ...I, flex: 1, minWidth: 120, fontWeight: 400, textTransform: "none" as const, letterSpacing: 0 }} type="url" placeholder="or paste URL…" value={d.logo_url}
+                    onChange={e => upd({ logo_url: e.target.value })} />
+                </div>
+                <span style={{ fontSize: ".68rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>PNG/JPG · max 5MB · stored in athlete-photos/logos/</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 2: Campaign Settings ── */}
+          {step === 2 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>
+                <label style={L}>
+                  Fundraising Goal ($)
+                  <div style={{ position: "relative" }}>
+                    <span style={{ position: "absolute", left: ".75rem", top: "50%", transform: "translateY(-50%)", color: "#9ca3af", fontSize: ".875rem", pointerEvents: "none" }}>$</span>
+                    <input type="number" min="1" step="100" style={{ ...I, paddingLeft: "1.5rem" }} value={d.goal_dollars} onChange={e => upd({ goal_dollars: e.target.value })} placeholder="10000" autoFocus />
+                  </div>
+                </label>
+                <label style={L}>
+                  Deadline
+                  <input type="date" style={I} value={d.deadline} onChange={e => upd({ deadline: e.target.value })} />
+                </label>
+              </div>
+              <label style={L}>
+                External Store URL <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: ".7rem", color: "#9ca3af" }}>optional</span>
+                <input type="url" style={{ ...I, fontWeight: 400, textTransform: "none" as const, letterSpacing: 0 }} placeholder="https://yourteam.shopify.com" value={d.external_store_url}
+                  onChange={e => upd({ external_store_url: e.target.value })} />
+              </label>
+              <label style={L}>
+                Store Provider <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: ".7rem", color: "#9ca3af" }}>optional</span>
+                <select style={{ ...I, fontWeight: 400, textTransform: "none" as const, letterSpacing: 0 }} value={d.store_provider} onChange={e => upd({ store_provider: e.target.value })}>
+                  <option value="">None / Not listed</option>
+                  {STORE_PROVIDERS_LIST.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
+
+          {/* ── Step 3: Head Coach Account ── */}
+          {step === 3 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ padding: ".75rem 1rem", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: ".82rem", color: "#1e40af", lineHeight: 1.5 }}>
+                Creates the head coach login. No email is sent automatically — share credentials securely after launch.
+              </div>
+              <label style={L}>Full Name * <input style={I} value={d.coach_name} onChange={e => upd({ coach_name: e.target.value })} placeholder="Jane Smith" autoFocus /></label>
+              <label style={L}>Email * <input type="email" style={I} value={d.coach_email} onChange={e => upd({ coach_email: e.target.value })} placeholder="coach@school.edu" /></label>
+              <label style={L}>
+                Temporary Password *
+                <input type="password" style={I} value={d.coach_password} onChange={e => upd({ coach_password: e.target.value })} placeholder="Minimum 8 characters" />
+                <span style={{ fontSize: ".7rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>Cannot be recovered after creation — note it before launching.</span>
+              </label>
+            </div>
+          )}
+
+          {/* ── Step 4: Starter Content ── */}
+          {step === 4 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: ".75rem", cursor: "pointer" }}>
+                  <input type="checkbox" checked={d.seed_fund_uses} onChange={e => upd({ seed_fund_uses: e.target.checked })}
+                    style={{ width: 18, height: 18, marginTop: 1, cursor: "pointer", accentColor: "#0b1e3d", flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d" }}>Seed 6 default fund uses</div>
+                    <div style={{ fontSize: ".78rem", color: "#6b7280", marginTop: ".2rem", lineHeight: 1.5 }}>
+                      Travel · Entry Fees · Equipment · Uniforms · Recovery Tools · Team Meals — shown on the public campaign page under &ldquo;Where Your Money Goes.&rdquo;
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".65rem" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d" }}>Starter Athletes</div>
+                    <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>Optional — coach can add more via team hub.</div>
+                  </div>
+                  <Btn color="#0b1e3d" onClick={() => upd({ starter_athletes: [...d.starter_athletes, { name: "", event: "" }] })}>+ Add Athlete</Btn>
+                </div>
+                {d.starter_athletes.length === 0 ? (
+                  <div style={{ padding: "1.25rem", textAlign: "center", border: "1.5px dashed #e5e7eb", borderRadius: 8, fontSize: ".82rem", color: "#9ca3af" }}>
+                    No starter athletes — tap + Add Athlete to include some.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                    {d.starter_athletes.map((a, i) => (
+                      <div key={i} style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+                        <input style={{ ...I, flex: 2 }} placeholder="Athlete name" value={a.name}
+                          onChange={e => { const next = [...d.starter_athletes]; next[i] = { ...next[i], name: e.target.value }; upd({ starter_athletes: next }); }} />
+                        <input style={{ ...I, flex: 1 }} placeholder="Event / Position" value={a.event}
+                          onChange={e => { const next = [...d.starter_athletes]; next[i] = { ...next[i], event: e.target.value }; upd({ starter_athletes: next }); }} />
+                        <button onClick={() => upd({ starter_athletes: d.starter_athletes.filter((_, idx) => idx !== i) })}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#fca5a5", fontWeight: 700, fontSize: ".95rem", padding: ".1rem .3rem", flexShrink: 0 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 5: Review & Launch ── */}
+          {step === 5 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ fontSize: ".75rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>Campaign</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".55rem .75rem" }}>
+                <ReviewRow label="Slug"     value={d.campaign_slug || "—"} />
+                <ReviewRow label="School"   value={d.school_name   || "—"} />
+                <ReviewRow label="Sport"    value={d.sport_name    || "—"} />
+                <ReviewRow label="Mascot"   value={d.mascot        || "—"} />
+                <ReviewRow label="Season"   value={d.season        || "—"} />
+                <ReviewRow label="Location" value={d.location      || "—"} />
+                <ReviewRow label="Goal"     value={d.goal_dollars ? `$${parseFloat(d.goal_dollars).toLocaleString()}` : "—"} />
+                <ReviewRow label="Deadline" value={d.deadline      || "—"} />
+              </div>
+              <div style={{ display: "flex", gap: ".4rem", alignItems: "center" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 4, background: d.primary_color,   border: "1px solid rgba(0,0,0,.1)", flexShrink: 0 }} />
+                <div style={{ width: 20, height: 20, borderRadius: 4, background: d.secondary_color, border: "1px solid rgba(0,0,0,.1)", flexShrink: 0 }} />
+                <span style={{ fontSize: ".75rem", color: "#6b7280" }}>{d.primary_color} / {d.secondary_color}</span>
+                {d.logo_url && <img src={d.logo_url} alt="Logo" style={{ height: 22, objectFit: "contain", marginLeft: ".25rem" }} />}
+              </div>
+              {d.external_store_url && (
+                <ReviewRow label="Store" value={`${d.store_provider || "External"} — ${d.external_store_url}`} />
+              )}
+
+              <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: ".75rem" }}>
+                <div style={{ fontSize: ".75rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: ".5rem" }}>Head Coach</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".55rem .75rem" }}>
+                  <ReviewRow label="Name"  value={d.coach_name  || "—"} />
+                  <ReviewRow label="Email" value={d.coach_email || "—"} />
+                </div>
+                <div style={{ marginTop: ".5rem", fontSize: ".8rem", color: "#6b7280" }}>
+                  Password: {d.coach_password ? "•".repeat(Math.min(d.coach_password.length, 12)) : "—"}
+                </div>
+              </div>
+
+              <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: ".75rem" }}>
+                <div style={{ fontSize: ".75rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: ".5rem" }}>Starter Content</div>
+                <div style={{ fontSize: ".875rem", color: "#374151" }}>
+                  {d.seed_fund_uses ? "6 default fund uses will be seeded" : "No fund uses seeded"} ·{" "}
+                  {d.starter_athletes.filter(a => a.name.trim()).length} starter athlete{d.starter_athletes.filter(a => a.name.trim()).length !== 1 ? "s" : ""}
+                </div>
+              </div>
+
+              <div style={{ padding: ".75rem 1rem", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 8, fontSize: ".8rem", color: "#92400e" }}>
+                A join code will be auto-generated. The coach can find it in Team Settings after logging in.
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: ".875rem 1.5rem", borderTop: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: ".5rem" }}>
+          {(stepErr || launchErr) && (
+            <p style={{ margin: 0, padding: ".4rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, color: "#dc2626", fontSize: ".82rem" }}>
+              {stepErr || launchErr}
+              {launchErr && step < 5 ? null : launchErr && (
+                <button onClick={() => { setLaunchErr(""); setStep(1); }} style={{ marginLeft: ".75rem", background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontWeight: 700, fontSize: ".82rem", textDecoration: "underline" }}>← Back to Step 1</button>
+              )}
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div>{step > 1 && <Btn color="#6b7280" onClick={goBack}>← Back</Btn>}</div>
+            <div style={{ display: "flex", gap: ".5rem" }}>
+              {step < 5 && (
+                <>
+                  {step === 4 && <Btn color="#6b7280" onClick={() => { setStepErr(""); setStep(5); }}>Skip →</Btn>}
+                  <Btn onClick={goNext}>Next →</Btn>
+                </>
+              )}
+              {step === 5 && (
+                <Btn color="#16a34a" onClick={launch} disabled={launching}>
+                  {launching ? "Launching…" : "🚀 Launch Campaign"}
+                </Btn>
+              )}
+            </div>
+          </div>
+          {step === 5 && (
+            <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+              <CopyBtn text={`Slug: ${d.campaign_slug}\nCampaign: /campaign/${d.campaign_slug}\nTeam Hub: /team/${d.campaign_slug}/home\nCoach: ${d.coach_email}`} />
+              <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>Copy summary to clipboard</span>
+            </div>
+          )}
         </div>
 
       </div>
