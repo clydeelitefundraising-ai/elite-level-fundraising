@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import "../paradise-valley-track-field-live/campaign-live.css";
+import "./campaign.css";
 
 const rankIcon = (r: number) =>
   r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;

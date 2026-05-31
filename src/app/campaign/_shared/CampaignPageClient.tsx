@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import "../paradise-valley-track-field-live/campaign-live.css";
+import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
 
 const FALLBACK_GOAL      = 25000;

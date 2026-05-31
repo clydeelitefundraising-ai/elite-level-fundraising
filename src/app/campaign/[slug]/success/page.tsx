@@ -72,10 +72,7 @@ async function saveDonation(sessionId: string, campaignSlug: string) {
     if (session.payment_status !== "paid") return;
 
     const alreadySaved = await donationExists(sessionId);
-    if (alreadySaved) {
-      console.log("[success] duplicate session, skipping insert:", sessionId);
-      return;
-    }
+    if (alreadySaved) return;
 
     await insertDonation({
       stripe_session_id: sessionId,
@@ -86,7 +83,6 @@ async function saveDonation(sessionId: string, campaignSlug: string) {
       donation_message:  session.metadata?.donation_message ?? null,
       campaign_slug:     campaignSlug,
     });
-    console.log("[success] donation saved to Supabase for campaign:", campaignSlug);
   } catch (err) {
     console.error("[success] saveDonation error:", err);
   }
