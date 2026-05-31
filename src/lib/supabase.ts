@@ -67,8 +67,10 @@ export type CampaignSettings = {
   show_recent_donations?: boolean;
   show_sponsors?: boolean;
   show_donation_card?: boolean;
-  layout_variant?: "classic" | "premium";
-  team_photo?: string;
+  layout_variant?:      "classic" | "premium";
+  team_photo?:          string;
+  external_store_url?:  string | null;
+  store_provider?:      string | null;
 };
 
 export type AthleteRow = {

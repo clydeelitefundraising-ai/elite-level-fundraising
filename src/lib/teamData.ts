@@ -198,30 +198,7 @@ export type TeamProductRow = {
   display_order: number;
   created_at:    string;
   variants:      TeamVariantRow[];
-};
-
-export type TeamOrderItemRow = {
-  id:           string;
-  order_id:     string;
-  product_id:   string | null;
-  variant_id:   string | null;
-  product_name: string;
-  variant_name: string | null;
-  price_cents:  number;
-  quantity:     number;
-};
-
-export type TeamOrderRow = {
-  id:                string;
-  campaign_slug:     string;
-  stripe_session_id: string;
-  customer_name:     string | null;
-  customer_email:    string | null;
-  status:            "pending" | "paid" | "fulfilled" | "cancelled";
-  total_cents:       number;
-  notes:             string | null;
-  created_at:        string;
-  items:             TeamOrderItemRow[];
+  external_url?: string | null;
 };
 
 export async function getAllTeamProducts(slug: string): Promise<TeamProductRow[]> {
@@ -233,14 +210,6 @@ export async function getAllTeamProducts(slug: string): Promise<TeamProductRow[]
   return res.json();
 }
 
-export async function getTeamOrders(slug: string): Promise<TeamOrderRow[]> {
-  const res = await fetch(
-    `${BASE}/rest/v1/team_orders?campaign_slug=eq.${encodeURIComponent(slug)}&select=*,items:team_order_items(id,product_name,variant_name,price_cents,quantity)&order=created_at.desc`,
-    { headers: h(), cache: "no-store" },
-  );
-  if (!res.ok) return [];
-  return res.json();
-}
 
 export async function getDonationStats(slug: string): Promise<DonationStats> {
   const res = await fetch(

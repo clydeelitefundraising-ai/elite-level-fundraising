@@ -2,38 +2,44 @@
 
 import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
-import type { TeamProductRow, TeamVariantRow } from "@/lib/teamData";
+import type { TeamProductRow } from "@/lib/teamData";
 import { coachSession, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const STORE_PROVIDERS = ["Shopify", "SquadLocker", "BSN Sports", "Game One", "Custom"] as const;
+const CATEGORY_SUGGESTIONS = ["Apparel", "Accessories", "Training Gear", "Spirit Wear", "Custom"];
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type CartItem = {
-  key:          string;
-  product_id:   string;
-  product_name: string;
-  variant_id:   string | null;
-  variant_name: string | null;
-  unit_cents:   number;
-  quantity:     number;
-  image_url:    string | null;
-};
-
 type ProductForm = {
-  name:        string;
-  description: string;
-  category:    string;
-  price:       string;
-  cost:        string;
-  image_url:   string;
-  visible:     boolean;
-  variants:    { name: string; price_delta: string }[];
+  name:         string;
+  description:  string;
+  category:     string;
+  price:        string;
+  cost:         string;
+  image_url:    string;
+  visible:      boolean;
+  external_url: string;
+  variants:     { name: string; price_delta: string }[];
 };
 
 const BLANK_FORM: ProductForm = {
   name: "", description: "", category: "", price: "", cost: "",
-  image_url: "", visible: true, variants: [],
+  image_url: "", visible: true, external_url: "", variants: [],
+};
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const inp: React.CSSProperties = {
+  padding: ".5rem .75rem", border: "1.5px solid #e5e7eb", borderRadius: 9,
+  fontSize: ".875rem", width: "100%", boxSizing: "border-box", color: "#111827", background: "#fff",
+};
+const lbl: React.CSSProperties = {
+  display: "flex", flexDirection: "column", gap: ".3rem", fontSize: ".72rem",
+  fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -46,25 +52,12 @@ function initials(name: string) {
   return name.trim()[0]?.toUpperCase() ?? "?";
 }
 
-const CATEGORY_SUGGESTIONS = ["Apparel", "Accessories", "Training Gear", "Spirit Wear", "Custom"];
-
-const inp: React.CSSProperties = {
-  padding: ".5rem .75rem", border: "1.5px solid #e5e7eb", borderRadius: 9,
-  fontSize: ".875rem", width: "100%", boxSizing: "border-box", color: "#111827", background: "#fff",
-};
-const lbl: React.CSSProperties = {
-  display: "flex", flexDirection: "column", gap: ".3rem", fontSize: ".72rem",
-  fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em",
-};
-
-// ── Category chip colors ──────────────────────────────────────────────────────
-
 function catColor(cat: string): { bg: string; color: string } {
   const map: Record<string, { bg: string; color: string }> = {
-    apparel:      { bg: "#f0f4ff", color: "#1d4ed8" },
-    accessories:  { bg: "#fef3c7", color: "#92400e" },
-    "training gear": { bg: "#d1fae5", color: "#065f46" },
-    "spirit wear": { bg: "#ede9fe", color: "#4c1d95" },
+    apparel:           { bg: "#f0f4ff", color: "#1d4ed8" },
+    accessories:       { bg: "#fef3c7", color: "#92400e" },
+    "training gear":   { bg: "#d1fae5", color: "#065f46" },
+    "spirit wear":     { bg: "#ede9fe", color: "#4c1d95" },
   };
   return map[cat.toLowerCase()] ?? { bg: "#f3f4f6", color: "#374151" };
 }
@@ -75,46 +68,40 @@ function ProductCard({
   product,
   isCoach,
   primary,
-  onAddToCart,
   onEdit,
   onDelete,
-  addedFlash,
 }: {
-  product:    TeamProductRow;
-  isCoach:    boolean;
-  primary:    string;
-  onAddToCart: (p: TeamProductRow) => void;
-  onEdit:     (p: TeamProductRow) => void;
-  onDelete:   (id: string) => void;
-  addedFlash: boolean;
+  product:  TeamProductRow;
+  isCoach:  boolean;
+  primary:  string;
+  onEdit:   (p: TeamProductRow) => void;
+  onDelete: (id: string) => void;
 }) {
-  const cat = catColor(product.category);
+  const cat         = catColor(product.category);
   const hasVariants = product.variants.length > 0;
+  const externalUrl = product.external_url ?? null;
 
-  return (
-    <div style={{
-      background: "#fff", borderRadius: 14,
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      overflow: "hidden",
-      opacity: !product.visible && isCoach ? .6 : 1,
-    }}>
-      {/* Image */}
+  const body = (
+    <>
       <div style={{ height: 140, background: "#f8f9fb", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-        {product.image_url ? (
-          <img src={product.image_url} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ fontSize: "2.5rem", color: "#d1d5db", fontWeight: 800 }}>{initials(product.name)}</div>
-        )}
+        {product.image_url
+          ? <img src={product.image_url} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <div style={{ fontSize: "2.5rem", color: "#d1d5db", fontWeight: 800 }}>{initials(product.name)}</div>
+        }
         {isCoach && !product.visible && (
           <div style={{ position: "absolute", top: 8, right: 8, background: "#374151", color: "#fff", fontSize: ".58rem", fontWeight: 700, padding: ".2rem .45rem", borderRadius: 6, textTransform: "uppercase" }}>
             Hidden
           </div>
         )}
+        {externalUrl && !isCoach && (
+          <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: ".6rem", fontWeight: 700, padding: ".2rem .5rem", borderRadius: 6 }}>
+            Shop →
+          </div>
+        )}
       </div>
 
       <div style={{ padding: ".75rem" }}>
-        {/* Category + name */}
-        <span style={{ ...cat, fontSize: ".58rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", borderRadius: 100, padding: ".1rem .4rem", display: "inline-block", marginBottom: ".35rem" }}>
+        <span style={{ ...cat, fontSize: ".58rem", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: ".04em", borderRadius: 100, padding: ".1rem .4rem", display: "inline-block", marginBottom: ".35rem" }}>
           {product.category}
         </span>
         <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d", lineHeight: 1.2, marginBottom: ".25rem" }}>
@@ -125,223 +112,54 @@ function ProductCard({
             {product.description}
           </div>
         )}
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>{fmt(product.price_cents)}</span>
-            {hasVariants && <span style={{ fontSize: ".65rem", color: "#9ca3af", marginLeft: ".3rem" }}>+ options</span>}
-          </div>
+        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>
+          {fmt(product.price_cents)}
+          {hasVariants && <span style={{ fontSize: ".65rem", color: "#9ca3af", marginLeft: ".3rem", fontWeight: 400 }}>+ options</span>}
         </div>
-
-        <button
-          onClick={() => onAddToCart(product)}
-          style={{
-            marginTop: ".6rem", width: "100%", padding: ".55rem",
-            background: addedFlash ? "#059669" : primary,
-            color: "#fff", border: "none", borderRadius: 9,
-            fontSize: ".82rem", fontWeight: 700, cursor: "pointer",
-            transition: "background .2s",
-          }}
-        >
-          {addedFlash ? "✓ Added!" : hasVariants ? "Select Options" : "Add to Cart"}
-        </button>
-
-        {isCoach && (
-          <div style={{ display: "flex", gap: ".25rem", justifyContent: "flex-end", marginTop: ".45rem" }}>
-            <button onClick={() => onEdit(product)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".7rem", fontWeight: 600, color: "#9ca3af", padding: ".1rem .4rem", borderRadius: 5 }}>
-              Edit
-            </button>
-            <button onClick={() => onDelete(product.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".7rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .4rem", borderRadius: 5 }}>
-              Remove
-            </button>
+        {isCoach && externalUrl && (
+          <div style={{ marginTop: ".3rem", fontSize: ".65rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            🔗 {externalUrl}
           </div>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 14,
+      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      overflow: "hidden",
+      opacity: !product.visible && isCoach ? .6 : 1,
+    }}>
+      {externalUrl && !isCoach
+        ? (
+          <a href={externalUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block", color: "inherit" }}>
+            {body}
+          </a>
+        )
+        : body
+      }
+      {isCoach && (
+        <div style={{ display: "flex", gap: ".25rem", justifyContent: "flex-end", padding: "0 .75rem .6rem" }}>
+          <button onClick={() => onEdit(product)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".7rem", fontWeight: 600, color: "#9ca3af", padding: ".1rem .4rem", borderRadius: 5 }}>
+            Edit
+          </button>
+          <button onClick={() => onDelete(product.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".7rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .4rem", borderRadius: 5 }}>
+            Remove
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Variant picker modal ──────────────────────────────────────────────────────
-
-function VariantPickerModal({
-  product,
-  primary,
-  onAdd,
-  onClose,
-}: {
-  product: TeamProductRow;
-  primary: string;
-  onAdd:   (variant: TeamVariantRow) => void;
-  onClose: () => void;
-}) {
-  const [selected, setSelected] = useState<string | null>(null);
-
-  return (
-    <Modal title={product.name} onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
-        {product.image_url && (
-          <img src={product.image_url} alt={product.name} style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 10 }} />
-        )}
-        {product.description && (
-          <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>{product.description}</p>
-        )}
-
-        <div style={lbl}>
-          Select Option
-          <div style={{ display: "flex", flexWrap: "wrap", gap: ".4rem", marginTop: ".25rem" }}>
-            {product.variants.map(v => {
-              const unitCents = product.price_cents + v.price_delta;
-              const active    = selected === v.id;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => setSelected(v.id)}
-                  style={{
-                    padding: ".45rem .85rem", borderRadius: 9, cursor: "pointer",
-                    border:      active ? `2px solid ${primary}` : "2px solid #e5e7eb",
-                    background:  active ? `${primary}10`          : "#fff",
-                    color:       active ? primary                  : "#374151",
-                    fontSize: ".82rem", fontWeight: 700,
-                  }}
-                >
-                  {v.name}
-                  {v.price_delta !== 0 && (
-                    <span style={{ fontWeight: 400, marginLeft: ".3rem" }}>
-                      ({v.price_delta > 0 ? "+" : ""}{fmt(v.price_delta)})
-                    </span>
-                  )}
-                  {" — "}{fmt(unitCents)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            const v = product.variants.find(v => v.id === selected);
-            if (v) { onAdd(v); onClose(); }
-          }}
-          disabled={!selected}
-          style={{
-            padding: ".7rem", background: selected ? primary : "#e5e7eb",
-            color: selected ? "#fff" : "#9ca3af", border: "none", borderRadius: 12,
-            fontSize: ".95rem", fontWeight: 700, cursor: selected ? "pointer" : "not-allowed",
-          }}
-        >
-          Add to Cart
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-// ── Cart modal ────────────────────────────────────────────────────────────────
-
-function CartModal({
-  cart,
-  primary,
-  checkingOut,
-  checkoutError,
-  onUpdateQty,
-  onRemove,
-  onCheckout,
-  onClose,
-}: {
-  cart:          CartItem[];
-  primary:       string;
-  checkingOut:   boolean;
-  checkoutError: string;
-  onUpdateQty:   (key: string, delta: number) => void;
-  onRemove:      (key: string) => void;
-  onCheckout:    () => void;
-  onClose:       () => void;
-}) {
-  const total = cart.reduce((s, i) => s + i.unit_cents * i.quantity, 0);
-
-  return (
-    <Modal title="Your Cart" onClose={onClose}>
-      {cart.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "1.5rem 0", color: "#9ca3af", fontSize: ".85rem" }}>
-          Your cart is empty.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
-          {cart.map((item, i) => (
-            <div key={item.key} style={{
-              display: "flex", gap: ".65rem", alignItems: "center",
-              paddingBottom: i < cart.length - 1 ? ".65rem" : 0,
-              borderBottom: i < cart.length - 1 ? "1px solid #f3f4f6" : "none",
-            }}>
-              {/* Thumbnail */}
-              <div style={{ width: 44, height: 44, borderRadius: 8, background: "#f3f4f6", flexShrink: 0, overflow: "hidden" }}>
-                {item.image_url
-                  ? <img src={item.image_url} alt={item.product_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", color: "#9ca3af" }}>{initials(item.product_name)}</div>
-                }
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: ".83rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.product_name}
-                </div>
-                {item.variant_name && (
-                  <div style={{ fontSize: ".68rem", color: "#6b7280" }}>{item.variant_name}</div>
-                )}
-                <div style={{ fontWeight: 800, fontSize: ".88rem", color: "#059669", marginTop: ".1rem" }}>
-                  {fmt(item.unit_cents * item.quantity)}
-                </div>
-              </div>
-
-              {/* Qty controls */}
-              <div style={{ display: "flex", alignItems: "center", gap: ".3rem", flexShrink: 0 }}>
-                <button onClick={() => onUpdateQty(item.key, -1)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", fontWeight: 700, fontSize: ".9rem", color: "#374151", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>−</button>
-                <span style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d", minWidth: 18, textAlign: "center" }}>{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.key, 1)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", fontWeight: 700, fontSize: ".9rem", color: "#374151", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>+</button>
-              </div>
-
-              <button onClick={() => onRemove(item.key)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".75rem", color: "#fca5a5", fontWeight: 700, flexShrink: 0, padding: ".2rem" }}>✕</button>
-            </div>
-          ))}
-
-          {/* Total */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: ".5rem", borderTop: "2px solid #f3f4f6" }}>
-            <span style={{ fontWeight: 700, fontSize: ".85rem", color: "#374151" }}>Subtotal</span>
-            <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "#0b1e3d" }}>{fmt(total)}</span>
-          </div>
-
-          {checkoutError && (
-            <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
-              {checkoutError}
-            </p>
-          )}
-
-          <button
-            onClick={onCheckout}
-            disabled={checkingOut}
-            style={{
-              padding: ".8rem", background: checkingOut ? "#e5e7eb" : primary,
-              color: checkingOut ? "#9ca3af" : "#fff", border: "none",
-              borderRadius: 12, fontSize: "1rem", fontWeight: 700,
-              cursor: checkingOut ? "not-allowed" : "pointer",
-            }}
-          >
-            {checkingOut ? "Redirecting to Stripe…" : `Checkout — ${fmt(total)}`}
-          </button>
-        </div>
-      )}
-    </Modal>
-  );
-}
-
-// ── Product modal (add / edit — coach only) ────────────────────────────────────
+// ── Product modal (coach only) ────────────────────────────────────────────────
 
 function ProductModal({
   form,
   setForm,
   isEditing,
-  editingProduct,
-  slug,
   saving,
   formError,
   imagePreview,
@@ -350,24 +168,20 @@ function ProductModal({
   onSave,
   onClose,
   onImageUpload,
-  onAddVariant,
   onRemoveVariant,
 }: {
-  form:              ProductForm;
-  setForm:           React.Dispatch<React.SetStateAction<ProductForm>>;
-  isEditing:         boolean;
-  editingProduct:    TeamProductRow | null;
-  slug:              string;
-  saving:            boolean;
-  formError:         string;
-  imagePreview:      string;
-  imageUploading:    boolean;
-  imageError:        string;
-  onSave:            () => void;
-  onClose:           () => void;
-  onImageUpload:     (file: File) => void;
-  onAddVariant:      () => void;
-  onRemoveVariant:   (idx: number) => void;
+  form:            ProductForm;
+  setForm:         React.Dispatch<React.SetStateAction<ProductForm>>;
+  isEditing:       boolean;
+  saving:          boolean;
+  formError:       string;
+  imagePreview:    string;
+  imageUploading:  boolean;
+  imageError:      string;
+  onSave:          () => void;
+  onClose:         () => void;
+  onImageUpload:   (file: File) => void;
+  onRemoveVariant: (idx: number) => void;
 }) {
   const [newVName,  setNewVName]  = useState("");
   const [newVDelta, setNewVDelta] = useState("");
@@ -376,7 +190,6 @@ function ProductModal({
     if (!newVName.trim()) return;
     setForm(f => ({ ...f, variants: [...f.variants, { name: newVName.trim(), price_delta: newVDelta }] }));
     setNewVName(""); setNewVDelta("");
-    onAddVariant();
   };
 
   return (
@@ -438,6 +251,12 @@ function ProductModal({
           <textarea rows={2} style={{ ...inp, resize: "none", fontWeight: 400, letterSpacing: 0, textTransform: "none" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Comfortable team hoodie…" />
         </label>
 
+        <label style={lbl}>
+          Product Link
+          <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: ".68rem", color: "#9ca3af" }}>Optional — links directly to this item in your team store</span>
+          <input style={{ ...inp, fontWeight: 400, textTransform: "none", letterSpacing: 0 }} type="url" value={form.external_url} onChange={e => setForm(f => ({ ...f, external_url: e.target.value }))} placeholder="https://yourstore.com/products/team-hoodie" />
+        </label>
+
         {/* Image upload */}
         <div style={lbl}>
           Product Image
@@ -458,7 +277,7 @@ function ProductModal({
 
         {/* Visibility */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: ".6rem .75rem", background: "#f9fafb", borderRadius: 10, border: "1.5px solid #e5e7eb" }}>
-          <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#111827" }}>Visible in shop</div>
+          <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#111827" }}>Visible in gallery</div>
           <button type="button" onClick={() => setForm(f => ({ ...f, visible: !f.visible }))} style={{ width: 44, height: 24, borderRadius: 100, border: "none", background: form.visible ? "#0b1e3d" : "#e5e7eb", cursor: "pointer", position: "relative", flexShrink: 0 }}>
             <span style={{ position: "absolute", top: 3, left: form.visible ? 23 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,.2)", transition: "left .15s" }} />
           </button>
@@ -479,8 +298,6 @@ function ProductModal({
                 <button onClick={() => onRemoveVariant(i)} style={{ background: "none", border: "none", cursor: "pointer", color: "#fca5a5", fontSize: ".8rem", fontWeight: 700, padding: ".1rem .25rem" }}>✕</button>
               </div>
             ))}
-
-            {/* Add variant form */}
             <div style={{ display: "flex", gap: ".4rem", alignItems: "flex-end" }}>
               <input style={{ ...inp, fontSize: ".8rem", flex: 2, fontWeight: 400, textTransform: "none", letterSpacing: 0 }} placeholder="e.g. Large" value={newVName} onChange={e => setNewVName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddVariant(); } }} />
               <div style={{ position: "relative", flex: 1 }}>
@@ -505,22 +322,16 @@ export default function ShopView({
   initialProducts,
   actor,
 }: {
-  slug:             string;
-  settings:         CampaignSettings;
-  initialProducts:  TeamProductRow[];
-  actor:            TeamActor;
+  slug:            string;
+  settings:        CampaignSettings;
+  initialProducts: TeamProductRow[];
+  actor:           TeamActor;
 }) {
   const coach   = coachSession(actor);
   const isCoach = !!coach;
   const primary = settings.primary_color;
 
   const [products,       setProducts]       = useState<TeamProductRow[]>(initialProducts);
-  const [cart,           setCart]           = useState<CartItem[]>([]);
-  const [showCart,       setShowCart]       = useState(false);
-  const [checkingOut,    setCheckingOut]    = useState(false);
-  const [checkoutError,  setCheckoutError]  = useState("");
-  const [variantPicker,  setVariantPicker]  = useState<TeamProductRow | null>(null);
-  const [addedFlash,     setAddedFlash]     = useState<Record<string, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<TeamProductRow | null>(null);
   const [showAddModal,   setShowAddModal]   = useState(false);
   const [saving,         setSaving]         = useState(false);
@@ -530,78 +341,55 @@ export default function ShopView({
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError,     setImageError]     = useState("");
 
-  // ── Cart helpers ──────────────────────────────────────────────────────────
+  const [storeUrl,      setStoreUrl]      = useState(settings.external_store_url ?? "");
+  const [storeProvider, setStoreProvider] = useState(settings.store_provider     ?? "");
+  const [storeSaving,   setStoreSaving]   = useState(false);
+  const [storeError,    setStoreError]    = useState("");
+  const [storeSaved,    setStoreSaved]    = useState(false);
 
-  const addToCart = (product: TeamProductRow, variant?: TeamVariantRow) => {
-    const key = `${product.id}:${variant?.id ?? ""}`;
-    setCart(prev => {
-      const existing = prev.find(i => i.key === key);
-      if (existing) return prev.map(i => i.key === key ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, {
-        key,
-        product_id:   product.id,
-        product_name: product.name,
-        variant_id:   variant?.id   ?? null,
-        variant_name: variant?.name ?? null,
-        unit_cents:   product.price_cents + (variant?.price_delta ?? 0),
-        quantity:     1,
-        image_url:    product.image_url,
-      }];
-    });
-    setAddedFlash(f => ({ ...f, [product.id]: true }));
-    setTimeout(() => setAddedFlash(f => ({ ...f, [product.id]: false })), 1200);
-  };
+  // ── Store settings ────────────────────────────────────────────────────────
 
-  const removeFromCart = (key: string) => setCart(prev => prev.filter(i => i.key !== key));
-
-  const updateQty = (key: string, delta: number) =>
-    setCart(prev => prev.map(i => i.key === key ? { ...i, quantity: i.quantity + delta } : i).filter(i => i.quantity > 0));
-
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
-
-  const handleAddToCart = (product: TeamProductRow) => {
-    if (product.variants.length > 0) { setVariantPicker(product); return; }
-    addToCart(product);
-  };
-
-  const handleCheckout = async () => {
-    setCheckingOut(true); setCheckoutError("");
+  const handleSaveStoreSettings = async () => {
+    setStoreSaving(true); setStoreError(""); setStoreSaved(false);
     try {
-      const res = await fetch(`/api/team/${slug}/shop/checkout`, {
-        method: "POST",
+      const res = await fetch(`/api/team/${slug}/shop/store`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cart: cart.map(i => ({ product_id: i.product_id, variant_id: i.variant_id, quantity: i.quantity })) }),
+        body: JSON.stringify({
+          external_store_url: storeUrl.trim() || null,
+          store_provider:     storeProvider   || null,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) { setCheckoutError(data.error ?? "Checkout failed."); setCheckingOut(false); return; }
-      window.location.href = data.url;
+      if (!res.ok) { const d = await res.json(); setStoreError(d.error ?? "Failed to save."); }
+      else { setStoreSaved(true); setTimeout(() => setStoreSaved(false), 2500); }
     } catch {
-      setCheckoutError("Connection error. Please try again."); setCheckingOut(false);
+      setStoreError("Connection error.");
+    } finally {
+      setStoreSaving(false);
     }
   };
 
-  // ── Coach form helpers ─────────────────────────────────────────────────────
+  // ── Product form helpers ──────────────────────────────────────────────────
 
   const openAdd = () => {
-    const maxOrder = products.reduce((m, p) => Math.max(m, p.display_order), -1);
-    setForm({ ...BLANK_FORM });
-    setFormError(""); setImagePreview(""); setImageError(""); setImageUploading(false);
+    setForm(BLANK_FORM);
+    setFormError(""); setImagePreview(""); setImageError("");
     setShowAddModal(true);
-    void maxOrder;
   };
 
   const openEdit = (p: TeamProductRow) => {
     setForm({
-      name:        p.name,
-      description: p.description ?? "",
-      category:    p.category,
-      price:       String(p.price_cents / 100),
-      cost:        p.cost_cents != null ? String(p.cost_cents / 100) : "",
-      image_url:   p.image_url ?? "",
-      visible:     p.visible,
-      variants:    p.variants.map(v => ({ name: v.name, price_delta: v.price_delta !== 0 ? String(v.price_delta / 100) : "" })),
+      name:         p.name,
+      description:  p.description  ?? "",
+      category:     p.category,
+      price:        String(p.price_cents / 100),
+      cost:         p.cost_cents != null ? String(p.cost_cents / 100) : "",
+      image_url:    p.image_url    ?? "",
+      visible:      p.visible,
+      external_url: p.external_url ?? "",
+      variants:     p.variants.map(v => ({ name: v.name, price_delta: v.price_delta !== 0 ? String(v.price_delta / 100) : "" })),
     });
-    setImagePreview(p.image_url ?? ""); setImageError(""); setImageUploading(false); setFormError("");
+    setImagePreview(p.image_url ?? ""); setImageError(""); setFormError("");
     setEditingProduct(p);
   };
 
@@ -627,9 +415,10 @@ export default function ShopView({
     category:      f.category.trim()    || "general",
     price_cents:   Math.round(parseFloat(f.price) * 100),
     cost_cents:    f.cost ? Math.round(parseFloat(f.cost) * 100) : null,
-    image_url:     f.image_url || null,
+    image_url:     f.image_url     || null,
     visible:       f.visible,
     display_order: displayOrder,
+    external_url:  f.external_url.trim() || null,
   });
 
   const handleSave = async () => {
@@ -661,7 +450,6 @@ export default function ShopView({
       setSaving(false);
       if (!res.ok) { setFormError(data.error ?? "Failed to add product."); return; }
 
-      // Batch-create variants if any were added in the form
       if (form.variants.length > 0) {
         await Promise.all(form.variants.map(v =>
           fetch(`/api/team/${slug}/shop/variants/${data.id}`, {
@@ -669,12 +457,8 @@ export default function ShopView({
             body: JSON.stringify({ name: v.name, price_delta: v.price_delta ? Math.round(parseFloat(v.price_delta) * 100) : 0 }),
           })
         ));
-        // Refresh product to get variant IDs
         const refreshRes = await fetch(`/api/team/${slug}/shop/products`);
-        if (refreshRes.ok) {
-          const all: TeamProductRow[] = await refreshRes.json();
-          setProducts(all);
-        }
+        if (refreshRes.ok) setProducts(await refreshRes.json());
       } else {
         setProducts(prev => [...prev, data]);
       }
@@ -683,18 +467,18 @@ export default function ShopView({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Remove this product from the shop?")) return;
+    if (!confirm("Remove this product from the gallery?")) return;
     const res = await fetch(`/api/team/${slug}/shop/products/${id}`, { method: "DELETE" });
     if (res.ok) setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  // ── Filtered view ─────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
 
-  const visibleProducts = isCoach ? products : products.filter(p => p.visible);
-
-  const categories = [...new Set(visibleProducts.map(p => p.category))];
-
-  const isEmpty = visibleProducts.length === 0;
+  const visibleProducts   = isCoach ? products : products.filter(p => p.visible);
+  const categories        = [...new Set(visibleProducts.map(p => p.category))];
+  const isEmpty           = visibleProducts.length === 0;
+  const effectiveStoreUrl = isCoach ? (storeUrl.trim() || null) : (settings.external_store_url ?? null);
+  const effectiveProvider = isCoach ? (storeProvider || null) : (settings.store_provider ?? null);
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -706,7 +490,7 @@ export default function ShopView({
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-            Shop
+            Gear Gallery
           </h2>
           {visibleProducts.length > 0 && (
             <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
@@ -714,26 +498,108 @@ export default function ShopView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          {isCoach && (
-            <>
-              <a href={`/team/${slug}/shop/orders`} style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280", textDecoration: "none", padding: ".3rem .6rem", background: "#f3f4f6", borderRadius: 7 }}>
-                Orders
-              </a>
-              <CoachBar coach={coach} label="Add Product" onAdd={openAdd} />
-            </>
-          )}
+          {isCoach && <CoachBar coach={coach} label="Add Product" onAdd={openAdd} />}
         </div>
       </div>
 
-      {/* ── Empty state ── */}
+      {/* ── Coach: Store Settings ── */}
+      {isCoach && (
+        <div style={{ background: "#fff", borderRadius: 14, padding: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
+          <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
+            Team Store Settings
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
+            <label style={lbl}>
+              External Store URL
+              <input
+                style={{ ...inp, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}
+                type="url"
+                value={storeUrl}
+                onChange={e => setStoreUrl(e.target.value)}
+                placeholder="https://yourteam.shopify.com"
+              />
+            </label>
+            <label style={lbl}>
+              Store Provider
+              <select
+                style={{ ...inp, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}
+                value={storeProvider}
+                onChange={e => setStoreProvider(e.target.value)}
+              >
+                <option value="">None / Not listed</option>
+                {STORE_PROVIDERS.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </label>
+            {storeError && (
+              <p style={{ margin: 0, padding: ".4rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".8rem" }}>
+                {storeError}
+              </p>
+            )}
+            <button
+              onClick={handleSaveStoreSettings}
+              disabled={storeSaving}
+              style={{
+                padding: ".55rem", background: storeSaved ? "#059669" : "#0b1e3d",
+                color: "#fff", border: "none", borderRadius: 9,
+                fontSize: ".85rem", fontWeight: 700,
+                cursor: storeSaving ? "not-allowed" : "pointer",
+                opacity: storeSaving ? .7 : 1,
+                transition: "background .2s",
+              }}
+            >
+              {storeSaved ? "✓ Saved" : storeSaving ? "Saving…" : "Save Store Settings"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Store banner (coach preview + visitor view) ── */}
+      {effectiveStoreUrl && (
+        <div style={{
+          background: "#fff", borderRadius: 14, padding: "1.25rem",
+          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          marginBottom: ".75rem", borderTop: `3px solid ${primary}`,
+        }}>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".15rem" }}>
+            Official Team Store
+          </div>
+          {effectiveProvider && (
+            <div style={{ fontSize: ".75rem", color: "#6b7280", marginBottom: ".65rem" }}>
+              Powered by {effectiveProvider}
+            </div>
+          )}
+          {!effectiveProvider && <div style={{ marginBottom: ".65rem" }} />}
+          <a
+            href={effectiveStoreUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "block", width: "100%", padding: ".65rem", boxSizing: "border-box",
+              background: primary, color: "#fff", borderRadius: 10,
+              fontSize: ".9rem", fontWeight: 700, textAlign: "center", textDecoration: "none",
+              marginBottom: ".6rem",
+            }}
+          >
+            Visit Team Store →
+          </a>
+          <div style={{ fontSize: ".72rem", color: "#9ca3af", lineHeight: 1.5 }}>
+            Orders, shipping, and fulfillment are handled through the team store.
+          </div>
+        </div>
+      )}
+
+      {/* ── Gallery ── */}
       {isEmpty ? (
         <div style={{ background: "#fff", borderRadius: 14, padding: "3rem 1.5rem", textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
-          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>🛍️</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>Shop coming soon</div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>{isCoach ? "Add your first product above." : "Check back soon."}</div>
+          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>👕</div>
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+            {isCoach ? "No products yet" : "Gallery coming soon"}
+          </div>
+          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+            {isCoach ? "Add your first product above." : "Check back soon."}
+          </div>
         </div>
       ) : (
-        /* ── Products by category ── */
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           {categories.map(cat => {
             const items = visibleProducts.filter(p => p.category === cat);
@@ -749,10 +615,8 @@ export default function ShopView({
                       product={p}
                       isCoach={isCoach}
                       primary={primary}
-                      onAddToCart={handleAddToCart}
                       onEdit={openEdit}
                       onDelete={handleDelete}
-                      addedFlash={!!addedFlash[p.id]}
                     />
                   ))}
                 </div>
@@ -762,72 +626,12 @@ export default function ShopView({
         </div>
       )}
 
-      {/* ── Cart bar (sticky above nav) ── */}
-      {cartCount > 0 && (
-        <div
-          onClick={() => setShowCart(true)}
-          style={{
-            position: "fixed",
-            bottom: "calc(58px + env(safe-area-inset-bottom, 0px))",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "calc(min(430px, 100%) - 2rem)",
-            background: primary,
-            color: "#fff",
-            borderRadius: 14,
-            padding: ".75rem 1rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            cursor: "pointer",
-            boxShadow: "0 4px 20px rgba(0,0,0,.25)",
-            zIndex: 45,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: ".65rem" }}>
-            <span style={{ background: "rgba(255,255,255,.25)", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".72rem", fontWeight: 800 }}>
-              {cartCount}
-            </span>
-            <span style={{ fontWeight: 700, fontSize: ".88rem" }}>View Cart</span>
-          </div>
-          <span style={{ fontWeight: 800, fontSize: ".95rem" }}>
-            {fmt(cart.reduce((s, i) => s + i.unit_cents * i.quantity, 0))}
-          </span>
-        </div>
-      )}
-
-      {/* ── Variant picker modal ── */}
-      {variantPicker && (
-        <VariantPickerModal
-          product={variantPicker}
-          primary={primary}
-          onAdd={v => addToCart(variantPicker, v)}
-          onClose={() => setVariantPicker(null)}
-        />
-      )}
-
-      {/* ── Cart modal ── */}
-      {showCart && (
-        <CartModal
-          cart={cart}
-          primary={primary}
-          checkingOut={checkingOut}
-          checkoutError={checkoutError}
-          onUpdateQty={updateQty}
-          onRemove={removeFromCart}
-          onCheckout={handleCheckout}
-          onClose={() => setShowCart(false)}
-        />
-      )}
-
-      {/* ── Product add/edit modal (coach only) ── */}
+      {/* ── Product modal (coach only) ── */}
       {(showAddModal || editingProduct) && (
         <ProductModal
           form={form}
           setForm={setForm}
           isEditing={!!editingProduct}
-          editingProduct={editingProduct}
-          slug={slug}
           saving={saving}
           formError={formError}
           imagePreview={imagePreview}
@@ -836,7 +640,6 @@ export default function ShopView({
           onSave={handleSave}
           onClose={closeModal}
           onImageUpload={handleImageUpload}
-          onAddVariant={() => {}} // handled inline
           onRemoveVariant={i => setForm(f => ({ ...f, variants: f.variants.filter((_, idx) => idx !== i) }))}
         />
       )}
