@@ -11,13 +11,17 @@ function h(extra?: Record<string, string>) {
 
 type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
-// ── Download — no auth required; viewers can download
+// ── Download — no auth required; viewers can download.
+// Proxied through the server so the team-files bucket stays private and
+// no Supabase signed-URL token round-trip is needed (avoids JWT path
+// mismatch errors that occur with some Supabase storage versions).
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
 
+  // 1. Look up the file record — scoped to slug for isolation
   const rowRes = await fetch(
-    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,name`,
-    { headers: h() },
+    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,name&limit=1`,
+    { headers: h(), cache: "no-store" },
   );
   if (!rowRes.ok) return NextResponse.json({ error: "File not found." }, { status: 404 });
   const rows: { storage_path: string; name: string }[] = await rowRes.json();
@@ -25,25 +29,30 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
   const { storage_path, name } = rows[0];
 
-  const signRes = await fetch(
-    `${BASE}/storage/v1/object/sign/${BUCKET}/${storage_path}`,
+  // 2. Fetch the file from private storage using the service role key
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const fileRes = await fetch(
+    `${BASE}/storage/v1/object/${BUCKET}/${storage_path}`,
     {
-      method: "POST",
-      headers: h(),
-      body: JSON.stringify({ expiresIn: 1800 }),
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
     },
   );
-  if (!signRes.ok) return NextResponse.json({ error: "Failed to generate download link." }, { status: 500 });
 
-  const body = await signRes.json();
-  const relativeUrl: string = body.signedURL ?? body.url ?? "";
-  if (!relativeUrl) return NextResponse.json({ error: "Failed to generate download link." }, { status: 500 });
+  if (!fileRes.ok) {
+    return NextResponse.json({ error: "File not available." }, { status: fileRes.status });
+  }
 
-  const base = relativeUrl.startsWith("http") ? "" : BASE;
-  const sep  = relativeUrl.includes("?") ? "&" : "?";
-  const downloadUrl = `${base}${relativeUrl}${sep}download=${encodeURIComponent(name)}`;
+  // 3. Stream the file to the browser with download headers
+  const contentType = fileRes.headers.get("Content-Type") ?? "application/octet-stream";
+  const safeFilename = encodeURIComponent(name).replace(/%20/g, "+");
 
-  return NextResponse.redirect(downloadUrl);
+  return new NextResponse(fileRes.body, {
+    headers: {
+      "Content-Type":        contentType,
+      "Content-Disposition": `attachment; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`,
+      "Cache-Control":       "private, max-age=1800",
+    },
+  });
 }
 
 // ── Rename — any coach
