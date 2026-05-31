@@ -390,7 +390,7 @@ export default async function FundraiserPage({
   ]);
 
   if (!settings) notFound();
-  if (actor.kind === "public") redirect(`/team/${slug}/login`);
+  if (actor.kind === "public") redirect(`/team/${slug}/home`);
 
   // ── Coach ──
   if (actor.kind === "coach") {

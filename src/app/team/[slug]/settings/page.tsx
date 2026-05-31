@@ -12,7 +12,7 @@ export default async function SettingsPage({
   const actor = await getTeamActor(slug);
 
   // Public visitors → coach login
-  if (actor.kind === "public") redirect(`/team/${slug}/login`);
+  if (actor.kind === "public") redirect(`/coach-login`);
 
   // Members (athlete / parent) → friendly gate, not a login redirect
   if (actor.kind !== "coach") {

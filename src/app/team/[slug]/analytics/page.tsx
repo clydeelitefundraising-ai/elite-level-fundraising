@@ -15,7 +15,7 @@ export default async function AnalyticsPage({
   const { slug } = await params;
   const actor = await getTeamActor(slug);
 
-  if (actor.kind === "public") redirect(`/team/${slug}/login`);
+  if (actor.kind === "public") redirect(`/team/${slug}/home`);
   if (actor.kind !== "coach") return <CoachOnlyGate slug={slug} />;
 
   const [settings, athletes, donations] = await Promise.all([
