@@ -6,7 +6,7 @@ type Settings   = { school_name: string; sport_name: string; mascot: string; goa
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
-type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach"; campaign_slug: string; created_at: string };
+type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; created_at: string };
 
 const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
@@ -771,8 +771,8 @@ export function AdminDashboard() {
                     <td style={{ ...C.td, fontWeight: 600 }}>{c.name}</td>
                     <td style={{ ...C.td, color: "#6b7280" }}>{c.email}</td>
                     <td style={C.td}>
-                      <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: c.role === "head_coach" ? "#dbeafe" : "#f3f4f6", color: c.role === "head_coach" ? "#1d4ed8" : "#374151" }}>
-                        {c.role === "head_coach" ? "Head Coach" : "Asst. Coach"}
+                      <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: c.role === "head_coach" ? "#dbeafe" : c.role === "booster" ? "#ccfbf1" : "#f3f4f6", color: c.role === "head_coach" ? "#1d4ed8" : c.role === "booster" ? "#0f766e" : "#374151" }}>
+                        {c.role === "head_coach" ? "Head Coach" : c.role === "booster" ? "Booster" : "Asst. Coach"}
                       </span>
                     </td>
                     <td style={C.td}>
@@ -795,6 +795,7 @@ export function AdminDashboard() {
                 <select style={C.input} value={newCRole} onChange={e => setNewCRole(e.target.value as Coach["role"])}>
                   <option value="head_coach">Head Coach</option>
                   <option value="assistant_coach">Assistant Coach</option>
+                  <option value="booster">Booster</option>
                 </select>
               </label>
               <label style={C.label}>
