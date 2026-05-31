@@ -13,17 +13,16 @@ function urlBase64ToUint8Array(base64: string): ArrayBuffer {
 }
 
 export function usePushSubscription(slug: string) {
-  const supported =
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window;
-
+  const [supported,  setSupported]  = useState(false);
   const [subscribed, setSubscribed] = useState(false);
 
   useEffect(() => {
-    if (!supported) return;
-    setSubscribed(localStorage.getItem(STORAGE_KEY(slug)) === "1");
-  }, [slug, supported]);
+    const ok =
+      "serviceWorker" in navigator &&
+      "PushManager" in window;
+    setSupported(ok);
+    if (ok) setSubscribed(localStorage.getItem(STORAGE_KEY(slug)) === "1");
+  }, [slug]);
 
   const subscribe = async (): Promise<void> => {
     if (!supported || !VAPID_PUBLIC_KEY) return;
