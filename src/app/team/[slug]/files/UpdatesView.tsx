@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
@@ -99,11 +99,6 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
-function roleLabel(raw: string): string {
-  if (raw === "head_coach")      return "Head Coach";
-  if (raw === "assistant_coach") return "Asst. Coach";
-  return raw;
-}
 
 // ── Section divider ───────────────────────────────────────────────────────────
 
@@ -140,7 +135,7 @@ function UpdateCard({
   const avBg        = avatarColor(a.author_name);
   const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
   const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
-  const role        = roleLabel(a.author_role ?? "");
+  const role        = staffRoleLabel(a.author_role ?? "");
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
   const attStyle    = att ? (FILE_STYLE[att.file_type] ?? FILE_STYLE["other"]) : null;
@@ -261,7 +256,7 @@ function UpdateCard({
           >
             Edit
           </button>
-          {coach.role === "head_coach" && (
+          {isHeadCoachRole(coach.role) && (
             <button
               onClick={() => onDelete(a.id)}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}

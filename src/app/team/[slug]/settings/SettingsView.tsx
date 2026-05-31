@@ -4,18 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CoachSession } from "@/lib/teamSession";
 import type { ActiveJoinCode } from "@/lib/teamData";
+import { staffRoleLabel } from "@/lib/permissions";
 
 type Props = {
   slug: string;
   coach: CoachSession;
   initialCode: ActiveJoinCode | null;
 };
-
-function roleLabel(role: string): string {
-  if (role === "head_coach")      return "Head Coach";
-  if (role === "assistant_coach") return "Asst. Coach";
-  return role;
-}
 
 export default function SettingsView({ slug, coach, initialCode }: Props) {
   const router = useRouter();
@@ -98,7 +93,7 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
         </div>
         <div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{coach.name}</div>
-          <div style={{ fontSize: ".72rem", color: "#6b7280", marginTop: ".05rem" }}>{roleLabel(coach.role)}</div>
+          <div style={{ fontSize: ".72rem", color: "#6b7280", marginTop: ".05rem" }}>{staffRoleLabel(coach.role)}</div>
         </div>
         <div style={{ flex: 1 }} />
         <button

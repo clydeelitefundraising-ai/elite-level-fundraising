@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { coachSession, isHeadCoachRole, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -172,7 +172,7 @@ function AthleteCard({
           >
             Edit
           </button>
-          {coach.role === "head_coach" && (
+          {isHeadCoachRole(coach.role) && (
             <button
               onClick={e => { e.stopPropagation(); onDelete(a.id); }}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}

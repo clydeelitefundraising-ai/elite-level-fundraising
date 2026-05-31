@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { coachSession, isHeadCoachRole, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -176,7 +176,7 @@ function DateGroupCard({
                     >
                       Edit
                     </button>
-                    {coach.role === "head_coach" && (
+                    {isHeadCoachRole(coach.role) && (
                       <button
                         onClick={() => onDelete(ev.id)}
                         style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}

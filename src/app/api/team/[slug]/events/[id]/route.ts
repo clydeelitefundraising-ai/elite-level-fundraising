@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
+import { isHeadCoachRole } from "@/lib/permissions";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -48,7 +49,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (coach.role !== "head_coach") {
+  if (!isHeadCoachRole(coach.role)) {
     return NextResponse.json({ error: "Only head coaches can delete events." }, { status: 403 });
   }
 

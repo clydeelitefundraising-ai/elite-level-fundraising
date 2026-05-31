@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -90,11 +90,6 @@ function labelDate(d: string): string {
     .format(new Date(y, m - 1, day));
 }
 
-function roleLabel(raw: string): string {
-  if (raw === "head_coach")      return "Head Coach";
-  if (raw === "assistant_coach") return "Asst. Coach";
-  return raw;
-}
 
 // ── Subcomponents ─────────────────────────────────────────────────────────────
 
@@ -127,7 +122,7 @@ function AnnouncementCard({
   const avBg        = avatarColor(a.author_name);
   const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
   const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
-  const role        = roleLabel(a.author_role ?? "");
+  const role        = staffRoleLabel(a.author_role ?? "");
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
 
@@ -233,7 +228,7 @@ function AnnouncementCard({
           >
             Edit
           </button>
-          {coach.role === "head_coach" && (
+          {isHeadCoachRole(coach.role) && (
             <button
               onClick={() => onDelete(a.id)}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}

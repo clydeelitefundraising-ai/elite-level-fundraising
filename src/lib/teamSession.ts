@@ -15,7 +15,7 @@ function h() {
 export type CoachSession = {
   id: string;
   name: string;
-  role: "head_coach" | "assistant_coach";
+  role: "head_coach" | "assistant_coach" | "booster";
   campaign_slug: string;
 };
 

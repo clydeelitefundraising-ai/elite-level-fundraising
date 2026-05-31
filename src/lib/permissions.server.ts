@@ -5,7 +5,7 @@ import { getMemberSession } from "@/lib/memberSession";
 import type { TeamActor } from "@/lib/permissions";
 
 export type { TeamActor } from "@/lib/permissions";
-export { canWrite, isHeadCoach, coachSession } from "@/lib/permissions";
+export { isStaff, isHeadCoach, isMember, coachSession, isHeadCoachRole, staffRoleLabel, canWrite } from "@/lib/permissions";
 
 /** Resolves which actor is making this request for the given campaign.
  *

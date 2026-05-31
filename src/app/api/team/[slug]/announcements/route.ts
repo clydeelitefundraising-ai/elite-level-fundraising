@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
+import { staffRoleLabel } from "@/lib/permissions";
 import { sendPushToTeam } from "@/lib/push";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -34,7 +35,7 @@ export async function POST(
 
   const safeCategory = VALID_CATEGORIES.has(category) ? category : "team";
   const safePriority = VALID_PRIORITIES.has(priority)  ? priority : "normal";
-  const roleLabel    = coach.role === "head_coach" ? "Head Coach" : "Assistant Coach";
+  const roleLabel    = staffRoleLabel(coach.role);
 
   const payload: Record<string, unknown> = {
     campaign_slug: slug,
