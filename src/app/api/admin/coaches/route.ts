@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       campaign_slug: campaign_slug.trim(),
       name: name.trim(),
       email: email.trim().toLowerCase(),
-      role: role === "assistant_coach" ? "assistant_coach" : "head_coach",
+      role: (["head_coach", "assistant_coach", "booster"] as const).includes(role) ? role : "head_coach",
       password_hash,
       salt,
     }),
