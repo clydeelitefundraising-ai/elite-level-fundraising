@@ -10,27 +10,29 @@ type TabConfig = {
   badgeCount?: number;
 };
 
-const TABS: Omit<TabConfig, "badgeCount">[] = [
+const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "home",       label: "Home",       icon: "🏠" },
-  { href: "roster",     label: "Roster",     icon: "👥" },
-  { href: "calendar",   label: "Calendar",   icon: "📅" },
   { href: "files",      label: "Updates",    icon: "📢" },
+  { href: "calendar",   label: "Calendar",   icon: "📅" },
   { href: "fundraiser", label: "Fundraiser", icon: "💰" },
-  { href: "sponsors",   label: "Sponsors",   icon: "🤝" },
   { href: "shop",       label: "Shop",       icon: "🛍️" },
-  { href: "analytics",  label: "Stats",      icon: "📊" },
+  { href: "roster",     label: "Roster",     icon: "👥" },
 ];
+const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: "🤝" };
 
 export default function TeamNav({
   slug,
   primaryColor,
+  isStaff = false,
   badgeCounts = {},
 }: {
   slug: string;
   primaryColor: string;
+  isStaff?: boolean;
   badgeCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
+  const tabs = isStaff ? [...BASE_TABS, STAFF_TAB] : BASE_TABS;
 
   return (
     <div role="navigation" style={{
@@ -45,7 +47,7 @@ export default function TeamNav({
       zIndex: 50,
       paddingBottom: "env(safe-area-inset-bottom, 0px)",
     }}>
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const href = `/team/${slug}/${tab.href}`;
         const active = pathname === href || pathname.startsWith(`${href}/`);
         const badge = badgeCounts[tab.href] ?? 0;

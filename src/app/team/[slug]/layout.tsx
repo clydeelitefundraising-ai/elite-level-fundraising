@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
+import { getTeamActor, isStaff as checkIsStaff } from "@/lib/permissions.server";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
@@ -16,10 +17,11 @@ export default async function TeamLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [settings, announcementMeta, donationStats] = await Promise.all([
+  const [settings, announcementMeta, donationStats, actor] = await Promise.all([
     getCampaignSettings(slug),
     getAnnouncementMeta(slug),
     getDonationStats(slug),
+    getTeamActor(slug),
   ]);
   if (!settings) notFound();
 
@@ -63,6 +65,7 @@ export default async function TeamLayout({
         <TeamNavWithBadge
           slug={slug}
           primaryColor={settings.primary_color}
+          isStaff={checkIsStaff(actor)}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
           donorCount={donationStats.donor_count}

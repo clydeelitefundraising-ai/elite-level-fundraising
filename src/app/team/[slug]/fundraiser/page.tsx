@@ -6,6 +6,8 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
+import AnalyticsView from "../analytics/AnalyticsView";
+import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
 
 export const dynamic = "force-dynamic";
 
@@ -352,23 +354,6 @@ function TeamCampaignView({
         </div>
       )}
 
-      {/* ── Analytics entry point ── */}
-      <a
-        href={`/team/${settings.campaign_slug}/analytics`}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: ".75rem 1rem",
-          background: "#fff", borderRadius: 14,
-          boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          textDecoration: "none",
-        }}
-      >
-        <div>
-          <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#0b1e3d" }}>View Full Analytics</div>
-          <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".1rem" }}>Progress table, pace, top donors, exports</div>
-        </div>
-        <span style={{ fontSize: ".85rem", color: "#9ca3af", flexShrink: 0 }}>→</span>
-      </a>
     </div>
   );
 }
@@ -392,23 +377,135 @@ export default async function FundraiserPage({
   if (!settings) notFound();
   if (actor.kind === "public") redirect(`/team/${slug}/home`);
 
-  // ── Coach ──
+  // ── Coach / staff ──
   if (actor.kind === "coach") {
     const [athletes, donations] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),
     ]);
+
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
     const leaderboard = buildLeaderboard(athletes, donations);
     const teamFeed    = buildTeamFeed(athletes, donations);
+
+    // ── Analytics data ────────────────────────────────────────────────────────
+    const teamGoalCents = settings.goal_cents ?? 0;
+    const donorCount    = donations.length;
+    const pct           = teamGoalCents > 0
+      ? Math.min(100, Math.round((raisedCents / teamGoalCents) * 100))
+      : 0;
+    const daysRemaining = settings.deadline
+      ? Math.max(0, Math.ceil((new Date(settings.deadline).getTime() - Date.now()) / 86_400_000))
+      : null;
+
+    const teamStats: TeamStats = {
+      raisedCents, teamGoalCents, donorCount,
+      avgDonation:  donorCount > 0 ? Math.round(raisedCents / donorCount) : 0,
+      pct, daysRemaining,
+    };
+
+    let pace: PaceData = null;
+    if (settings.deadline && donations.length > 0 && daysRemaining !== null) {
+      const oldest         = donations[donations.length - 1];
+      const daysSinceFirst = Math.max(1, Math.ceil(
+        (Date.now() - new Date(oldest.created_at).getTime()) / 86_400_000,
+      ));
+      const currentPerDay = raisedCents / daysSinceFirst;
+      const safeRemaining = Math.max(1, daysRemaining);
+      const neededPerDay  = teamGoalCents > 0
+        ? Math.max(0, (teamGoalCents - raisedCents) / safeRemaining)
+        : 0;
+      pace = {
+        daysRemaining:   safeRemaining,
+        neededPerDay:    Math.round(neededPerDay),
+        currentPerDay:   Math.round(currentPerDay),
+        projectedFinish: Math.round(raisedCents + currentPerDay * safeRemaining),
+        onTrack:         teamGoalCents > 0 ? currentPerDay >= neededPerDay : true,
+      };
+    }
+
+    const nameToId: Record<string, string> = {};
+    const idToName: Record<string, string> = {};
+    for (const a of athletes) { nameToId[a.name] = a.id; idToName[a.id] = a.name; }
+
+    const totals:      Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
+    const donorCounts: Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
+    const lastDon:     Record<string, string | null> = Object.fromEntries(athletes.map(a => [a.id, null]));
+
+    for (const d of donations) {
+      let aid: string | undefined;
+      if (d.athlete_id && totals[d.athlete_id] !== undefined)       aid = d.athlete_id;
+      else if (!d.athlete_id && d.athlete_name)                     aid = nameToId[d.athlete_name];
+      if (aid) {
+        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
+        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
+        if (!lastDon[aid]) lastDon[aid] = d.created_at;
+      }
+    }
+
+    const athleteProgress: AthleteProgress[] = athletes
+      .map(a => {
+        const raised = totals[a.id] ?? 0;
+        const goal   = a.goal_cents ?? null;
+        return {
+          id:             a.id,
+          name:           a.name,
+          event:          a.event,
+          profile_photo:  a.profile_photo ?? null,
+          raisedCents:    raised,
+          goalCents:      goal,
+          pct:            goal && goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : null,
+          donorCount:     donorCounts[a.id] ?? 0,
+          lastDonationAt: lastDon[a.id],
+          rank:           0,
+        };
+      })
+      .sort((a, b) => b.raisedCents - a.raisedCents)
+      .map((a, i) => ({ ...a, rank: i + 1 }));
+
+    const needsAttention = athleteProgress.filter(a =>
+      a.raisedCents === 0 || a.donorCount <= 1 || (a.pct !== null && a.pct < 10),
+    );
+
+    const donorMap = new Map<string, { totalCents: number; count: number; athletes: Set<string> }>();
+    for (const d of donations) {
+      const key = d.donor_name ?? "Anonymous";
+      if (!donorMap.has(key)) donorMap.set(key, { totalCents: 0, count: 0, athletes: new Set() });
+      const entry = donorMap.get(key)!;
+      entry.totalCents += d.amount_cents;
+      entry.count++;
+      const ath = d.athlete_id ? idToName[d.athlete_id] : (d.athlete_name ?? undefined);
+      if (ath) entry.athletes.add(ath);
+    }
+    const topDonors: TopDonor[] = Array.from(donorMap.entries())
+      .map(([name, data]) => ({
+        name,
+        totalCents:    data.totalCents,
+        donationCount: data.count,
+        athletes:      Array.from(data.athletes),
+      }))
+      .sort((a, b) => b.totalCents - a.totalCents)
+      .slice(0, 10);
+
     return (
-      <TeamCampaignView
-        settings={settings}
-        raisedCents={raisedCents}
-        donorCount={donations.length}
-        leaderboard={leaderboard}
-        teamFeed={teamFeed}
-      />
+      <>
+        <TeamCampaignView
+          settings={settings}
+          raisedCents={raisedCents}
+          donorCount={donorCount}
+          leaderboard={leaderboard}
+          teamFeed={teamFeed}
+        />
+        <AnalyticsView
+          slug={slug}
+          settings={settings}
+          teamStats={teamStats}
+          pace={pace}
+          athleteProgress={athleteProgress}
+          needsAttention={needsAttention}
+          topDonors={topDonors}
+        />
+      </>
     );
   }
 

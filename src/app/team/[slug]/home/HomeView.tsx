@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
+import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
@@ -289,11 +289,13 @@ export default function HomeView({
   initialAnnouncements,
   initialUpcoming,
   actor,
+  sponsors = [],
 }: {
   slug: string;
   initialAnnouncements: AnnouncementRow[];
   initialUpcoming: CalendarEventRow[];
   actor: TeamActor;
+  sponsors?: SponsorRow[];
 }) {
   const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
@@ -502,6 +504,71 @@ export default function HomeView({
             </>
           )}
         </>
+      )}
+
+      {/* ── Sponsor highlight ── */}
+      {sponsors.length > 0 && (
+        <div style={{ marginTop: ".75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
+            <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em" }}>
+              Our Sponsors
+            </span>
+            <a
+              href={`/team/${slug}/sponsors`}
+              style={{ fontSize: ".7rem", fontWeight: 700, color: "#0b1e3d", textDecoration: "none" }}
+            >
+              View All →
+            </a>
+          </div>
+          <div style={{ display: "flex", gap: ".5rem", overflowX: "auto", paddingBottom: ".25rem", scrollbarWidth: "none" } as React.CSSProperties}>
+            {sponsors.slice(0, 5).map(s => (
+              <a
+                key={s.id}
+                href={s.url || `/team/${slug}/sponsors`}
+                target={s.url ? "_blank" : undefined}
+                rel={s.url ? "noopener noreferrer" : undefined}
+                style={{
+                  flexShrink: 0,
+                  width: 80,
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: ".6rem .4rem .5rem",
+                  boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: ".3rem",
+                  textDecoration: "none",
+                }}
+              >
+                {s.logo_url ? (
+                  <img
+                    src={s.logo_url}
+                    alt={s.name}
+                    style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 6 }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 6,
+                    background: "#f0f4ff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 800, fontSize: ".9rem", color: "#1d4ed8",
+                  }}>
+                    {s.name.trim()[0]?.toUpperCase() ?? "S"}
+                  </div>
+                )}
+                <span style={{
+                  fontSize: ".58rem", fontWeight: 700, color: "#374151",
+                  textAlign: "center", lineHeight: 1.25,
+                  overflow: "hidden", display: "-webkit-box",
+                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+                }}>
+                  {s.name}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* ── Add / Edit Modal ── */}
