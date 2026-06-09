@@ -96,7 +96,7 @@ export default async function AnalyticsPage({
   const athleteProgress: AthleteProgress[] = athletes
     .map(a => {
       const raised     = totals[a.id] ?? 0;
-      const goal       = a.goal_cents ?? null;
+      const goal       = a.goal_cents ?? settings.default_athlete_goal_cents ?? null;
       const athletePct = goal && goal > 0
         ? Math.min(100, Math.round((raised / goal) * 100))
         : null;

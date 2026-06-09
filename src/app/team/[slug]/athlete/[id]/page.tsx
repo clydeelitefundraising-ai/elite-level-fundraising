@@ -56,7 +56,7 @@ export default async function AthleteProfilePage({
   const rankIdx = ranked.findIndex(([aid]) => aid === id);
   const rank = rankIdx >= 0 ? rankIdx + 1 : athletes.length;
 
-  const goalCents = athlete.goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
+  const goalCents = athlete.goal_cents ?? settings?.default_athlete_goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
 
   const topSupporterDonation = donations
     .filter(d => d.athlete_id === id || (!d.athlete_id && d.athlete_name === athlete.name))

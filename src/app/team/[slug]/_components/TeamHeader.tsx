@@ -1,12 +1,21 @@
 import Link from "next/link";
 import type { CampaignSettings } from "@/lib/supabase";
 import PushOptIn from "./PushOptIn";
+import NotificationBell from "./NotificationBell";
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
 }
 
-export default function TeamHeader({ settings }: { settings: CampaignSettings }) {
+export default function TeamHeader({
+  settings,
+  unreadNotifCount = 0,
+  showBell = false,
+}: {
+  settings: CampaignSettings;
+  unreadNotifCount?: number;
+  showBell?: boolean;
+}) {
   const sport = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
   const meta  = [settings.location, settings.season].filter(Boolean).join(" · ");
 
@@ -69,8 +78,14 @@ export default function TeamHeader({ settings }: { settings: CampaignSettings })
           )}
         </div>
 
-        {/* Icon tray — push opt-in bell + settings/login */}
+        {/* Icon tray — notification bell (members) + push opt-in + settings */}
         <div style={{ display: "flex", gap: ".15rem", flexShrink: 0, alignItems: "center" }}>
+          {showBell && (
+            <NotificationBell
+              slug={settings.campaign_slug}
+              initialCount={unreadNotifCount}
+            />
+          )}
           <PushOptIn slug={settings.campaign_slug} />
           <Link
             href={`/team/${settings.campaign_slug}/settings`}

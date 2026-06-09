@@ -49,6 +49,7 @@ export async function donationExists(sessionId: string): Promise<boolean> {
 
 export type CampaignSettings = {
   campaign_slug: string;
+  team_id?: string;
   school_name: string;
   sport_name: string;
   mascot: string;
@@ -69,8 +70,9 @@ export type CampaignSettings = {
   show_donation_card?: boolean;
   layout_variant?:      "classic" | "premium";
   team_photo?:          string;
-  external_store_url?:  string | null;
-  store_provider?:      string | null;
+  external_store_url?:          string | null;
+  store_provider?:              string | null;
+  default_athlete_goal_cents?:  number | null;
 };
 
 export type AthleteRow = {
@@ -134,17 +136,21 @@ export async function updateCampaignSettings(
   data: Partial<Omit<CampaignSettings, "campaign_slug">>,
 ): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const bodyStr = JSON.stringify(data);
+  console.log("[updateCampaignSettings] slug:", slug);
+  console.log("[updateCampaignSettings] body:", bodyStr);
   const res = await fetch(
-    `${BASE}/rest/v1/campaign_settings?on_conflict=campaign_slug`,
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}`,
     {
-      method: "POST",
-      headers: headers(key, { Prefer: "resolution=merge-duplicates,return=minimal" }),
-      body: JSON.stringify({ campaign_slug: slug, ...data }),
+      method: "PATCH",
+      headers: headers(key, { Prefer: "return=minimal" }),
+      body: bodyStr,
     },
   );
+  const resText = await res.text();
+  console.log("[updateCampaignSettings] response status:", res.status, "body:", resText);
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`Supabase upsert failed (${res.status}): ${msg}`);
+    throw new Error(`Supabase update failed (${res.status}): ${resText}`);
   }
 }
 

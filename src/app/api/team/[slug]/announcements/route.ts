@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
 import { staffRoleLabel } from "@/lib/permissions";
 import { sendPushToTeam } from "@/lib/push";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -61,12 +62,28 @@ export async function POST(
   }
 
   const rows = await res.json();
-  if (safePriority !== "normal") {
-    void sendPushToTeam(slug, {
-      title: title.trim(),
-      body:  (body?.trim() ?? "").slice(0, 100),
-      url:   `/team/${slug}/home`,
-    });
-  }
-  return NextResponse.json(rows[0]);
+  const newAnnouncement = rows[0];
+
+  // Fire-and-forget: push + in-app notification
+  void (async () => {
+    const teamId = await getTeamIdBySlug(slug);
+    if (teamId) {
+      await createNotification(teamId, {
+        type:          "announcement",
+        title:         title.trim(),
+        body:          (body?.trim() ?? "").slice(0, 140),
+        reference_id:  newAnnouncement.id,
+        reference_url: `/team/${slug}/files`,
+      });
+    }
+    if (safePriority !== "normal") {
+      await sendPushToTeam(slug, {
+        title: title.trim(),
+        body:  (body?.trim() ?? "").slice(0, 100),
+        url:   `/team/${slug}/files`,
+      });
+    }
+  })();
+
+  return NextResponse.json(newAnnouncement);
 }

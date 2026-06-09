@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import { getTeamActor, isStaff as checkIsStaff } from "@/lib/permissions.server";
+import { getUnreadCount } from "@/lib/notifications";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
@@ -24,6 +25,14 @@ export default async function TeamLayout({
     getTeamActor(slug),
   ]);
   if (!settings) notFound();
+
+  const isMember = actor.kind === "member";
+  console.log("[DEBUG layout] actor.kind=", actor.kind, "settings.team_id=", settings.team_id, "actor.session.id=", isMember ? (actor as { kind: "member"; session: { id: string } }).session.id : null);
+  const unreadNotifCount =
+    isMember && settings.team_id
+      ? await getUnreadCount(settings.team_id, actor.session.id)
+      : 0;
+  console.log("[DEBUG layout] unreadNotifCount=", unreadNotifCount);
 
   return (
     <>
@@ -53,7 +62,11 @@ export default async function TeamLayout({
         display: "flex",
         flexDirection: "column",
       }}>
-        <TeamHeader settings={settings} />
+        <TeamHeader
+          settings={settings}
+          unreadNotifCount={unreadNotifCount}
+          showBell={isMember}
+        />
         <TeamPullRefresh />
         <TeamRealtimeSync slug={slug} />
         <main style={{

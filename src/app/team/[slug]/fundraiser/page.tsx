@@ -552,7 +552,7 @@ export default async function FundraiserPage({
   const rankIdx = ranked.findIndex(([id]) => id === athleteId);
   const rank    = rankIdx >= 0 ? rankIdx + 1 : athletes.length;
 
-  const goalCents = athlete.goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
+  const goalCents = athlete.goal_cents ?? settings.default_athlete_goal_cents ?? DEFAULT_ATHLETE_GOAL_CENTS;
 
   const recentDonations = donations
     .filter(d => d.athlete_id === athleteId || (!d.athlete_id && d.athlete_name === athlete.name))

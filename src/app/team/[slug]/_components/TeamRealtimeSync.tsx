@@ -25,6 +25,13 @@ export default function TeamRealtimeSync({ slug }: { slug: string }) {
         { event: "*", schema: "public", table: "calendar_events", filter: `campaign_slug=eq.${slug}` },
         () => router.refresh(),
       )
+      .on(
+        "postgres_changes",
+        // No slug filter here — team_id is not the Realtime filter key.
+        // router.refresh() re-runs the layout, which recomputes unread count.
+        { event: "INSERT", schema: "public", table: "notifications" },
+        () => router.refresh(),
+      )
       .subscribe();
 
     return () => { void client.removeChannel(channel); };

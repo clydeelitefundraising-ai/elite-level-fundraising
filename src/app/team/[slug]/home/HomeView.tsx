@@ -49,14 +49,6 @@ const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   team:       { bg: "#f3f4f6", color: "#374151" },
 };
 
-const FILTER_CHIPS = [
-  { id: "all",        label: "All"        },
-  { id: "schedule",   label: "Schedule"   },
-  { id: "fundraiser", label: "Fundraiser" },
-  { id: "travel",     label: "Travel"     },
-  { id: "meet-info",  label: "Meet Info"  },
-  { id: "team",       label: "Team"       },
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -299,13 +291,12 @@ export default function HomeView({
 }) {
   const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
-  const [form,      setForm]      = useState<AForm>(BLANK);
-  const [editing,   setEditing]   = useState<AnnouncementRow | null>(null);
-  const [showAdd,   setShowAdd]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState("");
-  const [filterCat, setFilterCat] = useState("all");
-  const [unread,    setUnread]    = useState(0);
+  const [form,    setForm]    = useState<AForm>(BLANK);
+  const [editing, setEditing] = useState<AnnouncementRow | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState("");
+  const [unread,  setUnread]  = useState(0);
 
   const next3 = initialUpcoming.slice(0, 3);
 
@@ -363,17 +354,11 @@ export default function HomeView({
     if (res.ok) setItems(prev => prev.filter(a => a.id !== id));
   };
 
-  // ── Feed grouping ──────────────────────────────────────────────────────────
+  // ── Preview: 3 most recent (pinned first) ─────────────────────────────────
 
-  const today     = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-
-  const filtered       = filterCat === "all" ? items : items.filter(a => a.category === filterCat);
-  const pinned         = filtered.filter(a => a.priority === "pinned");
-  const nonPinned      = filtered.filter(a => a.priority !== "pinned");
-  const todayItems     = nonPinned.filter(a => a.created_at.slice(0, 10) === today);
-  const yesterdayItems = nonPinned.filter(a => a.created_at.slice(0, 10) === yesterday);
-  const earlierItems   = nonPinned.filter(a => a.created_at.slice(0, 10) < yesterday);
+  const pinned    = items.filter(a => a.priority === "pinned");
+  const nonPinned = items.filter(a => a.priority !== "pinned");
+  const preview   = [...pinned, ...nonPinned].slice(0, 3);
 
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
@@ -423,47 +408,15 @@ export default function HomeView({
         </div>
       </div>
 
-      {/* ── Filter chips ── */}
-      <div style={{
-        display: "flex", gap: ".35rem", overflowX: "auto",
-        marginBottom: ".65rem", paddingBottom: ".2rem", scrollbarWidth: "none",
-      } as React.CSSProperties}>
-        {FILTER_CHIPS.map(chip => {
-          const active = filterCat === chip.id;
-          return (
-            <button
-              key={chip.id}
-              onClick={() => setFilterCat(chip.id)}
-              style={{
-                flexShrink: 0,
-                padding: ".3rem .75rem",
-                borderRadius: 100,
-                border: active ? "none" : "1px solid #e5e7eb",
-                background: active ? "#0b1e3d" : "#fff",
-                color: active ? "#fff" : "#6b7280",
-                fontSize: ".7rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                lineHeight: 1.4,
-                transition: "background .13s ease, color .13s ease, border-color .13s ease",
-              }}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Feed ── */}
-      {filtered.length === 0 ? (
+      {/* ── Preview feed (3 most recent) ── */}
+      {items.length === 0 ? (
         <div style={{
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
           <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📣</div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            {filterCat === "all" ? "No announcements yet" : `No ${filterCat} posts yet`}
+            No announcements yet
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
             {coach ? "Use the Post button to get started." : "Check back soon."}
@@ -471,38 +424,25 @@ export default function HomeView({
         </div>
       ) : (
         <>
-          {pinned.length > 0 && (
-            <>
-              <SectionLabel label="📌 Pinned" />
-              {pinned.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
-            </>
-          )}
-          {todayItems.length > 0 && (
-            <>
-              <SectionLabel label="Today" />
-              {todayItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
-            </>
-          )}
-          {yesterdayItems.length > 0 && (
-            <>
-              <SectionLabel label="Yesterday" />
-              {yesterdayItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
-            </>
-          )}
-          {earlierItems.length > 0 && (
-            <>
-              <SectionLabel label="Earlier" />
-              {earlierItems.map(a => (
-                <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
-              ))}
-            </>
-          )}
+          {preview.map(a => (
+            <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
+          ))}
+          <a
+            href={`/team/${slug}/files`}
+            style={{
+              display: "block",
+              textAlign: "center",
+              padding: ".55rem",
+              marginTop: ".1rem",
+              fontSize: ".75rem",
+              fontWeight: 700,
+              color: "#0b1e3d",
+              textDecoration: "none",
+              opacity: .7,
+            }}
+          >
+            View all updates →
+          </a>
         </>
       )}
 

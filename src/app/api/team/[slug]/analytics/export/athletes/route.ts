@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
-import { getDonations } from "@/lib/supabase";
+import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { getTeamAthletes } from "@/lib/teamData";
 
 function csvField(val: string | number | null | undefined): string {
@@ -24,10 +24,12 @@ export async function GET(
   const coach = await getCoachSession(slug);
   if (!coach) return new Response("Unauthorized", { status: 401 });
 
-  const [athletes, donations] = await Promise.all([
+  const [athletes, donations, settings] = await Promise.all([
     getTeamAthletes(slug),
     getDonations(slug),
+    getCampaignSettings(slug),
   ]);
+  const campaignDefaultGoal = settings?.default_athlete_goal_cents ?? null;
 
   const nameToId: Record<string, string> = {};
   for (const a of athletes) nameToId[a.name] = a.id;
@@ -63,8 +65,9 @@ export async function GET(
   ].join(",");
 
   const rows = ranked.map(a => {
-    const pct = a.goal_cents && a.goal_cents > 0
-      ? `${Math.min(100, Math.round((a.raisedCents / a.goal_cents) * 100))}%`
+    const effectiveGoal = a.goal_cents ?? campaignDefaultGoal;
+    const pct = effectiveGoal && effectiveGoal > 0
+      ? `${Math.min(100, Math.round((a.raisedCents / effectiveGoal) * 100))}%`
       : "";
     return [
       csvField(a.rank),
@@ -73,7 +76,7 @@ export async function GET(
       csvField(a.jersey_number),
       csvField(a.grad_year),
       csvField(`$${(a.raisedCents / 100).toFixed(2)}`),
-      csvField(a.goal_cents != null ? `$${(a.goal_cents / 100).toFixed(2)}` : ""),
+      csvField(effectiveGoal != null ? `$${(effectiveGoal / 100).toFixed(2)}` : ""),
       csvField(pct),
       csvField(a.donorCount),
     ].join(",");

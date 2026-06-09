@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
 import { sendPushToTeam } from "@/lib/push";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 
 const BASE   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET = "team-files";
@@ -85,10 +86,26 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   const rows = await metaRes.json();
-  void sendPushToTeam(slug, {
-    title: "New File Available",
-    body:  file.name,
-    url:   `/team/${slug}/files`,
-  });
-  return NextResponse.json(rows[0]);
+  const newFile = rows[0];
+
+  // Fire-and-forget: push + in-app notification
+  void (async () => {
+    const teamId = await getTeamIdBySlug(slug);
+    if (teamId) {
+      await createNotification(teamId, {
+        type:          "file_upload",
+        title:         "New File Available",
+        body:          file.name,
+        reference_id:  newFile.id,
+        reference_url: `/team/${slug}/files`,
+      });
+    }
+    await sendPushToTeam(slug, {
+      title: "New File Available",
+      body:  file.name,
+      url:   `/team/${slug}/files`,
+    });
+  })();
+
+  return NextResponse.json(newFile);
 }
