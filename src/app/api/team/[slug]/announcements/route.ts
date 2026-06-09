@@ -64,24 +64,38 @@ export async function POST(
   const rows = await res.json();
   const newAnnouncement = rows[0];
 
-  // Fire-and-forget: push + in-app notification
+  // Fire-and-forget: in-app notification + push dispatch.
+  // Each step is independently try/catched — a push failure never affects
+  // notification creation, and neither blocks the 200 response above.
   void (async () => {
-    const teamId = await getTeamIdBySlug(slug);
-    if (teamId) {
-      await createNotification(teamId, {
-        type:          "announcement",
-        title:         title.trim(),
-        body:          (body?.trim() ?? "").slice(0, 140),
-        reference_id:  newAnnouncement.id,
-        reference_url: `/team/${slug}/files`,
-      });
+    // Step 1: in-app notification (DB write, shown in bell + notifications page)
+    try {
+      const teamId = await getTeamIdBySlug(slug);
+      if (teamId) {
+        await createNotification(teamId, {
+          type:          "announcement",
+          title:         title.trim(),
+          body:          (body?.trim() ?? "").slice(0, 140),
+          reference_id:  newAnnouncement.id,
+          reference_url: `/team/${slug}/notifications`,
+        });
+      }
+    } catch (err) {
+      console.error("[announcements] createNotification failed:", err);
     }
-    if (safePriority !== "normal") {
+
+    // Step 2: device push — all announcements regardless of priority.
+    // Previously gated on safePriority !== "normal", which silently skipped
+    // all default-priority posts. Removed — coaches expect all announcements
+    // to reach subscribed members.
+    try {
       await sendPushToTeam(slug, {
-        title: title.trim(),
-        body:  (body?.trim() ?? "").slice(0, 100),
-        url:   `/team/${slug}/files`,
+        title: "New Announcement",
+        body:  title.trim().slice(0, 100),
+        url:   `/team/${slug}/notifications`,
       });
+    } catch (err) {
+      console.error("[announcements] sendPushToTeam failed:", err);
     }
   })();
 

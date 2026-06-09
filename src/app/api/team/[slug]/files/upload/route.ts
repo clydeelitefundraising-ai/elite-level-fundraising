@@ -88,23 +88,36 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const rows = await metaRes.json();
   const newFile = rows[0];
 
-  // Fire-and-forget: push + in-app notification
+  // Fire-and-forget: in-app notification + push dispatch.
+  // Each step is independently try/catched — a push failure never affects
+  // notification creation, and neither blocks the 200 response above.
   void (async () => {
-    const teamId = await getTeamIdBySlug(slug);
-    if (teamId) {
-      await createNotification(teamId, {
-        type:          "file_upload",
-        title:         "New File Available",
-        body:          file.name,
-        reference_id:  newFile.id,
-        reference_url: `/team/${slug}/files`,
-      });
+    // Step 1: in-app notification (DB write, shown in bell + notifications page)
+    try {
+      const teamId = await getTeamIdBySlug(slug);
+      if (teamId) {
+        await createNotification(teamId, {
+          type:          "file_upload",
+          title:         "New File Uploaded",
+          body:          file.name,
+          reference_id:  newFile.id,
+          reference_url: `/team/${slug}/files`,
+        });
+      }
+    } catch (err) {
+      console.error("[files/upload] createNotification failed:", err);
     }
-    await sendPushToTeam(slug, {
-      title: "New File Available",
-      body:  file.name,
-      url:   `/team/${slug}/files`,
-    });
+
+    // Step 2: device push — independent of notification creation above.
+    try {
+      await sendPushToTeam(slug, {
+        title: "New File Uploaded",
+        body:  file.name,
+        url:   `/team/${slug}/files`,
+      });
+    } catch (err) {
+      console.error("[files/upload] sendPushToTeam failed:", err);
+    }
   })();
 
   return NextResponse.json(newFile);
