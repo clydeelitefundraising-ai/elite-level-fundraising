@@ -26,7 +26,25 @@ export async function GET(
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return NextResponse.json([]);
-  return NextResponse.json(await res.json());
+  const rows = await res.json();
+
+  if (coach) {
+    // Coaches see all fields including internal contact info
+    return NextResponse.json(rows);
+  }
+
+  // Public and members: strip internal contact fields
+  const publicRows = rows.map((s: Record<string, unknown>) => ({
+    id:            s.id,
+    name:          s.name,
+    url:           s.url,
+    tier:          s.tier,
+    logo_url:      s.logo_url   ?? null,
+    description:   s.description ?? null,
+    display_order: s.display_order,
+    visible:       s.visible,
+  }));
+  return NextResponse.json(publicRows);
 }
 
 export async function POST(

@@ -13,13 +13,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Stripe is not configured." }, { status: 500 });
   }
 
+  if (!campaignSlug) {
+    return NextResponse.json({ error: "campaignSlug is required." }, { status: 400 });
+  }
+
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
-  const slug = campaignSlug ?? "paradise-valley-track-field-live";
-  const campaignUrl = `${origin}/campaign/${slug}`;
+  const campaignUrl = `${origin}/campaign/${campaignSlug}`;
 
   const productName = athleteName
-    ? `Donation for ${athleteName} — Paradise Valley Pumas`
-    : "Donation — Paradise Valley Pumas Track & Field";
+    ? `Donation for ${athleteName}`
+    : "Team Fundraiser Donation";
 
   const params = new URLSearchParams({
     mode: "payment",
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (athleteName)      params.set("metadata[athlete_name]",      athleteName);
   if (athleteId)        params.set("metadata[athlete_id]",        athleteId);
   if (donationMessage)  params.set("metadata[donation_message]",  donationMessage);
-  params.set("metadata[campaign_slug]", slug);
+  params.set("metadata[campaign_slug]", campaignSlug);
 
   const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",

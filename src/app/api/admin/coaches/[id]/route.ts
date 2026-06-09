@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
+import { generateSalt, hashPassword } from "@/lib/teamAuth";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -17,6 +18,39 @@ function supabaseHeaders(extra?: Record<string, string>) {
 async function authed(): Promise<boolean> {
   const store = await cookies();
   return verifyToken(store.get("elf_admin")?.value);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const { password } = await req.json();
+
+  if (!password || password.length < 8) {
+    return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
+  }
+
+  const salt = generateSalt();
+  const password_hash = hashPassword(password, salt);
+
+  const res = await fetch(
+    `${BASE}/rest/v1/team_coaches?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: supabaseHeaders({ Prefer: "return=minimal" }),
+      body: JSON.stringify({ password_hash, salt }),
+    },
+  );
+
+  if (!res.ok) {
+    const msg = await res.text();
+    return NextResponse.json({ error: `Failed to reset password: ${msg}` }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(

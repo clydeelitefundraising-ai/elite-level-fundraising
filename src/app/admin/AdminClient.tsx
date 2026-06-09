@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium" };
+type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
@@ -140,7 +140,7 @@ export function LoginView() {
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic" };
+  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
   const [settings, setSettings] = useState<Settings>(blank);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -170,8 +170,10 @@ export function AdminDashboard() {
   const [newCEmail,  setNewCEmail]  = useState("");
   const [newCRole,   setNewCRole]   = useState<Coach["role"]>("head_coach");
   const [newCPass,   setNewCPass]   = useState("");
-  const [coachError, setCoachError] = useState("");
-
+  const [coachError,      setCoachError]      = useState("");
+  const [resetingCoachId, setResetingCoachId] = useState<string | null>(null);
+  const [resetPassword,   setResetPassword]   = useState("");
+  const [resetError,      setResetError]      = useState("");
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -212,9 +214,14 @@ export function AdminDashboard() {
 
   const saveSettings = async () => {
     setSaving(true);
-    const res = await fetch("/api/admin/campaign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...settings, slug: selectedSlug }) });
+    const payload = { ...settings, slug: selectedSlug };
+    console.log("[saveSettings] default_athlete_goal_cents in state:", settings.default_athlete_goal_cents);
+    console.log("[saveSettings] full payload:", JSON.stringify(payload));
+    const res = await fetch("/api/admin/campaign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const body = await res.json();
+    console.log("[saveSettings] response status:", res.status, "body:", JSON.stringify(body));
     setSaving(false);
-    flash(res.ok ? "Settings saved." : "Error saving settings.");
+    flash(res.ok ? "Settings saved." : `Error: ${JSON.stringify(body)}`);
   };
 
   const addAthlete = async () => {
@@ -297,6 +304,24 @@ export function AdminDashboard() {
     if (!confirm("Remove this coach? They will no longer be able to log in to the team hub.")) return;
     const res = await fetch(`/api/admin/coaches/${id}`, { method: "DELETE" });
     if (res.ok) { setCoaches(p => p.filter(c => c.id !== id)); flash("Coach removed."); }
+  };
+
+  const resetCoachPassword = async () => {
+    setResetError("");
+    if (resetPassword.length < 8) { setResetError("Password must be at least 8 characters."); return; }
+    const res = await fetch(`/api/admin/coaches/${resetingCoachId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: resetPassword }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setResetingCoachId(null);
+      setResetPassword("");
+      flash("Password reset successfully.");
+    } else {
+      setResetError(data.error ?? "Failed to reset password.");
+    }
   };
 
   const logout = async () => { await fetch("/api/admin/logout", { method: "POST" }); window.location.reload(); };
@@ -494,6 +519,13 @@ export function AdminDashboard() {
               Deadline
               <input type="date" style={C.input} value={settings.deadline}
                 onChange={e => setSettings(s => ({ ...s, deadline: e.target.value }))} />
+            </label>
+            <label style={C.label}>
+              Default Athlete Goal ($)
+              <input type="number" min="1" style={C.input}
+                value={settings.default_athlete_goal_cents ? settings.default_athlete_goal_cents / 100 : ""}
+                onChange={e => setSettings(s => ({ ...s, default_athlete_goal_cents: Math.round(parseFloat(e.target.value) * 100) || 0 }))}
+                placeholder="500" />
             </label>
           </div>
           <div style={{ marginTop: "1.25rem" }}>
@@ -775,7 +807,8 @@ export function AdminDashboard() {
                         {c.role === "head_coach" ? "Head Coach" : c.role === "booster" ? "Booster" : "Asst. Coach"}
                       </span>
                     </td>
-                    <td style={C.td}>
+                    <td style={{ ...C.td, display: "flex", gap: ".4rem" }}>
+                      <Btn color="#6b7280" onClick={() => { setResetingCoachId(c.id); setResetPassword(""); setResetError(""); }}>Reset Pwd</Btn>
                       <Btn color="#dc2626" onClick={() => deleteCoach(c.id)}>Remove</Btn>
                     </td>
                   </tr>
@@ -806,6 +839,30 @@ export function AdminDashboard() {
             {coachError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{coachError}</p>}
             <Btn color="#16a34a" onClick={addCoach}>+ Add Coach</Btn>
           </div>
+
+          {resetingCoachId && (
+            <div style={{ marginTop: "1rem", padding: "1rem", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d", marginBottom: ".75rem" }}>
+                Reset password — {coaches.find(c => c.id === resetingCoachId)?.name}
+              </div>
+              <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                <label style={{ ...C.label, flex: 1, minWidth: 200 }}>
+                  New Password (min 8 chars)
+                  <input
+                    type="password"
+                    style={C.input}
+                    value={resetPassword}
+                    onChange={e => setResetPassword(e.target.value)}
+                    placeholder="New temporary password"
+                    autoFocus
+                  />
+                </label>
+                <Btn color="#0b1e3d" onClick={resetCoachPassword}>Set Password</Btn>
+                <Btn color="#6b7280" onClick={() => { setResetingCoachId(null); setResetError(""); }}>Cancel</Btn>
+              </div>
+              {resetError && <p style={{ color: "#dc2626", margin: ".5rem 0 0", fontSize: ".85rem" }}>{resetError}</p>}
+            </div>
+          )}
         </div>
 
       </div>

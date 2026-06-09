@@ -1,18 +1,22 @@
 import { createHash, randomBytes } from "crypto";
 
-const PEPPER = process.env.TEAM_COACH_PEPPER ?? "elf_team_2025";
+function getPepper(): string {
+  const p = process.env.TEAM_COACH_PEPPER;
+  if (!p) throw new Error("TEAM_COACH_PEPPER environment variable is required but not set");
+  return p;
+}
 
 export function generateSalt(): string {
   return randomBytes(16).toString("hex");
 }
 
 export function hashPassword(password: string, salt: string): string {
-  return createHash("sha256").update(password + salt + PEPPER).digest("hex");
+  return createHash("sha256").update(password + salt + getPepper()).digest("hex");
 }
 
 // Cookie value: "<coachId>:<token>" where token = SHA256(coachId + salt + PEPPER)
 export function makeCoachCookie(coachId: string, salt: string): string {
-  const token = createHash("sha256").update(coachId + salt + PEPPER).digest("hex");
+  const token = createHash("sha256").update(coachId + salt + getPepper()).digest("hex");
   return `${coachId}:${token}`;
 }
 
@@ -27,7 +31,7 @@ export function verifyCoachCookie(
   const parsedId = cookieValue.slice(0, idx);
   const parsedToken = cookieValue.slice(idx + 1);
   if (parsedId !== coachId) return false;
-  const expected = createHash("sha256").update(coachId + salt + PEPPER).digest("hex");
+  const expected = createHash("sha256").update(coachId + salt + getPepper()).digest("hex");
   return parsedToken === expected;
 }
 
