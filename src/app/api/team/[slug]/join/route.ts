@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
+import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+
+// 20 failed attempts per hour per IP.
+// Most lenient limit — members may try old or misremembered codes.
+const LIMIT = { limit: 20, windowSeconds: 60 * 60 };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -19,12 +24,22 @@ export async function POST(
 ) {
   const { slug } = await params;
 
+  const key = rateLimitKey("member-join", req);
+  const rl  = checkRateLimit(key, LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many failed attempts. Please try again later.", retryAfter: rl.retryAfter },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
 
   const { code, name, role, phone, athlete_id } = body;
 
   if (!code?.trim()) {
+    // Missing field — not a code attempt, do not count
     return NextResponse.json({ error: "Join code is required." }, { status: 400 });
   }
   if (!name?.trim()) {
@@ -42,15 +57,20 @@ export async function POST(
     { headers: h(), cache: "no-store" },
   );
   if (!codeRes.ok) {
+    // DB error — do not count against the rate limit
     return NextResponse.json({ error: "Join failed. Please try again." }, { status: 500 });
   }
 
   const codeRows = await codeRes.json();
   if (!Array.isArray(codeRows) || codeRows.length === 0) {
+    // Code not found or revoked — count as a failed attempt
+    recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid or expired join code." }, { status: 400 });
   }
   const joinCode = codeRows[0];
   if (joinCode.expires_at && new Date(joinCode.expires_at) < new Date()) {
+    // Code expired — count as a failed attempt
+    recordFailure(key, LIMIT);
     return NextResponse.json({ error: "This join code has expired." }, { status: 400 });
   }
 

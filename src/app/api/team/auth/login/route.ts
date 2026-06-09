@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, makeCoachCookie } from "@/lib/teamAuth";
+import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+// 10 failed attempts per 15 minutes per IP.
+// More lenient than admin — coaches may mistype passwords.
+const LIMIT = { limit: 10, windowSeconds: 60 * 15 };
 
 function supabaseHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,9 +18,19 @@ function supabaseHeaders() {
 }
 
 export async function POST(req: NextRequest) {
+  const key = rateLimitKey("coach-login", req);
+  const rl  = checkRateLimit(key, LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many failed attempts. Please try again later.", retryAfter: rl.retryAfter },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const { email, password, campaign_slug } = await req.json();
 
   if (!email?.trim() || !password) {
+    // Input validation failure — not a credential attempt, do not count
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
@@ -30,17 +45,22 @@ export async function POST(req: NextRequest) {
   );
 
   if (!res.ok) {
+    // DB error — do not count against the rate limit
     return NextResponse.json({ error: "Login failed." }, { status: 500 });
   }
 
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length === 0) {
+    // Unknown email — credential failure
+    recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
   const coach = rows[0];
   const expectedHash = hashPassword(password, coach.salt);
   if (expectedHash !== coach.password_hash) {
+    // Wrong password — credential failure
+    recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
