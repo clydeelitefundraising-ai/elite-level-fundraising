@@ -39,7 +39,7 @@ export default async function DonationSuccessPage({
           </p>
           <div style={styles.divider} />
           <p style={styles.note}>
-            A receipt has been sent to your email by Stripe. If you have any questions,
+            A confirmation will be sent to your email shortly. If you have any questions,
             contact us at{" "}
             <a href="mailto:support@elitelevelfundraising.com" style={styles.link}>
               support@elitelevelfundraising.com

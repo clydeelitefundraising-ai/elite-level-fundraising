@@ -1,0 +1,171 @@
+/**
+ * Transactional email via Resend (raw fetch — no SDK).
+ *
+ * Required env vars:
+ *   RESEND_API_KEY   — from resend.com/api-keys
+ *   FROM_EMAIL       — verified sender, e.g. "ELF <noreply@elitelevelfundraising.com>"
+ *
+ * Callers must wrap sendDonorReceipt / sendCoachWelcome in try/catch.
+ * Failures are the caller's responsibility to log; this module throws on error.
+ */
+
+const RESEND_API = "https://api.resend.com/emails";
+
+function getResendKey(): string {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY environment variable is not set");
+  return key;
+}
+
+function getFromEmail(): string {
+  return process.env.FROM_EMAIL ?? "ELF Fundraising <noreply@elitelevelfundraising.com>";
+}
+
+async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+  const res = await fetch(RESEND_API, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getResendKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: getFromEmail(), to, subject, html }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend API error (${res.status}): ${body}`);
+  }
+}
+
+// ── Donor receipt ─────────────────────────────────────────────────────────────
+
+export interface DonorReceiptParams {
+  to:           string;
+  donorName:    string | null;
+  amountCents:  number;
+  teamName:     string;
+  athleteName:  string | null;
+  campaignUrl:  string;
+}
+
+export async function sendDonorReceipt(p: DonorReceiptParams): Promise<void> {
+  const amount = (p.amountCents / 100).toLocaleString("en-US", {
+    style:    "currency",
+    currency: "USD",
+  });
+  const greeting    = p.donorName ? `Hi ${p.donorName},` : "Hi there,";
+  const supportLine = p.athleteName
+    ? `Your gift supports <strong>${p.athleteName}</strong> and the ${p.teamName} program.`
+    : `Your gift supports the <strong>${p.teamName}</strong> program.`;
+  const athleteRow = p.athleteName
+    ? `<tr>
+        <td style="color:#6b7280;font-size:0.9rem;padding:8px;">Athlete</td>
+        <td style="text-align:right;color:#0B1E3D;font-size:0.9rem;padding:8px;">${p.athleteName}</td>
+       </tr>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="text-align:center;padding-bottom:24px;">
+          <div style="font-size:2.4rem;">🎉</div>
+          <h1 style="color:#0B1E3D;font-size:1.8rem;margin:8px 0 0 0;font-family:Arial,sans-serif;">Thank You!</h1>
+        </td></tr>
+        <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:24px;">
+          <p style="margin:0 0 12px 0;">${greeting}</p>
+          <p style="margin:0 0 12px 0;">We received your donation of <strong>${amount}</strong>. ${supportLine}</p>
+          <p style="margin:0;">Every dollar makes a real difference for our student athletes this season — thank you for your support.</p>
+        </td></tr>
+        <tr><td style="border-top:1px solid #e5e7eb;padding:24px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
+            <tr>
+              <td style="color:#6b7280;font-size:0.9rem;padding:8px;">Amount</td>
+              <td style="text-align:right;font-weight:bold;color:#0B1E3D;font-size:0.9rem;padding:8px;">${amount}</td>
+            </tr>
+            <tr>
+              <td style="color:#6b7280;font-size:0.9rem;padding:8px;">Team</td>
+              <td style="text-align:right;color:#0B1E3D;font-size:0.9rem;padding:8px;">${p.teamName}</td>
+            </tr>
+            ${athleteRow}
+          </table>
+        </td></tr>
+        <tr><td style="text-align:center;padding:8px 0 28px 0;">
+          <a href="${p.campaignUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:bold;">View Campaign</a>
+        </td></tr>
+        <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;">
+          Questions? Contact us at <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          <span style="display:inline-block;margin-top:12px;">Powered by Elite Level Fundraising</span>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, `Donation Receipt — ${p.teamName}`, html);
+}
+
+// ── Coach welcome ─────────────────────────────────────────────────────────────
+
+export interface CoachWelcomeParams {
+  to:           string;
+  coachName:    string;
+  teamName:     string;
+  loginUrl:     string;
+  email:        string;
+  tempPassword: string;
+  teamHubUrl:   string;
+}
+
+export async function sendCoachWelcome(p: CoachWelcomeParams): Promise<void> {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:20px;">
+          <h1 style="color:#0B1E3D;font-size:1.6rem;margin:0 0 8px 0;font-family:Arial,sans-serif;">Welcome, ${p.coachName}!</h1>
+          <p style="color:#6b7280;margin:0;font-size:0.95rem;">Your coach account for <strong>${p.teamName}</strong> is ready.</p>
+        </td></tr>
+        <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:20px;">
+          <p style="margin:0;">Use the credentials below to log in and manage your team's fundraising campaign.</p>
+        </td></tr>
+        <tr><td style="padding-bottom:20px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
+            <tr>
+              <td style="color:#6b7280;font-size:0.9rem;padding:10px 12px;width:120px;vertical-align:top;">Login URL</td>
+              <td style="padding:10px 12px;"><a href="${p.loginUrl}" style="color:#C4A35A;text-decoration:none;">${p.loginUrl}</a></td>
+            </tr>
+            <tr style="border-top:1px solid #e5e7eb;">
+              <td style="color:#6b7280;font-size:0.9rem;padding:10px 12px;vertical-align:top;">Email</td>
+              <td style="color:#0B1E3D;font-size:0.9rem;padding:10px 12px;">${p.email}</td>
+            </tr>
+            <tr style="border-top:1px solid #e5e7eb;">
+              <td style="color:#6b7280;font-size:0.9rem;padding:10px 12px;vertical-align:top;">Password</td>
+              <td style="font-family:monospace;font-size:1rem;color:#0B1E3D;letter-spacing:0.05em;padding:10px 12px;">${p.tempPassword}</td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td style="background:#fef9ec;border:1px solid #C4A35A;border-radius:8px;padding:14px 16px;margin-bottom:20px;color:#0B1E3D;font-size:0.9rem;line-height:1.5;">
+          <strong>Security reminder:</strong> Change your password after your first login.
+        </td></tr>
+        <tr><td style="text-align:center;padding:24px 0;">
+          <a href="${p.teamHubUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:bold;">Go to Team Hub →</a>
+        </td></tr>
+        <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;">
+          Questions? Contact us at <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          <span style="display:inline-block;margin-top:12px;">Powered by Elite Level Fundraising</span>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, `Welcome to ${p.teamName} — Your ELF Coach Login`, html);
+}

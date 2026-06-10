@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignSettings } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
+import { sendCoachWelcome } from "@/lib/email";
 import { randomBytes } from "crypto";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -116,6 +117,29 @@ export async function POST(req: NextRequest) {
       { status: isUnique ? 409 : 500 },
     );
   }
+
+  // Fire-and-forget welcome email — failure never blocks onboarding.
+  void (async () => {
+    try {
+      const teamName = [
+        String(school_name ?? "").trim(),
+        String(mascot     ?? "").trim(),
+        String(sport_name ?? "").trim(),
+      ].filter(Boolean).join(" ");
+      const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      await sendCoachWelcome({
+        to:           String(coach_email).trim().toLowerCase(),
+        coachName:    String(coach_name).trim(),
+        teamName:     teamName || slug,
+        loginUrl:     `${appBase}/coach-login`,
+        email:        String(coach_email).trim().toLowerCase(),
+        tempPassword: pw,
+        teamHubUrl:   `${appBase}/team/${slug}`,
+      });
+    } catch (err) {
+      console.error("[onboard] sendCoachWelcome failed:", err);
+    }
+  })();
 
   // ── 3. team_join_codes (auto-generated) ───────────────────────────────────────
   const joinCode = generateJoinCode();

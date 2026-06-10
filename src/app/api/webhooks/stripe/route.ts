@@ -25,7 +25,8 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { insertDonation, donationExists } from "@/lib/supabase";
+import { insertDonation, donationExists, getCampaignSettings } from "@/lib/supabase";
+import { sendDonorReceipt } from "@/lib/email";
 
 // Force Node.js runtime — required for Node crypto (createHmac, timingSafeEqual)
 // and to ensure req.text() returns the unmodified raw body Stripe signed.
@@ -84,6 +85,10 @@ interface StripeCheckoutSession {
   id:             string;
   payment_status: string;
   amount_total:   number;
+  customer_details?: {
+    email?: string;
+    name?:  string;
+  };
   metadata: {
     donor_name?:       string;
     athlete_name?:     string;
@@ -175,6 +180,32 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[stripe-webhook] insertDonation failed:", err);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+
+  // ── 9. Donor receipt email — fire-and-forget, never blocks Stripe's 200.
+  const donorEmail = session.customer_details?.email;
+  if (donorEmail) {
+    void (async () => {
+      try {
+        const slug     = session.metadata?.campaign_slug ?? "";
+        const settings = slug ? await getCampaignSettings(slug).catch(() => null) : null;
+        const teamName = settings
+          ? `${settings.school_name} ${settings.mascot} ${settings.sport_name}`.trim()
+          : "the team";
+        const appBase    = process.env.NEXT_PUBLIC_APP_URL ?? "";
+        const campaignUrl = slug ? `${appBase}/campaign/${slug}` : appBase;
+        await sendDonorReceipt({
+          to:          donorEmail,
+          donorName:   session.metadata?.donor_name   ?? null,
+          amountCents: session.amount_total,
+          teamName,
+          athleteName: session.metadata?.athlete_name ?? null,
+          campaignUrl,
+        });
+      } catch (err) {
+        console.error("[stripe-webhook] sendDonorReceipt failed:", err);
+      }
+    })();
   }
 
   return NextResponse.json({ received: true });

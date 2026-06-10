@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
+import { getCampaignSettings } from "@/lib/supabase";
+import { sendCoachWelcome } from "@/lib/email";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -78,6 +80,29 @@ export async function POST(req: NextRequest) {
 
   const rows = await res.json();
   const coach = rows[0];
+
+  // Fire-and-forget welcome email — failure never blocks coach creation.
+  void (async () => {
+    try {
+      const settings = await getCampaignSettings(campaign_slug.trim()).catch(() => null);
+      const teamName = settings
+        ? `${settings.school_name} ${settings.mascot} ${settings.sport_name}`.trim()
+        : campaign_slug.trim();
+      const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      await sendCoachWelcome({
+        to:           email.trim().toLowerCase(),
+        coachName:    name.trim(),
+        teamName,
+        loginUrl:     `${appBase}/coach-login`,
+        email:        email.trim().toLowerCase(),
+        tempPassword: password.trim(),
+        teamHubUrl:   `${appBase}/team/${campaign_slug.trim()}`,
+      });
+    } catch (err) {
+      console.error("[coaches] sendCoachWelcome failed:", err);
+    }
+  })();
+
   return NextResponse.json({
     id: coach.id,
     campaign_slug: coach.campaign_slug,
