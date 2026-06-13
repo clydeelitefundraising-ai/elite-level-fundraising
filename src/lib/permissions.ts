@@ -20,9 +20,12 @@ export type TeamActor =
 // ── Actor-level helpers ───────────────────────────────────────────────────────
 
 /** True for any team staff (head coach, assistant coach, booster…).
- *  Adding a new staff role only requires updating STAFF_ROLES above. */
+ *  Boosters who join via team code are members with role="booster" and
+ *  receive the same staff access as team_coaches with role="booster". */
 export function isStaff(actor: TeamActor): boolean {
-  return actor.kind === "coach" && STAFF_ROLES.has(actor.session.role);
+  if (actor.kind === "coach" && STAFF_ROLES.has(actor.session.role)) return true;
+  if (actor.kind === "member" && actor.session.role === "booster") return true;
+  return false;
 }
 
 /** True only for roles with destructive (delete) access. */

@@ -2,6 +2,7 @@
 // Never import this file from a "use client" component.
 import { getCoachSession } from "@/lib/teamSession";
 import { getMemberSession } from "@/lib/memberSession";
+import { getAccountSession, getActorForAccount } from "@/lib/accountSession";
 import type { TeamActor } from "@/lib/permissions";
 
 export type { TeamActor } from "@/lib/permissions";
@@ -9,16 +10,20 @@ export { isStaff, isHeadCoach, isMember, coachSession, isHeadCoachRole, staffRol
 
 /** Resolves which actor is making this request for the given campaign.
  *
- * Priority: member > coach > public.
+ * Priority: elf_session (global account) > member cookie > coach cookie > public.
  *
- * Member wins when both cookies are present for the same slug. The join
- * flow (/join/[code]) is an explicit "I am joining as athlete/parent"
- * action and must not be silently overridden by a stale coach cookie.
- * A coach who has NOT used the join flow has no team_member cookie and
- * continues to resolve as coach. A coach who wants to restore coach
- * access after joining can log in again at /coach-login.
+ * elf_session is the Phase 21+ global identity layer. Legacy per-team cookies
+ * remain active as fallback for users who joined before Phase 21.
+ * getAccountSession is memoized per-request via React.cache so calling it
+ * here and in the layout incurs only one DB round-trip.
  */
 export async function getTeamActor(slug: string): Promise<TeamActor> {
+  const account = await getAccountSession();
+  if (account) {
+    const actor = await getActorForAccount(slug, account);
+    if (actor) return actor;
+  }
+
   const [coach, member] = await Promise.all([
     getCoachSession(slug),
     getMemberSession(slug),

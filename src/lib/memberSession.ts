@@ -15,7 +15,7 @@ function h() {
 export type MemberSession = {
   id: string;
   name: string;
-  role: "athlete" | "parent";
+  role: "athlete" | "parent" | "booster";
   campaign_slug: string;
   athlete_id: string | null;
 };

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { CampaignSettings } from "@/lib/supabase";
+import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
 import NotificationBell from "./NotificationBell";
+import TeamSwitcher from "./TeamSwitcher";
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
@@ -11,52 +13,28 @@ export default function TeamHeader({
   settings,
   unreadNotifCount = 0,
   showBell = false,
+  accountTeams = [],
 }: {
   settings: CampaignSettings;
   unreadNotifCount?: number;
   showBell?: boolean;
+  accountTeams?: TeamSummary[];
 }) {
   const sport = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
   const meta  = [settings.location, settings.season].filter(Boolean).join(" · ");
 
   return (
     <div style={{ background: settings.primary_color, color: "#fff" }}>
-      <div style={{
-        padding: "1.1rem 1rem 1rem",
-        display: "flex",
-        alignItems: "center",
-        gap: "1rem",
-      }}>
-        {/* Avatar circle — logo if available, initials fallback */}
+      <div style={{ padding: "1.1rem 1rem 1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+        {/* Avatar circle */}
         {(settings.team_photo || settings.logo_url) ? (
           <img
             src={settings.team_photo || settings.logo_url}
             alt={settings.school_name}
-            style={{
-              width: 60,
-              height: 60,
-              objectFit: "contain",
-              flexShrink: 0,
-              borderRadius: "50%",
-              background: "rgba(255,255,255,.28)",
-              border: "2px solid rgba(255,255,255,.45)",
-              padding: 4,
-            }}
+            style={{ width: 60, height: 60, objectFit: "contain", flexShrink: 0, borderRadius: "50%", background: "rgba(255,255,255,.28)", border: "2px solid rgba(255,255,255,.45)", padding: 4 }}
           />
         ) : (
-          <div style={{
-            width: 60,
-            height: 60,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,.28)",
-            border: "2px solid rgba(255,255,255,.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 800,
-            fontSize: "1.2rem",
-            flexShrink: 0,
-          }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(255,255,255,.28)", border: "2px solid rgba(255,255,255,.45)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.2rem", flexShrink: 0 }}>
             {initials(settings.school_name)}
           </div>
         )}
@@ -78,7 +56,7 @@ export default function TeamHeader({
           )}
         </div>
 
-        {/* Icon tray — notification bell (members) + push opt-in + settings */}
+        {/* Icon tray */}
         <div style={{ display: "flex", gap: ".15rem", flexShrink: 0, alignItems: "center" }}>
           {showBell && (
             <NotificationBell
@@ -87,6 +65,12 @@ export default function TeamHeader({
             />
           )}
           <PushOptIn slug={settings.campaign_slug} />
+          {accountTeams.length > 1 && (
+            <TeamSwitcher
+              currentSlug={settings.campaign_slug}
+              teams={accountTeams}
+            />
+          )}
           <Link
             href={`/team/${settings.campaign_slug}/settings`}
             aria-label="Team settings"

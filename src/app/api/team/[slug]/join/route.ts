@@ -45,8 +45,8 @@ export async function POST(
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
-  if (role !== "athlete" && role !== "parent") {
-    return NextResponse.json({ error: "Role must be athlete or parent." }, { status: 400 });
+  if (role !== "athlete" && role !== "parent" && role !== "booster") {
+    return NextResponse.json({ error: "Role must be athlete, parent, or booster." }, { status: 400 });
   }
 
   const upperCode = code.trim().toUpperCase();

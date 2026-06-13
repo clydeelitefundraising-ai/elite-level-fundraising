@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import { getTeamActor, isStaff as checkIsStaff } from "@/lib/permissions.server";
+import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
@@ -18,21 +19,23 @@ export default async function TeamLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [settings, announcementMeta, donationStats, actor] = await Promise.all([
+
+  const [settings, announcementMeta, donationStats, actor, accountSession] = await Promise.all([
     getCampaignSettings(slug),
     getAnnouncementMeta(slug),
     getDonationStats(slug),
     getTeamActor(slug),
+    getAccountSession(),
   ]);
+
   if (!settings) notFound();
 
-  const isMember = actor.kind === "member";
-  console.log("[DEBUG layout] actor.kind=", actor.kind, "settings.team_id=", settings.team_id, "actor.session.id=", isMember ? (actor as { kind: "member"; session: { id: string } }).session.id : null);
-  const unreadNotifCount =
-    isMember && settings.team_id
-      ? await getUnreadCount(settings.team_id, actor.session.id)
-      : 0;
-  console.log("[DEBUG layout] unreadNotifCount=", unreadNotifCount);
+  const isMember         = actor.kind === "member";
+  const unreadNotifCount = isMember && settings.team_id
+    ? await getUnreadCount(settings.team_id, actor.session.id)
+    : 0;
+
+  const accountTeams = accountSession ? await getAccountTeams(accountSession.id) : [];
 
   return (
     <>
@@ -66,13 +69,11 @@ export default async function TeamLayout({
           settings={settings}
           unreadNotifCount={unreadNotifCount}
           showBell={isMember}
+          accountTeams={accountTeams}
         />
         <TeamPullRefresh />
         <TeamRealtimeSync slug={slug} />
-        <main style={{
-          flex: 1,
-          padding: "1rem .875rem 5.5rem",
-        }}>
+        <main style={{ flex: 1, padding: "1rem .875rem 5.5rem" }}>
           {children}
         </main>
         <TeamNavWithBadge
