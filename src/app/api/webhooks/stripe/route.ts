@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
   // ── 5. Ignore all event types except checkout.session.completed.
   //       Return 200 so Stripe stops retrying unhandled event types.
   if (event.type !== "checkout.session.completed") {
+    console.log("[stripe-webhook] ignoring event type:", event.type);
     return NextResponse.json({ received: true });
   }
 
@@ -145,6 +146,7 @@ export async function POST(req: NextRequest) {
 
   // ── 6. Only record confirmed payments
   if (session.payment_status !== "paid") {
+    console.log("[stripe-webhook] skipping session", session.id, "payment_status:", session.payment_status);
     return NextResponse.json({ received: true });
   }
 
@@ -181,6 +183,8 @@ export async function POST(req: NextRequest) {
     console.error("[stripe-webhook] insertDonation failed:", err);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
+
+  console.log("[stripe-webhook] donation saved, session:", session.id, "amount:", session.amount_total);
 
   // ── 9. Donor receipt email — fire-and-forget, never blocks Stripe's 200.
   const donorEmail = session.customer_details?.email;
