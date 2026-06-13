@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
@@ -375,7 +375,26 @@ export default async function FundraiserPage({
   ]);
 
   if (!settings) notFound();
-  if (actor.kind === "public") redirect(`/team/${slug}/home`);
+
+  // ── Public visitor — read-only campaign view (no analytics, no donate modal) ──
+  if (actor.kind === "public") {
+    const [athletes, donations] = await Promise.all([
+      getTeamAthletes(slug),
+      getDonations(slug),
+    ]);
+    const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
+    const leaderboard = buildLeaderboard(athletes, donations);
+    const teamFeed    = buildTeamFeed(athletes, donations);
+    return (
+      <TeamCampaignView
+        settings={settings}
+        raisedCents={raisedCents}
+        donorCount={donations.length}
+        leaderboard={leaderboard}
+        teamFeed={teamFeed}
+      />
+    );
+  }
 
   // ── Coach / staff ──
   if (actor.kind === "coach") {
