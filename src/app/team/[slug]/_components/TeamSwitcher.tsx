@@ -124,6 +124,14 @@ export default function TeamSwitcher({
             >
               All Teams
             </a>
+            <form method="POST" action="/api/auth/logout" style={{ borderTop: "1px solid #f0f0f0" }}>
+              <button
+                type="submit"
+                style={{ width: "100%", padding: ".75rem 1rem", background: "none", border: "none", fontSize: ".82rem", color: "#9ca3af", cursor: "pointer", textAlign: "center" }}
+              >
+                Sign Out
+              </button>
+            </form>
           </div>
         </>
       )}

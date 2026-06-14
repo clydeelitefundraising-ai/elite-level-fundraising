@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const res  = NextResponse.redirect(new URL("/", req.url));
+  const res  = NextResponse.redirect(new URL("/login", req.url));
   const opts = {
     httpOnly: true,
     secure:   process.env.NODE_ENV === "production",

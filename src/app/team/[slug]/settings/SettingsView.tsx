@@ -20,8 +20,8 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
   const [error, setError]     = useState("");
 
   const handleSignOut = async () => {
-    await fetch("/api/team/auth/logout", { method: "POST" });
-    router.push(`/team/${slug}/login`);
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
   };
 
   const joinUrl = code

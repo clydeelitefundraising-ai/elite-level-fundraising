@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
-  const { email, password } = body;
+  const { email, password, rememberMe } = body;
   if (!email?.trim() || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
@@ -57,13 +57,15 @@ export async function POST(req: NextRequest) {
     slug:      teams.length === 1 ? teams[0].campaign_slug : null,
   });
 
-  response.cookies.set("elf_session", cookieValue, {
+  const cookieOpts: Parameters<typeof response.cookies.set>[2] = {
     httpOnly: true,
     secure:   process.env.NODE_ENV === "production",
     sameSite: "strict",
     path:     "/",
-    maxAge:   60 * 60 * 24 * 30,
-  });
+  };
+  if (rememberMe) cookieOpts.maxAge = 60 * 60 * 24 * 30;
+
+  response.cookies.set("elf_session", cookieValue, cookieOpts);
 
   return response;
 }

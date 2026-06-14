@@ -6,10 +6,11 @@ import Image from "next/image";
 
 export default function LoginView() {
   const router = useRouter();
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError]       = useState<string | null>(null);
-  const [loading, setLoading]   = useState(false);
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -19,7 +20,7 @@ export default function LoginView() {
       const res  = await fetch("/api/auth/login", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email: email.trim(), password }),
+        body:    JSON.stringify({ email: email.trim(), password, rememberMe }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Login failed."); return; }
@@ -74,10 +75,20 @@ export default function LoginView() {
             />
           </label>
 
+          <label style={{ display: "flex", alignItems: "center", gap: ".55rem", cursor: "pointer", userSelect: "none" }}>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0b1e3d" }}
+            />
+            <span style={{ fontSize: ".88rem", color: "#374151" }}>Remember me for 30 days</span>
+          </label>
+
           <button
             type="submit"
             disabled={loading}
-            style={{ background: "#C4A35A", color: "#0b1e3d", fontWeight: 800, fontSize: "1.05rem", padding: "1rem", borderRadius: ".75rem", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? .7 : 1, marginTop: ".5rem" }}
+            style={{ background: "#C4A35A", color: "#0b1e3d", fontWeight: 800, fontSize: "1.05rem", padding: "1rem", borderRadius: ".75rem", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? .7 : 1 }}
           >
             {loading ? "Logging in…" : "Log In"}
           </button>
