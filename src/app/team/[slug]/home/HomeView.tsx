@@ -49,8 +49,13 @@ const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   team:       { bg: "#f3f4f6", color: "#374151" },
 };
 
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtMoney(cents: number): string {
+  const dollars = cents / 100;
+  if (dollars >= 10000) return `$${(dollars / 1000).toFixed(0)}k`;
+  return dollars.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+}
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
@@ -82,19 +87,7 @@ function labelDate(d: string): string {
     .format(new Date(y, m - 1, day));
 }
 
-
 // ── Subcomponents ─────────────────────────────────────────────────────────────
-
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: ".1rem 0 .55rem" }}>
-      <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#c0c8d4", textTransform: "uppercase", letterSpacing: ".09em", whiteSpace: "nowrap" }}>
-        {label}
-      </span>
-      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #ebebeb, transparent)" }} />
-    </div>
-  );
-}
 
 function AnnouncementCard({
   a,
@@ -135,7 +128,6 @@ function AnnouncementCard({
         transition: "transform .14s ease, box-shadow .14s ease",
       }}
     >
-      {/* Row 1: avatar + name + role badge + timestamp */}
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".35rem" }}>
         <div style={{
           width: 30, height: 30, borderRadius: "50%", background: avBg,
@@ -166,7 +158,6 @@ function AnnouncementCard({
         </div>
       </div>
 
-      {/* Row 2: category + priority chips */}
       <div style={{ display: "flex", gap: ".28rem", marginBottom: ".42rem", flexWrap: "wrap" }}>
         <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: cat.bg, color: cat.color }}>
           {a.category.replace("-", " ")}
@@ -183,19 +174,16 @@ function AnnouncementCard({
         )}
       </div>
 
-      {/* Title */}
       <p style={{ margin: "0 0 .22rem", fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", lineHeight: 1.3 }}>
         {a.title}
       </p>
 
-      {/* Body */}
       {a.body && (
         <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280", lineHeight: 1.62 }}>
           {a.body}
         </p>
       )}
 
-      {/* Attachment */}
       {att && (
         <a
           href={`/api/team/${a.campaign_slug}/files/${att.id}`}
@@ -211,7 +199,6 @@ function AnnouncementCard({
         </a>
       )}
 
-      {/* Coach actions */}
       {coach && (
         <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end", marginTop: ".38rem" }}>
           <button
@@ -263,6 +250,79 @@ function UpcomingEventRow({ ev }: { ev: CalendarEventRow }) {
   );
 }
 
+function FundraiserSnapshot({
+  slug,
+  raisedCents,
+  goalCents,
+  topAthleteName,
+  primaryColor,
+}: {
+  slug: string;
+  raisedCents: number;
+  goalCents: number;
+  topAthleteName: string | null;
+  primaryColor: string;
+}) {
+  if (raisedCents === 0 && !topAthleteName) return null;
+
+  const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
+
+  return (
+    <div style={{
+      background: "#fff",
+      borderRadius: 14,
+      overflow: "hidden",
+      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      marginBottom: ".8rem",
+    }}>
+      <div style={{ padding: ".75rem 1rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <div style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: ".1rem" }}>Fundraiser</div>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>Team Progress</div>
+        </div>
+        <a
+          href={`/team/${slug}/fundraiser`}
+          style={{ padding: ".4rem .9rem", background: primaryColor, color: "#fff", borderRadius: 20, fontSize: ".75rem", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+        >
+          View →
+        </a>
+      </div>
+
+      <div style={{ padding: ".85rem 1rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "1.5rem", color: "#0b1e3d", lineHeight: 1 }}>{fmtMoney(raisedCents)}</div>
+            <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>raised</div>
+          </div>
+          {goalCents > 0 && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontWeight: 700, fontSize: ".95rem", color: "#374151" }}>{fmtMoney(goalCents)}</div>
+              <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>goal</div>
+            </div>
+          )}
+        </div>
+
+        {goalCents > 0 && (
+          <div>
+            <div style={{ background: "#eaecef", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".3rem" }}>
+              <div style={{ background: primaryColor, height: "100%", width: `${pct}%`, borderRadius: 100, transition: "width .5s ease" }} />
+            </div>
+            <div style={{ fontSize: ".65rem", color: "#9ca3af", textAlign: "right" }}>{pct}% of goal</div>
+          </div>
+        )}
+
+        {topAthleteName && (
+          <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: ".7rem", padding: ".5rem .75rem", background: "#f8f9fb", borderRadius: 8 }}>
+            <span style={{ fontSize: ".75rem" }}>🏆</span>
+            <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>Team Leader</span>
+            <span style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d", marginLeft: "auto" }}>{topAthleteName}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AForm = {
@@ -274,21 +334,38 @@ type AForm = {
 
 const BLANK: AForm = { title: "", body: "", category: "team", priority: "normal" };
 
-// ── Main component ────────────────────────────────────────────────────────────
-
-export default function HomeView({
-  slug,
-  initialAnnouncements,
-  initialUpcoming,
-  actor,
-  sponsors = [],
-}: {
+type HomeViewProps = {
   slug: string;
   initialAnnouncements: AnnouncementRow[];
   initialUpcoming: CalendarEventRow[];
   actor: TeamActor;
   sponsors?: SponsorRow[];
-}) {
+  raisedCents?: number;
+  goalCents?: number;
+  topAthleteName?: string | null;
+  primaryColor?: string;
+};
+
+// ── Role-based entry point (future-proofed for role dashboards) ────────────────
+
+export default function HomeView(props: HomeViewProps) {
+  // Future: switch on actor role to render AthleteHome, ParentHome, CoachHome, etc.
+  return <HomeContent {...props} />;
+}
+
+// ── Main content ──────────────────────────────────────────────────────────────
+
+function HomeContent({
+  slug,
+  initialAnnouncements,
+  initialUpcoming,
+  actor,
+  sponsors = [],
+  raisedCents = 0,
+  goalCents = 0,
+  topAthleteName = null,
+  primaryColor = "#0b1e3d",
+}: HomeViewProps) {
   const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
   const [form,    setForm]    = useState<AForm>(BLANK);
@@ -354,8 +431,6 @@ export default function HomeView({
     if (res.ok) setItems(prev => prev.filter(a => a.id !== id));
   };
 
-  // ── Preview: 3 most recent (pinned first) ─────────────────────────────────
-
   const pinned    = items.filter(a => a.priority === "pinned");
   const nonPinned = items.filter(a => a.priority !== "pinned");
   const preview   = [...pinned, ...nonPinned].slice(0, 3);
@@ -365,7 +440,8 @@ export default function HomeView({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      {/* ── Upcoming Events ── */}
+
+      {/* 1 — Upcoming Events */}
       {next3.length > 0 && (
         <div style={{
           background: "#fff",
@@ -385,7 +461,7 @@ export default function HomeView({
         </div>
       )}
 
-      {/* ── Section header ── */}
+      {/* 2 — Team Communications */}
       <div style={{ marginBottom: ".5rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Updates
@@ -408,11 +484,11 @@ export default function HomeView({
         </div>
       </div>
 
-      {/* ── Preview feed (3 most recent) ── */}
       {items.length === 0 ? (
         <div style={{
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          marginBottom: ".8rem",
         }}>
           <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📣</div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
@@ -434,6 +510,7 @@ export default function HomeView({
               textAlign: "center",
               padding: ".55rem",
               marginTop: ".1rem",
+              marginBottom: ".8rem",
               fontSize: ".75rem",
               fontWeight: 700,
               color: "#0b1e3d",
@@ -446,9 +523,18 @@ export default function HomeView({
         </>
       )}
 
-      {/* ── Sponsor highlight ── */}
+      {/* 3 — Fundraiser Snapshot */}
+      <FundraiserSnapshot
+        slug={slug}
+        raisedCents={raisedCents}
+        goalCents={goalCents}
+        topAthleteName={topAthleteName}
+        primaryColor={primaryColor}
+      />
+
+      {/* 4 — Sponsors */}
       {sponsors.length > 0 && (
-        <div style={{ marginTop: ".75rem" }}>
+        <div style={{ marginTop: ".25rem" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
             <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em" }}>
               Our Sponsors
@@ -511,7 +597,7 @@ export default function HomeView({
         </div>
       )}
 
-      {/* ── Add / Edit Modal ── */}
+      {/* Announcement modal */}
       {modalOpen && (
         <Modal title={isEditing ? "Edit Announcement" : "New Announcement"} onClose={closeModal}>
           <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>

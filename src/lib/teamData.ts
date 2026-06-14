@@ -223,3 +223,38 @@ export async function getDonationStats(slug: string): Promise<DonationStats> {
     donor_count: rows.length,
   };
 }
+
+export async function getNextCalendarEvent(slug: string): Promise<CalendarEventRow | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  const res = await fetch(
+    `${BASE}/rest/v1/calendar_events?campaign_slug=eq.${encodeURIComponent(slug)}&event_date=gte.${today}&order=event_date.asc,event_time.asc&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: CalendarEventRow[] = await res.json();
+  return rows[0] ?? null;
+}
+
+export type FundraiserSummary = {
+  topAthleteName: string | null;
+};
+
+export async function getTeamFundraiserSummary(slug: string): Promise<FundraiserSummary> {
+  const res = await fetch(
+    `${BASE}/rest/v1/donations?campaign_slug=eq.${encodeURIComponent(slug)}&select=athlete_name,amount_cents`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return { topAthleteName: null };
+  const rows: { athlete_name: string | null; amount_cents: number }[] = await res.json();
+  const byAthlete = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.athlete_name) continue;
+    byAthlete.set(row.athlete_name, (byAthlete.get(row.athlete_name) ?? 0) + row.amount_cents);
+  }
+  let topName: string | null = null;
+  let topCents = 0;
+  for (const [name, cents] of byAthlete) {
+    if (cents > topCents) { topName = name; topCents = cents; }
+  }
+  return { topAthleteName: topName };
+}
