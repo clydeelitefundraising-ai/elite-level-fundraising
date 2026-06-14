@@ -65,7 +65,7 @@ export default function TeamHeader({
             />
           )}
           <PushOptIn slug={settings.campaign_slug} />
-          {accountTeams.length > 1 && (
+          {accountTeams.length >= 1 && (
             <TeamSwitcher
               currentSlug={settings.campaign_slug}
               teams={accountTeams}

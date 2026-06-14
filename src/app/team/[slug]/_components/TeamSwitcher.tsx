@@ -14,8 +14,10 @@ export default function TeamSwitcher({
   const [open, setOpen] = useState(false);
   const router          = useRouter();
 
-  // Only render the switcher when there's more than one team to switch to
-  if (teams.length <= 1) return null;
+  // Hide only when no account teams at all (not logged in via elf_session)
+  if (teams.length === 0) return null;
+
+  const canSwitch = teams.length > 1;
 
   function switchTo(slug: string) {
     setOpen(false);
@@ -26,7 +28,7 @@ export default function TeamSwitcher({
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen(o => !o)}
-        aria-label="Switch team"
+        aria-label={canSwitch ? "Switch team" : "Account menu"}
         aria-expanded={open}
         style={{
           background: "rgba(255,255,255,.18)",
@@ -43,7 +45,7 @@ export default function TeamSwitcher({
           gap: ".25rem",
         }}
       >
-        ⇄ Switch
+        {canSwitch ? "⇄ Switch" : "👤"}
       </button>
 
       {open && (
