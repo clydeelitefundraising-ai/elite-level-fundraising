@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
-import { getAnnouncementMeta, getDonationStats, getNextCalendarEvent } from "@/lib/teamData";
+import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import { getTeamActor, isStaff as checkIsStaff } from "@/lib/permissions.server";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
@@ -8,7 +8,6 @@ import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
-import QuickStats from "./_components/QuickStats";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +20,12 @@ export default async function TeamLayout({
 }) {
   const { slug } = await params;
 
-  const [settings, announcementMeta, donationStats, actor, accountSession, nextEvent] = await Promise.all([
+  const [settings, announcementMeta, donationStats, actor, accountSession] = await Promise.all([
     getCampaignSettings(slug),
     getAnnouncementMeta(slug),
     getDonationStats(slug),
     getTeamActor(slug),
     getAccountSession(),
-    getNextCalendarEvent(slug),
   ]);
 
   if (!settings) notFound();
@@ -75,13 +73,6 @@ export default async function TeamLayout({
           accountTeams={accountTeams}
           accountName={accountSession?.name}
           isAuthenticated={isAuthenticated}
-        />
-        <QuickStats
-          raisedCents={donationStats.raised_cents}
-          goalCents={settings.goal_cents}
-          donorCount={donationStats.donor_count}
-          nextEvent={nextEvent}
-          primaryColor={settings.primary_color}
         />
         <TeamPullRefresh />
         <TeamRealtimeSync slug={slug} />

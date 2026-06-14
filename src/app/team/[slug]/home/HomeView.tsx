@@ -270,53 +270,43 @@ function FundraiserSnapshot({
   return (
     <div style={{
       background: "#fff",
-      borderRadius: 14,
+      borderRadius: 12,
       overflow: "hidden",
       boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
       marginBottom: ".8rem",
     }}>
-      <div style={{ padding: ".75rem 1rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: ".1rem" }}>Fundraiser</div>
-          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>Team Progress</div>
-        </div>
+      {/* Compact header row */}
+      <div style={{ padding: ".65rem 1rem", display: "flex", alignItems: "center", gap: ".75rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", flex: 1 }}>
+          Fundraiser
+        </span>
         <a
           href={`/team/${slug}/fundraiser`}
-          style={{ padding: ".4rem .9rem", background: primaryColor, color: "#fff", borderRadius: 20, fontSize: ".75rem", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+          style={{ fontSize: ".72rem", fontWeight: 700, color: primaryColor, textDecoration: "none" }}
         >
           View →
         </a>
       </div>
 
-      <div style={{ padding: ".85rem 1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: "1.5rem", color: "#0b1e3d", lineHeight: 1 }}>{fmtMoney(raisedCents)}</div>
-            <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>raised</div>
-          </div>
-          {goalCents > 0 && (
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 700, fontSize: ".95rem", color: "#374151" }}>{fmtMoney(goalCents)}</div>
-              <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>goal</div>
-            </div>
-          )}
+      {/* Progress bar */}
+      {goalCents > 0 && (
+        <div style={{ height: 4, background: "#eaecef" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: primaryColor, transition: "width .5s ease" }} />
         </div>
+      )}
 
+      {/* Compact stats row */}
+      <div style={{ padding: ".55rem 1rem .65rem", display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
+        <span style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{fmtMoney(raisedCents)}</span>
         {goalCents > 0 && (
-          <div>
-            <div style={{ background: "#eaecef", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".3rem" }}>
-              <div style={{ background: primaryColor, height: "100%", width: `${pct}%`, borderRadius: 100, transition: "width .5s ease" }} />
-            </div>
-            <div style={{ fontSize: ".65rem", color: "#9ca3af", textAlign: "right" }}>{pct}% of goal</div>
-          </div>
+          <span style={{ fontSize: ".78rem", color: "#9ca3af" }}>of {fmtMoney(goalCents)}</span>
         )}
-
         {topAthleteName && (
-          <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: ".7rem", padding: ".5rem .75rem", background: "#f8f9fb", borderRadius: 8 }}>
-            <span style={{ fontSize: ".75rem" }}>🏆</span>
-            <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>Team Leader</span>
-            <span style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d", marginLeft: "auto" }}>{topAthleteName}</span>
-          </div>
+          <>
+            <span style={{ fontSize: ".72rem", color: "#d1d5db", margin: "0 .1rem" }}>·</span>
+            <span style={{ fontSize: ".72rem" }}>🏆</span>
+            <span style={{ fontSize: ".78rem", color: "#6b7280" }}>{topAthleteName}</span>
+          </>
         )}
       </div>
     </div>
@@ -523,16 +513,7 @@ function HomeContent({
         </>
       )}
 
-      {/* 3 — Fundraiser Snapshot */}
-      <FundraiserSnapshot
-        slug={slug}
-        raisedCents={raisedCents}
-        goalCents={goalCents}
-        topAthleteName={topAthleteName}
-        primaryColor={primaryColor}
-      />
-
-      {/* 4 — Sponsors */}
+      {/* 3 — Sponsors */}
       {sponsors.length > 0 && (
         <div style={{ marginTop: ".25rem" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
@@ -596,6 +577,15 @@ function HomeContent({
           </div>
         </div>
       )}
+
+      {/* 4 — Fundraiser Snapshot (compact, secondary) */}
+      <FundraiserSnapshot
+        slug={slug}
+        raisedCents={raisedCents}
+        goalCents={goalCents}
+        topAthleteName={topAthleteName}
+        primaryColor={primaryColor}
+      />
 
       {/* Announcement modal */}
       {modalOpen && (

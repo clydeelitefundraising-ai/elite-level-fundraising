@@ -24,32 +24,38 @@ export default function TeamHeader({
   accountName?: string;
   isAuthenticated?: boolean;
 }) {
-  const sport = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
+  const sport  = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
+  const season = settings.season ?? "";
 
   return (
     <div style={{ background: settings.primary_color, color: "#fff" }}>
-      <div style={{ padding: ".75rem 1rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
+      <div style={{ padding: "1rem 1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
         {/* Team avatar */}
         {(settings.team_photo || settings.logo_url) ? (
           <img
             src={settings.team_photo || settings.logo_url}
             alt={settings.school_name}
-            style={{ width: 46, height: 46, objectFit: "contain", flexShrink: 0, borderRadius: "50%", background: "rgba(255,255,255,.22)", border: "2px solid rgba(255,255,255,.38)", padding: 3 }}
+            style={{ width: 58, height: 58, objectFit: "contain", flexShrink: 0, borderRadius: "50%", background: "rgba(255,255,255,.22)", border: "2px solid rgba(255,255,255,.4)", padding: 4 }}
           />
         ) : (
-          <div style={{ width: 46, height: 46, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: "2px solid rgba(255,255,255,.38)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1rem", flexShrink: 0 }}>
+          <div style={{ width: 58, height: 58, borderRadius: "50%", background: "rgba(255,255,255,.2)", border: "2px solid rgba(255,255,255,.4)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.15rem", flexShrink: 0 }}>
             {initials(settings.school_name)}
           </div>
         )}
 
         {/* Team identity */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: "1.05rem", lineHeight: 1.15, letterSpacing: "-.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontWeight: 800, fontSize: "1.15rem", lineHeight: 1.2, letterSpacing: "-.015em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {settings.school_name}
           </div>
           {sport && (
-            <div style={{ fontSize: ".75rem", opacity: .82, marginTop: ".1rem", fontWeight: 500 }}>
+            <div style={{ fontSize: ".8rem", opacity: .85, marginTop: ".18rem", fontWeight: 500 }}>
               {sport}
+            </div>
+          )}
+          {season && (
+            <div style={{ fontSize: ".67rem", opacity: .6, marginTop: ".1rem", letterSpacing: ".03em", textTransform: "uppercase" }}>
+              {season}
             </div>
           )}
         </div>
