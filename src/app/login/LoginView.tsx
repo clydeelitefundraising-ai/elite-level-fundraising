@@ -101,8 +101,11 @@ export default function LoginView() {
           </div>
         </form>
 
-        <div style={{ padding: "1rem", textAlign: "center" }}>
+        <div style={{ padding: "0 1rem 1.5rem", textAlign: "center", display: "flex", flexDirection: "column", gap: ".6rem" }}>
           <a href="/" style={{ fontSize: ".78rem", color: "#9ca3af", textDecoration: "none" }}>← Back to home</a>
+          <a href="/coach-login" style={{ fontSize: ".75rem", color: "#9ca3af", textDecoration: "underline" }}>
+            Coach using old login? Continue with legacy coach login.
+          </a>
         </div>
       </div>
     </div>

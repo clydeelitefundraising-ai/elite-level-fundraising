@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
+import { generateAccountSalt, hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
 import { getCampaignSettings } from "@/lib/supabase";
 import { sendCoachWelcome } from "@/lib/email";
 
@@ -29,12 +30,32 @@ export async function GET(req: NextRequest) {
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
 
   const res = await fetch(
-    `${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,email,role,campaign_slug,created_at&order=created_at.asc`,
+    `${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,email,role,campaign_slug,account_id,created_at&order=created_at.asc`,
     { headers: supabaseHeaders(), cache: "no-store" },
   );
 
   if (!res.ok) return NextResponse.json([]);
-  return NextResponse.json(await res.json());
+  const coaches = await res.json();
+  if (!Array.isArray(coaches) || coaches.length === 0) return NextResponse.json([]);
+
+  // Determine which coaches have a currently-active (unused, not-expired) invite token
+  const ids = coaches.map((c: { id: string }) => c.id).join(",");
+  const now = new Date().toISOString();
+  const tokenRes = await fetch(
+    `${BASE}/rest/v1/coach_invite_tokens?coach_id=in.(${ids})&used_at=is.null&expires_at=gt.${encodeURIComponent(now)}&select=coach_id`,
+    { headers: supabaseHeaders(), cache: "no-store" },
+  );
+  const pendingIds = new Set<string>();
+  if (tokenRes.ok) {
+    const tokenRows = await tokenRes.json();
+    if (Array.isArray(tokenRows)) {
+      tokenRows.forEach((t: { coach_id: string }) => pendingIds.add(t.coach_id));
+    }
+  }
+
+  return NextResponse.json(
+    coaches.map((c: { id: string }) => ({ ...c, has_pending_invite: pendingIds.has(c.id) })),
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -81,6 +102,48 @@ export async function POST(req: NextRequest) {
   const rows = await res.json();
   const coach = rows[0];
 
+  // Create or link an elf_accounts row so this coach can use /login.
+  let accountId: string | null = null;
+  try {
+    const normalEmail = email.trim().toLowerCase();
+
+    // Check if an elf_account already exists for this email
+    const existingRes = await fetch(
+      `${BASE}/rest/v1/elf_accounts?email=eq.${encodeURIComponent(normalEmail)}&select=id&limit=1`,
+      { headers: supabaseHeaders(), cache: "no-store" },
+    );
+    const existingRows = existingRes.ok ? await existingRes.json() : [];
+
+    if (Array.isArray(existingRows) && existingRows.length > 0) {
+      accountId = (existingRows[0] as { id: string }).id;
+    } else {
+      const acctSalt          = generateAccountSalt();
+      const acctPasswordHash  = hashAccountPassword(password.trim(), acctSalt);
+      const acctRes = await fetch(`${BASE}/rest/v1/elf_accounts`, {
+        method:  "POST",
+        headers: supabaseHeaders({ Prefer: "return=representation" }),
+        body:    JSON.stringify({ email: normalEmail, name: name.trim(), password_hash: acctPasswordHash, salt: acctSalt }),
+      });
+      if (acctRes.ok) {
+        const acctRows = await acctRes.json();
+        accountId = (acctRows[0] as { id: string }).id;
+      }
+    }
+
+    if (accountId) {
+      await fetch(
+        `${BASE}/rest/v1/team_coaches?id=eq.${encodeURIComponent(coach.id as string)}`,
+        {
+          method:  "PATCH",
+          headers: supabaseHeaders({ Prefer: "return=minimal" }),
+          body:    JSON.stringify({ account_id: accountId }),
+        },
+      );
+    }
+  } catch {
+    // elf_accounts linking is best-effort; coach row is already created
+  }
+
   // Fire-and-forget welcome email — failure never blocks coach creation.
   void (async () => {
     try {
@@ -93,7 +156,7 @@ export async function POST(req: NextRequest) {
         to:           email.trim().toLowerCase(),
         coachName:    name.trim(),
         teamName,
-        loginUrl:     `${appBase}/coach-login`,
+        loginUrl:     `${appBase}/login`,
         email:        email.trim().toLowerCase(),
         tempPassword: password.trim(),
         teamHubUrl:   `${appBase}/team/${campaign_slug.trim()}`,
@@ -104,11 +167,13 @@ export async function POST(req: NextRequest) {
   })();
 
   return NextResponse.json({
-    id: coach.id,
-    campaign_slug: coach.campaign_slug,
-    name: coach.name,
-    email: coach.email,
-    role: coach.role,
-    created_at: coach.created_at,
+    id:                 coach.id,
+    campaign_slug:      coach.campaign_slug,
+    name:               coach.name,
+    email:              coach.email,
+    role:               coach.role,
+    account_id:         accountId,
+    has_pending_invite: false,
+    created_at:         coach.created_at,
   });
 }

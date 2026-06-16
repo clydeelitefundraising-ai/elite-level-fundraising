@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignSettings } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
+import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { sendCoachWelcome } from "@/lib/email";
 import { randomBytes } from "crypto";
 
@@ -118,6 +119,60 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Create or link an elf_accounts row so the new coach can use /login.
+  void (async () => {
+    try {
+      const normalEmail = String(coach_email).trim().toLowerCase();
+      let accountId: string | null = null;
+
+      const existingRes = await fetch(
+        `${BASE}/rest/v1/elf_accounts?email=eq.${encodeURIComponent(normalEmail)}&select=id&limit=1`,
+        { headers: h(), cache: "no-store" },
+      );
+      const existingRows = existingRes.ok ? await existingRes.json() : [];
+
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        accountId = (existingRows[0] as { id: string }).id;
+      } else {
+        const acctSalt         = generateAccountSalt();
+        const acctPasswordHash = hashAccountPassword(pw, acctSalt);
+        const acctRes = await fetch(`${BASE}/rest/v1/elf_accounts`, {
+          method:  "POST",
+          headers: h({ Prefer: "return=representation" }),
+          body:    JSON.stringify({ email: normalEmail, name: String(coach_name).trim(), password_hash: acctPasswordHash, salt: acctSalt }),
+        });
+        if (acctRes.ok) {
+          const acctRows = await acctRes.json();
+          accountId = (acctRows[0] as { id: string }).id;
+        }
+      }
+
+      if (accountId) {
+        // We need the coach id — re-fetch by email+slug since coachRes used return=minimal
+        const coachLookup = await fetch(
+          `${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&email=eq.${encodeURIComponent(normalEmail)}&select=id&limit=1`,
+          { headers: h(), cache: "no-store" },
+        );
+        if (coachLookup.ok) {
+          const coachLookupRows = await coachLookup.json();
+          if (Array.isArray(coachLookupRows) && coachLookupRows.length > 0) {
+            const coachId = (coachLookupRows[0] as { id: string }).id;
+            await fetch(
+              `${BASE}/rest/v1/team_coaches?id=eq.${encodeURIComponent(coachId)}`,
+              {
+                method:  "PATCH",
+                headers: h({ Prefer: "return=minimal" }),
+                body:    JSON.stringify({ account_id: accountId }),
+              },
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[onboard] elf_accounts link failed:", err);
+    }
+  })();
+
   // Fire-and-forget welcome email — failure never blocks onboarding.
   void (async () => {
     try {
@@ -131,7 +186,7 @@ export async function POST(req: NextRequest) {
         to:           String(coach_email).trim().toLowerCase(),
         coachName:    String(coach_name).trim(),
         teamName:     teamName || slug,
-        loginUrl:     `${appBase}/coach-login`,
+        loginUrl:     `${appBase}/login`,
         email:        String(coach_email).trim().toLowerCase(),
         tempPassword: pw,
         teamHubUrl:   `${appBase}/team/${slug}`,

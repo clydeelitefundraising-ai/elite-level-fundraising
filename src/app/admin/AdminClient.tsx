@@ -6,7 +6,7 @@ type Settings   = { school_name: string; sport_name: string; mascot: string; goa
 type Athlete    = { id: string; name: string; event: string };
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
-type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; created_at: string };
+type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; account_id: string | null; has_pending_invite: boolean; created_at: string };
 
 const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
@@ -170,10 +170,12 @@ export function AdminDashboard() {
   const [newCEmail,  setNewCEmail]  = useState("");
   const [newCRole,   setNewCRole]   = useState<Coach["role"]>("head_coach");
   const [newCPass,   setNewCPass]   = useState("");
-  const [coachError,      setCoachError]      = useState("");
-  const [resetingCoachId, setResetingCoachId] = useState<string | null>(null);
-  const [resetPassword,   setResetPassword]   = useState("");
-  const [resetError,      setResetError]      = useState("");
+  const [coachError,       setCoachError]       = useState("");
+  // invite state: keyed by coachId so multiple panels can coexist
+  const [inviteCache,      setInviteCache]      = useState<Record<string, { url: string; emailSent: boolean }>>({});
+  const [inviteLoading,    setInviteLoading]    = useState<string | null>(null);
+  const [inviteError,      setInviteError]      = useState("");
+  const [expandedInviteId, setExpandedInviteId] = useState<string | null>(null);
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
@@ -295,6 +297,8 @@ export function AdminDashboard() {
       setCoaches(p => [...p, data]);
       setNewCName(""); setNewCEmail(""); setNewCPass(""); setNewCRole("head_coach");
       flash("Coach added.");
+      // Auto-generate invite link for the new coach
+      void sendInvite(data.id as string);
     } else {
       setCoachError(data.error ?? "Failed to add coach.");
     }
@@ -303,24 +307,25 @@ export function AdminDashboard() {
   const deleteCoach = async (id: string) => {
     if (!confirm("Remove this coach? They will no longer be able to log in to the team hub.")) return;
     const res = await fetch(`/api/admin/coaches/${id}`, { method: "DELETE" });
-    if (res.ok) { setCoaches(p => p.filter(c => c.id !== id)); flash("Coach removed."); }
+    if (res.ok) {
+      setCoaches(p => p.filter(c => c.id !== id));
+      setInviteCache(p => { const n = { ...p }; delete n[id]; return n; });
+      if (expandedInviteId === id) setExpandedInviteId(null);
+      flash("Coach removed.");
+    }
   };
 
-  const resetCoachPassword = async () => {
-    setResetError("");
-    if (resetPassword.length < 8) { setResetError("Password must be at least 8 characters."); return; }
-    const res = await fetch(`/api/admin/coaches/${resetingCoachId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: resetPassword }),
-    });
+  const sendInvite = async (coachId: string) => {
+    setInviteError(""); setInviteLoading(coachId); setExpandedInviteId(coachId);
+    const res  = await fetch(`/api/admin/coaches/${coachId}/invite`, { method: "POST" });
     const data = await res.json();
+    setInviteLoading(null);
     if (res.ok) {
-      setResetingCoachId(null);
-      setResetPassword("");
-      flash("Password reset successfully.");
+      setInviteCache(p => ({ ...p, [coachId]: { url: data.inviteUrl as string, emailSent: data.emailSent as boolean } }));
+      setCoaches(p => p.map(c => c.id === coachId ? { ...c, has_pending_invite: true } : c));
+      flash(data.emailSent ? "Invite email sent." : "Invite link generated — copy it below.");
     } else {
-      setResetError(data.error ?? "Failed to reset password.");
+      setInviteError(data.error ?? "Failed to generate invite.");
     }
   };
 
@@ -415,7 +420,7 @@ export function AdminDashboard() {
                 <div style={{ display: "flex", gap: ".6rem", alignItems: "center" }}>
                   <span style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".05em", minWidth: 88 }}>Coach Login</span>
                   <span style={{ color: "#374151" }}>{launchResult.coach_email} ·</span>
-                  <a href="/coach-login" target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontWeight: 600, fontSize: ".82rem" }}>/coach-login ↗</a>
+                  <a href="/login" target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontWeight: 600, fontSize: ".82rem" }}>/login ↗</a>
                 </div>
                 <p style={{ margin: ".3rem 0 0", fontSize: ".75rem", color: "#6b7280", fontStyle: "italic" }}>
                   ⚠ Share the temporary password securely — it cannot be recovered from this panel.
@@ -794,32 +799,89 @@ export function AdminDashboard() {
                   <th style={C.th}>Name</th>
                   <th style={C.th}>Email</th>
                   <th style={C.th}>Role</th>
-                  <th style={{ ...C.th, width: 110 }}>Actions</th>
+                  <th style={C.th}>Status</th>
+                  <th style={{ ...C.th, width: 200 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {coaches.map(c => (
-                  <tr key={c.id}>
-                    <td style={{ ...C.td, fontWeight: 600 }}>{c.name}</td>
-                    <td style={{ ...C.td, color: "#6b7280" }}>{c.email}</td>
-                    <td style={C.td}>
-                      <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: c.role === "head_coach" ? "#dbeafe" : c.role === "booster" ? "#ccfbf1" : "#f3f4f6", color: c.role === "head_coach" ? "#1d4ed8" : c.role === "booster" ? "#0f766e" : "#374151" }}>
-                        {c.role === "head_coach" ? "Head Coach" : c.role === "booster" ? "Booster" : "Asst. Coach"}
-                      </span>
-                    </td>
-                    <td style={{ ...C.td, display: "flex", gap: ".4rem" }}>
-                      <Btn color="#6b7280" onClick={() => { setResetingCoachId(c.id); setResetPassword(""); setResetError(""); }}>Reset Pwd</Btn>
-                      <Btn color="#dc2626" onClick={() => deleteCoach(c.id)}>Remove</Btn>
-                    </td>
-                  </tr>
-                ))}
+                {coaches.map(c => {
+                  const status = c.account_id ? "linked" : c.has_pending_invite ? "pending" : "unactivated";
+                  const cached = inviteCache[c.id];
+                  const isLoading = inviteLoading === c.id;
+                  return (
+                    <tr key={c.id}>
+                      <td style={{ ...C.td, fontWeight: 600 }}>{c.name}</td>
+                      <td style={{ ...C.td, color: "#6b7280" }}>{c.email}</td>
+                      <td style={C.td}>
+                        <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: c.role === "head_coach" ? "#dbeafe" : c.role === "booster" ? "#ccfbf1" : "#f3f4f6", color: c.role === "head_coach" ? "#1d4ed8" : c.role === "booster" ? "#0f766e" : "#374151" }}>
+                          {c.role === "head_coach" ? "Head Coach" : c.role === "booster" ? "Booster" : "Asst. Coach"}
+                        </span>
+                      </td>
+                      <td style={C.td}>
+                        {status === "linked"      && <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, background: "#dcfce7", color: "#15803d" }}>Linked</span>}
+                        {status === "pending"     && <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, background: "#dbeafe", color: "#1d4ed8" }}>Pending Invite</span>}
+                        {status === "unactivated" && <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, background: "#fef9c3", color: "#854d0e" }}>Not Activated</span>}
+                      </td>
+                      <td style={{ ...C.td }}>
+                        <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap" }}>
+                          {status !== "linked" && (
+                            <>
+                              <Btn
+                                color="#4f46e5"
+                                disabled={isLoading}
+                                onClick={() => sendInvite(c.id)}
+                              >
+                                {isLoading ? "…" : status === "pending" ? "Resend Invite" : "Send Invite"}
+                              </Btn>
+                              {cached && (
+                                <Btn color="#6b7280" onClick={() => setExpandedInviteId(expandedInviteId === c.id ? null : c.id)}>
+                                  Copy Link
+                                </Btn>
+                              )}
+                            </>
+                          )}
+                          <Btn color="#dc2626" onClick={() => deleteCoach(c.id)}>Remove</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {coaches.length === 0 && (
-                  <tr><td colSpan={4} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No coaches yet. Add one below.</td></tr>
+                  <tr><td colSpan={5} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No coaches yet. Add one below.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Invite link panel — shown for the expanded coach */}
+          {expandedInviteId && inviteCache[expandedInviteId] && (
+            <div style={{ marginBottom: "1rem", padding: "1rem", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".65rem" }}>
+                <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d" }}>
+                  Invite Link — {coaches.find(c => c.id === expandedInviteId)?.name}
+                </div>
+                <Btn color="#6b7280" onClick={() => setExpandedInviteId(null)}>Dismiss</Btn>
+              </div>
+              <p style={{ margin: "0 0 .55rem", fontSize: ".82rem", color: "#374151" }}>
+                {inviteCache[expandedInviteId].emailSent
+                  ? "Invite email sent. You can also share this link directly:"
+                  : "Email not sent (Resend not configured). Share this link manually:"}
+                {" "}Expires in 24 hours, single-use.
+              </p>
+              <div style={{ display: "flex", gap: ".5rem", alignItems: "center", background: "#fff", border: "1px solid #d1d5db", borderRadius: 7, padding: ".5rem .75rem" }}>
+                <span style={{ flex: 1, fontSize: ".78rem", color: "#374151", wordBreak: "break-all" }}>{inviteCache[expandedInviteId].url}</span>
+                <CopyBtn text={inviteCache[expandedInviteId].url} />
+              </div>
+            </div>
+          )}
+          {inviteError && (
+            <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{inviteError}</p>
+          )}
+
           <div style={{ padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
+            <p style={{ margin: "0 0 .75rem", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
+              An account invite link is generated automatically after adding a coach.
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: ".75rem" }}>
               <label style={C.label}>Name <input style={C.input} value={newCName} onChange={e => setNewCName(e.target.value)} placeholder="Coach name" /></label>
               <label style={C.label}>Email <input type="email" style={C.input} value={newCEmail} onChange={e => setNewCEmail(e.target.value)} placeholder="coach@school.edu" /></label>
@@ -833,36 +895,13 @@ export function AdminDashboard() {
               </label>
               <label style={C.label}>
                 Temporary Password
-                <input type="password" style={C.input} value={newCPass} onChange={e => setNewCPass(e.target.value)} placeholder="Set a login password" />
+                <span style={{ fontSize: ".68rem", fontWeight: 400, color: "#9ca3af", textTransform: "none", letterSpacing: 0 }}>Used for legacy /coach-login</span>
+                <input type="password" style={C.input} value={newCPass} onChange={e => setNewCPass(e.target.value)} placeholder="Min 8 characters" />
               </label>
             </div>
             {coachError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{coachError}</p>}
             <Btn color="#16a34a" onClick={addCoach}>+ Add Coach</Btn>
           </div>
-
-          {resetingCoachId && (
-            <div style={{ marginTop: "1rem", padding: "1rem", background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d", marginBottom: ".75rem" }}>
-                Reset password — {coaches.find(c => c.id === resetingCoachId)?.name}
-              </div>
-              <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-                <label style={{ ...C.label, flex: 1, minWidth: 200 }}>
-                  New Password (min 8 chars)
-                  <input
-                    type="password"
-                    style={C.input}
-                    value={resetPassword}
-                    onChange={e => setResetPassword(e.target.value)}
-                    placeholder="New temporary password"
-                    autoFocus
-                  />
-                </label>
-                <Btn color="#0b1e3d" onClick={resetCoachPassword}>Set Password</Btn>
-                <Btn color="#6b7280" onClick={() => { setResetingCoachId(null); setResetError(""); }}>Cancel</Btn>
-              </div>
-              {resetError && <p style={{ color: "#dc2626", margin: ".5rem 0 0", fontSize: ".85rem" }}>{resetError}</p>}
-            </div>
-          )}
         </div>
 
       </div>
