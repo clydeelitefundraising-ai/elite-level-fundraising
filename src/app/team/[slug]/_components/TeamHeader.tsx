@@ -15,14 +15,16 @@ export default function TeamHeader({
   showBell = false,
   accountTeams = [],
   accountName,
+  profilePhotoUrl,
   isAuthenticated = false,
 }: {
-  settings: CampaignSettings;
+  settings:         CampaignSettings;
   unreadNotifCount?: number;
-  showBell?: boolean;
-  accountTeams?: TeamSummary[];
-  accountName?: string;
-  isAuthenticated?: boolean;
+  showBell?:         boolean;
+  accountTeams?:     TeamSummary[];
+  accountName?:      string;
+  profilePhotoUrl?:  string | null;
+  isAuthenticated?:  boolean;
 }) {
   const sport  = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
   const season = settings.season ?? "";
@@ -73,6 +75,7 @@ export default function TeamHeader({
               currentSlug={settings.campaign_slug}
               teams={accountTeams}
               accountName={accountName}
+              profilePhotoUrl={profilePhotoUrl}
             />
           )}
           {!isAuthenticated && (

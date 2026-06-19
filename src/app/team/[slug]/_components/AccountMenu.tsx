@@ -9,10 +9,12 @@ export default function AccountMenu({
   currentSlug,
   teams,
   accountName,
+  profilePhotoUrl,
 }: {
-  currentSlug: string;
-  teams: TeamSummary[];
-  accountName?: string;
+  currentSlug:     string;
+  teams:           TeamSummary[];
+  accountName?:    string;
+  profilePhotoUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -31,7 +33,7 @@ export default function AccountMenu({
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: "rgba(255,255,255,.2)",
+          background: profilePhotoUrl ? "transparent" : "rgba(255,255,255,.2)",
           border: "1.5px solid rgba(255,255,255,.35)",
           color: "#fff",
           fontWeight: 800,
@@ -43,9 +45,15 @@ export default function AccountMenu({
           flexShrink: 0,
           letterSpacing: ".01em",
           lineHeight: 1,
+          overflow: "hidden",
+          padding: 0,
         }}
       >
-        {initial ?? "☰"}
+        {profilePhotoUrl ? (
+          <img src={profilePhotoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          initial ?? "☰"
+        )}
       </button>
 
       {open && (
@@ -135,6 +143,16 @@ export default function AccountMenu({
               <span style={{ flex: 1, fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Notifications</span>
               <PushOptIn slug={currentSlug} />
             </div>
+
+            {/* My Profile */}
+            <a
+              href={`/team/${currentSlug}/profile`}
+              onClick={() => setOpen(false)}
+              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+            >
+              <span style={{ fontSize: ".9rem" }}>👤</span>
+              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
+            </a>
 
             {/* Settings */}
             <a

@@ -72,6 +72,7 @@ export default async function TeamLayout({
           showBell={isMember}
           accountTeams={accountTeams}
           accountName={accountSession?.name}
+          profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
         />
         <TeamPullRefresh />

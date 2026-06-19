@@ -11,9 +11,10 @@ function h() {
 }
 
 export type AccountSession = {
-  id:    string;
-  name:  string;
-  email: string;
+  id:               string;
+  name:             string;
+  email:            string;
+  profile_photo_url: string | null;
 };
 
 export type TeamSummary = {
@@ -33,7 +34,7 @@ export const getAccountSession = cache(async (): Promise<AccountSession | null> 
   if (!id) return null;
 
   const res = await fetch(
-    `${BASE}/rest/v1/elf_accounts?id=eq.${encodeURIComponent(id)}&select=id,name,email,salt&limit=1`,
+    `${BASE}/rest/v1/elf_accounts?id=eq.${encodeURIComponent(id)}&select=id,name,email,salt,profile_photo_url&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return null;
@@ -41,7 +42,7 @@ export const getAccountSession = cache(async (): Promise<AccountSession | null> 
   if (!Array.isArray(rows) || rows.length === 0) return null;
   const acct = rows[0];
   if (!verifyAccountCookie(raw, acct.id, acct.salt)) return null;
-  return { id: acct.id, name: acct.name, email: acct.email };
+  return { id: acct.id, name: acct.name, email: acct.email, profile_photo_url: acct.profile_photo_url ?? null };
 });
 
 export async function getActorForAccount(
