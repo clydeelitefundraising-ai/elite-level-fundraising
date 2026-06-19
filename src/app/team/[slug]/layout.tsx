@@ -8,6 +8,7 @@ import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
+import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function TeamLayout({
           profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
         />
+        <ServiceWorkerRegistrar />
         <TeamPullRefresh />
         <TeamRealtimeSync slug={slug} />
         <main style={{ flex: 1, padding: "1rem .875rem 5.5rem" }}>
