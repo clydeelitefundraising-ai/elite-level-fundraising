@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
 import { getAccountTeams } from "@/lib/accountSession";
-import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { checkRateLimit, clearRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 15 };
 
@@ -14,11 +14,11 @@ function h() {
 
 export async function POST(req: NextRequest) {
   const key = rateLimitKey("account-login", req);
-  const rl  = checkRateLimit(key, LIMIT);
+  const rl  = await checkRateLimit(key, LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Too many attempts. Try again later.", retryAfter: rl.retryAfter },
-      { status: 429 },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
 
@@ -38,16 +38,17 @@ export async function POST(req: NextRequest) {
 
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length === 0) {
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
   const acct = rows[0];
   if (hashAccountPassword(password, acct.salt) !== acct.password_hash) {
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
+  await clearRateLimit(req, "account-login");
   const teams = await getAccountTeams(acct.id);
   const cookieValue = makeAccountCookie(acct.id, acct.salt);
 

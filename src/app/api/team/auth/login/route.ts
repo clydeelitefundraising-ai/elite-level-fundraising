@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, makeCoachCookie } from "@/lib/teamAuth";
-import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { checkRateLimit, clearRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -19,7 +19,7 @@ function supabaseHeaders() {
 
 export async function POST(req: NextRequest) {
   const key = rateLimitKey("coach-login", req);
-  const rl  = checkRateLimit(key, LIMIT);
+  const rl  = await checkRateLimit(key, LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Too many failed attempts. Please try again later.", retryAfter: rl.retryAfter },
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length === 0) {
     // Unknown email — credential failure
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
@@ -60,10 +60,11 @@ export async function POST(req: NextRequest) {
   const expectedHash = hashPassword(password, coach.salt);
   if (expectedHash !== coach.password_hash) {
     // Wrong password — credential failure
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
+  await clearRateLimit(req, "coach-login");
   const cookieValue = makeCoachCookie(coach.id, coach.salt);
   const response = NextResponse.json({
     ok: true,

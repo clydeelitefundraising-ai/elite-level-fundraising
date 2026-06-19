@@ -14,11 +14,11 @@ function h(extra?: Record<string, string>) {
 
 export async function POST(req: NextRequest) {
   const key = rateLimitKey("account-join", req);
-  const rl  = checkRateLimit(key, LIMIT);
+  const rl  = await checkRateLimit(key, LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Too many attempts.", retryAfter: rl.retryAfter },
-      { status: 429 },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
 
@@ -43,13 +43,13 @@ export async function POST(req: NextRequest) {
 
   const codeRows = await codeRes.json();
   if (!Array.isArray(codeRows) || codeRows.length === 0) {
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid or expired team code." }, { status: 400 });
   }
 
   const joinCode = codeRows[0];
   if (joinCode.expires_at && new Date(joinCode.expires_at) < new Date()) {
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "This team code has expired." }, { status: 400 });
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
-import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";
 
 // 20 failed attempts per hour per IP.
 // Most lenient limit — members may try old or misremembered codes.
@@ -24,8 +24,8 @@ export async function POST(
 ) {
   const { slug } = await params;
 
-  const key = rateLimitKey("member-join", req);
-  const rl  = checkRateLimit(key, LIMIT);
+  const key = `rl:member-join:${slug}:${getClientIp(req)}`;
+  const rl  = await checkRateLimit(key, LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Too many failed attempts. Please try again later.", retryAfter: rl.retryAfter },
@@ -64,13 +64,13 @@ export async function POST(
   const codeRows = await codeRes.json();
   if (!Array.isArray(codeRows) || codeRows.length === 0) {
     // Code not found or revoked — count as a failed attempt
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid or expired join code." }, { status: 400 });
   }
   const joinCode = codeRows[0];
   if (joinCode.expires_at && new Date(joinCode.expires_at) < new Date()) {
     // Code expired — count as a failed attempt
-    recordFailure(key, LIMIT);
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "This join code has expired." }, { status: 400 });
   }
 
