@@ -54,10 +54,13 @@ type AthForm = {
   grad_year: string;
   goal_cents: string;   // stored as dollars in UI
   profile_photo: string;
+  contact_phone: string;
+  contact_email: string;
 };
 
 const BLANK: AthForm = {
   name: "", event: "", jersey_number: "", grad_year: "", goal_cents: "", profile_photo: "",
+  contact_phone: "", contact_email: "",
 };
 
 function fromRow(a: TeamAthleteRow): AthForm {
@@ -68,6 +71,8 @@ function fromRow(a: TeamAthleteRow): AthForm {
     grad_year:     a.grad_year     != null ? String(a.grad_year)     : "",
     goal_cents:    a.goal_cents    != null ? String(a.goal_cents / 100) : "",
     profile_photo: a.profile_photo ?? "",
+    contact_phone: a.contact_phone ?? "",
+    contact_email: a.contact_email ?? "",
   };
 }
 
@@ -259,6 +264,8 @@ export default function RosterView({
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
         goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
         profile_photo: form.profile_photo || null,
+        contact_phone: form.contact_phone.trim() || null,
+        contact_email: form.contact_email.trim() || null,
       }),
     });
     const data = await res.json();
@@ -281,6 +288,8 @@ export default function RosterView({
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
         goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
         profile_photo: form.profile_photo || null,
+        contact_phone: form.contact_phone.trim() || null,
+        contact_email: form.contact_email.trim() || null,
       }),
     });
     const data = await res.json();
@@ -296,6 +305,8 @@ export default function RosterView({
             grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
             goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
             profile_photo: form.profile_photo || null,
+            contact_phone: form.contact_phone.trim() || null,
+            contact_email: form.contact_email.trim() || null,
           }
         : a
     ));
@@ -396,6 +407,26 @@ export default function RosterView({
                     placeholder="500"
                   />
                 </div>
+              </label>
+              <label style={lbl}>
+                Contact Phone
+                <input
+                  type="tel"
+                  style={inp}
+                  value={form.contact_phone}
+                  onChange={e => setForm(f => ({ ...f, contact_phone: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </label>
+              <label style={lbl}>
+                Contact Email
+                <input
+                  type="email"
+                  style={inp}
+                  value={form.contact_email}
+                  onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
+                  placeholder="Optional"
+                />
               </label>
             </div>
 

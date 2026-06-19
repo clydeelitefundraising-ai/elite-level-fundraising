@@ -81,6 +81,8 @@ export type AthleteRow = {
   name: string;
   event: string;
   created_at: string;
+  contact_phone: string | null;
+  contact_email: string | null;
 };
 
 export type SponsorRow = {

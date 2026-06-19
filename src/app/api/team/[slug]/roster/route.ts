@@ -21,7 +21,7 @@ export async function POST(
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, event, jersey_number, grad_year, profile_photo, goal_cents } = await req.json();
+  const { name, event, jersey_number, grad_year, profile_photo, goal_cents, contact_phone, contact_email } = await req.json();
   if (!name?.trim() || !event?.trim()) {
     return NextResponse.json({ error: "name and event are required" }, { status: 400 });
   }
@@ -35,6 +35,8 @@ export async function POST(
   if (grad_year != null) body.grad_year = grad_year;
   if (profile_photo?.trim()) body.profile_photo = profile_photo.trim();
   if (goal_cents != null) body.goal_cents = goal_cents;
+  if (contact_phone?.trim()) body.contact_phone = contact_phone.trim();
+  if (contact_email?.trim()) body.contact_email = contact_email.trim();
 
   const res = await fetch(`${BASE}/rest/v1/athletes`, {
     method: "POST",

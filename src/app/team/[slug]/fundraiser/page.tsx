@@ -477,6 +477,8 @@ export default async function FundraiserPage({
           donorCount:     donorCounts[a.id] ?? 0,
           lastDonationAt: lastDon[a.id],
           rank:           0,
+          contact_phone:  a.contact_phone ?? null,
+          contact_email:  a.contact_email ?? null,
         };
       })
       .sort((a, b) => b.raisedCents - a.raisedCents)

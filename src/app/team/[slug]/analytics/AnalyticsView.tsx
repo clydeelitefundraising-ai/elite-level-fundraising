@@ -32,6 +32,8 @@ export type AthleteProgress = {
   donorCount:     number;
   lastDonationAt: string | null;
   rank:           number;
+  contact_phone:  string | null;
+  contact_email:  string | null;
 };
 
 export type TopDonor = {
@@ -157,7 +159,7 @@ function TeamOverviewCard({
 
 // ── Needs attention ───────────────────────────────────────────────────────────
 
-function NeedsAttentionCard({ needsAttention }: { needsAttention: AthleteProgress[] }) {
+function NeedsAttentionCard({ needsAttention, slug }: { needsAttention: AthleteProgress[]; slug: string }) {
   if (needsAttention.length === 0) return null;
 
   return (
@@ -182,8 +184,8 @@ function NeedsAttentionCard({ needsAttention }: { needsAttention: AthleteProgres
       <div style={{ padding: ".25rem 0" }}>
         {needsAttention.map((a, i) => {
           const flags: string[] = [];
-          if (a.raisedCents === 0)                          flags.push("No donations");
-          else if (a.donorCount <= 1)                       flags.push(`${a.donorCount} donor`);
+          if (a.raisedCents === 0)                               flags.push("No donations");
+          else if (a.donorCount <= 1)                            flags.push(`${a.donorCount} donor`);
           if (a.pct !== null && a.pct < 10 && a.raisedCents > 0) flags.push(`${a.pct}% of goal`);
 
           const bg = avatarColor(a.name);
@@ -192,37 +194,80 @@ function NeedsAttentionCard({ needsAttention }: { needsAttention: AthleteProgres
             <div
               key={a.id}
               style={{
-                display: "flex", alignItems: "center", gap: ".65rem",
-                padding: ".55rem 1.25rem",
                 borderBottom: i < needsAttention.length - 1 ? "1px solid #fef9c3" : "none",
               }}
             >
-              {a.profile_photo ? (
-                <img src={a.profile_photo} alt={a.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".6rem", color: "#fff", flexShrink: 0 }}>
-                  {initials(a.name)}
+              {/* Tappable row → athlete profile */}
+              <a
+                href={`/team/${slug}/athlete/${a.id}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: ".65rem",
+                  padding: ".55rem 1.25rem .35rem",
+                  textDecoration: "none",
+                }}
+              >
+                {a.profile_photo ? (
+                  <img src={a.profile_photo} alt={a.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".6rem", color: "#fff", flexShrink: 0 }}>
+                    {initials(a.name)}
+                  </div>
+                )}
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {a.name}
+                  </div>
+                  <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>{a.event}</div>
+                </div>
+
+                <div style={{ display: "flex", gap: ".3rem", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
+                  {flags.map(flag => (
+                    <span key={flag} style={{
+                      background: "#fef3c7", color: "#92400e",
+                      borderRadius: 6, fontSize: ".6rem", fontWeight: 700,
+                      padding: ".15rem .4rem", whiteSpace: "nowrap",
+                    }}>
+                      {flag}
+                    </span>
+                  ))}
+                  <span style={{ fontSize: ".65rem", color: "#d1d5db", marginLeft: ".1rem" }}>›</span>
+                </div>
+              </a>
+
+              {/* Contact action row */}
+              {(a.contact_phone || a.contact_email) && (
+                <div style={{ display: "flex", gap: ".5rem", padding: ".15rem 1.25rem .45rem 4rem" }}>
+                  {a.contact_phone && (
+                    <a
+                      href={`tel:${a.contact_phone}`}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: ".25rem",
+                        fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d",
+                        background: "#f0f4ff", borderRadius: 6,
+                        padding: ".2rem .5rem", textDecoration: "none",
+                      }}
+                    >
+                      📞 {a.contact_phone}
+                    </a>
+                  )}
+                  {a.contact_email && (
+                    <a
+                      href={`mailto:${a.contact_email}`}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: ".25rem",
+                        fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d",
+                        background: "#f0f4ff", borderRadius: 6,
+                        padding: ".2rem .5rem", textDecoration: "none",
+                      }}
+                    >
+                      ✉️ {a.contact_email}
+                    </a>
+                  )}
                 </div>
               )}
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {a.name}
-                </div>
-                <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>{a.event}</div>
-              </div>
-
-              <div style={{ display: "flex", gap: ".3rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {flags.map(flag => (
-                  <span key={flag} style={{
-                    background: "#fef3c7", color: "#92400e",
-                    borderRadius: 6, fontSize: ".6rem", fontWeight: 700,
-                    padding: ".15rem .4rem", whiteSpace: "nowrap",
-                  }}>
-                    {flag}
-                  </span>
-                ))}
-              </div>
             </div>
           );
         })}
@@ -485,7 +530,7 @@ export default function AnalyticsView({
       </div>
 
       <TeamOverviewCard teamStats={teamStats} settings={settings} />
-      <NeedsAttentionCard needsAttention={needsAttention} />
+      <NeedsAttentionCard needsAttention={needsAttention} slug={slug} />
       <PaceCard pace={pace} primary={primary} />
       <AthleteProgressCard athleteProgress={athleteProgress} primary={primary} />
       <TopDonorsCard topDonors={topDonors} />
