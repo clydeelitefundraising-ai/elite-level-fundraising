@@ -20,6 +20,31 @@ export type TeamAthleteRow = AthleteRow & {
   goal_cents: number | null;
 };
 
+// Phase 26: append-only outreach log
+export type OutreachRow = {
+  id: string;
+  athlete_id: string;
+  campaign_slug: string;
+  status: "contacted" | "needs_follow_up" | "resolved";
+  note: string | null;
+  contacted_by: string | null;
+  coach_id: string | null;
+  created_at: string;
+};
+
+// Same shape — sourced from athlete_outreach_current view
+export type OutreachCurrentRow = OutreachRow;
+
+export async function getOutreachMap(slug: string): Promise<Record<string, OutreachCurrentRow>> {
+  const res = await fetch(
+    `${BASE}/rest/v1/athlete_outreach_current?campaign_slug=eq.${encodeURIComponent(slug)}`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return {};
+  const rows: OutreachCurrentRow[] = await res.json();
+  return Object.fromEntries(rows.map(r => [r.athlete_id, r]));
+}
+
 export type AnnouncementRow = {
   id: string;
   campaign_slug: string;

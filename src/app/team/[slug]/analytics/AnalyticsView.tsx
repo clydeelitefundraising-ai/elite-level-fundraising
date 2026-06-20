@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
+import type { OutreachCurrentRow } from "@/lib/teamData";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -159,8 +161,92 @@ function TeamOverviewCard({
 
 // ── Needs attention ───────────────────────────────────────────────────────────
 
-function NeedsAttentionCard({ needsAttention, slug }: { needsAttention: AthleteProgress[]; slug: string }) {
-  if (needsAttention.length === 0) return null;
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  contacted:       { label: "Contacted",   bg: "#dbeafe", color: "#1e40af" },
+  needs_follow_up: { label: "Follow Up",   bg: "#fef3c7", color: "#92400e" },
+  resolved:        { label: "Resolved",    bg: "#d1fae5", color: "#065f46" },
+};
+
+function NeedsAttentionCard({
+  needsAttention,
+  slug,
+  initialOutreachMap,
+}: {
+  needsAttention:     AthleteProgress[];
+  slug:               string;
+  initialOutreachMap: Record<string, OutreachCurrentRow>;
+}) {
+  const [outreachMap,   setOutreachMap]   = useState<Record<string, OutreachCurrentRow>>(initialOutreachMap);
+  const [resolvedIds,   setResolvedIds]   = useState<Set<string>>(new Set());
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [noteTexts,     setNoteTexts]     = useState<Record<string, string>>({});
+  const [saving,        setSaving]        = useState<Record<string, boolean>>({});
+
+  const visible = needsAttention.filter(a => !resolvedIds.has(a.id));
+
+  const postAction = async (athleteId: string, status: string, note?: string) => {
+    if (saving[athleteId]) return;
+    const prev = outreachMap[athleteId] ?? null;
+
+    // Optimistic update
+    setSaving(s => ({ ...s, [athleteId]: true }));
+    const optimistic: OutreachCurrentRow = {
+      id: "opt", athlete_id: athleteId, campaign_slug: slug,
+      status: status as OutreachCurrentRow["status"],
+      note: note !== undefined ? note : (prev?.note ?? null),
+      contacted_by: prev?.contacted_by ?? null,
+      coach_id: prev?.coach_id ?? null,
+      created_at: new Date().toISOString(),
+    };
+    setOutreachMap(m => ({ ...m, [athleteId]: optimistic }));
+    if (status === "resolved") setResolvedIds(s => new Set([...s, athleteId]));
+
+    try {
+      const res = await fetch(`/api/team/${slug}/outreach/${athleteId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, ...(note !== undefined ? { note } : {}) }),
+      });
+      if (res.ok) {
+        const row: OutreachCurrentRow = await res.json();
+        setOutreachMap(m => ({ ...m, [athleteId]: row }));
+      } else {
+        // Rollback
+        setOutreachMap(m => prev ? { ...m, [athleteId]: prev } : m);
+        if (status === "resolved") setResolvedIds(s => { const n = new Set(s); n.delete(athleteId); return n; });
+      }
+    } catch {
+      setOutreachMap(m => prev ? { ...m, [athleteId]: prev } : m);
+      if (status === "resolved") setResolvedIds(s => { const n = new Set(s); n.delete(athleteId); return n; });
+    } finally {
+      setSaving(s => ({ ...s, [athleteId]: false }));
+    }
+  };
+
+  const saveNote = async (athleteId: string) => {
+    const text = noteTexts[athleteId]?.trim();
+    if (!text) return;
+    const currentStatus = outreachMap[athleteId]?.status ?? "contacted";
+    await postAction(athleteId, currentStatus, text);
+    setExpandedNotes(s => { const n = new Set(s); n.delete(athleteId); return n; });
+    setNoteTexts(t => ({ ...t, [athleteId]: "" }));
+  };
+
+  if (visible.length === 0 && needsAttention.length > 0) {
+    return (
+      <div style={{
+        background: "#f0fdf4", borderRadius: 14, padding: "1.25rem",
+        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        borderLeft: "3px solid #16a34a", textAlign: "center", marginBottom: ".75rem",
+      }}>
+        <div style={{ fontSize: "1.4rem", marginBottom: ".3rem" }}>✅</div>
+        <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#065f46" }}>All caught up!</div>
+        <div style={{ fontSize: ".75rem", color: "#6b7280", marginTop: ".2rem" }}>All flagged athletes have been resolved.</div>
+      </div>
+    );
+  }
+
+  if (visible.length === 0) return null;
 
   return (
     <div style={{
@@ -177,97 +263,144 @@ function NeedsAttentionCard({ needsAttention, slug }: { needsAttention: AthleteP
           Needs Attention
         </span>
         <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
-          {needsAttention.length}
+          {visible.length}
         </span>
       </div>
 
       <div style={{ padding: ".25rem 0" }}>
-        {needsAttention.map((a, i) => {
+        {visible.map((a, i) => {
+          const outreach    = outreachMap[a.id] ?? null;
+          const status      = outreach?.status ?? null;
+          const isSaving    = saving[a.id] ?? false;
+          const isNoteOpen  = expandedNotes.has(a.id);
+          const badge       = status ? STATUS_CONFIG[status] : null;
+          const bg          = avatarColor(a.name);
+
           const flags: string[] = [];
           if (a.raisedCents === 0)                               flags.push("No donations");
           else if (a.donorCount <= 1)                            flags.push(`${a.donorCount} donor`);
           if (a.pct !== null && a.pct < 10 && a.raisedCents > 0) flags.push(`${a.pct}% of goal`);
 
-          const bg = avatarColor(a.name);
+          const btnBase: React.CSSProperties = {
+            border: "none", borderRadius: 6, fontSize: ".63rem", fontWeight: 700,
+            padding: ".2rem .55rem", cursor: isSaving ? "not-allowed" : "pointer",
+            opacity: isSaving ? .55 : 1, transition: "opacity .1s",
+          };
 
           return (
-            <div
-              key={a.id}
-              style={{
-                borderBottom: i < needsAttention.length - 1 ? "1px solid #fef9c3" : "none",
-              }}
-            >
-              {/* Tappable row → athlete profile */}
-              <a
-                href={`/team/${slug}/athlete/${a.id}`}
-                style={{
-                  display: "flex", alignItems: "center", gap: ".65rem",
-                  padding: ".55rem 1.25rem .35rem",
-                  textDecoration: "none",
-                }}
-              >
+            <div key={a.id} style={{ borderBottom: i < visible.length - 1 ? "1px solid #f9fafb" : "none", padding: ".7rem 1.25rem" }}>
+
+              {/* Profile row — tap → athlete profile */}
+              <a href={`/team/${slug}/athlete/${a.id}`} style={{ display: "flex", alignItems: "center", gap: ".65rem", textDecoration: "none", marginBottom: ".55rem" }}>
                 {a.profile_photo ? (
-                  <img src={a.profile_photo} alt={a.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  <img src={a.profile_photo} alt={a.name} style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                 ) : (
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".6rem", color: "#fff", flexShrink: 0 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".62rem", color: "#fff", flexShrink: 0 }}>
                     {initials(a.name)}
                   </div>
                 )}
-
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {a.name}
-                  </div>
+                  <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
                   <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>{a.event}</div>
                 </div>
-
                 <div style={{ display: "flex", gap: ".3rem", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
-                  {flags.map(flag => (
-                    <span key={flag} style={{
-                      background: "#fef3c7", color: "#92400e",
-                      borderRadius: 6, fontSize: ".6rem", fontWeight: 700,
-                      padding: ".15rem .4rem", whiteSpace: "nowrap",
-                    }}>
-                      {flag}
-                    </span>
+                  {flags.map(f => (
+                    <span key={f} style={{ background: "#fef3c7", color: "#92400e", borderRadius: 6, fontSize: ".6rem", fontWeight: 700, padding: ".15rem .4rem", whiteSpace: "nowrap" }}>{f}</span>
                   ))}
-                  <span style={{ fontSize: ".65rem", color: "#d1d5db", marginLeft: ".1rem" }}>›</span>
+                  <span style={{ fontSize: ".65rem", color: "#d1d5db" }}>›</span>
                 </div>
               </a>
 
-              {/* Contact action row */}
+              {/* Status badge + action buttons */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem", alignItems: "center", marginBottom: ".4rem" }}>
+                {badge ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: ".25rem", background: badge.bg, color: badge.color, borderRadius: 6, fontSize: ".65rem", fontWeight: 700, padding: ".2rem .55rem" }}>
+                    ● {badge.label}
+                    {outreach?.contacted_by && (
+                      <span style={{ fontWeight: 400, opacity: .7 }}>· {outreach.contacted_by}</span>
+                    )}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: ".65rem", color: "#b0b7c3", fontWeight: 600 }}>No contact yet</span>
+                )}
+
+                {status !== "contacted" && (
+                  <button disabled={isSaving} onClick={() => postAction(a.id, "contacted")}
+                    style={{ ...btnBase, background: "#dbeafe", color: "#1e40af" }}>
+                    Contacted
+                  </button>
+                )}
+                {status !== "needs_follow_up" && (
+                  <button disabled={isSaving} onClick={() => postAction(a.id, "needs_follow_up")}
+                    style={{ ...btnBase, background: "#fef3c7", color: "#92400e" }}>
+                    Follow Up
+                  </button>
+                )}
+                <button disabled={isSaving} onClick={() => postAction(a.id, "resolved")}
+                  style={{ ...btnBase, background: "#d1fae5", color: "#065f46" }}>
+                  Resolve ✓
+                </button>
+              </div>
+
+              {/* Latest note preview */}
+              {outreach?.note && !isNoteOpen && (
+                <div style={{ fontSize: ".72rem", color: "#6b7280", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: ".35rem" }}>
+                  &ldquo;{outreach.note}&rdquo;
+                </div>
+              )}
+
+              {/* Contact links (phone / email) */}
               {(a.contact_phone || a.contact_email) && (
-                <div style={{ display: "flex", gap: ".5rem", padding: ".15rem 1.25rem .45rem 4rem" }}>
+                <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", marginBottom: ".35rem" }}>
                   {a.contact_phone && (
-                    <a
-                      href={`tel:${a.contact_phone}`}
-                      onClick={e => e.stopPropagation()}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: ".25rem",
-                        fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d",
-                        background: "#f0f4ff", borderRadius: 6,
-                        padding: ".2rem .5rem", textDecoration: "none",
-                      }}
-                    >
+                    <a href={`tel:${a.contact_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: ".2rem", fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d", background: "#f0f4ff", borderRadius: 6, padding: ".2rem .5rem", textDecoration: "none" }}>
                       📞 {a.contact_phone}
                     </a>
                   )}
                   {a.contact_email && (
-                    <a
-                      href={`mailto:${a.contact_email}`}
-                      onClick={e => e.stopPropagation()}
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: ".25rem",
-                        fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d",
-                        background: "#f0f4ff", borderRadius: 6,
-                        padding: ".2rem .5rem", textDecoration: "none",
-                      }}
-                    >
+                    <a href={`mailto:${a.contact_email}`} style={{ display: "inline-flex", alignItems: "center", gap: ".2rem", fontSize: ".65rem", fontWeight: 700, color: "#0b1e3d", background: "#f0f4ff", borderRadius: 6, padding: ".2rem .5rem", textDecoration: "none" }}>
                       ✉️ {a.contact_email}
                     </a>
                   )}
                 </div>
               )}
+
+              {/* Note field */}
+              {isNoteOpen ? (
+                <div style={{ marginTop: ".3rem" }}>
+                  <textarea
+                    autoFocus
+                    rows={2}
+                    value={noteTexts[a.id] ?? ""}
+                    onChange={e => setNoteTexts(t => ({ ...t, [a.id]: e.target.value }))}
+                    placeholder="Add a note…"
+                    style={{ width: "100%", boxSizing: "border-box", padding: ".45rem .65rem", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: ".8rem", color: "#111827", fontFamily: "inherit", resize: "vertical", lineHeight: 1.5, outline: "none" }}
+                  />
+                  <div style={{ display: "flex", gap: ".4rem", marginTop: ".3rem" }}>
+                    <button
+                      onClick={() => saveNote(a.id)}
+                      disabled={!noteTexts[a.id]?.trim() || isSaving}
+                      style={{ padding: ".3rem .8rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 7, fontSize: ".75rem", fontWeight: 700, cursor: (!noteTexts[a.id]?.trim() || isSaving) ? "not-allowed" : "pointer", opacity: (!noteTexts[a.id]?.trim() || isSaving) ? .5 : 1 }}
+                    >
+                      Save Note
+                    </button>
+                    <button
+                      onClick={() => { setExpandedNotes(s => { const n = new Set(s); n.delete(a.id); return n; }); setNoteTexts(t => ({ ...t, [a.id]: "" })); }}
+                      style={{ padding: ".3rem .8rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 7, fontSize: ".75rem", fontWeight: 600, cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setExpandedNotes(s => new Set([...s, a.id]))}
+                  style={{ background: "none", border: "none", padding: 0, fontSize: ".68rem", fontWeight: 600, color: "#9ca3af", cursor: "pointer" }}
+                >
+                  + {outreach?.note ? "Edit note" : "Add note"}
+                </button>
+              )}
+
             </div>
           );
         })}
@@ -503,6 +636,7 @@ export default function AnalyticsView({
   athleteProgress,
   needsAttention,
   topDonors,
+  outreachMap,
 }: {
   slug:            string;
   settings:        CampaignSettings;
@@ -511,6 +645,7 @@ export default function AnalyticsView({
   athleteProgress: AthleteProgress[];
   needsAttention:  AthleteProgress[];
   topDonors:       TopDonor[];
+  outreachMap:     Record<string, OutreachCurrentRow>;
 }) {
   const primary = settings.primary_color;
 
@@ -530,7 +665,7 @@ export default function AnalyticsView({
       </div>
 
       <TeamOverviewCard teamStats={teamStats} settings={settings} />
-      <NeedsAttentionCard needsAttention={needsAttention} slug={slug} />
+      <NeedsAttentionCard needsAttention={needsAttention} slug={slug} initialOutreachMap={outreachMap} />
       <PaceCard pace={pace} primary={primary} />
       <AthleteProgressCard athleteProgress={athleteProgress} primary={primary} />
       <TopDonorsCard topDonors={topDonors} />

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
-import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
+import { getAthleteById, getTeamAthletes, getOutreachMap } from "@/lib/teamData";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
 import FundraiserView from "./FundraiserView";
@@ -398,9 +398,10 @@ export default async function FundraiserPage({
 
   // ── Coach / staff ──
   if (actor.kind === "coach") {
-    const [athletes, donations] = await Promise.all([
+    const [athletes, donations, outreachMap] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),
+      getOutreachMap(slug),
     ]);
 
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
@@ -525,6 +526,7 @@ export default async function FundraiserPage({
           athleteProgress={athleteProgress}
           needsAttention={needsAttention}
           topDonors={topDonors}
+          outreachMap={outreachMap}
         />
       </>
     );

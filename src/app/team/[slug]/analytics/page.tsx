@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
-import { getTeamAthletes } from "@/lib/teamData";
+import { getTeamAthletes, getOutreachMap } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
 import AnalyticsView from "./AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "./AnalyticsView";
@@ -18,10 +18,11 @@ export default async function AnalyticsPage({
   if (actor.kind === "public") redirect(`/team/${slug}/home`);
   if (actor.kind !== "coach") return <CoachOnlyGate slug={slug} />;
 
-  const [settings, athletes, donations] = await Promise.all([
+  const [settings, athletes, donations, outreachMap] = await Promise.all([
     getCampaignSettings(slug),
     getTeamAthletes(slug),
     getDonations(slug), // sorted created_at.desc
+    getOutreachMap(slug),
   ]);
 
   if (!settings) notFound();
@@ -155,6 +156,7 @@ export default async function AnalyticsPage({
       athleteProgress={athleteProgress}
       needsAttention={needsAttention}
       topDonors={topDonors}
+      outreachMap={outreachMap}
     />
   );
 }
