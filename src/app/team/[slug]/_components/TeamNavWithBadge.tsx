@@ -22,8 +22,8 @@ export default function TeamNavWithBadge({
   const pathname = usePathname();
   const storageKey = `elf_home_read_${slug}`;
 
-  // Start at 0 to match server render, compute after hydration
   const [badge, setBadge] = useState(0);
+  const [messageBadge, setMessageBadge] = useState(0);
 
   useEffect(() => {
     const lastRead = localStorage.getItem(storageKey);
@@ -33,10 +33,27 @@ export default function TeamNavWithBadge({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fetch message unread count client-side to keep layout SSR fast
+  useEffect(() => {
+    const load = () => {
+      fetch(`/api/team/${slug}/messages/unread`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.count !== undefined) setMessageBadge(d.count); })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener("elf:messages-changed", load);
+    return () => window.removeEventListener("elf:messages-changed", load);
+  }, [slug]);
+
   useEffect(() => {
     if (pathname === `/team/${slug}/home`) {
       localStorage.setItem(storageKey, new Date().toISOString());
       setBadge(0);
+    }
+    if (pathname.startsWith(`/team/${slug}/messages`)) {
+      // Refresh count after reading (the read API fires elf:messages-changed)
+      setMessageBadge(0);
     }
   }, [pathname, slug, storageKey]);
 
@@ -45,7 +62,7 @@ export default function TeamNavWithBadge({
       slug={slug}
       primaryColor={primaryColor}
       isStaff={isStaff}
-      badgeCounts={{ home: badge, fundraiser: donorCount }}
+      badgeCounts={{ home: badge, fundraiser: donorCount, messages: messageBadge }}
     />
   );
 }

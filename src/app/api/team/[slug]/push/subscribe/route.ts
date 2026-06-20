@@ -28,9 +28,9 @@ export async function POST(
     return NextResponse.json({ error: "Invalid subscription data." }, { status: 400 });
   }
 
-  // Link the subscription to the member so targeted pushes can filter by role.
-  // Coaches have no team_members row, so member_id stays null for coach subs.
+  // Link subscription to member (for role-targeted scope pushes) or coach (for DM pushes).
   const memberId = actor.kind === "member" ? actor.session.id : null;
+  const coachId  = actor.kind === "coach"  ? actor.session.id : null;
 
   const res = await fetch(`${BASE}/rest/v1/push_subscriptions`, {
     method: "POST",
@@ -47,6 +47,7 @@ export async function POST(
       p256dh:        keys.p256dh,
       auth_key:      keys.auth,
       member_id:     memberId,
+      coach_id:      coachId,
     }),
   });
 

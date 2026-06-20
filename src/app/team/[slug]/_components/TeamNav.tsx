@@ -13,6 +13,7 @@ type TabConfig = {
 const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "home",       label: "Home",       icon: "🏠" },
   { href: "files",      label: "Updates",    icon: "📢" },
+  { href: "messages",   label: "Messages",   icon: "💬" },
   { href: "calendar",   label: "Calendar",   icon: "📅" },
   { href: "fundraiser", label: "Fundraiser", icon: "💰" },
   { href: "shop",       label: "Shop",       icon: "🛍️" },

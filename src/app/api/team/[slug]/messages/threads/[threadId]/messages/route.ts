@@ -1,0 +1,69 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getTeamActor } from "@/lib/permissions.server";
+import {
+  isParticipant,
+  getThreadById,
+  getThreadParticipants,
+  insertMessage,
+  updateThreadMeta,
+  type ActorKey,
+} from "@/lib/messages";
+import { sendPushToParticipants } from "@/lib/push";
+
+type RouteCtx = { params: Promise<{ slug: string; threadId: string }> };
+
+export async function POST(
+  req: NextRequest,
+  { params }: RouteCtx,
+) {
+  const { slug, threadId } = await params;
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const actorKey: ActorKey =
+    actor.kind === "coach"
+      ? { kind: "coach",  id: actor.session.id }
+      : { kind: "member", id: actor.session.id };
+
+  const [thread, ok] = await Promise.all([
+    getThreadById(threadId, slug),
+    isParticipant(threadId, actorKey),
+  ]);
+
+  if (!thread || !ok) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const msgBody: string = body?.body ?? "";
+  if (!msgBody.trim()) {
+    return NextResponse.json({ error: "body required" }, { status: 400 });
+  }
+  if (msgBody.length > 3000) {
+    return NextResponse.json({ error: "Message too long." }, { status: 400 });
+  }
+
+  const msg = await insertMessage(threadId, actorKey, msgBody.trim());
+  if (!msg) {
+    return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
+  }
+
+  void updateThreadMeta(threadId, msgBody.trim());
+
+  // Push to other participants
+  void (async () => {
+    try {
+      const participants = await getThreadParticipants(threadId);
+      const senderKey = `${actorKey.kind}:${actorKey.id}`;
+      await sendPushToParticipants(slug, participants, senderKey, {
+        title: `New message from ${actor.session.name}`,
+        body:  msgBody.trim().slice(0, 100),
+        url:   `/team/${slug}/messages/${threadId}`,
+      });
+    } catch {}
+  })();
+
+  return NextResponse.json(msg, { status: 201 });
+}

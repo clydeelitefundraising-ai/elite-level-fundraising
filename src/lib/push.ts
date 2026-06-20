@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import type { RecipientScope } from "@/lib/notifications";
+import type { ParticipantRef } from "@/lib/messages";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -18,6 +19,7 @@ type PushSub = {
   auth_key: string | null;
   expo_token: string | null;
   member_id: string | null;
+  coach_id: string | null;
   // Embedded from team_members when member_id is set
   team_members: { role: string; athlete_id: string | null } | null;
 };
@@ -26,7 +28,7 @@ async function fetchSubscriptions(slug: string): Promise<PushSub[]> {
   const url =
     `${BASE}/rest/v1/push_subscriptions` +
     `?campaign_slug=eq.${encodeURIComponent(slug)}` +
-    `&select=id,platform,endpoint,p256dh,auth_key,expo_token,member_id,team_members!member_id(role,athlete_id)`;
+    `&select=id,platform,endpoint,p256dh,auth_key,expo_token,member_id,coach_id,team_members!member_id(role,athlete_id)`;
   const res = await fetch(url, {
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
     cache: "no-store",
@@ -93,6 +95,31 @@ export async function sendPushToScope(
 
   const targeted = subs.filter(s => subMatchesScope(s, scope, recipientAthleteId));
   if (!targeted.length) return;
+
+  await Promise.allSettled(targeted.map(sub => dispatchPush(sub, payload)));
+}
+
+/** Send push only to specific participants in a DM thread, excluding the sender. */
+export async function sendPushToParticipants(
+  slug: string,
+  participants: ParticipantRef[],
+  excludeActorKey: string,
+  payload: { title: string; body: string; url: string },
+): Promise<void> {
+  const subs = await fetchSubscriptions(slug);
+  if (!subs.length) return;
+
+  const targetKeys = new Set<string>(
+    participants
+      .map(p => (p.actor_type === "coach" ? `coach:${p.coach_id}` : `member:${p.member_id}`))
+      .filter(k => k !== excludeActorKey && !k.endsWith(":null")),
+  );
+
+  const targeted = subs.filter(s => {
+    if (s.member_id) return targetKeys.has(`member:${s.member_id}`);
+    if (s.coach_id)  return targetKeys.has(`coach:${s.coach_id}`);
+    return false;
+  });
 
   await Promise.allSettled(targeted.map(sub => dispatchPush(sub, payload)));
 }
