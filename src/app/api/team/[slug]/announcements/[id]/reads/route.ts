@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { getTeamIdBySlug, getReadReceipts } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
 
@@ -14,8 +14,10 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public" || !isStaff(actor)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   // Find the notification that was created for this announcement
   const notifRes = await fetch(

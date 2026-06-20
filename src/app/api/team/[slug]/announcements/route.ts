@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { staffRoleLabel } from "@/lib/permissions";
 import { sendPushToScope } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
@@ -30,8 +30,10 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public" || !isStaff(actor)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json();
   const { title, body: msgBody, category, priority, attachment_id, push_enabled } = body;
@@ -50,8 +52,11 @@ export async function POST(
     safeScope === "athlete_specific" && typeof body.recipient_athlete_id === "string"
       ? body.recipient_athlete_id
       : null;
-  const shouldPush = push_enabled !== false; // default true
-  const roleLabel  = staffRoleLabel(coach.role);
+  const shouldPush  = push_enabled !== false; // default true
+  const authorName  = actor.session.name;
+  const authorRole  = staffRoleLabel(actor.session.role);
+  // coach_id references team_coaches.id — only set for coach-kind actors
+  const coachId     = actor.kind === "coach" ? actor.session.id : null;
 
   const payload: Record<string, unknown> = {
     campaign_slug:        slug,
@@ -59,9 +64,9 @@ export async function POST(
     body:                 msgBody?.trim() ?? "",
     category:             safeCategory,
     priority:             safePriority,
-    author_name:          coach.name,
-    author_role:          roleLabel,
-    coach_id:             coach.id,
+    author_name:          authorName,
+    author_role:          authorRole,
+    coach_id:             coachId,
     recipient_scope:      safeScope,
     recipient_athlete_id: recipientAthleteId,
   };

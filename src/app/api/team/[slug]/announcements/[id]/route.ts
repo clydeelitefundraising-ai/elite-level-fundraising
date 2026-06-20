@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
-import { isHeadCoachRole } from "@/lib/permissions";
+import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -23,8 +22,10 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public" || !isStaff(actor)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { title, body, category, priority, attachment_id } = await req.json();
 
@@ -50,9 +51,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isHeadCoachRole(coach.role)) {
+  const actor = await getTeamActor(slug);
+  if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only head coaches can delete announcements." }, { status: 403 });
   }
 
