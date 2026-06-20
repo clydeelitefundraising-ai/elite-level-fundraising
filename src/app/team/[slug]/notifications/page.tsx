@@ -23,9 +23,14 @@ export default async function NotificationsPage({
     ? settings.team_id
     : await getTeamIdBySlug(slug);
 
-  const memberId = checkIsMember(actor) ? actor.session.id : null;
+  const actorFilter =
+    actor.kind === "member"
+      ? { kind: "member" as const, id: actor.session.id, role: actor.session.role, athlete_id: actor.session.athlete_id }
+      : actor.kind === "coach"
+      ? { kind: "coach" as const, id: actor.session.id }
+      : null;
   const notifications = teamId
-    ? await getNotificationsForMember(teamId, memberId)
+    ? await getNotificationsForMember(teamId, actorFilter)
     : [];
 
   return (
@@ -33,6 +38,7 @@ export default async function NotificationsPage({
       slug={slug}
       initial={notifications}
       hasMember={checkIsMember(actor)}
+      isCoach={actor.kind === "coach"}
     />
   );
 }

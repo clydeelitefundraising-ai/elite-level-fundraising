@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoachSession } from "@/lib/teamSession";
 import { staffRoleLabel } from "@/lib/permissions";
-import { sendPushToTeam } from "@/lib/push";
+import { sendPushToScope } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import type { RecipientScope } from "@/lib/notifications";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -20,6 +21,9 @@ const VALID_CATEGORIES = new Set([
   "schedule", "fundraiser", "travel", "meet-info", "team-alert", "team",
 ]);
 const VALID_PRIORITIES = new Set(["normal", "high", "pinned"]);
+const VALID_SCOPES = new Set<RecipientScope>([
+  "everyone", "athletes", "parents", "boosters", "athlete_specific",
+]);
 
 export async function POST(
   req: NextRequest,
@@ -29,24 +33,37 @@ export async function POST(
   const coach = await getCoachSession(slug);
   if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, body, category, priority, attachment_id } = await req.json();
+  const body = await req.json();
+  const { title, body: msgBody, category, priority, attachment_id, push_enabled } = body;
+
   if (!title?.trim()) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
   }
 
-  const safeCategory = VALID_CATEGORIES.has(category) ? category : "team";
-  const safePriority = VALID_PRIORITIES.has(priority)  ? priority : "normal";
-  const roleLabel    = staffRoleLabel(coach.role);
+  const safeCategory         = VALID_CATEGORIES.has(category) ? category : "team";
+  const safePriority         = VALID_PRIORITIES.has(priority)  ? priority : "normal";
+  const rawScope             = body.recipient_scope as string | undefined;
+  const safeScope: RecipientScope = VALID_SCOPES.has(rawScope as RecipientScope)
+    ? (rawScope as RecipientScope)
+    : "everyone";
+  const recipientAthleteId: string | null =
+    safeScope === "athlete_specific" && typeof body.recipient_athlete_id === "string"
+      ? body.recipient_athlete_id
+      : null;
+  const shouldPush = push_enabled !== false; // default true
+  const roleLabel  = staffRoleLabel(coach.role);
 
   const payload: Record<string, unknown> = {
-    campaign_slug: slug,
-    title:        title.trim(),
-    body:         body?.trim() ?? "",
-    category:     safeCategory,
-    priority:     safePriority,
-    author_name:  coach.name,
-    author_role:  roleLabel,
-    coach_id:     coach.id,
+    campaign_slug:        slug,
+    title:                title.trim(),
+    body:                 msgBody?.trim() ?? "",
+    category:             safeCategory,
+    priority:             safePriority,
+    author_name:          coach.name,
+    author_role:          roleLabel,
+    coach_id:             coach.id,
+    recipient_scope:      safeScope,
+    recipient_athlete_id: recipientAthleteId,
   };
   if (attachment_id) payload.attachment_id = attachment_id;
 
@@ -64,38 +81,35 @@ export async function POST(
   const rows = await res.json();
   const newAnnouncement = rows[0];
 
-  // Fire-and-forget: in-app notification + push dispatch.
-  // Each step is independently try/catched — a push failure never affects
-  // notification creation, and neither blocks the 200 response above.
+  // Fire-and-forget: in-app notification + scoped push.
   void (async () => {
-    // Step 1: in-app notification (DB write, shown in bell + notifications page)
     try {
       const teamId = await getTeamIdBySlug(slug);
       if (teamId) {
         await createNotification(teamId, {
-          type:          "announcement",
-          title:         title.trim(),
-          body:          (body?.trim() ?? "").slice(0, 140),
-          reference_id:  newAnnouncement.id,
-          reference_url: `/team/${slug}/notifications`,
+          type:                 "message",
+          title:                title.trim(),
+          body:                 (msgBody?.trim() ?? "").slice(0, 140),
+          reference_id:         newAnnouncement.id,
+          reference_url:        `/team/${slug}/notifications`,
+          recipient_scope:      safeScope,
+          recipient_athlete_id: recipientAthleteId,
         });
       }
     } catch (err) {
       console.error("[announcements] createNotification failed:", err);
     }
 
-    // Step 2: device push — all announcements regardless of priority.
-    // Previously gated on safePriority !== "normal", which silently skipped
-    // all default-priority posts. Removed — coaches expect all announcements
-    // to reach subscribed members.
-    try {
-      await sendPushToTeam(slug, {
-        title: "New Announcement",
-        body:  title.trim().slice(0, 100),
-        url:   `/team/${slug}/notifications`,
-      });
-    } catch (err) {
-      console.error("[announcements] sendPushToTeam failed:", err);
+    if (shouldPush) {
+      try {
+        await sendPushToScope(slug, safeScope, recipientAthleteId, {
+          title: "New Update",
+          body:  title.trim().slice(0, 100),
+          url:   `/team/${slug}/notifications`,
+        });
+      } catch (err) {
+        console.error("[announcements] sendPushToScope failed:", err);
+      }
     }
   })();
 

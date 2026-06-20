@@ -34,7 +34,12 @@ export default async function TeamLayout({
   const isMember         = actor.kind === "member";
   const isAuthenticated  = actor.kind !== "public";
   const unreadNotifCount = isMember && settings.team_id
-    ? await getUnreadCount(settings.team_id, actor.session.id)
+    ? await getUnreadCount(settings.team_id, {
+        kind:       "member",
+        id:         actor.session.id,
+        role:       actor.session.role,
+        athlete_id: actor.session.athlete_id,
+      })
     : 0;
 
   const accountTeams = accountSession ? await getAccountTeams(accountSession.id) : [];

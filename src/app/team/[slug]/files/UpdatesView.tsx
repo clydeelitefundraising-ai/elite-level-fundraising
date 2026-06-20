@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
+import type { AnnouncementRow, TeamFileRow, TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
+import type { ReadReceiptsResult } from "@/lib/notifications";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
@@ -43,7 +44,7 @@ const ALLOWED_MIME = [
 ];
 const MAX_BYTES = 25 * 1024 * 1024;
 
-// ── Category styles ───────────────────────────────────────────────────────────
+// ── Category / scope styles ───────────────────────────────────────────────────
 
 const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string }> = {
   "schedule":   { bg: "#dbeafe", color: "#1d4ed8", accent: "#3b82f6" },
@@ -69,6 +70,24 @@ const FILTER_CHIPS = [
   { id: "meet-info",  label: "Meet Info"  },
   { id: "team",       label: "Team"       },
 ];
+
+type RecipientScope = "everyone" | "athletes" | "parents" | "boosters" | "athlete_specific";
+
+const SCOPE_OPTIONS: { value: RecipientScope; label: string }[] = [
+  { value: "everyone",        label: "Everyone"         },
+  { value: "athletes",        label: "Athletes"         },
+  { value: "parents",         label: "Parents"          },
+  { value: "boosters",        label: "Boosters"         },
+  { value: "athlete_specific", label: "Specific Athlete" },
+];
+
+const SCOPE_LABELS: Record<RecipientScope, string> = {
+  everyone:        "Everyone",
+  athletes:        "Athletes",
+  parents:         "Parents",
+  boosters:        "Boosters",
+  athlete_specific: "Specific Athlete",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +132,73 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
+// ── Read receipts panel (lazy-loaded, coach-only) ─────────────────────────────
+
+function ReadReceiptPanel({ slug, announcementId }: { slug: string; announcementId: string }) {
+  const [open,    setOpen]    = useState(false);
+  const [data,    setData]    = useState<ReadReceiptsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    if (!open && !data && !loading) {
+      setLoading(true);
+      const res = await fetch(`/api/team/${slug}/announcements/${announcementId}/reads`);
+      if (res.ok) setData(await res.json());
+      setLoading(false);
+    }
+    setOpen(o => !o);
+  };
+
+  const readCount = data?.reads.length ?? 0;
+  const total     = data?.total_targeted ?? 0;
+
+  return (
+    <div style={{ marginTop: ".3rem" }}>
+      <button
+        onClick={e => { e.stopPropagation(); toggle(); }}
+        style={{
+          background: "none", border: "none", cursor: "pointer",
+          fontSize: ".66rem", fontWeight: 600, color: "#9ca3af", padding: 0, lineHeight: 1.4,
+          display: "flex", alignItems: "center", gap: ".25rem",
+        }}
+      >
+        <span style={{ fontSize: ".7rem" }}>👁</span>
+        {loading ? "Loading…" : data ? `${readCount} / ${total} read` : "Check reads"}
+        <span style={{ fontSize: ".6rem", opacity: .6 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && data && (
+        <div style={{
+          marginTop: ".35rem", padding: ".5rem .6rem",
+          background: "#f8f9fb", borderRadius: 8,
+          border: "1px solid #e5e7eb",
+        }}>
+          {data.reads.length === 0 ? (
+            <p style={{ margin: 0, fontSize: ".72rem", color: "#9ca3af" }}>No reads yet.</p>
+          ) : (
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: ".2rem" }}>
+              {data.reads.map(r => (
+                <li key={r.member_id} style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
+                  <span style={{
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: avatarColor(r.name),
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: ".5rem", fontWeight: 800, color: "#fff", flexShrink: 0,
+                  }}>
+                    {initials(r.name)}
+                  </span>
+                  <span style={{ flex: 1, fontSize: ".72rem", color: "#374151", fontWeight: 600 }}>{r.name}</span>
+                  <span style={{ fontSize: ".62rem", color: "#9ca3af" }}>{relativeTime(r.read_at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Update card ───────────────────────────────────────────────────────────────
 
 function UpdateCard({
@@ -139,6 +225,7 @@ function UpdateCard({
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
   const attStyle    = att ? (FILE_STYLE[att.file_type] ?? FILE_STYLE["other"]) : null;
+  const scope       = a.recipient_scope ?? "everyone";
 
   return (
     <div
@@ -188,7 +275,7 @@ function UpdateCard({
         </div>
       </div>
 
-      {/* Row 2: category + priority chips */}
+      {/* Row 2: category + priority + scope chips */}
       <div style={{ display: "flex", gap: ".28rem", marginBottom: ".42rem", flexWrap: "wrap" }}>
         <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: cat.bg, color: cat.color }}>
           {a.category.replace("-", " ")}
@@ -201,6 +288,11 @@ function UpdateCard({
         {isHigh && !isPinned && (
           <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#fee2e2", color: "#dc2626" }}>
             ⚠️ Important
+          </span>
+        )}
+        {coach && scope !== "everyone" && (
+          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ecfdf5", color: "#065f46" }}>
+            → {SCOPE_LABELS[scope as RecipientScope] ?? scope}
           </span>
         )}
       </div>
@@ -247,23 +339,26 @@ function UpdateCard({
         </a>
       )}
 
-      {/* Coach actions */}
+      {/* Coach actions + read receipts */}
       {coach && (
-        <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end", marginTop: ".38rem" }}>
-          <button
-            onClick={() => onEdit(a)}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-          >
-            Edit
-          </button>
-          {isHeadCoachRole(coach.role) && (
+        <div style={{ marginTop: ".38rem" }}>
+          <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end" }}>
             <button
-              onClick={() => onDelete(a.id)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+              onClick={() => onEdit(a)}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
             >
-              Delete
+              Edit
             </button>
-          )}
+            {isHeadCoachRole(coach.role) && (
+              <button
+                onClick={() => onDelete(a.id)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          <ReadReceiptPanel slug={slug} announcementId={a.id} />
         </div>
       )}
     </div>
@@ -277,12 +372,17 @@ type UForm = {
   body: string;
   category: string;
   priority: "normal" | "high" | "pinned";
+  recipient_scope: RecipientScope;
+  recipient_athlete_id: string | null;
+  push_enabled: boolean;
   attachment_id: string | null;
   attachmentPreview: TeamFileRow | null;
 };
 
 const BLANK: UForm = {
   title: "", body: "", category: "team", priority: "normal",
+  recipient_scope: "everyone", recipient_athlete_id: null,
+  push_enabled: true,
   attachment_id: null, attachmentPreview: null,
 };
 
@@ -293,11 +393,13 @@ export default function UpdatesView({
   initialUpdates,
   initialFiles,
   actor,
+  athletes,
 }: {
   slug: string;
   initialUpdates: AnnouncementRow[];
   initialFiles: TeamFileRow[];
   actor: TeamActor;
+  athletes: { id: string; name: string }[];
 }) {
   const coach = coachSession(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialUpdates);
@@ -318,12 +420,15 @@ export default function UpdatesView({
   const openAdd = () => { setForm(BLANK); setError(""); setAttError(""); setShowAdd(true); };
   const openEdit = (a: AnnouncementRow) => {
     setForm({
-      title:             a.title,
-      body:              a.body,
-      category:          a.category,
-      priority:          a.priority,
-      attachment_id:     a.attachment_id ?? null,
-      attachmentPreview: a.attachment    ?? null,
+      title:                a.title,
+      body:                 a.body,
+      category:             a.category,
+      priority:             a.priority,
+      recipient_scope:      (a.recipient_scope ?? "everyone") as RecipientScope,
+      recipient_athlete_id: a.recipient_athlete_id ?? null,
+      push_enabled:         true,
+      attachment_id:        a.attachment_id ?? null,
+      attachmentPreview:    a.attachment    ?? null,
     });
     setError(""); setAttError(""); setEditing(a);
   };
@@ -333,10 +438,18 @@ export default function UpdatesView({
 
   const handleAdd = async () => {
     if (!form.title.trim()) { setError("Title is required."); return; }
+    if (form.recipient_scope === "athlete_specific" && !form.recipient_athlete_id) {
+      setError("Please select a specific athlete."); return;
+    }
     setSaving(true); setError("");
     const payload: Record<string, unknown> = {
-      title: form.title, body: form.body,
-      category: form.category, priority: form.priority,
+      title:                form.title,
+      body:                 form.body,
+      category:             form.category,
+      priority:             form.priority,
+      recipient_scope:      form.recipient_scope,
+      recipient_athlete_id: form.recipient_athlete_id,
+      push_enabled:         form.push_enabled,
     };
     if (form.attachment_id) payload.attachment_id = form.attachment_id;
     const res  = await fetch(`/api/team/${slug}/announcements`, {
@@ -437,8 +550,8 @@ export default function UpdatesView({
   const yesterdayItems = nonPinned.filter(a => a.created_at.slice(0, 10) === yesterday);
   const earlierItems   = nonPinned.filter(a => a.created_at.slice(0, 10) < yesterday);
 
-  const isEditing   = editing !== null;
-  const modalOpen   = showAdd || isEditing;
+  const isEditing    = editing !== null;
+  const modalOpen    = showAdd || isEditing;
   const previewStyle = form.attachmentPreview
     ? (FILE_STYLE[form.attachmentPreview.file_type] ?? FILE_STYLE["other"])
     : null;
@@ -572,6 +685,70 @@ export default function UpdatesView({
                 </select>
               </label>
             </div>
+
+            {/* ── Recipient scope — only shown when composing, not editing ── */}
+            {!isEditing && (
+              <div>
+                <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".45rem" }}>
+                  Send To
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
+                  {SCOPE_OPTIONS.map(opt => {
+                    const active = form.recipient_scope === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          recipient_scope:      opt.value,
+                          recipient_athlete_id: opt.value !== "athlete_specific" ? null : f.recipient_athlete_id,
+                        }))}
+                        style={{
+                          padding: ".3rem .7rem", borderRadius: 100,
+                          border: active ? "none" : "1.5px solid #e5e7eb",
+                          background: active ? "#0b1e3d" : "#fff",
+                          color: active ? "#fff" : "#374151",
+                          fontSize: ".75rem", fontWeight: 600,
+                          cursor: "pointer", lineHeight: 1.4,
+                          transition: "background .12s, color .12s",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {form.recipient_scope === "athlete_specific" && (
+                  <div style={{ marginTop: ".5rem" }}>
+                    <select
+                      style={{ ...inp, marginTop: ".2rem" }}
+                      value={form.recipient_athlete_id ?? ""}
+                      onChange={e => setForm(f => ({ ...f, recipient_athlete_id: e.target.value || null }))}
+                    >
+                      <option value="">— Select an athlete —</option>
+                      {athletes.map(a => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Push toggle */}
+                <label style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: ".55rem", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={form.push_enabled}
+                    onChange={e => setForm(f => ({ ...f, push_enabled: e.target.checked }))}
+                    style={{ width: 16, height: 16, cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: ".78rem", color: "#374151", fontWeight: 600 }}>
+                    Send push notification
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Attachment */}
             <div>

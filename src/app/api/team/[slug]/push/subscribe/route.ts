@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getTeamActor } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,6 +9,13 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+
+  // Reject unauthenticated subscribers
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json().catch(() => null);
   const { endpoint, keys } = body ?? {};
 
@@ -20,7 +28,10 @@ export async function POST(
     return NextResponse.json({ error: "Invalid subscription data." }, { status: 400 });
   }
 
-  // Upsert on endpoint so re-subscribing the same browser doesn't create duplicates
+  // Link the subscription to the member so targeted pushes can filter by role.
+  // Coaches have no team_members row, so member_id stays null for coach subs.
+  const memberId = actor.kind === "member" ? actor.session.id : null;
+
   const res = await fetch(`${BASE}/rest/v1/push_subscriptions`, {
     method: "POST",
     headers: {
@@ -31,10 +42,11 @@ export async function POST(
     },
     body: JSON.stringify({
       campaign_slug: slug,
-      platform: "web",
+      platform:      "web",
       endpoint,
-      p256dh: keys.p256dh,
-      auth_key: keys.auth,
+      p256dh:        keys.p256dh,
+      auth_key:      keys.auth,
+      member_id:     memberId,
     }),
   });
 

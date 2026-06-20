@@ -14,7 +14,12 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   const teamId = await getTeamIdBySlug(slug);
   if (!teamId) return NextResponse.json([], { status: 200 });
 
-  const memberId = actor.kind === "member" ? actor.session.id : null;
-  const notifications = await getNotificationsForMember(teamId, memberId);
+  const actorFilter =
+    actor.kind === "member"
+      ? { kind: "member" as const, id: actor.session.id, role: actor.session.role, athlete_id: actor.session.athlete_id }
+      : actor.kind === "coach"
+      ? { kind: "coach" as const, id: actor.session.id }
+      : null;
+  const notifications = await getNotificationsForMember(teamId, actorFilter);
   return NextResponse.json(notifications);
 }

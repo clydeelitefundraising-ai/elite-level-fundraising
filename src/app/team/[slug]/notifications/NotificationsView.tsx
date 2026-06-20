@@ -6,9 +6,17 @@ import type { NotificationRow } from "@/lib/notifications";
 
 const TYPE_META: Record<string, { icon: string; label: string; accent: string; bg: string }> = {
   announcement:   { icon: "📢", label: "Update",     accent: "#3b82f6", bg: "#dbeafe" },
+  message:        { icon: "💬", label: "Message",    accent: "#8b5cf6", bg: "#ede9fe" },
   file_upload:    { icon: "📎", label: "File",        accent: "#8b5cf6", bg: "#ede9fe" },
   calendar_event: { icon: "📅", label: "Event",       accent: "#0f766e", bg: "#ccfbf1" },
   fundraiser:     { icon: "💰", label: "Fundraiser",  accent: "#f59e0b", bg: "#fef3c7" },
+};
+
+const SCOPE_LABELS: Record<string, string> = {
+  athletes:        "Athletes",
+  parents:         "Parents",
+  boosters:        "Boosters",
+  athlete_specific: "Specific Athlete",
 };
 
 function relativeTime(iso: string): string {
@@ -37,17 +45,26 @@ function SectionLabel({ label }: { label: string }) {
 function NotifCard({
   notif,
   hasMember,
+  isCoach,
+  expanded,
   onTap,
   onDismiss,
+  onToggleExpand,
 }: {
   notif: NotificationRow;
   hasMember: boolean;
+  isCoach: boolean;
+  expanded: boolean;
   onTap: (n: NotificationRow) => void;
   onDismiss: (id: string) => void;
+  onToggleExpand: (id: string) => void;
 }) {
   const meta    = TYPE_META[notif.type] ?? TYPE_META.announcement;
-  const isUnread = hasMember && !notif.read_at;
+  const isUnread = (hasMember || isCoach) && !notif.read_at;
   const [hovered, setHovered] = useState(false);
+  const bodyIsLong = notif.body.length > 80;
+  const scope = notif.recipient_scope;
+  const showScopeBadge = isCoach && scope && scope !== "everyone";
 
   return (
     <div
@@ -64,7 +81,7 @@ function NotifCard({
         borderLeft:    `3px solid ${isUnread ? meta.accent : "#e5e7eb"}`,
         display:       "flex",
         gap:           ".65rem",
-        cursor:        notif.reference_url ? "pointer" : "default",
+        cursor:        "pointer",
         transform:     hovered ? "translateY(-1px)" : "none",
         transition:    "transform .13s ease, box-shadow .13s ease",
         position:      "relative",
@@ -100,15 +117,27 @@ function NotifCard({
                 color:        "#6b7280",
                 display:      "block",
                 marginTop:    ".12rem",
-                overflow:     "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace:   "nowrap",
+                ...(expanded || !bodyIsLong
+                  ? { whiteSpace: "pre-wrap" as const }
+                  : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }),
               }}>
                 {notif.body}
               </span>
             )}
+            {bodyIsLong && (
+              <button
+                onClick={e => { e.stopPropagation(); onToggleExpand(notif.id); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: ".68rem", color: meta.accent, fontWeight: 600,
+                  padding: ".1rem 0", lineHeight: 1.4,
+                }}
+              >
+                {expanded ? "Show less" : "Show more"}
+              </button>
+            )}
           </div>
-          {/* Dismiss button */}
+          {/* Dismiss button (members only) */}
           {hasMember && (
             <button
               onClick={e => { e.stopPropagation(); onDismiss(notif.id); }}
@@ -128,7 +157,7 @@ function NotifCard({
         </div>
 
         {/* Footer row */}
-        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".3rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".3rem", flexWrap: "wrap" }}>
           <span style={{
             padding:    ".05rem .32rem",
             borderRadius: 100,
@@ -141,6 +170,16 @@ function NotifCard({
           }}>
             {meta.label}
           </span>
+          {showScopeBadge && (
+            <span style={{
+              padding: ".05rem .32rem", borderRadius: 100,
+              fontSize: ".5rem", fontWeight: 700,
+              textTransform: "uppercase", letterSpacing: ".04em",
+              background: "#ecfdf5", color: "#065f46",
+            }}>
+              {SCOPE_LABELS[scope] ?? scope}
+            </span>
+          )}
           <span style={{ fontSize: ".65rem", color: "#9ca3af" }}>
             {relativeTime(notif.created_at)}
           </span>
@@ -160,21 +199,25 @@ export default function NotificationsView({
   slug,
   initial,
   hasMember,
+  isCoach = false,
 }: {
   slug: string;
   initial: NotificationRow[];
   hasMember: boolean;
+  isCoach?: boolean;
 }) {
   const router = useRouter();
-  const [items, setItems] = useState<NotificationRow[]>(initial);
-  const [marking, setMarking] = useState(false);
+  const [items,       setItems]       = useState<NotificationRow[]>(initial);
+  const [marking,     setMarking]     = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const unreadItems = items.filter(n => !n.read_at);
   const readItems   = items.filter(n => n.read_at);
   const unreadCount = unreadItems.length;
+  const canMarkRead = hasMember || isCoach;
 
   const handleTap = async (notif: NotificationRow) => {
-    if (hasMember && !notif.read_at) {
+    if (canMarkRead && !notif.read_at) {
       setItems(prev =>
         prev.map(n => n.id === notif.id ? { ...n, read_at: new Date().toISOString() } : n),
       );
@@ -183,7 +226,7 @@ export default function NotificationsView({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ id: notif.id }),
       });
-      if (res.ok) {
+      if (res.ok && hasMember) {
         window.dispatchEvent(new CustomEvent("elf:notification-read"));
       }
     }
@@ -211,6 +254,15 @@ export default function NotificationsView({
       window.dispatchEvent(new CustomEvent("elf:notifications-read-all"));
     }
     setMarking(false);
+  };
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   return (
@@ -285,8 +337,11 @@ export default function NotificationsView({
               key={n.id}
               notif={n}
               hasMember={hasMember}
+              isCoach={isCoach}
+              expanded={expandedIds.has(n.id)}
               onTap={handleTap}
               onDismiss={handleDismiss}
+              onToggleExpand={handleToggleExpand}
             />
           ))}
         </>
@@ -301,21 +356,14 @@ export default function NotificationsView({
               key={n.id}
               notif={n}
               hasMember={hasMember}
+              isCoach={isCoach}
+              expanded={expandedIds.has(n.id)}
               onTap={handleTap}
               onDismiss={handleDismiss}
+              onToggleExpand={handleToggleExpand}
             />
           ))}
         </>
-      )}
-
-      {/* Coach view note */}
-      {!hasMember && items.length > 0 && (
-        <p style={{
-          textAlign: "center", fontSize: ".72rem", color: "#9ca3af",
-          marginTop: "1rem",
-        }}>
-          Coaches see all notifications. Read tracking is for athletes and parents.
-        </p>
       )}
     </div>
   );

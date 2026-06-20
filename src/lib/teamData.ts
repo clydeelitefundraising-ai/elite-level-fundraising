@@ -54,6 +54,8 @@ export type AnnouncementRow = {
   priority: "normal" | "high" | "pinned";
   author_name: string;
   author_role: string;
+  recipient_scope: "everyone" | "athletes" | "parents" | "boosters" | "athlete_specific";
+  recipient_athlete_id: string | null;
   created_at: string;
   updated_at: string;
   attachment_id: string | null;
