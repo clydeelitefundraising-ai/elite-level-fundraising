@@ -380,19 +380,25 @@ export async function markMessagesReadForActor(
 ): Promise<void> {
   if (!messageIds.length) return;
   const now = new Date().toISOString();
-  await fetch(`${BASE}/rest/v1/message_reads`, {
-    method:  "POST",
-    headers: h({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
-    body:    JSON.stringify(
-      messageIds.map(id => ({
-        message_id: id,
-        actor_type: actor.kind,
-        coach_id:   actor.kind === "coach"  ? actor.id : null,
-        member_id:  actor.kind === "member" ? actor.id : null,
-        read_at:    now,
-      })),
-    ),
-  });
+  // participant_key is a GENERATED column: actor_type || ':' || coalesce(coach_id, member_id)
+  // Using it as the on_conflict target lets PostgREST emit ON CONFLICT DO NOTHING on the
+  // non-partial (message_id, participant_key) unique index (phase28b migration).
+  await fetch(
+    `${BASE}/rest/v1/message_reads?on_conflict=message_id,participant_key`,
+    {
+      method:  "POST",
+      headers: h({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
+      body:    JSON.stringify(
+        messageIds.map(id => ({
+          message_id: id,
+          actor_type: actor.kind,
+          coach_id:   actor.kind === "coach"  ? actor.id : null,
+          member_id:  actor.kind === "member" ? actor.id : null,
+          read_at:    now,
+        })),
+      ),
+    },
+  );
 }
 
 // ─── Safety helpers ───────────────────────────────────────────────────────────
