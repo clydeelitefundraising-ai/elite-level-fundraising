@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isHeadCoachRole, type TeamActor } from "@/lib/permissions";
+import { coachSession, isHeadCoachRole, isStaff, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -82,22 +82,25 @@ function AthleteCard({
   a,
   slug,
   coach,
+  staffMode,
   onEdit,
   onDelete,
 }: {
   a: TeamAthleteRow;
   slug: string;
   coach: CoachSession | null;
+  staffMode: boolean;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const router  = useRouter();
   const bg      = avatarColor(a.name);
+  const dest    = staffMode ? `/team/${slug}/roster/${a.id}` : `/team/${slug}/athlete/${a.id}`;
 
   return (
     <div
-      onClick={() => router.push(`/team/${slug}/athlete/${a.id}`)}
+      onClick={() => router.push(dest)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -202,7 +205,8 @@ export default function RosterView({
   initialAthletes: TeamAthleteRow[];
   actor: TeamActor;
 }) {
-  const coach = coachSession(actor);
+  const coach     = coachSession(actor);
+  const staffMode = isStaff(actor);
   const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,           setForm]           = useState<AthForm>(BLANK);
   const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
@@ -365,6 +369,7 @@ export default function RosterView({
               a={a}
               slug={slug}
               coach={coach}
+              staffMode={staffMode}
               onEdit={openEdit}
               onDelete={handleDelete}
             />
