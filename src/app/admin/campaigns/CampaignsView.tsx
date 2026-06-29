@@ -94,9 +94,9 @@ function CampaignCard({ c }: { c: CampaignSummary }) {
         <span style={{ fontSize: ".65rem", color: "#c7c7cc", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {c.campaign_slug}
         </span>
-        <a href={`/admin/edit`}
+        <a href={`/admin/campaigns/${c.campaign_slug}`}
           style={{ fontSize: ".72rem", fontWeight: 600, color: "#0b1e3d", textDecoration: "none", whiteSpace: "nowrap", padding: ".3rem .65rem", background: "#f5f5f7", borderRadius: 6 }}>
-          Edit →
+          Manage →
         </a>
         <a href={`/campaign/${c.campaign_slug}`} target="_blank" rel="noopener noreferrer"
           style={{ fontSize: ".72rem", fontWeight: 600, color: "#6e6e73", textDecoration: "none", whiteSpace: "nowrap", padding: ".3rem .65rem", background: "#f5f5f7", borderRadius: 6 }}>
