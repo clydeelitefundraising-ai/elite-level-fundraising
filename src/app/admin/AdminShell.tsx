@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard",    href: "/admin/dashboard",  icon: "◉" },
   { label: "Campaigns",    href: "/admin/campaigns",  icon: "◫" },
   { label: "Accounts",     href: "/admin/accounts",   icon: "◎" },
-  { label: "Analytics",    href: "#",                 icon: "╱", disabled: true },
+  { label: "Analytics",    href: "/admin/analytics",  icon: "╱" },
   { label: "Exports",      href: "#",                 icon: "↓", disabled: true },
 ];
 
@@ -29,7 +29,8 @@ const NAV_SECONDARY: NavItem[] = [
 const PAGE_TITLES: Record<string, string> = {
   "/admin/dashboard": "Dashboard",
   "/admin/campaigns": "Campaigns",
-  "/admin/accounts":  "Accounts",
+  "/admin/accounts":   "Accounts",
+  "/admin/analytics":  "Analytics",
   "/admin/edit":      "Campaign Editor",
 };
 
