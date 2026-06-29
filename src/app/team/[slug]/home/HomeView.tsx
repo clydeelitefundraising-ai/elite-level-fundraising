@@ -314,76 +314,6 @@ function FundraiserSnapshot({
   );
 }
 
-// ── Contacts home card (athlete/parent only) ──────────────────────────────────
-
-function ContactsCard({ slug, primaryColor }: { slug: string; primaryColor: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  const [goal,  setGoal]  = useState<number>(10);
-
-  useEffect(() => {
-    fetch(`/api/team/${slug}/contacts?summary=1`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) { setCount(d.count); setGoal(d.goal); } })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const pct = goal > 0 && count !== null ? Math.min(100, Math.round((count / goal) * 100)) : 0;
-
-  return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 14,
-      overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      marginBottom: ".8rem",
-    }}>
-      <div style={{ padding: ".75rem 1rem .65rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: ".1rem" }}>
-            My Contacts
-          </div>
-          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>📋 My Fundraising Contacts</div>
-        </div>
-        <a
-          href={`/team/${slug}/contacts`}
-          style={{
-            padding: ".4rem .9rem", background: primaryColor, color: "#fff",
-            borderRadius: 20, fontSize: ".75rem", fontWeight: 700,
-            textDecoration: "none", whiteSpace: "nowrap",
-          }}
-        >
-          Add Contacts
-        </a>
-      </div>
-      <div style={{ padding: ".75rem 1rem" }}>
-        {count === null ? (
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
-        ) : (
-          <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".45rem" }}>
-              <div>
-                <span style={{ fontWeight: 800, fontSize: "1.4rem", color: "#0b1e3d", lineHeight: 1 }}>{count}</span>
-                <span style={{ fontSize: ".78rem", color: "#6b7280", marginLeft: ".3rem" }}>of {goal} contacts</span>
-              </div>
-              <span style={{ fontSize: ".75rem", fontWeight: 700, color: pct >= 100 ? "#059669" : "#6b7280" }}>
-                {pct}%
-              </span>
-            </div>
-            <div style={{ background: "#e5e7eb", borderRadius: 100, height: 7, overflow: "hidden" }}>
-              <div style={{
-                background: pct >= 100 ? "#059669" : primaryColor,
-                borderRadius: 100, height: "100%",
-                width: `${pct}%`, transition: "width .5s ease",
-              }} />
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AForm = {
@@ -657,13 +587,6 @@ function HomeContent({
         topAthleteName={topAthleteName}
         primaryColor={primaryColor}
       />
-
-      {/* 5 — Contacts card (athletes and parents only) */}
-      {actor.kind === "member" &&
-        (actor.session.role === "athlete" || actor.session.role === "parent") &&
-        actor.session.athlete_id && (
-        <ContactsCard slug={slug} primaryColor={primaryColor} />
-      )}
 
       {/* Announcement modal */}
       {modalOpen && (

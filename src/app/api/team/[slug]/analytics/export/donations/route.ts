@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { getDonations, getAthletes } from "@/lib/supabase";
 
 function csvField(val: string | number | null | undefined): string {
@@ -20,8 +20,8 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return new Response("Unauthorized", { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return new Response("Unauthorized", { status: 401 });
 
   const [donations, athletes] = await Promise.all([
     getDonations(slug),
