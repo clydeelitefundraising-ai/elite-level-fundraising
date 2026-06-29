@@ -696,9 +696,10 @@ export default function CampaignControlCenter({ detail }: Props) {
             <SectionHeader title="Quick Actions" />
             <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
               {[
-                { label: "Open campaign page",   href: `/campaign/${slug}`,       external: true },
-                { label: "Open team hub",        href: `/team/${slug}/home`,       external: true },
-                { label: "Open legacy editor",   href: "/admin/edit",              external: false },
+                { label: "Registration dashboard",  href: `/admin/campaigns/${slug}/registration`, external: false },
+                { label: "Open campaign page",      href: `/campaign/${slug}`,                    external: true },
+                { label: "Open team hub",           href: `/team/${slug}/home`,                   external: true },
+                { label: "Open legacy editor",      href: "/admin/edit",                          external: false },
               ].map(a => (
                 <a key={a.label} href={a.href} target={a.external ? "_blank" : undefined} rel={a.external ? "noopener noreferrer" : undefined}
                   style={{ padding: ".5rem .75rem", background: "#f5f5f7", borderRadius: 8, fontSize: ".78rem", fontWeight: 500, color: "#1d1d1f", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
