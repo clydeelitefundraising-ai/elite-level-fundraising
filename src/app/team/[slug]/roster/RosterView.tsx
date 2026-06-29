@@ -96,18 +96,17 @@ function AthleteCard({
   const [hovered, setHovered] = useState(false);
   const router  = useRouter();
   const bg      = avatarColor(a.name);
-  const dest    = staffMode ? `/team/${slug}/roster/${a.id}` : `/team/${slug}/athlete/${a.id}`;
 
   return (
     <div
-      onClick={() => router.push(dest)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onClick={staffMode ? () => router.push(`/team/${slug}/roster/${a.id}`) : undefined}
+      onMouseEnter={staffMode ? () => setHovered(true) : undefined}
+      onMouseLeave={staffMode ? () => setHovered(false) : undefined}
       style={{
         background: "#fff",
         borderRadius: 14,
         padding: ".9rem .8rem .75rem",
-        boxShadow: hovered
+        boxShadow: (staffMode && hovered)
           ? "0 6px 20px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.05)"
           : "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         borderTop: "3px solid #0b1e3d",
@@ -116,9 +115,9 @@ function AthleteCard({
         alignItems: "center",
         textAlign: "center",
         position: "relative",
-        transform: hovered ? "translateY(-2px)" : "none",
+        transform: (staffMode && hovered) ? "translateY(-2px)" : "none",
         transition: "transform .15s ease, box-shadow .15s ease",
-        cursor: "pointer",
+        cursor: staffMode ? "pointer" : "default",
       }}
     >
       {a.jersey_number != null && (
