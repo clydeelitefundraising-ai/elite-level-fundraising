@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const insertRes = await fetch(`${BASE}/rest/v1/fundraising_contact_goals`, {
     method: "POST",
     headers: h({ Prefer: "return=representation" }),
-    body: JSON.stringify({ campaign_slug: slug, athlete_id: null, goal }),
+    body: JSON.stringify({ campaign_slug: slug, athlete_id: null, goal, set_by_coach_id: null }),
   });
 
   if (!insertRes.ok) {
