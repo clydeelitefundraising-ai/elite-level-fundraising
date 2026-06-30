@@ -91,10 +91,14 @@ function CampaignCard({ c }: { c: CampaignSummary }) {
       </div>
 
       {/* Footer */}
-      <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid #f5f5f7", display: "flex", gap: ".5rem", alignItems: "center" }}>
+      <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid #f5f5f7", display: "flex", gap: ".4rem", alignItems: "center" }}>
         <span style={{ fontSize: ".65rem", color: "#c7c7cc", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {c.campaign_slug}
         </span>
+        <a href={`/admin/campaigns/duplicate?source=${encodeURIComponent(c.campaign_slug)}`}
+          style={{ fontSize: ".72rem", fontWeight: 600, color: "#6366f1", textDecoration: "none", whiteSpace: "nowrap", padding: ".3rem .65rem", background: "#f0f0ff", borderRadius: 6 }}>
+          Duplicate
+        </a>
         <a href={`/admin/campaigns/${c.campaign_slug}`}
           style={{ fontSize: ".72rem", fontWeight: 600, color: "#0b1e3d", textDecoration: "none", whiteSpace: "nowrap", padding: ".3rem .65rem", background: "#f5f5f7", borderRadius: 6 }}>
           Manage →

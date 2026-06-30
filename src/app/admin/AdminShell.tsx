@@ -29,7 +29,8 @@ const NAV_SECONDARY: NavItem[] = [
 const PAGE_TITLES: Record<string, string> = {
   "/admin/dashboard":      "Dashboard",
   "/admin/campaigns":      "Campaigns",
-  "/admin/campaigns/new":  "New Campaign",
+  "/admin/campaigns/new":       "New Campaign",
+  "/admin/campaigns/duplicate": "Duplicate Campaign",
   "/admin/accounts":       "Accounts",
   "/admin/analytics":      "Analytics",
   "/admin/edit":           "Campaign Editor",
