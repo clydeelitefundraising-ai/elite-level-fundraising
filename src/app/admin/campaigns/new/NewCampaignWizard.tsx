@@ -826,13 +826,58 @@ function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus): string
   return errs;
 }
 
+// ── Org defaults type ─────────────────────────────────────────────────────────
+
+type OrgDefaults = {
+  primary_color?:                  string;
+  secondary_color?:                string;
+  logo_url?:                       string;
+  default_layout?:                 string;
+  default_fundraising_goal_cents?: number;
+  default_athlete_goal_cents?:     number;
+  default_contact_goal?:           number;
+  default_show_leaderboard?:       boolean;
+  default_show_program_identity?:  boolean;
+  default_show_share_section?:     boolean;
+  default_show_fund_uses?:         boolean;
+  default_show_recent_donations?:  boolean;
+  default_show_sponsors?:          boolean;
+  default_show_donation_card?:     boolean;
+};
+
+function buildInitial(org: OrgDefaults): WizardData {
+  return {
+    ...BLANK,
+    primary_color:                org.primary_color   ?? BLANK.primary_color,
+    secondary_color:              org.secondary_color ?? BLANK.secondary_color,
+    logo_url:                     org.logo_url        ?? BLANK.logo_url,
+    layout_variant:               (org.default_layout === "premium" ? "premium" : BLANK.layout_variant),
+    goal_dollars:                 org.default_fundraising_goal_cents
+      ? String(org.default_fundraising_goal_cents / 100)
+      : BLANK.goal_dollars,
+    default_athlete_goal_dollars: org.default_athlete_goal_cents
+      ? String(org.default_athlete_goal_cents / 100)
+      : BLANK.default_athlete_goal_dollars,
+    contact_goal:                 org.default_contact_goal != null
+      ? String(org.default_contact_goal)
+      : BLANK.contact_goal,
+    show_leaderboard:       org.default_show_leaderboard       ?? BLANK.show_leaderboard,
+    show_program_identity:  org.default_show_program_identity  ?? BLANK.show_program_identity,
+    show_share_section:     org.default_show_share_section     ?? BLANK.show_share_section,
+    show_fund_uses:         org.default_show_fund_uses         ?? BLANK.show_fund_uses,
+    show_recent_donations:  org.default_show_recent_donations  ?? BLANK.show_recent_donations,
+    show_sponsors:          org.default_show_sponsors          ?? BLANK.show_sponsors,
+    show_donation_card:     org.default_show_donation_card     ?? BLANK.show_donation_card,
+  };
+}
+
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-export default function NewCampaignWizard() {
+export default function NewCampaignWizard({ orgDefaults = {} }: { orgDefaults?: OrgDefaults }) {
   const router = useRouter();
 
   const [step,        setStep]        = useState<Step>(1);
-  const [d,           setD]           = useState<WizardData>(BLANK);
+  const [d,           setD]           = useState<WizardData>(() => buildInitial(orgDefaults));
   const [errors,      setErrors]      = useState<string[]>([]);
   const [slugStatus,  setSlugStatus]  = useState<SlugStatus>("idle");
   const [launching,   setLaunching]   = useState(false);
