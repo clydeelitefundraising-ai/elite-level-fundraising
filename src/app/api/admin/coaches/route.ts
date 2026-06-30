@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getCampaignSettings } from "@/lib/supabase";
 import { sendCoachWelcome } from "@/lib/email";
 
@@ -165,6 +166,17 @@ export async function POST(req: NextRequest) {
       console.error("[coaches] sendCoachWelcome failed:", err);
     }
   })();
+
+  logAuditEvent({
+    action:        "coach.added",
+    entity_type:   "coach",
+    entity_id:     coach.id as string,
+    campaign_slug: campaign_slug.trim(),
+    summary:       `Added coach "${name.trim()}" (${email.trim().toLowerCase()}, ${(["head_coach", "assistant_coach", "booster"] as const).includes(role) ? role : "head_coach"}) to ${campaign_slug.trim()}`,
+    new_value:     { name: name.trim(), email: email.trim().toLowerCase(), role: (["head_coach", "assistant_coach", "booster"] as const).includes(role) ? role : "head_coach", campaign_slug: campaign_slug.trim() },
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({
     id:                 coach.id,

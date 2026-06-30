@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { getCampaignSettings, updateCampaignSettings } from "@/lib/supabase";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -24,6 +25,22 @@ export async function PUT(req: NextRequest) {
   const patch = { school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, location, season, logo_url, archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents: default_athlete_goal_cents || null };
   try {
     await updateCampaignSettings(slug, patch);
+    const isArchiveOp  = school_name == null && archived != null;
+    const auditAction  = isArchiveOp
+      ? (archived ? "campaign.archived" : "campaign.restored")
+      : "campaign.updated";
+    logAuditEvent({
+      action:        auditAction,
+      entity_type:   "campaign",
+      entity_id:     slug,
+      campaign_slug: slug,
+      summary:       auditAction === "campaign.archived" ? `Archived campaign "${slug}"`
+        : auditAction === "campaign.restored" ? `Restored campaign "${slug}"`
+        : `Updated settings for campaign "${slug}"`,
+      new_value:     isArchiveOp ? { archived } : { school_name, sport_name, season, goal_cents, deadline },
+      ip_address:    ipOf(req),
+      user_agent:    req.headers.get("user-agent"),
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

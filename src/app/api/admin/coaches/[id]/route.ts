@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -105,6 +106,16 @@ export async function DELETE(
     const msg = await deleteRes.text();
     return NextResponse.json({ error: `Failed to delete coach: ${msg}` }, { status: 500 });
   }
+
+  logAuditEvent({
+    action:        "coach.removed",
+    entity_type:   "coach",
+    entity_id:     id,
+    campaign_slug: coach.campaign_slug as string,
+    summary:       `Removed coach ${id} (${coach.role}) from ${coach.campaign_slug}`,
+    ip_address:    ipOf(_req),
+    user_agent:    _req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({ ok: true });
 }

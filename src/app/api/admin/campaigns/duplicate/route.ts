@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -225,6 +226,17 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  logAuditEvent({
+    action:        "campaign.duplicated",
+    entity_type:   "campaign",
+    entity_id:     slug,
+    campaign_slug: slug,
+    summary:       `Duplicated campaign from "${src}" to "${slug}"`,
+    new_value:     { slug, source_slug: src, join_code: result.join_code, copied },
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({
     ok:          true,

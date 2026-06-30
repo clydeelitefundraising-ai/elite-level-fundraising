@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,15 @@ export async function GET(req: NextRequest) {
   const filter   = campaign !== "all"
     ? `campaign_slug=eq.${encodeURIComponent(campaign)}&`
     : "";
+
+  logAuditEvent({
+    action:        "export.donations",
+    entity_type:   "export",
+    campaign_slug: campaign !== "all" ? campaign : null,
+    summary:       campaign === "all" ? "Exported donation report (all campaigns)" : `Exported donation report for ${campaign}`,
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   const [donationsRes, campaignsRes] = await Promise.all([
     fetch(

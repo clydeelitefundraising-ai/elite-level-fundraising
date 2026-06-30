@@ -22,7 +22,7 @@ const NAV_ITEMS: NavItem[] = [
 const NAV_SECONDARY: NavItem[] = [
   { label: "Branding",     href: "#",                 icon: "◈", disabled: true },
   { label: "Demo Center",  href: "#",                 icon: "▶", disabled: true, accent: true },
-  { label: "Audit Log",    href: "#",                 icon: "☰", disabled: true },
+  { label: "Audit Log",    href: "/admin/audit",      icon: "☰" },
   { label: "Settings",     href: "#",                 icon: "⊙", disabled: true },
 ];
 
@@ -32,6 +32,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/campaigns/new":       "New Campaign",
   "/admin/campaigns/duplicate": "Duplicate Campaign",
   "/admin/exports":             "Exports",
+  "/admin/audit":               "Audit Log",
   "/admin/accounts":       "Accounts",
   "/admin/analytics":      "Analytics",
   "/admin/edit":           "Campaign Editor",

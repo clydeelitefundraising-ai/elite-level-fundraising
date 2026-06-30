@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -118,6 +119,17 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  logAuditEvent({
+    action:        "campaign.created",
+    entity_type:   "campaign",
+    entity_id:     slug,
+    campaign_slug: slug,
+    summary:       `Created campaign "${String(school_name ?? "").trim()}" (${slug})`,
+    new_value:     { slug, school_name: String(school_name ?? "").trim(), sport_name: String(sport_name ?? "").trim(), season: String(season ?? "").trim(), coach_email: String(coach_email).trim().toLowerCase() },
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({
     ok:          true,
