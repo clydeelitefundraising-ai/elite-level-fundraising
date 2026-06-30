@@ -21,14 +21,16 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const NAV_SECONDARY: NavItem[] = [
+  { label: "Operations",    href: "/admin/operations",   icon: "⬡" },
   { label: "Organization",  href: "/admin/organization", icon: "◈" },
-  { label: "Demo Center",  href: "/admin/demo",        icon: "▶", accent: true },
-  { label: "Audit Log",    href: "/admin/audit",      icon: "☰" },
-  { label: "Settings",     href: "#",                 icon: "⊙", disabled: true },
+  { label: "Demo Center",   href: "/admin/demo",         icon: "▶", accent: true },
+  { label: "Audit Log",     href: "/admin/audit",        icon: "☰" },
+  { label: "Settings",      href: "#",                   icon: "⊙", disabled: true },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin/dashboard":      "Dashboard",
+  "/admin/operations":     "Operations Center",
   "/admin/campaigns":      "Campaigns",
   "/admin/campaigns/new":       "New Campaign",
   "/admin/campaigns/duplicate": "Duplicate Campaign",
