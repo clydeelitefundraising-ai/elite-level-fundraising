@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { CommandCenter } from "./CommandCenter/CommandCenter";
 
 type NavItem = {
   label: string;
@@ -44,8 +45,22 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [ccOpen,     setCcOpen]     = useState(false);
 
   const title = PAGE_TITLES[pathname] ?? "Admin";
+
+  // Global Ctrl+K / ⌘+K shortcut
+  const openCC = useCallback(() => setCcOpen(true), []);
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setCcOpen(prev => !prev);
+      }
+    }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -105,12 +120,41 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
 
+      {/* ── Command Center ───────────────────────────────────────────── */}
+      {ccOpen && <CommandCenter onClose={() => setCcOpen(false)} />}
+
       {/* ── Main content ─────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
         {/* Header bar */}
-        <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", padding: "0 1.75rem", flexShrink: 0, position: "sticky", top: 0, zIndex: 10 }}>
-          <h1 style={{ margin: 0, fontSize: ".95rem", fontWeight: 700, color: "#1d1d1f", letterSpacing: "-.01em" }}>{title}</h1>
+        <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", padding: "0 1.75rem", gap: "1rem", flexShrink: 0, position: "sticky", top: 0, zIndex: 10 }}>
+          <h1 style={{ margin: 0, fontSize: ".95rem", fontWeight: 700, color: "#1d1d1f", letterSpacing: "-.01em", flex: 1 }}>{title}</h1>
+          <button
+            onClick={openCC}
+            aria-label="Open Command Center (Ctrl+K)"
+            style={{
+              display:       "flex",
+              alignItems:    "center",
+              gap:           ".5rem",
+              padding:       ".35rem .75rem",
+              background:    "#f8fafc",
+              border:        "1px solid #e2e8f0",
+              borderRadius:  8,
+              cursor:        "pointer",
+              fontSize:      ".78rem",
+              color:         "#64748b",
+              fontFamily:    "inherit",
+              whiteSpace:    "nowrap",
+            }}
+            onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#94a3b8"; }}
+            onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e2e8f0"; }}
+          >
+            <span style={{ fontSize: ".85rem" }}>🔍</span>
+            <span>Search…</span>
+            <kbd style={{ padding: ".1rem .35rem", background: "#e2e8f0", borderRadius: 4, fontSize: ".65rem", color: "#94a3b8", fontFamily: "inherit", marginLeft: ".1rem" }}>
+              {typeof navigator !== "undefined" && /Mac/.test(navigator.platform) ? "⌘K" : "Ctrl+K"}
+            </kbd>
+          </button>
         </header>
 
         {/* Page content */}
