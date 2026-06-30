@@ -74,7 +74,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Primary nav */}
-        <nav style={{ padding: ".5rem .5rem 0", flex: 1 }}>
+        <div role="navigation" style={{ padding: ".5rem .5rem 0", flex: 1 }}>
           <NavSection items={NAV_ITEMS} pathname={pathname} router={router} />
 
           <div style={{ margin: ".75rem .5rem", height: 1, background: "#f3f4f6" }} />
@@ -89,7 +89,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             router={router}
             muted
           />
-        </nav>
+        </div>
 
         {/* Bottom: logout */}
         <div style={{ padding: ".75rem .5rem 1rem", borderTop: "1px solid #f3f4f6" }}>
