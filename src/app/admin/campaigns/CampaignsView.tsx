@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { CampaignSummary } from "./page";
 
 type Props = { campaigns: CampaignSummary[] };
@@ -119,6 +120,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 type FilterStatus = "all" | "live" | "archived";
 
 export default function CampaignsView({ campaigns }: Props) {
+  const router = useRouter();
   const [search,    setSearch]    = useState("");
   const [status,    setStatus]    = useState<FilterStatus>("all");
 
@@ -183,6 +185,13 @@ export default function CampaignsView({ campaigns }: Props) {
             style={{ width: "100%", padding: ".42rem .75rem .42rem 1.75rem", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: ".8rem", color: "#1d1d1f", background: "#fff", outline: "none", boxSizing: "border-box" }}
           />
         </div>
+
+        <button
+          onClick={() => router.push("/admin/campaigns/new")}
+          style={{ padding: ".42rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: ".8rem", fontWeight: 600, display: "flex", alignItems: "center", gap: ".4rem", whiteSpace: "nowrap", flexShrink: 0 }}
+        >
+          + New Campaign
+        </button>
       </div>
 
       {/* Campaign grid */}

@@ -57,6 +57,13 @@ export async function POST(req: NextRequest) {
     coach_name, coach_email, coach_password,
     seed_fund_uses,
     starter_athletes,
+    // feature flags (optional — default to true if omitted for backward compat)
+    show_leaderboard, show_program_identity, show_share_section,
+    show_fund_uses, show_recent_donations, show_sponsors, show_donation_card,
+    layout_variant,
+    default_athlete_goal_cents,
+    // contact goal — inserted into fundraising_contact_goals after campaign creation
+    contact_goal,
   } = body;
 
   // ── Validate ─────────────────────────────────────────────────────────────────
@@ -86,6 +93,16 @@ export async function POST(req: NextRequest) {
       logo_url:        String(logo_url     ?? "").trim(),
       external_store_url: external_store_url ? String(external_store_url).trim() || null : null,
       store_provider:  store_provider ? String(store_provider).trim() || null : null,
+      // feature flags — default true when omitted (backward compat with legacy wizard)
+      show_leaderboard:      typeof show_leaderboard      === "boolean" ? show_leaderboard      : true,
+      show_program_identity: typeof show_program_identity === "boolean" ? show_program_identity : true,
+      show_share_section:    typeof show_share_section    === "boolean" ? show_share_section    : true,
+      show_fund_uses:        typeof show_fund_uses        === "boolean" ? show_fund_uses        : true,
+      show_recent_donations: typeof show_recent_donations === "boolean" ? show_recent_donations : true,
+      show_sponsors:         typeof show_sponsors         === "boolean" ? show_sponsors         : true,
+      show_donation_card:    typeof show_donation_card    === "boolean" ? show_donation_card    : true,
+      layout_variant:        layout_variant === "premium" ? "premium" : "classic",
+      default_athlete_goal_cents: typeof default_athlete_goal_cents === "number" ? Math.round(default_athlete_goal_cents) : null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create campaign.";
@@ -205,7 +222,17 @@ export async function POST(req: NextRequest) {
   });
   // Non-fatal: coach can regenerate in team settings if this fails.
 
-  // ── 4. fund_uses (optional defaults) ─────────────────────────────────────────
+  // ── 4. contact goal (team default) ───────────────────────────────────────────
+  const contactGoalNum = typeof contact_goal === "number" && contact_goal > 0 ? Math.round(contact_goal) : 0;
+  if (contactGoalNum > 0) {
+    // Non-fatal: CCC can update it later
+    await fetch(`${BASE}/rest/v1/fundraising_contact_goals`, {
+      method:  "POST",
+      headers: h({ Prefer: "return=minimal" }),
+      body:    JSON.stringify({ campaign_slug: slug, athlete_id: null, goal: contactGoalNum }),
+    }).catch(() => {});
+  }
+
   if (seed_fund_uses) {
     await Promise.all(
       DEFAULT_FUND_USES.map(fu =>

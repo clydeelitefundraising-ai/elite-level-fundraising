@@ -27,11 +27,12 @@ const NAV_SECONDARY: NavItem[] = [
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  "/admin/dashboard": "Dashboard",
-  "/admin/campaigns": "Campaigns",
-  "/admin/accounts":   "Accounts",
-  "/admin/analytics":  "Analytics",
-  "/admin/edit":      "Campaign Editor",
+  "/admin/dashboard":      "Dashboard",
+  "/admin/campaigns":      "Campaigns",
+  "/admin/campaigns/new":  "New Campaign",
+  "/admin/accounts":       "Accounts",
+  "/admin/analytics":      "Analytics",
+  "/admin/edit":           "Campaign Editor",
 };
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
