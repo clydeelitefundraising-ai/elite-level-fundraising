@@ -38,7 +38,7 @@ const ACTIONS: QuickAction[] = [
   { label: "View Campaigns",     desc: "See all campaigns and their status", href: "/admin/campaigns", primary: true },
   { label: "Campaign Editor",    desc: "Edit settings, roster, coaches",      href: "/admin/edit" },
   { label: "Demo Center",        desc: "Coming soon",                         href: "#" },
-  { label: "Export Reports",     desc: "Coming soon",                         href: "#" },
+  { label: "Export Reports",     desc: "Download campaign data as CSV",       href: "/admin/exports" },
 ];
 
 export default function DashboardView({
