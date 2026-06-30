@@ -5,7 +5,7 @@ export default function MarketingPage() {
   return (
     <>
       {/* ── NAVIGATION ── */}
-      <nav>
+      <nav className="site-nav">
         <div className="nav-logo">
           <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising logo" height={54} width={54} style={{ width: "auto", height: "54px" }} />
           ELITE LEVEL <span>FUNDRAISING</span>
