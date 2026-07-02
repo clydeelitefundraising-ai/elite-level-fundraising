@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
-
-const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-function h(extra?: Record<string, string>) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
-}
+import { logAudit, ipOf } from "@/lib/platform/audit";
+import { getContact, updateContact, CRM_STATUSES } from "@/lib/platform/crm";
+import type { UpdateContactInput } from "@/lib/platform/crm";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
   return verifyToken(store.get("elf_admin")?.value);
 }
 
-const VALID_STATUSES = new Set([
-  "prospect", "contacted", "demo_scheduled", "proposal_sent", "signed", "active", "returning", "lost",
-]);
+const VALID_STATUSES = new Set<string>(CRM_STATUSES);
 
 const EDITABLE_FIELDS = [
   "name", "email", "phone", "school_name", "sport", "city", "state", "status",
@@ -41,58 +34,31 @@ export async function PATCH(
     return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
   }
 
-  const patch: Record<string, unknown> = {};
+  const patch: UpdateContactInput = {};
   for (const field of EDITABLE_FIELDS) {
     if (body[field] === undefined) continue;
     const v = body[field];
-    patch[field] = typeof v === "string" && v.trim() === "" ? null : v;
+    (patch as Record<string, unknown>)[field] = typeof v === "string" && v.trim() === "" ? null : v;
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No fields to update." }, { status: 400 });
   }
-  patch.updated_at = new Date().toISOString();
 
-  // Fetch previous state, needed for status-change activity + audit log
-  const priorRes = await fetch(
-    `${BASE}/rest/v1/coach_crm_contacts?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
-    { headers: h(), cache: "no-store" },
-  );
-  const priorRows = priorRes.ok ? await priorRes.json() : [];
-  const prior = Array.isArray(priorRows) ? priorRows[0] : undefined;
+  const prior = await getContact(id);
   if (!prior) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
 
-  const res = await fetch(`${BASE}/rest/v1/coach_crm_contacts?id=eq.${encodeURIComponent(id)}`, {
-    method:  "PATCH",
-    headers: h({ Prefer: "return=representation" }),
-    body:    JSON.stringify(patch),
-  });
-
-  if (!res.ok) {
-    const msg = await res.text();
-    return NextResponse.json({ error: `Failed to update contact: ${msg}` }, { status: 500 });
+  let contact;
+  try {
+    contact = await updateContact(id, patch);
+  } catch (err) {
+    return NextResponse.json({ error: `Failed to update contact: ${err instanceof Error ? err.message : "unknown error"}` }, { status: 500 });
   }
 
-  const rows = await res.json();
-  const contact = rows[0];
-
-  if (typeof patch.status === "string" && patch.status !== prior.status) {
-    await fetch(`${BASE}/rest/v1/coach_crm_activities`, {
-      method:  "POST",
-      headers: h({ Prefer: "return=minimal" }),
-      body: JSON.stringify({
-        contact_id:    id,
-        activity_type: "status_change",
-        title:         `Status changed: ${prior.status} → ${patch.status}`,
-        body:          null,
-      }),
-    }).catch(() => {});
-  }
-
-  logAuditEvent({
+  logAudit({
     action:        "crm.contact_updated",
     entity_type:   "coach_crm_contact",
     entity_id:     id,
-    summary:       `Updated CRM contact "${contact.name as string}"`,
+    summary:       `Updated CRM contact "${contact.name}"`,
     previous_value: prior,
     new_value:      patch,
     ip_address:     ipOf(req),

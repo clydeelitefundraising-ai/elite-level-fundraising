@@ -1,3 +1,7 @@
+import { restList } from "./_client";
+import { getCampaignSummary } from "./campaigns";
+import { getAllDonations, groupDonationsByCampaign, calculateDonationPace } from "./donations";
+
 export type HealthLabel = "healthy" | "watch" | "at_risk";
 
 export const HEALTH_LABELS: Record<HealthLabel, string> = {
@@ -41,38 +45,6 @@ export type HealthData = {
   summary: HealthSummary;
 };
 
-const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function h() {
-  return { apikey: KEY, Authorization: `Bearer ${KEY}` };
-}
-
-async function safeFetch<T>(url: string): Promise<T[]> {
-  try {
-    const res = await fetch(url, { headers: h(), cache: "no-store" });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return Array.isArray(json) ? json : [];
-  } catch {
-    return [];
-  }
-}
-
-type RawCampaign = {
-  campaign_slug: string;
-  school_name:   string;
-  sport_name:    string;
-  season:        string;
-  goal_cents:    number;
-  deadline:      string;
-  archived:      boolean;
-  created_at:    string;
-  logo_url:      string | null;
-  team_photo:    string | null;
-  is_demo?:      boolean;
-};
-type RawDonation = { campaign_slug: string; amount_cents: number; created_at: string };
 type RawAthlete  = { id: string; campaign_slug: string };
 type RawMember   = { campaign_slug: string; role: string };
 type RawCoach    = { id: string; campaign_slug: string; account_id: string | null };
@@ -88,33 +60,28 @@ function daysBetween(a: number, b: number) {
   return Math.floor((a - b) / 86400000);
 }
 
-// Fetches platform state and scores every non-demo campaign 0-100.
-// Shared by the Team Health dashboard and the automation rule engine so both
-// see identical scores from a single source of truth.
-export async function getTeamHealthData(): Promise<HealthData> {
+// Fetches platform state and scores every non-demo campaign 0-100. Shared by
+// the Team Health dashboard and the automation rule engine so both see
+// identical scores from a single source of truth.
+export async function calculateHealth(): Promise<HealthData> {
   const [
     campaigns, donations, athletes, members, coaches, threads, auditLogs, invites,
   ] = await Promise.all([
-    safeFetch<RawCampaign>(
-      `${BASE}/rest/v1/campaign_settings?is_demo=eq.false&select=campaign_slug,school_name,sport_name,season,goal_cents,deadline,archived,created_at,logo_url,team_photo&order=school_name.asc&limit=500`,
-    ),
-    safeFetch<RawDonation>(
-      `${BASE}/rest/v1/donations?select=campaign_slug,amount_cents,created_at&order=created_at.desc&limit=5000`,
-    ),
-    safeFetch<RawAthlete>(`${BASE}/rest/v1/athletes?select=id,campaign_slug&limit=5000`),
-    safeFetch<RawMember>(`${BASE}/rest/v1/team_members?select=campaign_slug,role&limit=5000`),
-    safeFetch<RawCoach>(`${BASE}/rest/v1/team_coaches?select=id,campaign_slug,account_id&limit=2000`),
-    safeFetch<RawThread>(`${BASE}/rest/v1/message_threads?select=campaign_slug,last_message_at&order=last_message_at.desc&limit=2000`),
-    safeFetch<RawAuditLog>(`${BASE}/rest/v1/audit_logs?select=campaign_slug,action,created_at&order=created_at.desc&limit=1000`),
-    safeFetch<RawInvite>(`${BASE}/rest/v1/coach_invite_tokens?used_at=is.null&select=coach_id,created_at&limit=500`),
+    getCampaignSummary(),
+    getAllDonations(),
+    restList<RawAthlete>("athletes?select=id,campaign_slug&limit=5000"),
+    restList<RawMember>("team_members?select=campaign_slug,role&limit=5000"),
+    restList<RawCoach>("team_coaches?select=id,campaign_slug,account_id&limit=2000"),
+    restList<RawThread>("message_threads?select=campaign_slug,last_message_at&order=last_message_at.desc&limit=2000"),
+    restList<RawAuditLog>("audit_logs?select=campaign_slug,action,created_at&order=created_at.desc&limit=1000"),
+    restList<RawInvite>("coach_invite_tokens?used_at=is.null&select=coach_id,created_at&limit=500"),
   ]);
 
   const now = Date.now();
 
   // ── Per-campaign lookup maps (built defensively; any source table may be empty) ──
 
-  const donationsByCamp: Record<string, RawDonation[]> = {};
-  for (const d of donations) (donationsByCamp[d.campaign_slug] ??= []).push(d);
+  const donationsByCamp = groupDonationsByCampaign(donations);
 
   const athletesByCamp: Record<string, number> = {};
   for (const a of athletes) athletesByCamp[a.campaign_slug] = (athletesByCamp[a.campaign_slug] ?? 0) + 1;
@@ -150,11 +117,10 @@ export async function getTeamHealthData(): Promise<HealthData> {
     const raisedCents = campDons.reduce((s, d) => s + (d.amount_cents ?? 0), 0);
     const pctToGoal = c.goal_cents > 0 ? Math.round((raisedCents / c.goal_cents) * 100) : 0;
 
-    const created = c.created_at ? new Date(c.created_at).getTime() : null;
     const deadline = c.deadline ? new Date(c.deadline).getTime() : null;
     const daysRemaining = deadline != null ? daysBetween(deadline, now) : null;
 
-    const lastDonation = campDons[0] ?? null; // already sorted desc
+    const lastDonation = campDons[0] ?? null; // getAllDonations() is already sorted desc
     const lastDonationAt = lastDonation?.created_at ?? null;
     const daysSinceLastDonation = lastDonationAt ? daysBetween(now, new Date(lastDonationAt).getTime()) : null;
 
@@ -164,7 +130,6 @@ export async function getTeamHealthData(): Promise<HealthData> {
     const lastActivityAt = [lastDonationAt, lastThreadAt, lastAuditAt]
       .filter((v): v is string => !!v)
       .sort((a, b) => (a > b ? -1 : 1))[0] ?? null;
-    const daysSinceLastActivity = lastActivityAt ? daysBetween(now, new Date(lastActivityAt).getTime()) : null;
     const daysSinceLastComms = lastThreadAt ? daysBetween(now, new Date(lastThreadAt).getTime()) : null;
 
     const athleteCount = athletesByCamp[slug] ?? 0;
@@ -175,20 +140,14 @@ export async function getTeamHealthData(): Promise<HealthData> {
     const hasStaleInvite = campCoaches.some(cc => pendingInviteCoachIds.has(cc.id));
 
     // ── 1. Donation pace vs goal/deadline — 30 pts ──
-    let paceRatio = 1;
-    let paceScore = 15; // neutral default when timeline can't be determined
-    if (created != null && deadline != null && deadline > created) {
-      const timeFraction = clamp((now - created) / (deadline - created), 0, 1);
-      const expected = timeFraction; // linear expected pace
-      const actual   = c.goal_cents > 0 ? raisedCents / c.goal_cents : timeFraction;
-      paceRatio = expected > 0 ? actual / expected : 1;
-      paceScore = Math.round(30 * clamp(paceRatio, 0, 1));
-    }
+    const pace = calculateDonationPace(c.created_at, c.deadline, c.goal_cents, raisedCents);
+    const paceRatio = pace?.paceRatio ?? 1;
+    const paceScore = pace ? Math.round(30 * clamp(pace.paceRatio, 0, 1)) : 15; // neutral when timeline can't be determined
 
     // ── 2. Recent donation activity — 15 pts ──
     let recentDonationScore: number;
     if (daysSinceLastDonation == null) {
-      const startedDaysAgo = created != null ? daysBetween(now, created) : 999;
+      const startedDaysAgo = c.created_at ? daysBetween(now, new Date(c.created_at).getTime()) : 999;
       recentDonationScore = startedDaysAgo < 7 ? 8 : 0; // grace period for brand-new campaigns
     } else {
       recentDonationScore = Math.round(15 * clamp((7 - daysSinceLastDonation) / 7, 0, 1));
@@ -200,7 +159,7 @@ export async function getTeamHealthData(): Promise<HealthData> {
     // ── 4. Team communication activity — 15 pts ──
     let commsScore: number;
     if (daysSinceLastComms == null) {
-      const startedDaysAgo = created != null ? daysBetween(now, created) : 999;
+      const startedDaysAgo = c.created_at ? daysBetween(now, new Date(c.created_at).getTime()) : 999;
       commsScore = startedDaysAgo < 14 ? 8 : 0;
     } else {
       commsScore = Math.round(15 * clamp((14 - daysSinceLastComms) / 14, 0, 1));
@@ -271,4 +230,18 @@ export async function getTeamHealthData(): Promise<HealthData> {
   const summary: HealthSummary = { totalTeams, healthy, watch, atRisk, averageScore, behindPaceCount };
 
   return { teams: teams.sort((a, b) => a.score - b.score), summary };
+}
+
+export async function calculateCampaignHealth(slug: string): Promise<TeamHealth | null> {
+  const { teams } = await calculateHealth();
+  return teams.find(t => t.slug === slug) ?? null;
+}
+
+export async function getHealthSummary(): Promise<HealthSummary> {
+  return (await calculateHealth()).summary;
+}
+
+export async function getCampaignRisk(slug: string): Promise<HealthLabel | null> {
+  const team = await calculateCampaignHealth(slug);
+  return team?.label ?? null;
 }

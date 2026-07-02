@@ -1,4 +1,7 @@
-import { getTeamHealthData } from "@/lib/teamHealth";
+import { calculateHealth } from "@/lib/platform/health";
+import { getFollowUps } from "@/lib/platform/crm";
+import { getPendingCoachInvites } from "@/lib/platform/campaigns";
+import { restList } from "@/lib/platform/_client";
 
 export type AutomationSeverity = "info" | "warning" | "critical";
 
@@ -27,31 +30,13 @@ export type AutomationCandidate = {
   description?:   string | null;
 };
 
-const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-function h() {
-  return { apikey: KEY, Authorization: `Bearer ${KEY}` };
-}
-
-async function safeFetch<T>(url: string): Promise<T[]> {
-  try {
-    const res = await fetch(url, { headers: h(), cache: "no-store" });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return Array.isArray(json) ? json : [];
-  } catch {
-    return [];
-  }
-}
-
 function daysBetween(a: number, b: number) {
   return Math.floor((a - b) / 86400000);
 }
 
 // ── Rule 1: Team Health < 60 ───────────────────────────────────────────────────
 async function ruleTeamHealthAtRisk(): Promise<AutomationCandidate[]> {
-  const { teams } = await getTeamHealthData();
+  const { teams } = await calculateHealth();
   return teams
     .filter(t => t.score < 60)
     .map(t => ({
@@ -64,27 +49,20 @@ async function ruleTeamHealthAtRisk(): Promise<AutomationCandidate[]> {
 }
 
 // ── Rule 2: CRM follow-up overdue ──────────────────────────────────────────────
-type RawCrmContact = { id: string; name: string; status: string; next_follow_up_at: string | null };
-
 async function ruleCrmFollowUpOverdue(): Promise<AutomationCandidate[]> {
-  const contacts = await safeFetch<RawCrmContact>(
-    `${BASE}/rest/v1/coach_crm_contacts?status=neq.lost&next_follow_up_at=not.is.null&select=id,name,status,next_follow_up_at&limit=1000`,
-  );
-  const now = Date.now();
-  return contacts
-    .filter(c => c.next_follow_up_at && new Date(c.next_follow_up_at).getTime() < now)
-    .map(c => ({
-      rule_key:       "crm_follow_up_overdue",
-      severity:       "warning",
-      crm_contact_id: c.id,
-      title:          "Coach follow-up overdue.",
-      description:    `Follow-up for "${c.name}" (${c.status}) was due ${c.next_follow_up_at}.`,
-    }));
+  const overdue = await getFollowUps(0, { excludeLost: true });
+  return overdue.map(c => ({
+    rule_key:       "crm_follow_up_overdue",
+    severity:       "warning",
+    crm_contact_id: c.id,
+    title:          "Coach follow-up overdue.",
+    description:    `Follow-up for "${c.name}" (${c.status}) was due ${c.next_follow_up_at}.`,
+  }));
 }
 
 // ── Rule 3: No donations in 7+ days ────────────────────────────────────────────
 async function ruleNoDonations7d(): Promise<AutomationCandidate[]> {
-  const { teams } = await getTeamHealthData();
+  const { teams } = await calculateHealth();
   return teams
     .filter(t => t.daysSinceLastDonation == null || t.daysSinceLastDonation >= 7)
     .map(t => ({
@@ -98,7 +76,7 @@ async function ruleNoDonations7d(): Promise<AutomationCandidate[]> {
 
 // ── Rule 4: Ends within 3 days and below 80% funded ────────────────────────────
 async function ruleDeadlineApproachingUnderfunded(): Promise<AutomationCandidate[]> {
-  const { teams } = await getTeamHealthData();
+  const { teams } = await calculateHealth();
   return teams
     .filter(t => t.daysRemaining != null && t.daysRemaining >= 0 && t.daysRemaining <= 3 && t.pctToGoal < 80)
     .map(t => ({
@@ -111,13 +89,12 @@ async function ruleDeadlineApproachingUnderfunded(): Promise<AutomationCandidate
 }
 
 // ── Rule 5: Pending coach invite older than 7 days ─────────────────────────────
-type RawInvite = { coach_id: string; created_at: string };
-type RawCoach   = { id: string; name: string; campaign_slug: string };
+type RawCoach = { id: string; name: string; campaign_slug: string };
 
 async function rulePendingInviteStale(): Promise<AutomationCandidate[]> {
   const [invites, coaches] = await Promise.all([
-    safeFetch<RawInvite>(`${BASE}/rest/v1/coach_invite_tokens?used_at=is.null&select=coach_id,created_at&limit=500`),
-    safeFetch<RawCoach>(`${BASE}/rest/v1/team_coaches?select=id,name,campaign_slug&limit=2000`),
+    getPendingCoachInvites(),
+    restList<RawCoach>("team_coaches?select=id,name,campaign_slug&limit=2000"),
   ]);
   const coachById = new Map(coaches.map(c => [c.id, c]));
   const now = Date.now();
