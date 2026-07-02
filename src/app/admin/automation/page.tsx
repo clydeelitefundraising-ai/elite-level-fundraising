@@ -2,6 +2,7 @@ import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/adminAuth";
 import { listEvents, getSummary } from "@/lib/platform/automation";
+import { getRecentJobRuns, getJobRunSummary } from "@/lib/platform/jobs";
 import { getCampaignSummary } from "@/lib/platform/campaigns";
 import { restList } from "@/lib/platform/_client";
 import AutomationView from "./AutomationView";
@@ -15,9 +16,11 @@ export default async function AutomationPage() {
   const store = await cookies();
   if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
 
-  const [events, summary, campaigns, coaches] = await Promise.all([
+  const [events, summary, runs, jobSummary, campaigns, coaches] = await Promise.all([
     listEvents(),
     getSummary(),
+    getRecentJobRuns(20),
+    getJobRunSummary(),
     getCampaignSummary(),
     restList<RawCoach>("team_coaches?select=id,name&limit=2000"),
   ]);
@@ -31,7 +34,7 @@ export default async function AutomationPage() {
     coachName:    e.coach_id ? coachName.get(e.coach_id) ?? null : null,
   }));
 
-  const data: AutomationData = { events: enriched, summary };
+  const data: AutomationData = { events: enriched, summary, runs, jobSummary };
 
   return <AutomationView data={data} />;
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AutomationData, AutomationEvent, AutomationSeverity, AutomationStatus } from "./types";
+import type { AutomationData, AutomationEvent, AutomationSeverity, AutomationStatus, AutomationRun, RunStatus } from "./types";
 
 type Props = { data: AutomationData };
 
@@ -16,6 +16,12 @@ const STATUS_COLOR: Record<AutomationStatus, { bg: string; text: string }> = {
   open:         { bg: "#f3f4f6", text: "#374151" },
   acknowledged: { bg: "#eff6ff", text: "#1e40af" },
   resolved:     { bg: "#dcfce7", text: "#166534" },
+};
+
+const RUN_STATUS_COLOR: Record<RunStatus, { bg: string; text: string }> = {
+  running:   { bg: "#eff6ff", text: "#1e40af" },
+  succeeded: { bg: "#dcfce7", text: "#166534" },
+  failed:    { bg: "#fee2e2", text: "#991b1b" },
 };
 
 const sectionLabel: React.CSSProperties = {
@@ -61,6 +67,21 @@ function StatusBadge({ status }: { status: AutomationStatus }) {
   );
 }
 
+function RunStatusBadge({ status }: { status: RunStatus }) {
+  const c = RUN_STATUS_COLOR[status];
+  return (
+    <span style={{ fontSize: ".68rem", fontWeight: 600, color: c.text, background: c.bg, padding: ".15rem .55rem", borderRadius: 12, whiteSpace: "nowrap", textTransform: "capitalize" }}>
+      {status}
+    </span>
+  );
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -79,7 +100,7 @@ export default function AutomationView({ data }: Props) {
   const [statusFilter, setStatusFilter] = useState<AutomationStatus | "all">("open");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const { summary } = data;
+  const { summary, runs, jobSummary } = data;
 
   async function runRules() {
     setRunning(true);
@@ -148,6 +169,17 @@ export default function AutomationView({ data }: Props) {
         </div>
       </section>
 
+      {/* Job run summary cards */}
+      <section style={{ marginBottom: "2rem" }}>
+        <div style={sectionLabel}>Run History Overview</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
+          <StatCard label="Last Run Status" value={jobSummary.lastRunStatus ?? "—"} icon="🏁" />
+          <StatCard label="Last Run Time"   value={jobSummary.lastRunAt ? relativeTime(jobSummary.lastRunAt) : "—"} icon="🕒" />
+          <StatCard label="Failed Runs"     value={jobSummary.failedRuns} icon="🚨" />
+          <StatCard label="Avg Duration"    value={formatDuration(jobSummary.averageDurationMs)} icon="⏱" />
+        </div>
+      </section>
+
       {/* Filter */}
       <section style={{ marginBottom: "1rem" }}>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as AutomationStatus | "all")}
@@ -197,6 +229,39 @@ export default function AutomationView({ data }: Props) {
                     </button>
                   )}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Run History */}
+      <section style={{ marginTop: "2rem" }}>
+        <div style={sectionLabel}>Run History</div>
+        {runs.length === 0 ? (
+          <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: 10, padding: "2.5rem 1rem", textAlign: "center" }}>
+            <div style={{ fontSize: "1.5rem", marginBottom: ".5rem" }}>🏁</div>
+            <div style={{ fontSize: ".85rem", fontWeight: 600, color: "#374151" }}>No runs recorded yet</div>
+            <div style={{ fontSize: ".75rem", color: "#94a3b8", marginTop: ".35rem" }}>
+              Run history appears here once "Run Rules Now" has executed (requires the automation_runs migration).
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+            {runs.map((r: AutomationRun) => (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: "1rem", padding: ".7rem 1.1rem", borderBottom: "1px solid #f3f4f6", flexWrap: "wrap" }}>
+                <div style={{ fontSize: ".76rem", color: "#374151", minWidth: 90 }}>{relativeTime(r.started_at)}</div>
+                <span style={{ fontSize: ".68rem", fontWeight: 600, color: "#374151", background: "#f3f4f6", padding: ".15rem .55rem", borderRadius: 12, textTransform: "capitalize" }}>
+                  {r.trigger_type}
+                </span>
+                <RunStatusBadge status={r.status} />
+                <div style={{ fontSize: ".74rem", color: "#94a3b8", minWidth: 60 }}>{formatDuration(r.duration_ms)}</div>
+                <div style={{ fontSize: ".74rem", color: "#374151", minWidth: 130 }}>
+                  {r.rules_evaluated} rules · {r.events_created} created · {r.events_resolved} resolved
+                </div>
+                {r.error_message && (
+                  <div style={{ fontSize: ".72rem", color: "#dc2626", flex: 1, minWidth: 150 }}>{r.error_message}</div>
+                )}
               </div>
             ))}
           </div>
