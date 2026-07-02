@@ -12,10 +12,11 @@ export type CampaignSummary = {
   created_at:    string;
   logo_url:      string | null;
   team_photo:    string | null;
+  location:      string | null;
 };
 
 const SUMMARY_SELECT =
-  "campaign_slug,school_name,sport_name,season,goal_cents,deadline,archived,created_at,logo_url,team_photo";
+  "campaign_slug,school_name,sport_name,season,goal_cents,deadline,archived,created_at,logo_url,team_photo,location";
 
 // Every non-demo campaign with the field superset needed by Team Health,
 // Operations, and Automation. Single source of truth for "what campaigns exist."

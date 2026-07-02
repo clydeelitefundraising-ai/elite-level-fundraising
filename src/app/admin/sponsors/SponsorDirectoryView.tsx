@@ -4,11 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SPONSOR_STATUSES, SPONSOR_STATUS_LABELS, SPONSOR_ACTIVITY_TYPES } from "./types";
 import type {
-  SponsorBusiness, SponsorActivity, SponsorRelationship, SponsorDirectoryData,
+  SponsorBusiness, SponsorActivity, SponsorRelationship as SponsorRelationshipBase, SponsorDirectoryData,
   SponsorStatus, SponsorActivityType,
 } from "./types";
 
 type Props = { data: SponsorDirectoryData };
+
+// Enriched shape returned by GET /api/admin/sponsor-businesses/relationships
+// (joins campaign school/sport server-side for the "Sports/Schools Supported" summary).
+type SponsorRelationship = SponsorRelationshipBase & { schoolName: string | null; sportName: string | null };
 
 // ── Style helpers ──────────────────────────────────────────────────────────────
 
@@ -106,6 +110,8 @@ export default function SponsorDirectoryView({ data }: Props) {
   const [statusFilter, setStatusFilter] = useState<SponsorStatus | "all">("all");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
   const [sportFilter, setSportFilter] = useState<string>("all");
+  const [budgetFilter, setBudgetFilter] = useState<string>("all");
+  const [renewalFilter, setRenewalFilter] = useState<string>("all");
   const [query, setQuery]           = useState("");
   const [showNew, setShowNew]       = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -123,15 +129,34 @@ export default function SponsorDirectoryView({ data }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const now = Date.now();
     return sponsors.filter(s => {
       if (statusFilter !== "all" && s.status !== statusFilter) return false;
       if (industryFilter !== "all" && s.industry !== industryFilter) return false;
       if (sportFilter !== "all" && !s.preferred_sports.includes(sportFilter)) return false;
+
+      if (budgetFilter !== "all") {
+        const budget = s.estimated_annual_budget ?? 0;
+        if (budgetFilter === "under5k" && !(budget < 500000)) return false;
+        if (budgetFilter === "5k-25k" && !(budget >= 500000 && budget < 2500000)) return false;
+        if (budgetFilter === "25k-100k" && !(budget >= 2500000 && budget < 10000000)) return false;
+        if (budgetFilter === "over100k" && !(budget >= 10000000)) return false;
+      }
+
+      if (renewalFilter !== "all") {
+        if (!s.next_renewal_at) return false;
+        const days = (new Date(s.next_renewal_at).getTime() - now) / 86400000;
+        if (renewalFilter === "overdue" && !(days < 0)) return false;
+        if (renewalFilter === "30" && !(days >= 0 && days <= 30)) return false;
+        if (renewalFilter === "60" && !(days > 30 && days <= 60)) return false;
+        if (renewalFilter === "90" && !(days > 60 && days <= 90)) return false;
+      }
+
       if (!q) return true;
       return [s.business_name, s.contact_name, s.city, s.industry, ...s.preferred_sports]
         .some(v => v?.toLowerCase().includes(q));
     });
-  }, [sponsors, statusFilter, industryFilter, sportFilter, query]);
+  }, [sponsors, statusFilter, industryFilter, sportFilter, budgetFilter, renewalFilter, query]);
 
   function upsertSponsor(updated: SponsorBusiness) {
     setSponsors(prev => {
@@ -183,9 +208,14 @@ export default function SponsorDirectoryView({ data }: Props) {
             Track businesses, sponsorship history, and renewal opportunities.
           </div>
         </div>
-        <button onClick={() => setShowNew(true)} style={primaryBtn}>
-          + New Sponsor
-        </button>
+        <div style={{ display: "flex", gap: ".6rem" }}>
+          <a href="/admin/sponsors/intelligence" style={{ ...secondaryBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            🎯 Sponsor Intelligence
+          </a>
+          <button onClick={() => setShowNew(true)} style={primaryBtn}>
+            + New Sponsor
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -225,6 +255,20 @@ export default function SponsorDirectoryView({ data }: Props) {
               <select value={sportFilter} onChange={e => setSportFilter(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
                 <option value="all">All sports</option>
                 {sports.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={budgetFilter} onChange={e => setBudgetFilter(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+                <option value="all">All budgets</option>
+                <option value="under5k">Under $5,000</option>
+                <option value="5k-25k">$5,000–$25,000</option>
+                <option value="25k-100k">$25,000–$100,000</option>
+                <option value="over100k">Over $100,000</option>
+              </select>
+              <select value={renewalFilter} onChange={e => setRenewalFilter(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+                <option value="all">All renewal windows</option>
+                <option value="overdue">Overdue</option>
+                <option value="30">Next 30 days</option>
+                <option value="60">31–60 days</option>
+                <option value="90">61–90 days</option>
               </select>
             </div>
           </section>
@@ -611,17 +655,23 @@ function SponsorDetail({ sponsor, onClose, onPatch }: {
         ) : !relationships || relationships.length === 0 ? (
           <div style={{ fontSize: ".75rem", color: "#94a3b8" }}>No sponsorships recorded yet</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
-            {relationships.map(r => (
-              <div key={r.id} style={{ borderBottom: "1px solid #f3f4f6", paddingBottom: ".5rem", fontSize: ".76rem", color: "#374151" }}>
-                <div style={{ fontWeight: 600 }}>{r.campaign_slug ?? "General sponsorship"}</div>
-                <div style={{ color: "#94a3b8", fontSize: ".68rem" }}>
-                  {r.sponsorship_amount != null ? money(r.sponsorship_amount) : "—"}
-                  {r.sponsorship_level ? ` · ${r.sponsorship_level}` : ""} · {fmtDate(r.sponsored_at)}
+          <>
+            <div style={{ display: "flex", gap: "1rem", marginBottom: ".75rem", fontSize: ".72rem", color: "#374151" }}>
+              <span><strong>{new Set(relationships.map(r => r.schoolName).filter(Boolean)).size}</strong> schools supported</span>
+              <span><strong>{new Set(relationships.map(r => r.sportName).filter(Boolean)).size}</strong> sports supported</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
+              {relationships.map(r => (
+                <div key={r.id} style={{ borderBottom: "1px solid #f3f4f6", paddingBottom: ".5rem", fontSize: ".76rem", color: "#374151" }}>
+                  <div style={{ fontWeight: 600 }}>{r.schoolName ?? r.campaign_slug ?? "General sponsorship"}{r.sportName ? ` · ${r.sportName}` : ""}</div>
+                  <div style={{ color: "#94a3b8", fontSize: ".68rem" }}>
+                    {r.sponsorship_amount != null ? money(r.sponsorship_amount) : "—"}
+                    {r.sponsorship_level ? ` · ${r.sponsorship_level}` : ""} · {fmtDate(r.sponsored_at)}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

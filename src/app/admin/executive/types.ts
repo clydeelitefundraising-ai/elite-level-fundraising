@@ -49,6 +49,14 @@ export type RevenueForecast = {
   feeRatePct:                    number;
 };
 
+export type SponsorIntelSummary = {
+  topSponsors:            Array<{ businessName: string; score: number }>;
+  renewalsNext30:         number;
+  largestLifetimeSponsor: { businessName: string; valueCents: number } | null;
+  largestBudgetSponsor:   { businessName: string; budgetCents: number } | null;
+  businessesAddedThisMonth: number;
+};
+
 export type InsightTone = "positive" | "neutral" | "warning" | "critical";
 export type Insight = { text: string; tone: InsightTone };
 
@@ -69,6 +77,7 @@ export type ExecutiveData = {
   coachPipeline:    CoachPipeline;
   automationHealth: AutomationHealth;
   forecast:         RevenueForecast;
+  sponsorIntel:     SponsorIntelSummary;
   insights:         Insight[];
   timeline:         TimelineItem[];
   generatedAt:      string;

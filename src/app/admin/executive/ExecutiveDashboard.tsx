@@ -109,7 +109,7 @@ function DistributionBar({ healthy, watch, atRisk }: { healthy: number; watch: n
 
 export default function ExecutiveDashboard({ data }: Props) {
   const router = useRouter();
-  const { kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, insights, timeline, generatedAt } = data;
+  const { kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, sponsorIntel, insights, timeline, generatedAt } = data;
 
   const genDate = new Date(generatedAt);
   const dateStr = genDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -236,6 +236,40 @@ export default function ExecutiveDashboard({ data }: Props) {
           <KpiCard label="Projected Platform Revenue" value={money(forecast.projectedPlatformRevenueCents)} icon="🏦" sublabel={`Estimate at ${forecast.feeRatePct}%`} />
           <KpiCard label="Likely To Hit Goal"    value={forecast.likelyToHitGoal}    icon="✅" />
           <KpiCard label="Unlikely To Hit Goal"  value={forecast.unlikelyToHitGoal}  icon="⚠️" />
+        </div>
+      </section>
+
+      {/* Sponsor Intelligence Summary */}
+      <section style={{ marginBottom: "2rem" }}>
+        <div style={sectionLabel}>Sponsor Intelligence Summary</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+          <div style={cardStyle}>
+            <div style={{ fontSize: ".8rem", fontWeight: 600, color: "#1d1d1f", marginBottom: ".6rem" }}>Top Sponsors</div>
+            {sponsorIntel.topSponsors.length === 0 ? (
+              <div style={{ fontSize: ".74rem", color: "#94a3b8" }}>No sponsors scored yet.</div>
+            ) : (
+              sponsorIntel.topSponsors.map(s => (
+                <div key={s.businessName} style={{ display: "flex", justifyContent: "space-between", padding: ".3rem 0", fontSize: ".78rem", color: "#374151" }}>
+                  <span>{s.businessName}</span>
+                  <strong>{s.score}</strong>
+                </div>
+              ))
+            )}
+          </div>
+          <div style={cardStyle}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem", fontSize: ".76rem", color: "#374151" }}>
+              <div>Renewals Next 30 Days<br /><strong style={{ fontSize: "1.1rem" }}>{sponsorIntel.renewalsNext30}</strong></div>
+              <div>Businesses Added This Month<br /><strong style={{ fontSize: "1.1rem" }}>{sponsorIntel.businessesAddedThisMonth}</strong></div>
+              <div>Largest Lifetime Sponsor<br />
+                <strong>{sponsorIntel.largestLifetimeSponsor?.businessName ?? "—"}</strong>
+                {sponsorIntel.largestLifetimeSponsor && <div style={{ color: "#16a34a" }}>{money(sponsorIntel.largestLifetimeSponsor.valueCents)}</div>}
+              </div>
+              <div>Largest Annual Budget<br />
+                <strong>{sponsorIntel.largestBudgetSponsor?.businessName ?? "—"}</strong>
+                {sponsorIntel.largestBudgetSponsor && <div style={{ color: "#16a34a" }}>{money(sponsorIntel.largestBudgetSponsor.budgetCents)}</div>}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

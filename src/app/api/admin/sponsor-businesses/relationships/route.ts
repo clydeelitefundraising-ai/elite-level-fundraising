@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { logAudit, ipOf } from "@/lib/platform/audit";
 import { getSponsorRelationships, createSponsorRelationship } from "@/lib/platform/sponsors";
+import { getCampaignSummary } from "@/lib/platform/campaigns";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -13,7 +14,21 @@ export async function GET(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const businessId = req.nextUrl.searchParams.get("business_id") ?? undefined;
-  return NextResponse.json(await getSponsorRelationships(businessId));
+  const [relationships, campaigns] = await Promise.all([
+    getSponsorRelationships(businessId),
+    getCampaignSummary(),
+  ]);
+
+  // Enriched with school/sport for the detail panel's "Sports/Schools Supported"
+  // summary — presentation-layer join, not a platform/sponsors.ts concern.
+  const campaignsBySlug = new Map(campaigns.map(c => [c.campaign_slug, c]));
+  const enriched = relationships.map(r => ({
+    ...r,
+    schoolName: r.campaign_slug ? campaignsBySlug.get(r.campaign_slug)?.school_name ?? null : null,
+    sportName:  r.campaign_slug ? campaignsBySlug.get(r.campaign_slug)?.sport_name ?? null : null,
+  }));
+
+  return NextResponse.json(enriched);
 }
 
 export async function POST(req: NextRequest) {

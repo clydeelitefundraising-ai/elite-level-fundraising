@@ -39,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/operations":     "Operations Center",
   "/admin/crm":            "Coach CRM",
   "/admin/sponsors":       "Sponsor Directory",
+  "/admin/sponsors/intelligence": "Sponsor Intelligence",
   "/admin/health":         "Team Health",
   "/admin/automation":     "Automation",
   "/admin/campaigns":      "Campaigns",

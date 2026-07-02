@@ -7,12 +7,12 @@ import { getPipelineSummary, getActivities } from "@/lib/platform/crm";
 import { listEvents } from "@/lib/platform/automation";
 import { getJobRunSummary } from "@/lib/platform/jobs";
 import { getRecentAudit } from "@/lib/platform/audit";
-import { getSponsorSummary } from "@/lib/platform/sponsors";
+import { getSponsorSummary, getSponsorScoringContext, getTopSponsors, getSponsorInsights } from "@/lib/platform/sponsors";
 import { restList } from "@/lib/platform/_client";
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import type {
   ExecutiveData, Kpis, CampaignHealthDistribution, DonationMomentum, CoachPipeline,
-  AutomationHealth, RevenueForecast, Insight, TimelineItem,
+  AutomationHealth, RevenueForecast, SponsorIntelSummary, Insight, TimelineItem,
 } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export default async function ExecutiveDashboardPage() {
   // momentum windows and the donation timeline, which no summary exposes.
   const [
     health, allDonations, crmPipeline, recentCrmActivity, automationEvents,
-    jobSummary, recentAudit, coaches, sponsorSummary,
+    jobSummary, recentAudit, coaches, sponsorSummary, sponsorCtx,
   ] = await Promise.all([
     calculateHealth(),
     getAllDonations(),
@@ -47,6 +47,14 @@ export default async function ExecutiveDashboardPage() {
     getRecentAudit(10),
     restList<{ id: string }>("team_coaches?select=id&limit=5000"),
     getSponsorSummary(),
+    getSponsorScoringContext(),
+  ]);
+
+  // getTopSponsors/getSponsorInsights reuse sponsorCtx (already fetched above)
+  // instead of each re-querying sponsors/relationships/activities/campaigns.
+  const [topScoredSponsors, sponsorInsights] = await Promise.all([
+    getTopSponsors(3, sponsorCtx),
+    getSponsorInsights(1, sponsorCtx),
   ]);
 
   const { teams, summary: healthSummary } = health;
@@ -176,6 +184,25 @@ export default async function ExecutiveDashboardPage() {
     });
   }
 
+  // ── Sponsor intelligence summary ────────────────────────────────────────────
+
+  const thisMonthStart = new Date(); thisMonthStart.setDate(1); thisMonthStart.setHours(0, 0, 0, 0);
+  const businessesAddedThisMonth = sponsorCtx.sponsors.filter(
+    s => new Date(s.created_at).getTime() >= thisMonthStart.getTime(),
+  ).length;
+
+  const sponsorIntel: SponsorIntelSummary = {
+    topSponsors: topScoredSponsors.map(s => ({ businessName: s.sponsor.business_name, score: s.score })),
+    renewalsNext30: sponsorSummary.renewalsDue,
+    largestLifetimeSponsor: sponsorInsights.topLifetime[0]
+      ? { businessName: sponsorInsights.topLifetime[0].business_name, valueCents: sponsorInsights.topLifetime[0].lifetime_value }
+      : null,
+    largestBudgetSponsor: sponsorInsights.highestBudget[0]
+      ? { businessName: sponsorInsights.highestBudget[0].business_name, budgetCents: sponsorInsights.highestBudget[0].estimated_annual_budget ?? 0 }
+      : null,
+    businessesAddedThisMonth,
+  };
+
   // ── Executive timeline ───────────────────────────────────────────────────────
 
   const schoolNameBySlug = new Map(teams.map(t => [t.slug, t.schoolName]));
@@ -210,7 +237,7 @@ export default async function ExecutiveDashboardPage() {
     .slice(0, 15);
 
   const data: ExecutiveData = {
-    kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast,
+    kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, sponsorIntel,
     insights, timeline, generatedAt: new Date().toISOString(),
   };
 

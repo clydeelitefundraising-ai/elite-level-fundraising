@@ -5,7 +5,7 @@ import { getRecentAudit, getAuditSince, getAuditSummary, type AuditEntry } from 
 import { getFollowUps } from "./crm";
 import { getSummary as getAutomationSummary } from "./automation";
 import { getJobRunSummary } from "./jobs";
-import { getRenewalsDue } from "./sponsors";
+import { getSponsorScoringContext, getRenewalForecast, getSponsorInsights } from "./sponsors";
 
 export type Severity = "critical" | "warning" | "info" | "ok";
 
@@ -54,16 +54,31 @@ function todayWindow() {
 export async function getNeedsAttention(): Promise<{ attention: AttentionItem[]; alertCount: number }> {
   const { todayStart, in3Days, in7Days } = todayWindow();
 
-  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorRenewalsDue, demoCheck] = await Promise.all([
+  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorCtx, demoCheck] = await Promise.all([
     getCampaignSummary(),
     getAllDonations(),
     getPendingCoachInvites(),
     getFollowUps(7),
     getAutomationSummary(),
     getJobRunSummary(),
-    getRenewalsDue(30),
+    getSponsorScoringContext(),
     restList<{ campaign_slug: string }>("campaign_settings?campaign_slug=eq.elf-demo&select=campaign_slug&limit=1"),
   ]);
+
+  // getRenewalForecast/getSponsorInsights reuse sponsorCtx instead of each
+  // re-fetching sponsors/relationships/activities/campaigns independently.
+  const [renewalForecast, sponsorInsights] = await Promise.all([
+    getRenewalForecast(sponsorCtx),
+    getSponsorInsights(20, sponsorCtx),
+  ]);
+  const sponsorRenewalsDue = sponsorCtx.sponsors.filter(s => {
+    if (!s.next_renewal_at) return false;
+    const days = (new Date(s.next_renewal_at).getTime() - Date.now()) / 86400000;
+    return days <= 30;
+  });
+  const MAJOR_SPONSOR_THRESHOLD_CENTS = 500000; // $5,000 lifetime value or higher counts as "major"
+  const inactiveMajorSponsors = sponsorInsights.inactiveSponsors.filter(s => s.lifetime_value >= MAJOR_SPONSOR_THRESHOLD_CENTS);
+  const lostHighValueSponsors = sponsorInsights.recentlyLost.filter(s => s.lifetime_value >= MAJOR_SPONSOR_THRESHOLD_CENTS);
 
   const attention: AttentionItem[] = [];
 
@@ -166,6 +181,33 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
       count: sponsorRenewalsDue.length,
       detail: sponsorRenewalsDue.slice(0, 3).map(s => s.business_name).join(", "),
       href: "/admin/sponsors", actionLabel: "Open Sponsor Directory", icon: "🏢",
+    });
+  }
+
+  if (renewalForecast.overdue > 0) {
+    attention.push({
+      id: "sponsor-renewals-overdue", severity: "critical", title: "Sponsor renewals overdue",
+      count: renewalForecast.overdue,
+      detail: "Renewal dates have already passed",
+      href: "/admin/sponsors/intelligence", actionLabel: "Open Sponsor Intelligence", icon: "🚨",
+    });
+  }
+
+  if (inactiveMajorSponsors.length > 0) {
+    attention.push({
+      id: "sponsor-inactive-major", severity: "warning", title: "Inactive major sponsors",
+      count: inactiveMajorSponsors.length,
+      detail: inactiveMajorSponsors.slice(0, 3).map(s => s.business_name).join(", "),
+      href: "/admin/sponsors/intelligence", actionLabel: "Open Sponsor Intelligence", icon: "😴",
+    });
+  }
+
+  if (lostHighValueSponsors.length > 0) {
+    attention.push({
+      id: "sponsor-lost-high-value", severity: "warning", title: "Lost sponsors with high lifetime value",
+      count: lostHighValueSponsors.length,
+      detail: lostHighValueSponsors.slice(0, 3).map(s => s.business_name).join(", "),
+      href: "/admin/sponsors/intelligence", actionLabel: "Open Sponsor Intelligence", icon: "💔",
     });
   }
 
