@@ -29,6 +29,9 @@ export type TeamHealth = {
   athleteCount:       number;
   memberCount:        number;
   lastActivityAt:     string | null;
+  createdAt:          string;
+  timeFraction:       number | null; // 0-1, how far through the campaign window; null if pace can't be determined
+  paceRatio:          number;        // actual/expected progress — 1.0 == exactly on pace. Used for revenue forecasting.
 };
 
 export type HealthSummary = {
@@ -217,6 +220,9 @@ export async function calculateHealth(): Promise<HealthData> {
       athleteCount,
       memberCount,
       lastActivityAt,
+      createdAt: c.created_at ?? "",
+      timeFraction: pace?.timeFraction ?? null,
+      paceRatio,
     };
   });
 

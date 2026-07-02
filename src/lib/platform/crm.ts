@@ -56,6 +56,7 @@ export type CrmPipelineSummary = {
   signedActive:       number;
   estimatedPipeline:  number;
   followUpsDue:       number;
+  newThisWeek:        number;
 };
 
 export async function getContacts(): Promise<CrmContact[]> {
@@ -160,6 +161,7 @@ export async function getPipelineSummary(): Promise<{
   }, {} as Record<CrmStatus, CrmContact[]>);
 
   const followUpsDue = await getFollowUps(7);
+  const weekAgo = Date.now() - 7 * 86400000;
 
   const summary: CrmPipelineSummary = {
     totalContacts:     contacts.length,
@@ -169,6 +171,7 @@ export async function getPipelineSummary(): Promise<{
     signedActive:      pipeline.signed.length + pipeline.active.length + pipeline.returning.length,
     estimatedPipeline: contacts.reduce((sum, c) => sum + (c.estimated_value ?? 0), 0),
     followUpsDue:      followUpsDue.length,
+    newThisWeek:       contacts.filter(c => new Date(c.created_at).getTime() >= weekAgo).length,
   };
 
   return { summary, pipeline };

@@ -4,6 +4,7 @@ import type { CmdItem } from "./types";
 
 export const PAGE_ITEMS: CmdItem[] = [
   { id: "page-dashboard",    kind: "page",   label: "Dashboard",           icon: "◉", href: "/admin/dashboard",    group: "PAGES" },
+  { id: "page-executive",    kind: "page",   label: "Executive Dashboard", icon: "★", href: "/admin/executive",   group: "PAGES" },
   { id: "page-operations",   kind: "page",   label: "Operations Center",   icon: "⬡", href: "/admin/operations",   group: "PAGES" },
   { id: "page-crm",          kind: "page",   label: "Coach CRM",           icon: "☎", href: "/admin/crm",          group: "PAGES" },
   { id: "page-health",       kind: "page",   label: "Team Health",         icon: "♥", href: "/admin/health",       group: "PAGES" },
@@ -28,6 +29,7 @@ export const ACTION_ITEM_DEFS: Omit<CmdItem, "action">[] = [
   { id: "action-new-demo",      kind: "demo",   label: "Open Demo Center",       icon: "▶",  href: "/admin/demo",                 group: "ACTIONS" },
   { id: "action-init-demo",     kind: "demo",   label: "Initialize Demo",        icon: "🔄",                                      group: "ACTIONS" },
   { id: "action-reset-demo",    kind: "demo",   label: "Reset Demo Data",        icon: "🔄",                                      group: "ACTIONS" },
+  { id: "action-executive",     kind: "action", label: "Open Executive Dashboard", icon: "★", href: "/admin/executive",          group: "ACTIONS" },
   { id: "action-operations",    kind: "action", label: "Open Operations Center",  icon: "⬡", href: "/admin/operations",          group: "ACTIONS" },
   { id: "action-crm",           kind: "action", label: "Open Coach CRM",          icon: "☎", href: "/admin/crm",                 group: "ACTIONS" },
   { id: "action-health",        kind: "action", label: "Open Team Health",        icon: "♥", href: "/admin/health",              group: "ACTIONS" },

@@ -21,6 +21,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const NAV_SECONDARY: NavItem[] = [
+  { label: "Executive",     href: "/admin/executive",    icon: "★" },
   { label: "Operations",    href: "/admin/operations",   icon: "⬡" },
   { label: "Team Health",   href: "/admin/health",       icon: "♥" },
   { label: "Automation",    href: "/admin/automation",   icon: "⚡" },
@@ -33,6 +34,7 @@ const NAV_SECONDARY: NavItem[] = [
 
 const PAGE_TITLES: Record<string, string> = {
   "/admin/dashboard":      "Dashboard",
+  "/admin/executive":      "Executive Dashboard",
   "/admin/operations":     "Operations Center",
   "/admin/crm":            "Coach CRM",
   "/admin/health":         "Team Health",
