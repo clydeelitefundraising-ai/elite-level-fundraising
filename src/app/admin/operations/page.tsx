@@ -178,6 +178,19 @@ export default async function OperationsPage() {
     });
   }
 
+  if (belowPaceCampaigns.length > 0) {
+    attention.push({
+      id:          "teams-at-risk",
+      severity:    "critical",
+      title:       "Teams at risk",
+      count:       belowPaceCampaigns.length,
+      detail:      "Review health scores for teams needing attention",
+      href:        "/admin/health",
+      actionLabel: "Open Team Health",
+      icon:        "♥",
+    });
+  }
+
   if (pendingInvites.length > 0) {
     attention.push({
       id:          "pending-invites",
