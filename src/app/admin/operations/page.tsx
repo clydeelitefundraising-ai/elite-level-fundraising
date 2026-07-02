@@ -72,6 +72,7 @@ export default async function OperationsPage() {
     demoCheck,
     todayMessages,
     crmFollowUpsDue,
+    automationAlerts,
   ] = await Promise.all([
     safeFetch<Campaign>(
       `${BASE}/rest/v1/campaign_settings?is_demo=eq.false&select=campaign_slug,school_name,sport_name,goal_cents,deadline,created_at&order=school_name.asc&limit=200`,
@@ -102,6 +103,9 @@ export default async function OperationsPage() {
     ),
     safeFetch<{ id: string; name: string }>(
       `${BASE}/rest/v1/coach_crm_contacts?next_follow_up_at=lte.${in7Days.toISOString()}&select=id,name&limit=100`,
+    ),
+    safeFetch<{ id: string; severity: string; title: string }>(
+      `${BASE}/rest/v1/automation_events?status=eq.open&severity=in.(critical,warning)&select=id,severity,title&limit=200`,
     ),
   ]);
 
@@ -214,6 +218,21 @@ export default async function OperationsPage() {
       href:        "/admin/crm",
       actionLabel: "Open Coach CRM",
       icon:        "☎",
+    });
+  }
+
+  const criticalAutomation = automationAlerts.filter(a => a.severity === "critical");
+  const warningAutomation  = automationAlerts.filter(a => a.severity === "warning");
+  if (automationAlerts.length > 0) {
+    attention.push({
+      id:          "automation-events",
+      severity:    criticalAutomation.length > 0 ? "critical" : "warning",
+      title:       "Automation Events",
+      count:       automationAlerts.length,
+      detail:      `${criticalAutomation.length} critical, ${warningAutomation.length} warning`,
+      href:        "/admin/automation",
+      actionLabel: "Open Automation",
+      icon:        "⚡",
     });
   }
 

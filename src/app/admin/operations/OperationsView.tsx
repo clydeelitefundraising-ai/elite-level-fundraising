@@ -209,6 +209,7 @@ export default function OperationsView({ data }: Props) {
     { id: "new-campaign", label: "New Campaign",   icon: "➕", action: () => router.push("/admin/campaigns/new") },
     { id: "crm",          label: "Coach CRM",      icon: "☎",  action: () => router.push("/admin/crm") },
     { id: "health",       label: "Team Health",    icon: "♥",  action: () => router.push("/admin/health") },
+    { id: "automation",   label: "Automation",     icon: "⚡", action: () => router.push("/admin/automation") },
     { id: "demo",         label: "Demo Center",    icon: "▶",  action: () => router.push("/admin/demo") },
     { id: "analytics",    label: "Analytics",      icon: "╱",  action: () => router.push("/admin/analytics") },
     { id: "audit",        label: "Audit Log",      icon: "☰",  action: () => router.push("/admin/audit") },
