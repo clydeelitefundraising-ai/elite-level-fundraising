@@ -5,6 +5,7 @@ import { getRecentAudit, getAuditSince, getAuditSummary, type AuditEntry } from 
 import { getFollowUps } from "./crm";
 import { getSummary as getAutomationSummary } from "./automation";
 import { getJobRunSummary } from "./jobs";
+import { getRenewalsDue } from "./sponsors";
 
 export type Severity = "critical" | "warning" | "info" | "ok";
 
@@ -53,13 +54,14 @@ function todayWindow() {
 export async function getNeedsAttention(): Promise<{ attention: AttentionItem[]; alertCount: number }> {
   const { todayStart, in3Days, in7Days } = todayWindow();
 
-  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, demoCheck] = await Promise.all([
+  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorRenewalsDue, demoCheck] = await Promise.all([
     getCampaignSummary(),
     getAllDonations(),
     getPendingCoachInvites(),
     getFollowUps(7),
     getAutomationSummary(),
     getJobRunSummary(),
+    getRenewalsDue(30),
     restList<{ campaign_slug: string }>("campaign_settings?campaign_slug=eq.elf-demo&select=campaign_slug&limit=1"),
   ]);
 
@@ -155,6 +157,15 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
       id: "automation-run-failed", severity: "critical", title: "Latest automation run failed",
       detail: jobSummary.lastRunAt ? `Last attempted ${new Date(jobSummary.lastRunAt).toLocaleString()}` : undefined,
       href: "/admin/automation", actionLabel: "Open Automation", icon: "🚨",
+    });
+  }
+
+  if (sponsorRenewalsDue.length > 0) {
+    attention.push({
+      id: "sponsor-renewals", severity: "info", title: "Sponsor renewals due",
+      count: sponsorRenewalsDue.length,
+      detail: sponsorRenewalsDue.slice(0, 3).map(s => s.business_name).join(", "),
+      href: "/admin/sponsors", actionLabel: "Open Sponsor Directory", icon: "🏢",
     });
   }
 

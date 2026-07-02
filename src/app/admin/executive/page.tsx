@@ -7,6 +7,7 @@ import { getPipelineSummary, getActivities } from "@/lib/platform/crm";
 import { listEvents } from "@/lib/platform/automation";
 import { getJobRunSummary } from "@/lib/platform/jobs";
 import { getRecentAudit } from "@/lib/platform/audit";
+import { getSponsorSummary } from "@/lib/platform/sponsors";
 import { restList } from "@/lib/platform/_client";
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import type {
@@ -35,7 +36,7 @@ export default async function ExecutiveDashboardPage() {
   // momentum windows and the donation timeline, which no summary exposes.
   const [
     health, allDonations, crmPipeline, recentCrmActivity, automationEvents,
-    jobSummary, recentAudit, coaches,
+    jobSummary, recentAudit, coaches, sponsorSummary,
   ] = await Promise.all([
     calculateHealth(),
     getAllDonations(),
@@ -45,6 +46,7 @@ export default async function ExecutiveDashboardPage() {
     getJobRunSummary(),
     getRecentAudit(10),
     restList<{ id: string }>("team_coaches?select=id&limit=5000"),
+    getSponsorSummary(),
   ]);
 
   const { teams, summary: healthSummary } = health;
@@ -69,6 +71,9 @@ export default async function ExecutiveDashboardPage() {
     healthyTeams:             healthSummary.healthy,
     crmPipelineValueCents:    crmPipeline.summary.estimatedPipeline,
     openAutomationEvents,
+    sponsorBusinesses:         sponsorSummary.totalBusinesses,
+    sponsorLifetimeValueCents: sponsorSummary.lifetimeValueCents,
+    sponsorRenewalsDue:        sponsorSummary.renewalsDue,
   };
 
   const campaignHealth: CampaignHealthDistribution = {

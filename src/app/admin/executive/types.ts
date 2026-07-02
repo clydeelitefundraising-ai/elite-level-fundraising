@@ -11,6 +11,9 @@ export type Kpis = {
   healthyTeams:             number;
   crmPipelineValueCents:    number;
   openAutomationEvents:     number;
+  sponsorBusinesses:        number;
+  sponsorLifetimeValueCents: number;
+  sponsorRenewalsDue:       number;
 };
 
 export type CampaignHealthDistribution = { healthy: number; watch: number; atRisk: number };

@@ -174,6 +174,9 @@ export default function ExecutiveDashboard({ data }: Props) {
           <KpiCard label="Healthy Teams"       value={kpis.healthyTeams}                        icon="✅" />
           <KpiCard label="CRM Pipeline Value"  value={money(kpis.crmPipelineValueCents)}        icon="☎" />
           <KpiCard label="Open Automation Events" value={kpis.openAutomationEvents}             icon="⚡" />
+          <KpiCard label="Sponsor Businesses"  value={kpis.sponsorBusinesses}                   icon="🏢" />
+          <KpiCard label="Sponsor Lifetime Value" value={money(kpis.sponsorLifetimeValueCents)} icon="📈" />
+          <KpiCard label="Sponsor Renewals Due" value={kpis.sponsorRenewalsDue}                 icon="⏰" />
         </div>
       </section>
 
