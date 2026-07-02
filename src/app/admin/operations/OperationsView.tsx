@@ -207,6 +207,7 @@ export default function OperationsView({ data }: Props) {
 
   const QUICK_ACTIONS = [
     { id: "new-campaign", label: "New Campaign",   icon: "➕", action: () => router.push("/admin/campaigns/new") },
+    { id: "crm",          label: "Coach CRM",      icon: "☎",  action: () => router.push("/admin/crm") },
     { id: "demo",         label: "Demo Center",    icon: "▶",  action: () => router.push("/admin/demo") },
     { id: "analytics",    label: "Analytics",      icon: "╱",  action: () => router.push("/admin/analytics") },
     { id: "audit",        label: "Audit Log",      icon: "☰",  action: () => router.push("/admin/audit") },

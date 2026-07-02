@@ -71,6 +71,7 @@ export default async function OperationsPage() {
     pendingInvites,
     demoCheck,
     todayMessages,
+    crmFollowUpsDue,
   ] = await Promise.all([
     safeFetch<Campaign>(
       `${BASE}/rest/v1/campaign_settings?is_demo=eq.false&select=campaign_slug,school_name,sport_name,goal_cents,deadline,created_at&order=school_name.asc&limit=200`,
@@ -98,6 +99,9 @@ export default async function OperationsPage() {
     ),
     safeFetch<{ id: string }>(
       `${BASE}/rest/v1/messages?created_at=gte.${todayISO}&select=id&limit=500`,
+    ),
+    safeFetch<{ id: string; name: string }>(
+      `${BASE}/rest/v1/coach_crm_contacts?next_follow_up_at=lte.${in7Days.toISOString()}&select=id,name&limit=100`,
     ),
   ]);
 
@@ -184,6 +188,19 @@ export default async function OperationsPage() {
       href:        "/admin/campaigns",
       actionLabel: "View Campaigns",
       icon:        "✉",
+    });
+  }
+
+  if (crmFollowUpsDue.length > 0) {
+    attention.push({
+      id:          "crm-follow-ups",
+      severity:    "info",
+      title:       "CRM follow-ups due",
+      count:       crmFollowUpsDue.length,
+      detail:      crmFollowUpsDue.slice(0, 3).map(c => c.name).join(", "),
+      href:        "/admin/crm",
+      actionLabel: "Open Coach CRM",
+      icon:        "☎",
     });
   }
 
