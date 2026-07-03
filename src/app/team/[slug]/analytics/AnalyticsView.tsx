@@ -26,7 +26,7 @@ export type PaceData = {
 export type AthleteProgress = {
   id:             string;
   name:           string;
-  event:          string;
+  event:          string | null;
   class_year:     string | null;
   profile_photo:  string | null;
   raisedCents:    number;

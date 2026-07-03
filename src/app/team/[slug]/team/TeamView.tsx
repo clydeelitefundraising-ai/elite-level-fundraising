@@ -74,7 +74,7 @@ const BLANK: AthForm = {
 function fromRow(a: TeamAthleteRow): AthForm {
   return {
     name:          a.name,
-    event:         a.event,
+    event:         a.event ?? "",
     class_year:    a.class_year ?? "",
     jersey_number: a.jersey_number != null ? String(a.jersey_number) : "",
     grad_year:     a.grad_year     != null ? String(a.grad_year)     : "",

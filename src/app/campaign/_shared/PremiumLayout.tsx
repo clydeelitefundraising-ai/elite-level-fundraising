@@ -21,8 +21,8 @@ export type PremiumLayoutProps = {
   goal: number;
   daysLeft: number;
   percent: number;
-  athletes: { rank: number; name: string; event: string; class_year: string | null; raised: number }[];
-  filteredAthletes: { rank: number; displayRank: number; name: string; event: string; class_year: string | null; raised: number }[];
+  athletes: { rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
+  filteredAthletes: { rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
   filters: string[];
   activeFilter: string;
   setActiveFilter: (v: string) => void;

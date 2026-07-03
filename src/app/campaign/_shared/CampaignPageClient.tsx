@@ -68,7 +68,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState<{ rank: number; name: string; event: string; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
+  const [athletes,        setAthletes]        = useState<{ rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
@@ -133,7 +133,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
-        const base: { name: string; event: string; class_year?: string | null }[] =
+        const base: { name: string; event: string | null; class_year?: string | null }[] =
           Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
             ? fetchedAthletes
             : FALLBACK_ATHLETES;
@@ -174,7 +174,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   }, [primaryColor, secondaryColor]);
 
   const percent = Math.round((raised / goal) * 100);
-  const filters = ["Overall", ...Array.from(new Set(athletes.map((a) => a.event)))];
+  const filters = ["Overall", ...Array.from(new Set(athletes.map((a) => a.event).filter((e): e is string => !!e)))];
 
   const displayAmount =
     selectedAmount === "Custom"

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
-type Athlete    = { id: string; name: string; event: string; class_year: string | null };
+type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
@@ -229,8 +229,8 @@ export function AdminDashboard() {
   };
 
   const addAthlete = async () => {
-    if (!newAName.trim() || !newAEvent.trim()) return;
-    const res = await fetch("/api/admin/athletes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newAName.trim(), event: newAEvent.trim(), class_year: newAClass || null }) });
+    if (!newAName.trim() || !newAClass) { flash("Name and class are required."); return; }
+    const res = await fetch("/api/admin/athletes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newAName.trim(), event: newAEvent.trim() || null, class_year: newAClass }) });
     if (!res.ok) { const body = await res.json().catch(() => ({})); flash(`Error: ${body.error ?? res.statusText}`); return; }
     const a = await res.json();
     setAthletes(p => [...p, a]); setNewAName(""); setNewAEvent(""); setNewAClass(""); flash("Athlete added.");
@@ -238,7 +238,8 @@ export function AdminDashboard() {
 
   const saveAthlete = async () => {
     if (!editA) return;
-    const res = await fetch(`/api/admin/athletes/${editA.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editA.name, event: editA.event, class_year: editA.class_year }) });
+    if (!editA.name.trim() || !editA.class_year?.trim()) { flash("Name and class are required."); return; }
+    const res = await fetch(`/api/admin/athletes/${editA.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editA.name, event: editA.event?.trim() || null, class_year: editA.class_year }) });
     if (!res.ok) { const body = await res.json().catch(() => ({})); flash(`Error: ${body.error ?? res.statusText}`); return; }
     setAthletes(p => p.map(a => a.id === editA.id ? editA : a)); setEditA(null); flash("Athlete updated.");
   };
@@ -604,9 +605,9 @@ export function AdminDashboard() {
                         </select>
                         <input
                           style={{ ...C.input, marginTop: ".35rem", fontSize: ".78rem" }}
-                          value={editA.event}
+                          value={editA.event ?? ""}
                           onChange={e => setEditA(v => v ? { ...v, event: e.target.value } : v)}
-                          placeholder="Event / Position"
+                          placeholder="Event / Position (optional)"
                         />
                       </td>
                       <td style={C.td}>
@@ -639,15 +640,15 @@ export function AdminDashboard() {
             </table>
           </div>
           <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
-            <label style={{ ...C.label, flex: 2 }}>Name <input style={C.input} value={newAName} onChange={e => setNewAName(e.target.value)} placeholder="Athlete name" /></label>
+            <label style={{ ...C.label, flex: 2 }}>Name * <input style={C.input} value={newAName} onChange={e => setNewAName(e.target.value)} placeholder="Athlete name" /></label>
             <label style={{ ...C.label, flex: 1 }}>
-              Class
+              Class *
               <select style={C.input} value={newAClass} onChange={e => setNewAClass(e.target.value)}>
                 <option value="">Select…</option>
                 {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            <label style={{ ...C.label, flex: 1 }}>Event <input style={C.input} value={newAEvent} onChange={e => setNewAEvent(e.target.value)} placeholder="Sprints" /></label>
+            <label style={{ ...C.label, flex: 1 }}>Event (optional) <input style={C.input} value={newAEvent} onChange={e => setNewAEvent(e.target.value)} placeholder="Sprints" /></label>
             <Btn color="#16a34a" onClick={addAthlete}>+ Add</Btn>
           </div>
         </div>

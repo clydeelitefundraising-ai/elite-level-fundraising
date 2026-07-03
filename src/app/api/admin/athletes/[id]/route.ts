@@ -13,8 +13,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const { name, event, class_year } = await req.json();
+  if (!name?.trim() || !class_year?.trim()) {
+    return NextResponse.json({ error: "name and class are required" }, { status: 400 });
+  }
+  const eventValue = event?.trim() || null;
   try {
-    await updateAthlete(id, { name, event, class_year: class_year ?? null });
+    await updateAthlete(id, { name: name.trim(), event: eventValue, class_year: class_year.trim() });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update athlete." }, { status: 500 });
   }
@@ -22,8 +26,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     action:      "athlete.updated",
     entity_type: "athlete",
     entity_id:   id,
-    summary:     `Updated athlete ${id}: name="${name}", event="${event}"`,
-    new_value:   { name, event, class_year: class_year ?? null },
+    summary:     `Updated athlete ${id}: name="${name.trim()}", class="${class_year.trim()}", event="${eventValue ?? ""}"`,
+    new_value:   { name: name.trim(), event: eventValue, class_year: class_year.trim() },
     ip_address:  ipOf(req),
     user_agent:  req.headers.get("user-agent"),
   });

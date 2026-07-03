@@ -35,7 +35,7 @@ export default async function RegistrationPage({ params }: RouteCtx) {
   if (!settingsRows.length) notFound();
   const settings = settingsRows[0];
 
-  type RawAthlete  = { id: string; name: string; event: string; class_year: string | null; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
+  type RawAthlete  = { id: string; name: string; event: string | null; class_year: string | null; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
   type RawMember   = { id: string; role: string; name: string; athlete_id: string | null; account_id: string | null };
   type RawContact  = { athlete_id: string | null };
   type RawGoal     = { athlete_id: string | null; goal: number };

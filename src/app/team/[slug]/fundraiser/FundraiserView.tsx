@@ -19,7 +19,7 @@ export type LeaderboardEntry = {
   id:            string;
   name:          string;
   profile_photo: string | null;
-  event:         string;
+  event:         string | null;
   class_year:    string | null;
   raisedCents:   number;
   goalCents:     number | null;

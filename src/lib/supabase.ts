@@ -85,7 +85,7 @@ export type AthleteRow = {
   id: string;
   campaign_slug: string;
   name: string;
-  event: string;
+  event: string | null;
   class_year?: string | null;
   created_at: string;
   contact_phone: string | null;
@@ -188,7 +188,7 @@ export async function addAthlete(data: Omit<AthleteRow, "id" | "created_at">): P
   return rows[0];
 }
 
-export async function updateAthlete(id: string, data: { name: string; event: string; class_year?: string | null }): Promise<void> {
+export async function updateAthlete(id: string, data: { name: string; event: string | null; class_year?: string | null }): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
     `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}`,

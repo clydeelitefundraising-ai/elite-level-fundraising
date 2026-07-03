@@ -125,7 +125,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   return NextResponse.json({ athletes: rows, summary });
 }
 
-type RawAthlete  = { id: string; name: string; event: string; class_year: string | null; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
+type RawAthlete  = { id: string; name: string; event: string | null; class_year: string | null; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
 type RawMember   = { id: string; role: string; name: string; athlete_id: string | null; account_id: string | null };
 type RawContact  = { athlete_id: string | null };
 type RawGoal     = { athlete_id: string | null; goal: number };
@@ -134,7 +134,7 @@ type RawDonation = { athlete_id: string | null; amount_cents: number };
 export type AthleteRegistration = {
   athlete_id:              string;
   name:                    string;
-  event:                   string;
+  event:                   string | null;
   class_year:              string | null;
   jersey_number:           number | null;
   grad_year:               number | null;

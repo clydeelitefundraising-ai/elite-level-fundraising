@@ -22,14 +22,15 @@ export async function POST(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { campaign_slug, name, event, class_year } = await req.json();
   const slug = campaign_slug ?? DEFAULT_SLUG;
-  if (!name?.trim() || !event?.trim()) {
-    return NextResponse.json({ error: "name and event are required" }, { status: 400 });
+  if (!name?.trim() || !class_year?.trim()) {
+    return NextResponse.json({ error: "name and class are required" }, { status: 400 });
   }
+  const eventValue = event?.trim() || null;
   let athlete;
   try {
     athlete = await addAthlete({
-      campaign_slug: slug, name: name.trim(), event: event.trim(),
-      class_year: class_year?.trim() || null, contact_phone: null, contact_email: null,
+      campaign_slug: slug, name: name.trim(), event: eventValue,
+      class_year: class_year.trim(), contact_phone: null, contact_email: null,
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to add athlete." }, { status: 500 });
@@ -39,8 +40,8 @@ export async function POST(req: NextRequest) {
     entity_type:   "athlete",
     entity_id:     athlete?.id ?? undefined,
     campaign_slug: slug,
-    summary:       `Added athlete "${name.trim()}" (${event.trim()}) to ${slug}`,
-    new_value:     { name: name.trim(), event: event.trim(), class_year: class_year ?? null, campaign_slug: slug },
+    summary:       `Added athlete "${name.trim()}" (${class_year.trim()}${eventValue ? `, ${eventValue}` : ""}) to ${slug}`,
+    new_value:     { name: name.trim(), event: eventValue, class_year: class_year.trim(), campaign_slug: slug },
     ip_address:    ipOf(req),
     user_agent:    req.headers.get("user-agent"),
   });
