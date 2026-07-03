@@ -37,7 +37,7 @@ type QuickAction = { label: string; desc: string; href: string; primary?: boolea
 const ACTIONS: QuickAction[] = [
   { label: "View Campaigns",     desc: "See all campaigns and their status", href: "/admin/campaigns", primary: true },
   { label: "Campaign Editor",    desc: "Edit settings, roster, coaches",      href: "/admin/edit" },
-  { label: "Demo Center",        desc: "Coming soon",                         href: "#" },
+  { label: "Demo Center",        desc: "Explore the sales demo environment", href: "/admin/demo" },
   { label: "Export Reports",     desc: "Download campaign data as CSV",       href: "/admin/exports" },
 ];
 
@@ -78,9 +78,12 @@ export default function DashboardView({
                 textAlign: "left",
                 opacity: a.href === "#" ? .5 : 1,
                 transition: "transform .1s, box-shadow .1s",
+                outline: "none",
               }}
               onMouseEnter={e => { if (a.href !== "#") { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 4px 16px rgba(0,0,0,.08)"; } }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "none"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
+              onFocus={e => { if (a.href !== "#") { (e.currentTarget as HTMLButtonElement).style.boxShadow = a.primary ? "0 0 0 3px rgba(11,30,61,.3)" : "0 0 0 3px rgba(11,30,61,.15)"; } }}
+              onBlur={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
             >
               <div style={{ fontSize: ".875rem", fontWeight: 600, color: a.primary ? "#fff" : "#1d1d1f", marginBottom: ".25rem" }}>{a.label}</div>
               <div style={{ fontSize: ".75rem", color: a.primary ? "rgba(255,255,255,.6)" : "#98989d" }}>{a.desc}</div>

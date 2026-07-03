@@ -9,30 +9,65 @@ type NavItem = {
   href: string;
   icon: string;
   disabled?: boolean;
-  accent?: boolean;
 };
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard",    href: "/admin/dashboard",  icon: "◉" },
-  { label: "Campaigns",    href: "/admin/campaigns",  icon: "◫" },
-  { label: "Accounts",     href: "/admin/accounts",   icon: "◎" },
-  { label: "Analytics",    href: "/admin/analytics",  icon: "╱" },
-  { label: "Exports",      href: "/admin/exports",    icon: "↓" },
-];
+type NavGroup = {
+  heading: string;
+  items: NavItem[];
+};
 
-const NAV_SECONDARY: NavItem[] = [
-  { label: "Executive",     href: "/admin/executive",    icon: "★" },
-  { label: "Reports",       href: "/admin/reports",      icon: "📊" },
-  { label: "Operations",    href: "/admin/operations",   icon: "⬡" },
-  { label: "Team Health",   href: "/admin/health",       icon: "♥" },
-  { label: "Automation",    href: "/admin/automation",   icon: "⚡" },
-  { label: "Coach CRM",     href: "/admin/crm",          icon: "☎" },
-  { label: "Sponsors",      href: "/admin/sponsors",     icon: "🏢" },
-  { label: "Notifications", href: "/admin/notifications", icon: "🔔" },
-  { label: "Organization",  href: "/admin/organization", icon: "◈" },
-  { label: "Demo Center",   href: "/admin/demo",         icon: "▶", accent: true },
-  { label: "Audit Log",     href: "/admin/audit",        icon: "☰" },
-  { label: "Settings",      href: "#",                   icon: "⊙", disabled: true },
+// Routes are unchanged from before this pass — only grouped into logical
+// sections with subtle headers for scanability. No hrefs were added, removed,
+// or renamed here.
+const NAV_GROUPS: NavGroup[] = [
+  {
+    heading: "Main",
+    items: [
+      { label: "Executive", href: "/admin/executive", icon: "★" },
+      { label: "Dashboard",  href: "/admin/dashboard", icon: "◉" },
+      { label: "Reports",    href: "/admin/reports",   icon: "📊" },
+    ],
+  },
+  {
+    heading: "Operations",
+    items: [
+      { label: "Operations",    href: "/admin/operations",    icon: "⬡" },
+      { label: "Automation",    href: "/admin/automation",    icon: "⚡" },
+      { label: "Notifications", href: "/admin/notifications", icon: "🔔" },
+      { label: "Audit Log",     href: "/admin/audit",         icon: "☰" },
+    ],
+  },
+  {
+    heading: "Campaigns",
+    items: [
+      { label: "Campaigns",       href: "/admin/campaigns", icon: "◫" },
+      { label: "Campaign Editor", href: "/admin/edit",      icon: "⊞" },
+      { label: "Team Health",     href: "/admin/health",    icon: "♥" },
+    ],
+  },
+  {
+    heading: "Relationships",
+    items: [
+      { label: "Coach CRM", href: "/admin/crm",      icon: "☎" },
+      { label: "Sponsors",  href: "/admin/sponsors",  icon: "🏢" },
+    ],
+  },
+  {
+    heading: "Analytics",
+    items: [
+      { label: "Analytics", href: "/admin/analytics", icon: "╱" },
+      { label: "Accounts",  href: "/admin/accounts",  icon: "◎" },
+      { label: "Exports",   href: "/admin/exports",   icon: "↓" },
+    ],
+  },
+  {
+    heading: "System",
+    items: [
+      { label: "Organization", href: "/admin/organization", icon: "◈" },
+      { label: "Demo Center",  href: "/admin/demo",          icon: "▶" },
+      { label: "Settings",     href: "#",                    icon: "⊙", disabled: true },
+    ],
+  },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -111,20 +146,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         {/* Primary nav */}
         <div role="navigation" style={{ padding: ".5rem .5rem 0", flex: 1 }}>
-          <NavSection items={NAV_ITEMS} pathname={pathname} router={router} />
-
-          <div style={{ margin: ".75rem .5rem", height: 1, background: "#f3f4f6" }} />
-
-          <NavSection items={NAV_SECONDARY} pathname={pathname} router={router} />
-
-          {/* Legacy editor link */}
-          <div style={{ margin: ".75rem .5rem", height: 1, background: "#f3f4f6" }} />
-          <NavSection
-            items={[{ label: "Campaign Editor", href: "/admin/edit", icon: "⊞" }]}
-            pathname={pathname}
-            router={router}
-            muted
-          />
+          {NAV_GROUPS.map((group, i) => (
+            <div key={group.heading}>
+              <NavGroupHeading label={group.heading} first={i === 0} />
+              <NavSection items={group.items} pathname={pathname} router={router} />
+            </div>
+          ))}
         </div>
 
         {/* Bottom: logout */}
@@ -183,16 +210,26 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   );
 }
 
+function NavGroupHeading({ label, first = false }: { label: string; first?: boolean }) {
+  return (
+    <div style={{
+      padding: `${first ? ".2rem" : ".85rem"} .75rem .3rem`,
+      fontSize: ".62rem", fontWeight: 700, color: "#b9b9bd",
+      textTransform: "uppercase", letterSpacing: ".07em",
+    }}>
+      {label}
+    </div>
+  );
+}
+
 function NavSection({
   items,
   pathname,
   router,
-  muted = false,
 }: {
   items: NavItem[];
   pathname: string;
   router: ReturnType<typeof useRouter>;
-  muted?: boolean;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -204,34 +241,29 @@ function NavSection({
           <button
             key={item.href + item.label}
             onClick={() => { if (!isDisabled) router.push(item.href); }}
+            disabled={isDisabled}
+            aria-disabled={isDisabled}
             style={{
               display: "flex", alignItems: "center", gap: ".55rem",
               padding: ".42rem .75rem",
               background: active ? "#eff0f3" : "none",
               border: "none", borderRadius: 7,
-              cursor: isDisabled ? "default" : "pointer",
+              cursor: isDisabled ? "not-allowed" : "pointer",
               textAlign: "left", width: "100%",
-              transition: "background .12s",
+              transition: "background .12s, box-shadow .12s",
+              outline: "none",
             }}
             onMouseEnter={e => { if (!active && !isDisabled) (e.currentTarget as HTMLButtonElement).style.background = "#f5f5f7"; }}
             onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            onFocus={e => { if (!isDisabled) (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 0 0 2px rgba(11,30,61,.25)"; }}
+            onBlur={e => { (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"; }}
           >
-            <span style={{ fontSize: ".72rem", width: 14, textAlign: "center", flexShrink: 0, color: active ? "#0b1e3d" : isDisabled || muted ? "#c7c7cc" : "#6e6e73" }}>
+            <span style={{ fontSize: ".72rem", width: 14, textAlign: "center", flexShrink: 0, color: active ? "#0b1e3d" : isDisabled ? "#d4d4d8" : "#6e6e73" }}>
               {item.icon}
             </span>
-            <span style={{ fontSize: ".8rem", fontWeight: active ? 600 : 500, color: active ? "#0b1e3d" : isDisabled || muted ? "#c7c7cc" : "#1d1d1f", letterSpacing: "-.01em" }}>
+            <span style={{ fontSize: ".8rem", fontWeight: active ? 600 : 500, color: active ? "#0b1e3d" : isDisabled ? "#d4d4d8" : "#1d1d1f", letterSpacing: "-.01em" }}>
               {item.label}
             </span>
-            {item.disabled && (
-              <span style={{ marginLeft: "auto", fontSize: ".58rem", fontWeight: 600, color: "#c7c7cc", letterSpacing: ".04em", textTransform: "uppercase" }}>
-                Soon
-              </span>
-            )}
-            {item.accent && !item.disabled && (
-              <span style={{ marginLeft: "auto", fontSize: ".6rem", fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: ".1rem .4rem", borderRadius: 4 }}>
-                New
-              </span>
-            )}
           </button>
         );
       })}
