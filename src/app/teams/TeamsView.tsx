@@ -1,8 +1,96 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return `rgba(11, 30, 61, ${alpha})`;
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const ROLE_ICON: Record<string, string> = {
+  athlete:         "🏃",
+  head_coach:      "🏅",
+  assistant_coach: "📋",
+  parent:          "👪",
+  booster:         "🤝",
+};
+
+// ── Profile menu ──────────────────────────────────────────────────────────────
+
+function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firstTeamSlug: string | null }) {
+  const [open, setOpen] = useState(false);
+  const initial = accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-label="Profile menu"
+        aria-expanded={open}
+        style={{
+          width: 34, height: 34, borderRadius: "50%",
+          background: "rgba(255,255,255,.15)", border: "1.5px solid rgba(255,255,255,.3)",
+          color: "#fff", fontWeight: 800, fontSize: ".68rem", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {initial}
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.35)" }} />
+          <div style={{
+            position: "absolute", top: "calc(100% + .5rem)", right: 0, zIndex: 100,
+            background: "#fff", borderRadius: ".85rem", boxShadow: "0 10px 34px rgba(0,0,0,.25)",
+            minWidth: 200, overflow: "hidden",
+          }}>
+            <div style={{ padding: ".8rem 1rem .6rem", borderBottom: "1px solid #f0f0f0" }}>
+              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{accountName}</div>
+            </div>
+
+            {firstTeamSlug && (
+              <a href={`/team/${firstTeamSlug}/profile`} onClick={() => setOpen(false)} style={menuItemStyle}>
+                <span style={{ fontSize: ".9rem" }}>👤</span> My Profile
+              </a>
+            )}
+            {firstTeamSlug && (
+              <a href={`/team/${firstTeamSlug}/settings`} onClick={() => setOpen(false)} style={menuItemStyle}>
+                <span style={{ fontSize: ".9rem" }}>⚙️</span> Settings
+              </a>
+            )}
+            <a href="mailto:support@elitelevelfundraising.com" style={menuItemStyle}>
+              <span style={{ fontSize: ".9rem" }}>❓</span> Help
+            </a>
+
+            <form method="POST" action="/api/auth/logout" style={{ borderTop: "1px solid #f0f0f0" }}>
+              <button type="submit" style={{ ...menuItemStyle, width: "100%", border: "none", background: "none", cursor: "pointer", textAlign: "left", color: "#9ca3af" }}>
+                <span style={{ fontSize: ".9rem" }}>↩</span> Sign Out
+              </button>
+            </form>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: ".65rem",
+  padding: ".7rem 1rem", fontSize: ".84rem", fontWeight: 600, color: "#374151",
+  textDecoration: "none", borderBottom: "1px solid #f8f8f8",
+};
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TeamsView({
   teams,
@@ -11,10 +99,13 @@ export default function TeamsView({
   teams: TeamSummary[];
   accountName: string;
 }) {
-  const initial = accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
-
   return (
     <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <style>{`
+        .team-card { transition: transform .15s ease, box-shadow .15s ease; }
+        .team-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
+        .team-card:active { transform: scale(.985); box-shadow: var(--card-shadow); }
+      `}</style>
       <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
 
         {/* Header */}
@@ -24,10 +115,7 @@ export default function TeamsView({
             <div style={{ color: "#fff", fontWeight: 800, fontSize: ".95rem", lineHeight: 1.2 }}>Choose Your Team</div>
             <div style={{ color: "rgba(255,255,255,.55)", fontSize: ".72rem", marginTop: ".05rem" }}>Select the team you want to enter</div>
           </div>
-          {/* Account avatar */}
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,.15)", border: "1.5px solid rgba(255,255,255,.3)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: ".65rem", flexShrink: 0 }}>
-            {initial}
-          </div>
+          <ProfileMenu accountName={accountName} firstTeamSlug={teams[0]?.campaign_slug ?? null} />
         </div>
         <div style={{ height: 3, background: "#C4A35A" }} />
 
@@ -46,7 +134,7 @@ export default function TeamsView({
         </div>
 
         {/* Team cards */}
-        <div style={{ padding: "0 1.25rem", display: "flex", flexDirection: "column", gap: ".65rem", flex: 1 }}>
+        <div style={{ padding: "0 1.25rem", display: "flex", flexDirection: "column", gap: ".85rem", flex: 1 }}>
           {teams.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: ".75rem" }}>🏫</div>
@@ -61,63 +149,82 @@ export default function TeamsView({
               </a>
             </div>
           ) : (
-            teams.map(team => (
-              <a
-                key={team.campaign_slug}
-                href={`/team/${team.campaign_slug}/home`}
-                style={{ display: "block", textDecoration: "none", borderRadius: "1rem", overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,.09)", background: "#fff" }}
-              >
-                {/* Color strip */}
-                <div style={{ height: 5, background: team.primary_color || "#0b1e3d" }} />
-                <div style={{ padding: ".9rem 1rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
-                  {/* Team avatar / logo */}
-                  {team.logo_url ? (
-                    <img
-                      src={team.logo_url}
-                      alt=""
-                      style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: `0 2px 8px ${team.primary_color || "#0b1e3d"}55` }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 46, height: 46, borderRadius: "50%",
-                      background: team.primary_color || "#0b1e3d",
-                      flexShrink: 0, display: "flex", alignItems: "center",
-                      justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: "1.15rem",
-                      boxShadow: `0 2px 8px ${team.primary_color || "#0b1e3d"}55`,
-                    }}>
-                      {team.school_name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+            teams.map(team => {
+              const color = team.primary_color || "#0b1e3d";
+              const cardShadow      = `0 3px 12px 0 ${hexToRgba(color, 0.16)}`;
+              const cardShadowHover = `0 10px 28px 0 ${hexToRgba(color, 0.3)}`;
+              return (
+                <a
+                  key={team.campaign_slug}
+                  href={`/team/${team.campaign_slug}/home`}
+                  className="team-card"
+                  style={{
+                    display: "block", textDecoration: "none", borderRadius: "1.1rem", overflow: "hidden",
+                    background: "#fff",
+                    boxShadow: cardShadow,
+                    "--card-shadow": cardShadow,
+                    "--card-shadow-hover": cardShadowHover,
+                  } as React.CSSProperties}
+                >
+                  {/* Team-color accent stripe */}
+                  <div style={{ height: 6, background: `linear-gradient(90deg, ${color}, ${hexToRgba(color, 0.6)})` }} />
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-                      <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ padding: "1.15rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                    {/* Team logo — full, uncropped, generously padded */}
+                    <div style={{
+                      width: 64, height: 64, borderRadius: "1rem", flexShrink: 0,
+                      background: team.logo_url ? "#f5f6f8" : color,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: `0 3px 10px ${hexToRgba(color, 0.35)}`,
+                      padding: team.logo_url ? 8 : 0,
+                      boxSizing: "border-box",
+                    }}>
+                      {team.logo_url ? (
+                        <img
+                          src={team.logo_url}
+                          alt=""
+                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        />
+                      ) : (
+                        <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.4rem" }}>
+                          {team.school_name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Team identity */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", lineHeight: 1.25,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      }}>
                         {team.school_name}
+                      </div>
+                      <div style={{ fontSize: ".8rem", color: "#6b7280", marginTop: ".32rem" }}>
+                        {[team.mascot, team.sport_name].filter(Boolean).join(" · ") || "Team Hub"}
+                        {team.season && ` · ${team.season}`}
                       </div>
                       {team.role && (
                         <span style={{
-                          flexShrink: 0, background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100,
-                          fontSize: ".58rem", fontWeight: 700, padding: ".12rem .45rem", textTransform: "uppercase", letterSpacing: ".03em",
+                          display: "inline-flex", alignItems: "center", gap: ".3rem",
+                          marginTop: ".55rem", background: hexToRgba(color, 0.1), color,
+                          borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
+                          padding: ".25rem .6rem .25rem .5rem", textTransform: "uppercase", letterSpacing: ".03em",
                         }}>
+                          <span style={{ fontSize: ".75rem" }}>{ROLE_ICON[team.role] ?? "⭐"}</span>
                           {teamRoleLabel(team.role, team.role_kind)}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: ".78rem", color: "#6b7280", marginTop: ".18rem" }}>
-                      {[team.mascot, team.sport_name].filter(Boolean).join(" · ") || "Team Hub"}
-                      {team.season && ` · ${team.season}`}
-                    </div>
-                  </div>
 
-                  <div style={{
-                    flexShrink: 0, display: "flex", alignItems: "center", gap: ".3rem",
-                    color: team.primary_color || "#0b1e3d", fontSize: ".78rem", fontWeight: 700,
-                  }}>
-                    Enter Team <span style={{ fontSize: "1.1rem" }}>›</span>
+                    {/* Chevron — the entire card is the tap target */}
+                    <span style={{ flexShrink: 0, fontSize: "1.4rem", fontWeight: 800, color: hexToRgba(color, 0.55) }}>
+                      ›
+                    </span>
                   </div>
-                </div>
-              </a>
-            ))
+                </a>
+              );
+            })
           )}
 
           {teams.length > 0 && (
@@ -125,7 +232,7 @@ export default function TeamsView({
               href="/enter-code"
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
-                marginTop: ".25rem", marginBottom: ".5rem", padding: ".75rem",
+                marginTop: ".1rem", padding: ".75rem",
                 border: "1.5px dashed #c7cad1", borderRadius: "1rem",
                 fontSize: ".85rem", color: "#0b1e3d", fontWeight: 700, textDecoration: "none",
               }}
@@ -133,15 +240,25 @@ export default function TeamsView({
               + Add Team
             </a>
           )}
-        </div>
 
-        {/* Sign out */}
-        <div style={{ padding: "1rem 1.25rem 1.5rem", textAlign: "center", borderTop: "1px solid #eaecef" }}>
-          <form action="/api/auth/logout" method="POST">
-            <button type="submit" style={{ background: "none", border: "none", fontSize: ".8rem", color: "#9ca3af", cursor: "pointer" }}>
-              Sign Out
-            </button>
-          </form>
+          {/* Informational footer — replaces empty whitespace below the cards */}
+          {teams.length > 0 && (
+            <div style={{
+              display: "flex", gap: ".7rem", alignItems: "flex-start",
+              margin: ".25rem 0 1.5rem", padding: "1rem 1.1rem",
+              background: "#eef1f6", borderRadius: "1rem",
+            }}>
+              <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💡</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#0b1e3d", marginBottom: ".2rem" }}>
+                  Need another team?
+                </div>
+                <div style={{ fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
+                  Use your coach&apos;s team code to connect another athlete, parent, booster, or coach account.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
