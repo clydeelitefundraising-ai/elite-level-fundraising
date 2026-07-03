@@ -1,5 +1,5 @@
 import { getTeamAthletes } from "@/lib/teamData";
-import { getTeamActor } from "@/lib/permissions.server";
+import { requireTeamMembership } from "@/lib/permissions.server";
 import TeamView from "./TeamView";
 
 export default async function TeamPage({
@@ -8,9 +8,8 @@ export default async function TeamPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [athletes, actor] = await Promise.all([
-    getTeamAthletes(slug),
-    getTeamActor(slug),
-  ]);
+  // Not a public-facing route — gate it to logged-in members of this team.
+  const actor = await requireTeamMembership(slug);
+  const athletes = await getTeamAthletes(slug);
   return <TeamView slug={slug} initialAthletes={athletes} actor={actor} />;
 }

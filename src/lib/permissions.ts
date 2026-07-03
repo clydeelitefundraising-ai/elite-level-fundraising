@@ -64,3 +64,16 @@ export function staffRoleLabel(role: string): string {
   if (role === "booster")         return "Booster";
   return role;
 }
+
+/** Human-readable display label for any team_members role string. */
+export function memberRoleLabel(role: string): string {
+  if (role === "athlete") return "Athlete";
+  if (role === "parent")  return "Parent";
+  if (role === "booster") return "Booster";
+  return role;
+}
+
+/** Role label for a Team Selector card, given the raw role + which table it came from. */
+export function teamRoleLabel(role: string, roleKind: "coach" | "member"): string {
+  return roleKind === "coach" ? staffRoleLabel(role) : memberRoleLabel(role);
+}

@@ -9,7 +9,9 @@ export default async function TeamsPage() {
   if (!session) redirect("/login");
 
   const teams = await getAccountTeams(session.id);
-  if (teams.length === 1) redirect(`/team/${teams[0].campaign_slug}/home`);
 
+  // Always show the selector, even with exactly one team — keeps the flow
+  // consistent and gives users a visible way to add another team (dual-sport
+  // athletes, multi-team coaches, parents with kids on different teams).
   return <TeamsView teams={teams} accountName={session.name} />;
 }

@@ -1,6 +1,6 @@
 import { getAnnouncements, getCalendarEvents, getTeamSponsors, getDonationStats, getTeamFundraiserSummary } from "@/lib/teamData";
 import type { SponsorRow } from "@/lib/teamData";
-import { getTeamActor } from "@/lib/permissions.server";
+import { requireTeamMembership } from "@/lib/permissions.server";
 import { getCampaignSettings } from "@/lib/supabase";
 import HomeView from "./HomeView";
 
@@ -10,10 +10,12 @@ export default async function HomePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [announcements, upcoming, actor, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
+  // Home is not a public-facing route (unlike Fundraiser/athlete donor
+  // pages) — gate it to logged-in members of this team.
+  const actor = await requireTeamMembership(slug);
+  const [announcements, upcoming, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
     getAnnouncements(slug),
     getCalendarEvents(slug, true),
-    getTeamActor(slug),
     getTeamSponsors(slug),
     getCampaignSettings(slug),
     getDonationStats(slug),

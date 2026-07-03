@@ -23,6 +23,10 @@ export type TeamSummary = {
   mascot:        string;
   sport_name:    string;
   primary_color: string;
+  season:        string;
+  logo_url:      string | null;
+  role:          string;       // raw role string (head_coach / assistant_coach / booster / athlete / parent)
+  role_kind:     "coach" | "member";
 };
 
 // Memoized per render — prevents duplicate DB calls when both getTeamActor
@@ -96,35 +100,59 @@ export async function getActorForAccount(
   return null;
 }
 
+// A single account can hold a team_coaches row and/or a team_members row for
+// the same campaign_slug (e.g. an assistant coach who is also a registered
+// parent on that team), or different rows across different teams entirely
+// (coach on one team, parent/athlete on another). Role display here mirrors
+// getActorForAccount()'s precedence — member wins when both exist for the
+// same slug — so the Team Selector's role badge always matches what the
+// actor actually resolves to once they enter that team.
 export async function getAccountTeams(accountId: string): Promise<TeamSummary[]> {
   const [coachRes, memberRes] = await Promise.all([
     fetch(
-      `${BASE}/rest/v1/team_coaches?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug`,
+      `${BASE}/rest/v1/team_coaches?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug`,
+      `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
 
-  const slugs = new Set<string>();
-  if (coachRes.ok) {
-    const rows = await coachRes.json();
-    if (Array.isArray(rows)) rows.forEach((r: { campaign_slug: string }) => slugs.add(r.campaign_slug));
-  }
+  const roleBySlug: Record<string, { role: string; role_kind: "coach" | "member" }> = {};
+
   if (memberRes.ok) {
     const rows = await memberRes.json();
-    if (Array.isArray(rows)) rows.forEach((r: { campaign_slug: string }) => slugs.add(r.campaign_slug));
+    if (Array.isArray(rows)) {
+      for (const r of rows as { campaign_slug: string; role: string }[]) {
+        roleBySlug[r.campaign_slug] = { role: r.role, role_kind: "member" };
+      }
+    }
   }
-  if (slugs.size === 0) return [];
+  if (coachRes.ok) {
+    const rows = await coachRes.json();
+    if (Array.isArray(rows)) {
+      for (const r of rows as { campaign_slug: string; role: string }[]) {
+        if (!roleBySlug[r.campaign_slug]) roleBySlug[r.campaign_slug] = { role: r.role, role_kind: "coach" };
+      }
+    }
+  }
 
-  const inList = Array.from(slugs).join(",");
+  const slugs = Object.keys(roleBySlug);
+  if (slugs.length === 0) return [];
+
+  const inList = slugs.join(",");
   const settingsRes = await fetch(
-    `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=campaign_slug,school_name,mascot,sport_name,primary_color`,
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=campaign_slug,school_name,mascot,sport_name,primary_color,season,logo_url`,
     { headers: h(), cache: "no-store" },
   );
   if (!settingsRes.ok) return [];
   const rows = await settingsRes.json();
-  return Array.isArray(rows) ? rows : [];
+  if (!Array.isArray(rows)) return [];
+
+  return rows.map((r: Omit<TeamSummary, "role" | "role_kind">) => ({
+    ...r,
+    role:      roleBySlug[r.campaign_slug]?.role ?? "",
+    role_kind: roleBySlug[r.campaign_slug]?.role_kind ?? "member",
+  }));
 }

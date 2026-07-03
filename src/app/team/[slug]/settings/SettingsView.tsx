@@ -273,6 +273,36 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
           <strong style={{ color: "#6b7280" }}>How it works:</strong> Anyone with this link can join your team hub as an athlete or parent. They choose their own role during sign-up. Revoke to immediately invalidate the current link.
         </div>
       </div>
+
+      {/* ── Your Teams section ── */}
+      <div style={{
+        background: "#fff",
+        borderRadius: 13,
+        padding: "1rem",
+        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        marginTop: ".75rem",
+      }}>
+        <h2 style={{ margin: "0 0 .18rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
+          Your Teams
+        </h2>
+        <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+          Coaching more than one team? Switch between them or link a new one.
+        </p>
+        <div style={{ display: "flex", gap: ".5rem" }}>
+          <button
+            onClick={() => router.push("/teams")}
+            style={{ flex: 1, padding: ".6rem .75rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
+          >
+            Switch Team
+          </button>
+          <button
+            onClick={() => router.push("/enter-code")}
+            style={{ flex: 1, padding: ".6rem .75rem", background: "#fff", color: "#374151", border: "1.5px solid #e5e7eb", borderRadius: 9, fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
+          >
+            + Add Team
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

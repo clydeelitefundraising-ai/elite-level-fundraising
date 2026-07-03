@@ -24,7 +24,10 @@ export default function LoginView() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Login failed."); return; }
-      router.push(data.slug ? `/team/${data.slug}/home` : "/teams");
+      // Always land on the Team Selector, even for single-team accounts —
+      // keeps the flow consistent and gives users a visible way to add
+      // another team from there.
+      router.push("/teams");
     } catch {
       setError("Network error. Please try again.");
     } finally {
