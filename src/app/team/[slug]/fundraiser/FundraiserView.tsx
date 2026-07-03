@@ -20,6 +20,7 @@ export type LeaderboardEntry = {
   name:          string;
   profile_photo: string | null;
   event:         string;
+  class_year:    string | null;
   raisedCents:   number;
   goalCents:     number | null;
   donorCount:    number;
@@ -258,7 +259,7 @@ function LeaderboardSection({
                 </div>
 
                 <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: pct !== null ? ".3rem" : 0 }}>
-                  {entry.event}
+                  {entry.class_year ?? entry.event}
                   {entry.donorCount > 0
                     ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}`
                     : ""}
@@ -436,7 +437,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
               <option value="">Select your name…</option>
               {roster.map(a => (
                 <option key={a.id} value={a.id}>
-                  {a.name}{a.event ? ` — ${a.event}` : ""}
+                  {a.name}{(a.class_year || a.event) ? ` — ${a.class_year || a.event}` : ""}
                 </option>
               ))}
             </select>
@@ -556,8 +557,13 @@ function AthleteView({
           <div style={{ fontSize: ".75rem", color: "#6b7280", marginBottom: ".45rem" }}>{teamLabel}</div>
         )}
         <div style={{ display: "flex", justifyContent: "center", gap: ".35rem", flexWrap: "wrap" }}>
-          {athlete.event && (
+          {(athlete.class_year || athlete.event) && (
             <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: "#f0f4ff", color: "#1d4ed8" }}>
+              {athlete.class_year || athlete.event}
+            </span>
+          )}
+          {athlete.class_year && athlete.event && (
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "#f3f4f6", color: "#6b7280" }}>
               {athlete.event}
             </span>
           )}

@@ -105,6 +105,7 @@ export default async function AnalyticsPage({
         id:             a.id,
         name:           a.name,
         event:          a.event,
+        class_year:     a.class_year ?? null,
         profile_photo:  a.profile_photo,
         raisedCents:    raised,
         goalCents:      goal,

@@ -173,7 +173,7 @@ export default function AthleteProfileView({
 
       {/* Back link */}
       <a
-        href={`/team/${slug}/roster`}
+        href={`/team/${slug}/team`}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -185,7 +185,7 @@ export default function AthleteProfileView({
           marginBottom: ".875rem",
         }}
       >
-        ← Roster
+        ← Team
       </a>
 
       {/* ── Hero card ── */}
@@ -228,11 +228,20 @@ export default function AthleteProfileView({
 
         {/* Badges */}
         <div style={{ display: "flex", justifyContent: "center", gap: ".35rem", flexWrap: "wrap" }}>
-          {athlete.event && (
+          {(athlete.class_year || athlete.event) && (
             <span style={{
               display: "inline-block", padding: ".18rem .55rem", borderRadius: 100,
               fontSize: ".65rem", fontWeight: 700, textTransform: "uppercase",
               letterSpacing: ".04em", background: "#f0f4ff", color: "#1d4ed8",
+            }}>
+              {athlete.class_year || athlete.event}
+            </span>
+          )}
+          {athlete.class_year && athlete.event && (
+            <span style={{
+              display: "inline-block", padding: ".18rem .55rem", borderRadius: 100,
+              fontSize: ".65rem", fontWeight: 700,
+              background: "#f3f4f6", color: "#6b7280",
             }}>
               {athlete.event}
             </span>

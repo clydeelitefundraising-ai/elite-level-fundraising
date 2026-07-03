@@ -49,9 +49,15 @@ export default function TeamNavWithBadge({
   useEffect(() => {
     if (pathname === `/team/${slug}/home`) {
       localStorage.setItem(storageKey, new Date().toISOString());
+    }
+    // Communications covers both former routes (Updates + Messages) — clear
+    // both badge sources when the tab is visited. /messages/[threadId] is
+    // still a valid deep link (unaffected by the merge), so it clears the
+    // message badge the same way it always did.
+    if (pathname.startsWith(`/team/${slug}/communications`) || pathname.startsWith(`/team/${slug}/files`)) {
       setBadge(0);
     }
-    if (pathname.startsWith(`/team/${slug}/messages`)) {
+    if (pathname.startsWith(`/team/${slug}/communications`) || pathname.startsWith(`/team/${slug}/messages`)) {
       // Refresh count after reading (the read API fires elf:messages-changed)
       setMessageBadge(0);
     }
@@ -62,7 +68,7 @@ export default function TeamNavWithBadge({
       slug={slug}
       primaryColor={primaryColor}
       isStaff={isStaff}
-      badgeCounts={{ home: badge, fundraiser: donorCount, messages: messageBadge }}
+      badgeCounts={{ communications: badge + messageBadge, fundraiser: donorCount }}
     />
   );
 }

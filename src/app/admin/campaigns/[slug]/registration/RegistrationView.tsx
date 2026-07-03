@@ -198,7 +198,7 @@ export default function RegistrationView({ slug, campaignLabel, athletes, summar
                 <td style={{ padding: ".65rem .85rem" }}>
                   <div style={{ fontWeight: 600, color: "#1d1d1f" }}>{a.name}</div>
                   <div style={{ fontSize: ".68rem", color: "#98989d", marginTop: ".1rem" }}>
-                    {[a.event, a.jersey_number ? `#${a.jersey_number}` : null, a.grad_year ? `'${String(a.grad_year).slice(-2)}` : null].filter(Boolean).join(" · ")}
+                    {[a.class_year ?? a.event, a.jersey_number ? `#${a.jersey_number}` : null, a.grad_year ? `'${String(a.grad_year).slice(-2)}` : null].filter(Boolean).join(" · ")}
                   </div>
                 </td>
                 <td style={{ padding: ".65rem .85rem" }}>

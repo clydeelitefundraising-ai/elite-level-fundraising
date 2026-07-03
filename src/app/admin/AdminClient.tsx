@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
-type Athlete    = { id: string; name: string; event: string };
+type Athlete    = { id: string; name: string; event: string; class_year: string | null };
+const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
 type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; account_id: string | null; has_pending_invite: boolean; created_at: string };
@@ -30,7 +31,7 @@ type WizardData = {
   coach_email:        string;
   coach_password:     string;
   seed_fund_uses:     boolean;
-  starter_athletes:   { name: string; event: string }[];
+  starter_athletes:   { name: string; event: string; class_year: string }[];
 };
 
 type LaunchResult = { slug: string; join_code: string; coach_email: string };
@@ -152,6 +153,7 @@ export function AdminDashboard() {
 
   const [newAName,  setNewAName]  = useState("");
   const [newAEvent, setNewAEvent] = useState("");
+  const [newAClass, setNewAClass] = useState("");
   const [newSName,  setNewSName]  = useState("");
   const [newSUrl,   setNewSUrl]   = useState("");
   const [newSTier,  setNewSTier]  = useState<Sponsor["tier"]>("gold");
@@ -228,13 +230,13 @@ export function AdminDashboard() {
 
   const addAthlete = async () => {
     if (!newAName.trim() || !newAEvent.trim()) return;
-    const res = await fetch("/api/admin/athletes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newAName.trim(), event: newAEvent.trim() }) });
-    if (res.ok) { const a = await res.json(); setAthletes(p => [...p, a]); setNewAName(""); setNewAEvent(""); flash("Athlete added."); }
+    const res = await fetch("/api/admin/athletes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newAName.trim(), event: newAEvent.trim(), class_year: newAClass || null }) });
+    if (res.ok) { const a = await res.json(); setAthletes(p => [...p, a]); setNewAName(""); setNewAEvent(""); setNewAClass(""); flash("Athlete added."); }
   };
 
   const saveAthlete = async () => {
     if (!editA) return;
-    const res = await fetch(`/api/admin/athletes/${editA.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editA.name, event: editA.event }) });
+    const res = await fetch(`/api/admin/athletes/${editA.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editA.name, event: editA.event, class_year: editA.class_year }) });
     if (res.ok) { setAthletes(p => p.map(a => a.id === editA.id ? editA : a)); setEditA(null); flash("Athlete updated."); }
   };
 
@@ -583,7 +585,7 @@ export function AdminDashboard() {
               <thead>
                 <tr>
                   <th style={C.th}>Name</th>
-                  <th style={C.th}>Event / Position</th>
+                  <th style={C.th}>Class</th>
                   <th style={{ ...C.th, width: 140 }}>Actions</th>
                 </tr>
               </thead>
@@ -592,7 +594,18 @@ export function AdminDashboard() {
                   editA?.id === a.id ? (
                     <tr key={a.id} style={{ background: "#fafafa" }}>
                       <td style={C.td}><input style={C.input} value={editA.name}  onChange={e => setEditA(v => v ? { ...v, name: e.target.value } : v)} /></td>
-                      <td style={C.td}><input style={C.input} value={editA.event} onChange={e => setEditA(v => v ? { ...v, event: e.target.value } : v)} /></td>
+                      <td style={C.td}>
+                        <select style={C.input} value={editA.class_year ?? ""} onChange={e => setEditA(v => v ? { ...v, class_year: e.target.value || null } : v)}>
+                          <option value="">Select class…</option>
+                          {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input
+                          style={{ ...C.input, marginTop: ".35rem", fontSize: ".78rem" }}
+                          value={editA.event}
+                          onChange={e => setEditA(v => v ? { ...v, event: e.target.value } : v)}
+                          placeholder="Event / Position"
+                        />
+                      </td>
                       <td style={C.td}>
                         <div style={{ display: "flex", gap: ".4rem" }}>
                           <Btn onClick={saveAthlete}>Save</Btn>
@@ -603,7 +616,10 @@ export function AdminDashboard() {
                   ) : (
                     <tr key={a.id} style={{ transition: "background .1s" }}>
                       <td style={{ ...C.td, fontWeight: 600 }}>{a.name}</td>
-                      <td style={{ ...C.td, color: "#6b7280" }}>{a.event}</td>
+                      <td style={C.td}>
+                        <div>{a.class_year ?? "—"}</div>
+                        {a.event && <div style={{ fontSize: ".72rem", color: "#9ca3af", marginTop: ".1rem" }}>{a.event}</div>}
+                      </td>
                       <td style={C.td}>
                         <div style={{ display: "flex", gap: ".4rem" }}>
                           <Btn onClick={() => setEditA({ ...a })}>Edit</Btn>
@@ -621,6 +637,13 @@ export function AdminDashboard() {
           </div>
           <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
             <label style={{ ...C.label, flex: 2 }}>Name <input style={C.input} value={newAName} onChange={e => setNewAName(e.target.value)} placeholder="Athlete name" /></label>
+            <label style={{ ...C.label, flex: 1 }}>
+              Class
+              <select style={C.input} value={newAClass} onChange={e => setNewAClass(e.target.value)}>
+                <option value="">Select…</option>
+                {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
             <label style={{ ...C.label, flex: 1 }}>Event <input style={C.input} value={newAEvent} onChange={e => setNewAEvent(e.target.value)} placeholder="Sprints" /></label>
             <Btn color="#16a34a" onClick={addAthlete}>+ Add</Btn>
           </div>
@@ -1191,7 +1214,7 @@ function OnboardWizard({
                     <div style={{ fontWeight: 700, fontSize: ".875rem", color: "#0b1e3d" }}>Starter Athletes</div>
                     <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>Optional — coach can add more via team hub.</div>
                   </div>
-                  <Btn color="#0b1e3d" onClick={() => upd({ starter_athletes: [...d.starter_athletes, { name: "", event: "" }] })}>+ Add Athlete</Btn>
+                  <Btn color="#0b1e3d" onClick={() => upd({ starter_athletes: [...d.starter_athletes, { name: "", event: "", class_year: "" }] })}>+ Add Athlete</Btn>
                 </div>
                 {d.starter_athletes.length === 0 ? (
                   <div style={{ padding: "1.25rem", textAlign: "center", border: "1.5px dashed #e5e7eb", borderRadius: 8, fontSize: ".82rem", color: "#9ca3af" }}>
@@ -1203,6 +1226,11 @@ function OnboardWizard({
                       <div key={i} style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
                         <input style={{ ...I, flex: 2 }} placeholder="Athlete name" value={a.name}
                           onChange={e => { const next = [...d.starter_athletes]; next[i] = { ...next[i], name: e.target.value }; upd({ starter_athletes: next }); }} />
+                        <select style={{ ...I, flex: 1 }} value={a.class_year}
+                          onChange={e => { const next = [...d.starter_athletes]; next[i] = { ...next[i], class_year: e.target.value }; upd({ starter_athletes: next }); }}>
+                          <option value="">Class…</option>
+                          {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
                         <input style={{ ...I, flex: 1 }} placeholder="Event / Position" value={a.event}
                           onChange={e => { const next = [...d.starter_athletes]; next[i] = { ...next[i], event: e.target.value }; upd({ starter_athletes: next }); }} />
                         <button onClick={() => upd({ starter_athletes: d.starter_athletes.filter((_, idx) => idx !== i) })}

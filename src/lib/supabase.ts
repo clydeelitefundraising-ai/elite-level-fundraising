@@ -75,11 +75,18 @@ export type CampaignSettings = {
   default_athlete_goal_cents?:  number | null;
 };
 
+// Class levels shown as the primary athlete attribute in the UI. `event`
+// (sport event/position, e.g. "Sprints") remains the sport-specific field —
+// stored and editable, just secondary in display now.
+export const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+export type AthleteClass = typeof ATHLETE_CLASS_OPTIONS[number];
+
 export type AthleteRow = {
   id: string;
   campaign_slug: string;
   name: string;
   event: string;
+  class_year?: string | null;
   created_at: string;
   contact_phone: string | null;
   contact_email: string | null;
@@ -181,7 +188,7 @@ export async function addAthlete(data: Omit<AthleteRow, "id" | "created_at">): P
   return rows[0];
 }
 
-export async function updateAthlete(id: string, data: { name: string; event: string }): Promise<void> {
+export async function updateAthlete(id: string, data: { name: string; event: string; class_year?: string | null }): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
     `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}`,

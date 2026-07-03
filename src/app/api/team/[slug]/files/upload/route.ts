@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
           title:         "New File Uploaded",
           body:          file.name,
           reference_id:  newFile.id,
-          reference_url: `/team/${slug}/files`,
+          reference_url: `/team/${slug}/communications?tab=updates`,
         });
       }
     } catch (err) {
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       await sendPushToTeam(slug, {
         title: "New File Uploaded",
         body:  file.name,
-        url:   `/team/${slug}/files`,
+        url:   `/team/${slug}/communications?tab=updates`,
       });
     } catch (err) {
       console.error("[files/upload] sendPushToTeam failed:", err);

@@ -73,6 +73,7 @@ function buildLeaderboard(
       name:          a.name,
       profile_photo: a.profile_photo,
       event:         a.event,
+      class_year:    a.class_year ?? null,
       raisedCents:   totals[a.id]      ?? 0,
       goalCents:     a.goal_cents      ?? null,
       donorCount:    donorCounts[a.id] ?? 0,
@@ -273,9 +274,9 @@ function TeamCampaignView({
                         {fmt(entry.raisedCents)}
                       </span>
                     </div>
-                    {entry.event && (
+                    {(entry.class_year || entry.event) && (
                       <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: ".25rem" }}>
-                        {entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
+                        {entry.class_year ?? entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
                       </div>
                     )}
                     {pctEntry !== null && (
@@ -471,6 +472,7 @@ export default async function FundraiserPage({
           id:             a.id,
           name:           a.name,
           event:          a.event,
+          class_year:     a.class_year ?? null,
           profile_photo:  a.profile_photo ?? null,
           raisedCents:    raised,
           goalCents:      goal,

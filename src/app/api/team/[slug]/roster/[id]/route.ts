@@ -20,12 +20,13 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, event, jersey_number, grad_year, profile_photo, goal_cents, contact_phone, contact_email } = await req.json();
+  const { name, event, class_year, jersey_number, grad_year, profile_photo, goal_cents, contact_phone, contact_email } = await req.json();
 
   const patch: Record<string, unknown> = {};
   if (name?.trim())   patch.name  = name.trim();
   if (event?.trim())  patch.event = event.trim();
   // Allow explicit null to clear optional fields
+  if (class_year     !== undefined) patch.class_year     = class_year;
   if (jersey_number  !== undefined) patch.jersey_number  = jersey_number;
   if (grad_year      !== undefined) patch.grad_year      = grad_year;
   if (profile_photo  !== undefined) patch.profile_photo  = profile_photo;

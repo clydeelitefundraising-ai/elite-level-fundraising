@@ -5,8 +5,15 @@ import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { coachSession, isHeadCoachRole, isStaff, type TeamActor } from "@/lib/permissions";
+import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+
+// This page is intentionally athlete-focused for now. Future phases will
+// expand "Team" to include coaches, assistant coaches, managers, volunteers,
+// booster reps, and parents (view-only) — the section-header + card-grid
+// structure below is built so those can be added as additional sections
+// without restructuring what's here.
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -50,6 +57,7 @@ function avatarColor(name: string): string {
 type AthForm = {
   name: string;
   event: string;
+  class_year: string;
   jersey_number: string;
   grad_year: string;
   goal_cents: string;   // stored as dollars in UI
@@ -59,7 +67,7 @@ type AthForm = {
 };
 
 const BLANK: AthForm = {
-  name: "", event: "", jersey_number: "", grad_year: "", goal_cents: "", profile_photo: "",
+  name: "", event: "", class_year: "", jersey_number: "", grad_year: "", goal_cents: "", profile_photo: "",
   contact_phone: "", contact_email: "",
 };
 
@@ -67,6 +75,7 @@ function fromRow(a: TeamAthleteRow): AthForm {
   return {
     name:          a.name,
     event:         a.event,
+    class_year:    a.class_year ?? "",
     jersey_number: a.jersey_number != null ? String(a.jersey_number) : "",
     grad_year:     a.grad_year     != null ? String(a.grad_year)     : "",
     goal_cents:    a.goal_cents    != null ? String(a.goal_cents / 100) : "",
@@ -99,7 +108,7 @@ function AthleteCard({
 
   return (
     <div
-      onClick={staffMode ? () => router.push(`/team/${slug}/roster/${a.id}`) : undefined}
+      onClick={staffMode ? () => router.push(`/team/${slug}/team/${a.id}`) : undefined}
       onMouseEnter={staffMode ? () => setHovered(true) : undefined}
       onMouseLeave={staffMode ? () => setHovered(false) : undefined}
       style={{
@@ -154,15 +163,19 @@ function AthleteCard({
         {a.name}
       </div>
 
-      {a.event && (
+      {/* Class is the primary attribute shown; Event/Position is secondary */}
+      {(a.class_year || a.event) && (
         <span style={{
           display: "inline-block", padding: ".07rem .42rem", borderRadius: 100,
           fontSize: ".55rem", fontWeight: 700, textTransform: "uppercase",
           letterSpacing: ".04em", background: "#f0f4ff", color: "#1d4ed8",
           marginBottom: ".2rem",
         }}>
-          {a.event}
+          {a.class_year || a.event}
         </span>
+      )}
+      {a.class_year && a.event && (
+        <div style={{ fontSize: ".6rem", color: "#9ca3af" }}>{a.event}</div>
       )}
 
       {a.grad_year != null && (
@@ -195,7 +208,7 @@ function AthleteCard({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function RosterView({
+export default function TeamView({
   slug,
   initialAthletes,
   actor,
@@ -263,6 +276,7 @@ export default function RosterView({
       body: JSON.stringify({
         name:          form.name.trim(),
         event:         form.event.trim(),
+        class_year:    form.class_year || null,
         jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
         goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
@@ -287,6 +301,7 @@ export default function RosterView({
       body: JSON.stringify({
         name:          form.name.trim(),
         event:         form.event.trim(),
+        class_year:    form.class_year || null,
         jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
         grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
         goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
@@ -304,6 +319,7 @@ export default function RosterView({
             ...a,
             name:          form.name.trim(),
             event:         form.event.trim(),
+            class_year:    form.class_year || null,
             jersey_number: form.jersey_number ? parseInt(form.jersey_number) : null,
             grad_year:     form.grad_year     ? parseInt(form.grad_year)     : null,
             goal_cents:    form.goal_cents    ? Math.round(parseFloat(form.goal_cents) * 100) : null,
@@ -317,7 +333,7 @@ export default function RosterView({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Remove this athlete from the roster?")) return;
+    if (!confirm("Remove this athlete from the team?")) return;
     const res = await fetch(`/api/team/${slug}/roster/${id}`, { method: "DELETE" });
     if (res.ok) setAthletes(prev => prev.filter(a => a.id !== id));
   };
@@ -330,11 +346,11 @@ export default function RosterView({
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
-          Team
+          Team Hub
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-            Roster
+            Team
           </h2>
           {athletes.length > 0 && (
             <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
@@ -354,10 +370,10 @@ export default function RosterView({
         }}>
           <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>👥</div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            Roster is empty
+            Team is empty
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Add your first athlete above." : "Roster coming soon."}
+            {coach ? "Add your first athlete above." : "Team roster coming soon."}
           </div>
         </div>
       ) : (
@@ -384,6 +400,13 @@ export default function RosterView({
               <label style={{ ...lbl, gridColumn: "1 / -1" }}>
                 Name *
                 <input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Athlete name" autoFocus />
+              </label>
+              <label style={{ ...lbl, gridColumn: "1 / -1" }}>
+                Class
+                <select style={inp} value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}>
+                  <option value="">Select class…</option>
+                  {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </label>
               <label style={{ ...lbl, gridColumn: "1 / -1" }}>
                 Event / Position *

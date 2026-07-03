@@ -21,8 +21,8 @@ export type PremiumLayoutProps = {
   goal: number;
   daysLeft: number;
   percent: number;
-  athletes: { rank: number; name: string; event: string; raised: number }[];
-  filteredAthletes: { rank: number; displayRank: number; name: string; event: string; raised: number }[];
+  athletes: { rank: number; name: string; event: string; class_year: string | null; raised: number }[];
+  filteredAthletes: { rank: number; displayRank: number; name: string; event: string; class_year: string | null; raised: number }[];
   filters: string[];
   activeFilter: string;
   setActiveFilter: (v: string) => void;
@@ -237,7 +237,7 @@ export default function PremiumLayout({
                     <span style={{ fontSize: "1.4rem", width: 36, textAlign: "center" }}>{rankIcon(a.displayRank)}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{a.name}</div>
-                      <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.event}</div>
+                      <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.class_year ?? a.event}</div>
                     </div>
                     <div style={{ fontWeight: 800, fontSize: "1rem", color: primaryColor }}>${a.raised.toLocaleString()}</div>
                   </div>

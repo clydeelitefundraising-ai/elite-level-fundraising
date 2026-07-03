@@ -27,6 +27,7 @@ export type AthleteProgress = {
   id:             string;
   name:           string;
   event:          string;
+  class_year:     string | null;
   profile_photo:  string | null;
   raisedCents:    number;
   goalCents:      number | null;
@@ -301,7 +302,7 @@ function NeedsAttentionCard({
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
-                  <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>{a.event}</div>
+                  <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>{a.class_year ?? a.event}</div>
                 </div>
                 <div style={{ display: "flex", gap: ".3rem", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center" }}>
                   {flags.map(f => (
@@ -521,7 +522,7 @@ function AthleteProgressCard({
                 </div>
 
                 <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: a.pct !== null ? ".3rem" : 0 }}>
-                  {a.event}
+                  {a.class_year ?? a.event}
                   {a.donorCount > 0 ? ` · ${a.donorCount} donor${a.donorCount !== 1 ? "s" : ""}` : " · No donors"}
                   {a.lastDonationAt && ` · Last: ${timeAgo(a.lastDonationAt)}`}
                 </div>

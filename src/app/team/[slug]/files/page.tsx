@@ -1,28 +1,14 @@
-import { getAnnouncements, getTeamFiles, getTeamAthletes } from "@/lib/teamData";
-import { getTeamActor } from "@/lib/permissions.server";
-import UpdatesView from "./UpdatesView";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
+// Updates now lives inside the merged Communications tab (Section 1: Team
+// Updates). This route is kept only to gracefully redirect old links/
+// bookmarks — UpdatesView.tsx itself still lives here and is imported by
+// CommunicationsView.
 export default async function FilesPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [updates, files, actor, athletes] = await Promise.all([
-    getAnnouncements(slug),
-    getTeamFiles(slug),
-    getTeamActor(slug),
-    getTeamAthletes(slug),
-  ]);
-  return (
-    <UpdatesView
-      slug={slug}
-      initialUpdates={updates}
-      initialFiles={files}
-      actor={actor}
-      athletes={athletes.map(a => ({ id: a.id, name: a.name }))}
-    />
-  );
+  redirect(`/team/${slug}/communications?tab=updates`);
 }

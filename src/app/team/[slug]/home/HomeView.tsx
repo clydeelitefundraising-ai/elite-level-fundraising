@@ -495,7 +495,7 @@ function HomeContent({
             <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
           ))}
           <a
-            href={`/team/${slug}/files`}
+            href={`/team/${slug}/communications?tab=updates`}
             style={{
               display: "block",
               textAlign: "center",

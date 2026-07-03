@@ -224,7 +224,7 @@ export default function ThreadView({
         borderBottom: "1px solid #e5e7eb",
       }}>
         <button
-          onClick={() => router.push(`/team/${slug}/messages`)}
+          onClick={() => router.push(`/team/${slug}/communications?tab=messages`)}
           style={{
             background: "none", border: "none", cursor: "pointer",
             fontSize: "1.1rem", color: "#6b7280", padding: ".1rem .2rem",

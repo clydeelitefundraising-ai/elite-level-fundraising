@@ -15,7 +15,7 @@ const DEFAULT_FUND_USES = [
   { icon: "🍱", title: "Team Meals",                description: "Pre-meet fueling and post-competition meals to keep athletes performing at their best.", sort_order: 5 },
 ];
 
-type StarterAthlete = { name?: unknown; event?: unknown };
+type StarterAthlete = { name?: unknown; event?: unknown; class_year?: unknown };
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -112,8 +112,9 @@ export async function POST(req: NextRequest) {
         body:    JSON.stringify(
           valid.map(a => ({
             campaign_slug: slug,
-            name:  (a.name  as string).trim(),
-            event: (typeof a.event === "string" ? a.event : "").trim(),
+            name:       (a.name  as string).trim(),
+            event:      (typeof a.event === "string" ? a.event : "").trim(),
+            class_year: typeof a.class_year === "string" && a.class_year.trim() ? a.class_year.trim() : null,
           })),
         ),
       });

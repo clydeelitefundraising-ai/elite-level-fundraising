@@ -9,11 +9,11 @@ const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
 const FALLBACK_ATHLETES = [
-  { rank: 1, name: "Marcus Johnson",  event: "Sprints",  raised: 2340 },
-  { rank: 2, name: "Aaliyah Rivera",  event: "Distance", raised: 1980 },
-  { rank: 3, name: "Tyler Chen",      event: "Jumps",    raised: 1620 },
-  { rank: 4, name: "Sofia Martinez",  event: "Throws",   raised: 1410 },
-  { rank: 5, name: "Devon Williams",  event: "Hurdles",  raised: 1200 },
+  { rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
+  { rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
+  { rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
+  { rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
+  { rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
 ];
 
 const initialDonations = [
@@ -68,7 +68,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState(FALLBACK_ATHLETES);
+  const [athletes,        setAthletes]        = useState<{ rank: number; name: string; event: string; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
@@ -133,13 +133,13 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
-        const base: { name: string; event: string }[] =
+        const base: { name: string; event: string; class_year?: string | null }[] =
           Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
             ? fetchedAthletes
             : FALLBACK_ATHLETES;
         setAthletes(
           base
-            .map((a) => ({ name: a.name, event: a.event, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
+            .map((a) => ({ name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
             .sort((a, b) => b.raised - a.raised)
             .map((a, i) => ({ ...a, rank: i + 1 })),
         );
@@ -431,7 +431,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                   <table className="cl-table">
                     <thead>
                       <tr>
-                        <th>Rank</th><th>Athlete</th><th>Event</th><th>Raised</th>
+                        <th>Rank</th><th>Athlete</th><th>Class</th><th>Raised</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -439,7 +439,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                         <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
                           <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
                           <td className="cl-td-name">{a.name}</td>
-                          <td className="cl-td-event">{a.event}</td>
+                          <td className="cl-td-event">{a.class_year ?? a.event}</td>
                           <td className="cl-td-amount">${a.raised.toLocaleString()}</td>
                         </tr>
                       ))}

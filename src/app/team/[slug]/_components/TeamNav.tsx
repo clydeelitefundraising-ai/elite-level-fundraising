@@ -11,13 +11,12 @@ type TabConfig = {
 };
 
 const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
-  { href: "home",       label: "Home",       icon: "🏠" },
-  { href: "files",      label: "Updates",    icon: "📢" },
-  { href: "messages",   label: "Messages",   icon: "💬" },
-  { href: "calendar",   label: "Calendar",   icon: "📅" },
-  { href: "fundraiser", label: "Fundraiser", icon: "💰" },
-  { href: "shop",       label: "Shop",       icon: "🛍️" },
-  { href: "roster",     label: "Roster",     icon: "👥" },
+  { href: "home",           label: "Home",           icon: "🏠" },
+  { href: "communications", label: "Communications", icon: "💬" },
+  { href: "calendar",       label: "Calendar",       icon: "📅" },
+  { href: "fundraiser",     label: "Fundraising",    icon: "💰" },
+  { href: "shop",           label: "Shop",           icon: "🛍️" },
+  { href: "team",           label: "Team",           icon: "👥" },
 ];
 const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: "🤝" };
 

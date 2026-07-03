@@ -21,7 +21,7 @@ export async function POST(
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, event, jersey_number, grad_year, profile_photo, goal_cents, contact_phone, contact_email } = await req.json();
+  const { name, event, class_year, jersey_number, grad_year, profile_photo, goal_cents, contact_phone, contact_email } = await req.json();
   if (!name?.trim() || !event?.trim()) {
     return NextResponse.json({ error: "name and event are required" }, { status: 400 });
   }
@@ -31,6 +31,7 @@ export async function POST(
     name: name.trim(),
     event: event.trim(),
   };
+  if (class_year?.trim()) body.class_year = class_year.trim();
   if (jersey_number != null) body.jersey_number = jersey_number;
   if (grad_year != null) body.grad_year = grad_year;
   if (profile_photo?.trim()) body.profile_photo = profile_photo.trim();

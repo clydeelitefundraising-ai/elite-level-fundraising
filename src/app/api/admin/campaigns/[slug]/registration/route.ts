@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   const enc = encodeURIComponent(slug);
 
   const [athletesRes, membersRes, contactsRes, goalsRes, donationsRes] = await Promise.all([
-    fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${enc}&select=id,name,event,jersey_number,grad_year,profile_photo&order=name.asc`, { headers: h(), cache: "no-store" }),
+    fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${enc}&select=id,name,event,class_year,jersey_number,grad_year,profile_photo&order=name.asc`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/team_members?campaign_slug=eq.${enc}&select=id,role,name,athlete_id,account_id`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contacts?campaign_slug=eq.${enc}&select=athlete_id`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${enc}&select=athlete_id,goal`, { headers: h(), cache: "no-store" }),
@@ -91,6 +91,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
       athlete_id:              a.id,
       name:                    a.name,
       event:                   a.event,
+      class_year:              a.class_year,
       jersey_number:           a.jersey_number,
       grad_year:               a.grad_year,
       profile_photo:           a.profile_photo,
@@ -124,7 +125,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   return NextResponse.json({ athletes: rows, summary });
 }
 
-type RawAthlete  = { id: string; name: string; event: string; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
+type RawAthlete  = { id: string; name: string; event: string; class_year: string | null; jersey_number: number | null; grad_year: number | null; profile_photo: string | null };
 type RawMember   = { id: string; role: string; name: string; athlete_id: string | null; account_id: string | null };
 type RawContact  = { athlete_id: string | null };
 type RawGoal     = { athlete_id: string | null; goal: number };
@@ -134,6 +135,7 @@ export type AthleteRegistration = {
   athlete_id:              string;
   name:                    string;
   event:                   string;
+  class_year:              string | null;
   jersey_number:           number | null;
   grad_year:               number | null;
   profile_photo:           string | null;

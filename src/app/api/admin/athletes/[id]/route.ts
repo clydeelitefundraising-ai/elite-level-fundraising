@@ -12,14 +12,14 @@ async function authed(): Promise<boolean> {
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const { name, event } = await req.json();
-  await updateAthlete(id, { name, event });
+  const { name, event, class_year } = await req.json();
+  await updateAthlete(id, { name, event, class_year: class_year ?? null });
   logAuditEvent({
     action:      "athlete.updated",
     entity_type: "athlete",
     entity_id:   id,
     summary:     `Updated athlete ${id}: name="${name}", event="${event}"`,
-    new_value:   { name, event },
+    new_value:   { name, event, class_year: class_year ?? null },
     ip_address:  ipOf(req),
     user_agent:  req.headers.get("user-agent"),
   });

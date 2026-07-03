@@ -43,7 +43,7 @@ export async function GET(
     let archived: boolean | undefined;
     let layoutVariant: "classic" | "premium" | undefined;
     let visibility: Record<string, boolean> | undefined;
-    let athletes: { name: string; event: string }[] | undefined;
+    let athletes: { name: string; event: string; class_year: string | null }[] | undefined;
     let sponsors: { name: string; url: string; tier: string; logo_url: string | null; description: string | null }[] | undefined;
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
 
@@ -77,7 +77,7 @@ export async function GET(
 
     try {
       const rows = await getAthletes(slug);
-      if (rows.length > 0) athletes = rows.map(a => ({ name: a.name, event: a.event }));
+      if (rows.length > 0) athletes = rows.map(a => ({ name: a.name, event: a.event, class_year: a.class_year ?? null }));
     } catch { /* keep undefined */ }
 
     try {

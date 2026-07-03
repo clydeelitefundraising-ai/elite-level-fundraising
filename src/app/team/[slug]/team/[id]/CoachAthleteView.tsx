@@ -560,10 +560,10 @@ export default function CoachAthleteView({
     <div style={{ paddingBottom: "2rem", animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Back nav ── */}
       <button
-        onClick={() => router.push(`/team/${slug}/roster`)}
+        onClick={() => router.push(`/team/${slug}/team`)}
         style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".8rem", fontWeight: 600, color: "#6b7280", padding: "0 0 .75rem", display: "flex", alignItems: "center", gap: ".3rem" }}
       >
-        ← Roster
+        ← Team
       </button>
 
       {/* ── Athlete header card ── */}
@@ -583,12 +583,16 @@ export default function CoachAthleteView({
           {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#0b1e3d", lineHeight: 1.2 }}>{athlete.name}</div>
-            {athlete.event && (
+            {/* Class is the primary attribute; Event/Position is secondary */}
+            {(athlete.class_year || athlete.event) && (
               <span style={{ display: "inline-block", marginTop: ".25rem", background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", padding: ".1rem .45rem" }}>
-                {athlete.event}
+                {athlete.class_year || athlete.event}
               </span>
             )}
             <div style={{ display: "flex", gap: ".75rem", marginTop: ".4rem", flexWrap: "wrap" as const }}>
+              {athlete.class_year && athlete.event && (
+                <span style={{ fontSize: ".72rem", color: "#6b7280" }}>{athlete.event}</span>
+              )}
               {athlete.jersey_number != null && (
                 <span style={{ fontSize: ".72rem", color: "#6b7280" }}>#{athlete.jersey_number}</span>
               )}
@@ -618,7 +622,7 @@ export default function CoachAthleteView({
         {/* Quick actions */}
         <div style={{ display: "flex", gap: ".5rem", marginTop: ".9rem" }}>
           <a
-            href={`/team/${slug}/messages`}
+            href={`/team/${slug}/communications?tab=messages`}
             style={{ flex: 1, textAlign: "center", padding: ".42rem", background: primaryColor, color: "#fff", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
           >
             Messages
