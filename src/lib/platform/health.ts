@@ -251,3 +251,35 @@ export async function getCampaignRisk(slug: string): Promise<HealthLabel | null>
   const team = await calculateCampaignHealth(slug);
   return team?.label ?? null;
 }
+
+export type RevenueForecast = {
+  projectedCampaignRevenueCents: number;
+  projectedPlatformRevenueCents: number;
+  likelyToHitGoal:               number;
+  unlikelyToHitGoal:             number;
+  feeRatePct:                    number;
+};
+
+// Pace-based extrapolation: for each active, forecastable campaign, project
+// raisedCents / timeFraction as the likely final total. Pure — callers
+// (Executive Dashboard, Reports) pass in teams already scored by
+// calculateHealth() rather than each re-fetching campaigns/donations.
+export function calculateRevenueForecast(teams: TeamHealth[], feeRate: number): RevenueForecast {
+  const forecastable = teams.filter(
+    t => !t.archived && t.timeFraction != null && t.timeFraction > 0.05 && (t.daysRemaining ?? -1) >= 0,
+  );
+  const projectedCampaignRevenueCents = forecastable.reduce(
+    (s, t) => s + Math.round(t.raisedCents / (t.timeFraction as number)), 0,
+  );
+  const likelyToHitGoal = forecastable.filter(
+    t => Math.round(t.raisedCents / (t.timeFraction as number)) >= t.goalCents,
+  ).length;
+
+  return {
+    projectedCampaignRevenueCents,
+    projectedPlatformRevenueCents: Math.round(projectedCampaignRevenueCents * feeRate),
+    likelyToHitGoal,
+    unlikelyToHitGoal: forecastable.length - likelyToHitGoal,
+    feeRatePct: Math.round(feeRate * 1000) / 10,
+  };
+}

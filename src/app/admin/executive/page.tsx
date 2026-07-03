@@ -1,8 +1,8 @@
 import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
 import { verifyToken } from "@/lib/adminAuth";
-import { calculateHealth } from "@/lib/platform/health";
-import { getAllDonations, getDonationSummary } from "@/lib/platform/donations";
+import { calculateHealth, calculateRevenueForecast } from "@/lib/platform/health";
+import { getAllDonations, getDonationSummary, calculateDonationMomentum } from "@/lib/platform/donations";
 import { getPipelineSummary, getActivities } from "@/lib/platform/crm";
 import { listEvents } from "@/lib/platform/automation";
 import { getJobRunSummary } from "@/lib/platform/jobs";
@@ -92,13 +92,13 @@ export default async function ExecutiveDashboardPage() {
 
   // ── Donation momentum ───────────────────────────────────────────────────────
 
-  const last7  = allDonations.filter(d => now - new Date(d.created_at).getTime() <= 7 * DAY_MS);
-  const last30 = allDonations.filter(d => now - new Date(d.created_at).getTime() <= 30 * DAY_MS);
+  const last7Momentum  = calculateDonationMomentum(allDonations, 7);
+  const last30Momentum = calculateDonationMomentum(allDonations, 30);
   const donationMomentum: DonationMomentum = {
-    last7Cents:  last7.reduce((s, d) => s + d.amount_cents, 0),
-    last30Cents: last30.reduce((s, d) => s + d.amount_cents, 0),
-    last7Count:  last7.length,
-    last30Count: last30.length,
+    last7Cents:  last7Momentum.cents,
+    last30Cents: last30Momentum.cents,
+    last7Count:  last7Momentum.count,
+    last30Count: last30Momentum.count,
   };
 
   // ── Coach pipeline ───────────────────────────────────────────────────────────
@@ -124,19 +124,8 @@ export default async function ExecutiveDashboardPage() {
 
   // ── Revenue forecast (pace-based extrapolation — clearly an estimate) ───────
 
-  const forecastable = activeCampaigns.filter(t => t.timeFraction != null && t.timeFraction > 0.05 && (t.daysRemaining ?? -1) >= 0);
-  const projectedCampaignRevenueCents = forecastable.reduce(
-    (s, t) => s + Math.round(t.raisedCents / (t.timeFraction as number)), 0,
-  );
-  const likelyToHitGoal = forecastable.filter(t => Math.round(t.raisedCents / (t.timeFraction as number)) >= t.goalCents).length;
-
-  const forecast: RevenueForecast = {
-    projectedCampaignRevenueCents,
-    projectedPlatformRevenueCents: Math.round(projectedCampaignRevenueCents * ELF_FEE_RATE),
-    likelyToHitGoal,
-    unlikelyToHitGoal: forecastable.length - likelyToHitGoal,
-    feeRatePct: Math.round(ELF_FEE_RATE * 1000) / 10,
-  };
+  const forecast: RevenueForecast = calculateRevenueForecast(teams, ELF_FEE_RATE);
+  const forecastableCount = forecast.likelyToHitGoal + forecast.unlikelyToHitGoal;
 
   // ── Executive insights ───────────────────────────────────────────────────────
 
@@ -146,7 +135,7 @@ export default async function ExecutiveDashboardPage() {
     const t = new Date(d.created_at).getTime();
     return now - t > 30 * DAY_MS && t >= prior30Start;
   });
-  const avgLast30  = last30.length > 0 ? last30.reduce((s, d) => s + d.amount_cents, 0) / last30.length : null;
+  const avgLast30  = last30Momentum.count > 0 ? last30Momentum.cents / last30Momentum.count : null;
   const avgPrior30 = prior30.length > 0 ? prior30.reduce((s, d) => s + d.amount_cents, 0) / prior30.length : null;
 
   const insights: Insight[] = [];
@@ -179,10 +168,10 @@ export default async function ExecutiveDashboardPage() {
         : { text: "Average donation held steady over the last 30 days.", tone: "neutral" });
   }
 
-  if (forecastable.length > 0) {
+  if (forecastableCount > 0) {
     insights.push({
-      text: `${likelyToHitGoal} of ${forecastable.length} active campaigns are projected to hit their goal.`,
-      tone: likelyToHitGoal === forecastable.length ? "positive" : likelyToHitGoal === 0 ? "critical" : "neutral",
+      text: `${forecast.likelyToHitGoal} of ${forecastableCount} active campaigns are projected to hit their goal.`,
+      tone: forecast.likelyToHitGoal === forecastableCount ? "positive" : forecast.likelyToHitGoal === 0 ? "critical" : "neutral",
     });
   }
 

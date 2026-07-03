@@ -29,6 +29,7 @@ imported everywhere that concern is needed.
 | `audit.ts`           | Read helpers (`getRecentAudit`, `getAuditSince`, `getAuditSummary`) plus a re-export of the existing `logAuditEvent` write path (`logAudit`) so call sites only need one import surface. |
 | `notifications.ts`   | Notification outbox (`notification_queue` table). Queues rows (`queueEmail`, `queuePush`, `queueSMS`, `queueInternal`), manages lifecycle (`cancelNotification`, `markSent`, `markFailed`), and reads (`getQueue`, `getQueueSummary`, `getStaleQueued`, `getRecentFailures`). Only queues — never sends. |
 | `notificationJobs.ts` | Delivery job that drains `notification_queue` (`processQueue`, `processEmail`, `processPush`, `processSMS`, `processInternal`). Mirrors `jobs.ts`'s relationship to `automation.ts`. Email/SMS intentionally report Not Implemented (no carrier wired up yet); push reuses `lib/push.ts`; internal marks sent immediately. |
+| `reports.ts`         | Intelligence & Reporting Center (`getReportsData`). Composes every other service into 10 report types (Executive, Athletic Director, Automation, Operations, CRM, Sponsor Intelligence, Donation, plus per-entity Campaign/Coach/Sponsor reports) and layers an insight/recommendation engine on top — no new queries beyond what those services already expose. Read-only; no PDF/scheduling yet (client-side CSV export only). |
 
 ## Intended future services
 

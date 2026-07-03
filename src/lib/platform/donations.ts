@@ -55,6 +55,17 @@ export function getDonationSummary(donations: RawDonation[]): DonationSummary {
   return { totalRaisedCents, totalDonations, avgDonationCents };
 }
 
+export type DonationMomentum = { cents: number; count: number };
+
+// Windowed donation total/count over the trailing `days` days. Shared by the
+// Executive Dashboard's momentum cards and the Donation Report so both apply
+// the same window math instead of two independent filter/reduce copies.
+export function calculateDonationMomentum(donations: RawDonation[], days: number): DonationMomentum {
+  const cutoff = Date.now() - days * 86400000;
+  const windowed = donations.filter(d => new Date(d.created_at).getTime() >= cutoff);
+  return { cents: windowed.reduce((s, d) => s + (d.amount_cents ?? 0), 0), count: windowed.length };
+}
+
 export function getCampaignProgress(donations: RawDonation[], goalCents: number) {
   const raisedCents = donations.reduce((s, d) => s + (d.amount_cents ?? 0), 0);
   const pctToGoal    = goalCents > 0 ? Math.round((raisedCents / goalCents) * 100) : 0;
