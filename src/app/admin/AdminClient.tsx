@@ -231,13 +231,16 @@ export function AdminDashboard() {
   const addAthlete = async () => {
     if (!newAName.trim() || !newAEvent.trim()) return;
     const res = await fetch("/api/admin/athletes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newAName.trim(), event: newAEvent.trim(), class_year: newAClass || null }) });
-    if (res.ok) { const a = await res.json(); setAthletes(p => [...p, a]); setNewAName(""); setNewAEvent(""); setNewAClass(""); flash("Athlete added."); }
+    if (!res.ok) { const body = await res.json().catch(() => ({})); flash(`Error: ${body.error ?? res.statusText}`); return; }
+    const a = await res.json();
+    setAthletes(p => [...p, a]); setNewAName(""); setNewAEvent(""); setNewAClass(""); flash("Athlete added.");
   };
 
   const saveAthlete = async () => {
     if (!editA) return;
     const res = await fetch(`/api/admin/athletes/${editA.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editA.name, event: editA.event, class_year: editA.class_year }) });
-    if (res.ok) { setAthletes(p => p.map(a => a.id === editA.id ? editA : a)); setEditA(null); flash("Athlete updated."); }
+    if (!res.ok) { const body = await res.json().catch(() => ({})); flash(`Error: ${body.error ?? res.statusText}`); return; }
+    setAthletes(p => p.map(a => a.id === editA.id ? editA : a)); setEditA(null); flash("Athlete updated.");
   };
 
   const deleteAthlete = async (id: string) => {

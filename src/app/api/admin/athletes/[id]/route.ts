@@ -13,7 +13,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const { name, event, class_year } = await req.json();
-  await updateAthlete(id, { name, event, class_year: class_year ?? null });
+  try {
+    await updateAthlete(id, { name, event, class_year: class_year ?? null });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update athlete." }, { status: 500 });
+  }
   logAuditEvent({
     action:      "athlete.updated",
     entity_type: "athlete",

@@ -25,10 +25,15 @@ export async function POST(req: NextRequest) {
   if (!name?.trim() || !event?.trim()) {
     return NextResponse.json({ error: "name and event are required" }, { status: 400 });
   }
-  const athlete = await addAthlete({
-    campaign_slug: slug, name: name.trim(), event: event.trim(),
-    class_year: class_year?.trim() || null, contact_phone: null, contact_email: null,
-  });
+  let athlete;
+  try {
+    athlete = await addAthlete({
+      campaign_slug: slug, name: name.trim(), event: event.trim(),
+      class_year: class_year?.trim() || null, contact_phone: null, contact_email: null,
+    });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to add athlete." }, { status: 500 });
+  }
   logAuditEvent({
     action:        "athlete.added",
     entity_type:   "athlete",
