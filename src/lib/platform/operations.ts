@@ -6,6 +6,7 @@ import { getFollowUps } from "./crm";
 import { getSummary as getAutomationSummary } from "./automation";
 import { getJobRunSummary } from "./jobs";
 import { getSponsorScoringContext, getRenewalForecast, getSponsorInsights } from "./sponsors";
+import { getRecentFailures, getStaleQueued } from "./notifications";
 
 export type Severity = "critical" | "warning" | "info" | "ok";
 
@@ -54,7 +55,7 @@ function todayWindow() {
 export async function getNeedsAttention(): Promise<{ attention: AttentionItem[]; alertCount: number }> {
   const { todayStart, in3Days, in7Days } = todayWindow();
 
-  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorCtx, demoCheck] = await Promise.all([
+  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorCtx, demoCheck, notificationFailures, staleQueued] = await Promise.all([
     getCampaignSummary(),
     getAllDonations(),
     getPendingCoachInvites(),
@@ -63,6 +64,8 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
     getJobRunSummary(),
     getSponsorScoringContext(),
     restList<{ campaign_slug: string }>("campaign_settings?campaign_slug=eq.elf-demo&select=campaign_slug&limit=1"),
+    getRecentFailures(20),
+    getStaleQueued(60),
   ]);
 
   // getRenewalForecast/getSponsorInsights reuse sponsorCtx instead of each
@@ -208,6 +211,24 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
       count: lostHighValueSponsors.length,
       detail: lostHighValueSponsors.slice(0, 3).map(s => s.business_name).join(", "),
       href: "/admin/sponsors/intelligence", actionLabel: "Open Sponsor Intelligence", icon: "💔",
+    });
+  }
+
+  if (notificationFailures.length > 0) {
+    attention.push({
+      id: "notification-failures", severity: "warning", title: "Notification queue failures",
+      count: notificationFailures.length,
+      detail: notificationFailures.slice(0, 3).map(n => n.last_error ?? n.title).join(", "),
+      href: "/admin/notifications", actionLabel: "Open Notifications", icon: "🚨",
+    });
+  }
+
+  if (staleQueued.length > 0) {
+    attention.push({
+      id: "notification-stale", severity: "warning", title: "Old queued notifications",
+      count: staleQueued.length,
+      detail: "Notifications past their scheduled time — delivery job may not be running",
+      href: "/admin/notifications", actionLabel: "Open Notifications", icon: "🕓",
     });
   }
 

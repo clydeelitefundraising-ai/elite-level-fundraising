@@ -57,6 +57,12 @@ export type SponsorIntelSummary = {
   businessesAddedThisMonth: number;
 };
 
+export type NotificationHealth = {
+  queued:            number;
+  failed:            number;
+  deliverySuccessRate: number | null; // 0-100, null when no sent+failed history yet
+};
+
 export type InsightTone = "positive" | "neutral" | "warning" | "critical";
 export type Insight = { text: string; tone: InsightTone };
 
@@ -78,6 +84,7 @@ export type ExecutiveData = {
   automationHealth: AutomationHealth;
   forecast:         RevenueForecast;
   sponsorIntel:     SponsorIntelSummary;
+  notificationHealth: NotificationHealth;
   insights:         Insight[];
   timeline:         TimelineItem[];
   generatedAt:      string;

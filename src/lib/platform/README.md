@@ -27,12 +27,13 @@ imported everywhere that concern is needed.
 | `automation.ts`      | Automation event lifecycle (`runRules`, `createEvent`, `resolveEvent`, `acknowledgeEvent`, `getOpenEvents`, `getSummary`). Rule *definitions* stay in `src/lib/automation/rules.ts` — this module orchestrates evaluating them and persisting results. |
 | `operations.ts`      | Composes the modules above into what the Operations Dashboard needs (`getNeedsAttention`, `getTodayStats`, `getPlatformStatus`, `getPendingItems`). |
 | `audit.ts`           | Read helpers (`getRecentAudit`, `getAuditSince`, `getAuditSummary`) plus a re-export of the existing `logAuditEvent` write path (`logAudit`) so call sites only need one import surface. |
-| `notifications.ts`   | **Stub only.** Defines the interface (`queueEmail`, `queuePush`, `queueSMS`, `queueInternal`, `sendDigest`) future phases will implement. Every export currently throws. |
+| `notifications.ts`   | Notification outbox (`notification_queue` table). Queues rows (`queueEmail`, `queuePush`, `queueSMS`, `queueInternal`), manages lifecycle (`cancelNotification`, `markSent`, `markFailed`), and reads (`getQueue`, `getQueueSummary`, `getStaleQueued`, `getRecentFailures`). Only queues — never sends. |
+| `notificationJobs.ts` | Delivery job that drains `notification_queue` (`processQueue`, `processEmail`, `processPush`, `processSMS`, `processInternal`). Mirrors `jobs.ts`'s relationship to `automation.ts`. Email/SMS intentionally report Not Implemented (no carrier wired up yet); push reuses `lib/push.ts`; internal marks sent immediately. |
 
 ## Intended future services
 
 Not built yet, but the pattern is established for:
-- A real `notifications.ts` backed by an outbox table + worker (Resend email, web push, Twilio SMS).
+- Real carriers behind `notificationJobs.ts`'s `processEmail`/`processSMS` (Resend, Twilio) — the queue/lifecycle/job-tracking scaffolding is already in place, only the carrier call needs to be swapped in for each.
 - `reports.ts` — scheduled/on-demand exports built from the same `donations`/`campaigns`/`crm` services.
 - `integrations.ts` — outbound webhooks or third-party syncs (e.g. accounting, CRM export).
 - A cron/worker entrypoint that calls `automation.runRules()` on a schedule instead of the current manual "Run Rules Now" button — no `platform/` changes needed, since `runRules()` already does not assume an HTTP request context.

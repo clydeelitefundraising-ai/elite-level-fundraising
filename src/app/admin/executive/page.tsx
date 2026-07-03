@@ -8,11 +8,12 @@ import { listEvents } from "@/lib/platform/automation";
 import { getJobRunSummary } from "@/lib/platform/jobs";
 import { getRecentAudit } from "@/lib/platform/audit";
 import { getSponsorSummary, getSponsorScoringContext, getTopSponsors, getSponsorInsights } from "@/lib/platform/sponsors";
+import { getQueueSummary } from "@/lib/platform/notifications";
 import { restList } from "@/lib/platform/_client";
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import type {
   ExecutiveData, Kpis, CampaignHealthDistribution, DonationMomentum, CoachPipeline,
-  AutomationHealth, RevenueForecast, SponsorIntelSummary, Insight, TimelineItem,
+  AutomationHealth, RevenueForecast, SponsorIntelSummary, NotificationHealth, Insight, TimelineItem,
 } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function ExecutiveDashboardPage() {
   // momentum windows and the donation timeline, which no summary exposes.
   const [
     health, allDonations, crmPipeline, recentCrmActivity, automationEvents,
-    jobSummary, recentAudit, coaches, sponsorSummary, sponsorCtx,
+    jobSummary, recentAudit, coaches, sponsorSummary, sponsorCtx, notificationSummary,
   ] = await Promise.all([
     calculateHealth(),
     getAllDonations(),
@@ -48,6 +49,7 @@ export default async function ExecutiveDashboardPage() {
     restList<{ id: string }>("team_coaches?select=id&limit=5000"),
     getSponsorSummary(),
     getSponsorScoringContext(),
+    getQueueSummary(),
   ]);
 
   // getTopSponsors/getSponsorInsights reuse sponsorCtx (already fetched above)
@@ -236,9 +238,18 @@ export default async function ExecutiveDashboardPage() {
     .sort((a, b) => (a.at < b.at ? 1 : -1))
     .slice(0, 15);
 
+  // ── Notification health ──────────────────────────────────────────────────────
+
+  const notifDelivered = notificationSummary.sent + notificationSummary.failed;
+  const notificationHealth: NotificationHealth = {
+    queued: notificationSummary.queued,
+    failed: notificationSummary.failed,
+    deliverySuccessRate: notifDelivered > 0 ? Math.round((notificationSummary.sent / notifDelivered) * 100) : null,
+  };
+
   const data: ExecutiveData = {
     kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, sponsorIntel,
-    insights, timeline, generatedAt: new Date().toISOString(),
+    notificationHealth, insights, timeline, generatedAt: new Date().toISOString(),
   };
 
   return <ExecutiveDashboard data={data} />;

@@ -109,7 +109,7 @@ function DistributionBar({ healthy, watch, atRisk }: { healthy: number; watch: n
 
 export default function ExecutiveDashboard({ data }: Props) {
   const router = useRouter();
-  const { kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, sponsorIntel, insights, timeline, generatedAt } = data;
+  const { kpis, campaignHealth, donationMomentum, coachPipeline, automationHealth, forecast, sponsorIntel, notificationHealth, insights, timeline, generatedAt } = data;
 
   const genDate = new Date(generatedAt);
   const dateStr = genDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
@@ -222,6 +222,15 @@ export default function ExecutiveDashboard({ data }: Props) {
               <div>Failed Runs: <strong>{automationHealth.failedRuns}</strong></div>
               <div>Critical Events: <strong>{automationHealth.criticalEvents}</strong></div>
               <div>Warning Events: <strong>{automationHealth.warningEvents}</strong></div>
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <div style={{ fontSize: ".8rem", fontWeight: 600, color: "#1d1d1f", marginBottom: ".75rem" }}>Notification Health</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: ".5rem", fontSize: ".76rem", color: "#374151" }}>
+              <div>Queued: <strong>{notificationHealth.queued}</strong></div>
+              <div>Failed: <strong>{notificationHealth.failed}</strong></div>
+              <div>Delivery Success Rate: <strong>{notificationHealth.deliverySuccessRate != null ? `${notificationHealth.deliverySuccessRate}%` : "—"}</strong></div>
             </div>
           </div>
 
