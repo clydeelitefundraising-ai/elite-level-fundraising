@@ -57,6 +57,13 @@ export type CampaignSettings = {
   deadline: string;
   primary_color: string;
   secondary_color: string;
+  // Campaign (page theme) colors — independent of the team colors above.
+  // Null/unset means "not customized yet"; callers fall back to
+  // primary_color/secondary_color so existing campaigns are unaffected.
+  theme_primary_color?:   string | null;
+  theme_secondary_color?: string | null;
+  theme_accent_color?:    string | null;
+  theme_button_color?:    string | null;
   location: string;
   season: string;
   logo_url: string;

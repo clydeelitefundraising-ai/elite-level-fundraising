@@ -37,6 +37,10 @@ export async function GET(
     let mascot: string | undefined;
     let primaryColor: string | undefined;
     let secondaryColor: string | undefined;
+    let themePrimaryColor: string | undefined;
+    let themeSecondaryColor: string | undefined;
+    let themeAccentColor: string | undefined;
+    let themeButtonColor: string | undefined;
     let location: string | undefined;
     let season: string | undefined;
     let logoUrl: string | undefined;
@@ -58,6 +62,12 @@ export async function GET(
         if (settings.mascot)          mascot         = settings.mascot;
         if (settings.primary_color)   primaryColor   = settings.primary_color;
         if (settings.secondary_color) secondaryColor = settings.secondary_color;
+        // Campaign theme colors fall back to team colors when never
+        // configured — every existing campaign renders identically.
+        themePrimaryColor   = settings.theme_primary_color   || settings.primary_color;
+        themeSecondaryColor = settings.theme_secondary_color || settings.secondary_color;
+        themeAccentColor    = settings.theme_accent_color    || themeSecondaryColor;
+        themeButtonColor    = settings.theme_button_color    || themePrimaryColor;
         if (settings.location)        location       = settings.location;
         if (settings.season)          season         = settings.season;
         if (settings.logo_url)        logoUrl        = settings.logo_url;
@@ -105,6 +115,10 @@ export async function GET(
       ...(mascot         !== undefined && { mascot }),
       ...(primaryColor   !== undefined && { primary_color:   primaryColor }),
       ...(secondaryColor !== undefined && { secondary_color: secondaryColor }),
+      ...(themePrimaryColor   !== undefined && { theme_primary_color:   themePrimaryColor }),
+      ...(themeSecondaryColor !== undefined && { theme_secondary_color: themeSecondaryColor }),
+      ...(themeAccentColor    !== undefined && { theme_accent_color:    themeAccentColor }),
+      ...(themeButtonColor    !== undefined && { theme_button_color:    themeButtonColor }),
       ...(location       !== undefined && { location }),
       ...(season         !== undefined && { season }),
       ...(logoUrl        !== undefined && { logo_url:        logoUrl }),

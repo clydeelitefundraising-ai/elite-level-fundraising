@@ -6,6 +6,10 @@
   --cl-primary-rgb:   27, 79, 168;
   --cl-secondary:     #C4A35A;
   --cl-secondary-rgb: 196, 163, 90;
+  --cl-accent:        #C4A35A;
+  --cl-accent-rgb:    196, 163, 90;
+  --cl-button:        #1B4FA8;
+  --cl-button-rgb:    27, 79, 168;
 
   /* PVCC palette aliases — all now reference dynamic theme vars */
   --pvcc-blue:      var(--cl-primary);
@@ -279,7 +283,7 @@ html {
 .cl-hero-cta {
   display: inline-block;
   background: var(--white);
-  color: var(--pvcc-blue-dark);
+  color: var(--cl-button);
   padding: 0.85rem 2rem;
   border-radius: 10px;
   font-weight: 700;
@@ -289,7 +293,7 @@ html {
 }
 
 .cl-hero-cta:hover {
-  background: var(--pvcc-sand-pale);
+  background: rgba(var(--cl-button-rgb), 0.12);
   transform: translateY(-1px);
 }
 
@@ -588,14 +592,14 @@ html {
 }
 
 .cl-filter-tab:hover {
-  border-color: var(--pvcc-blue);
-  color: var(--pvcc-blue);
-  background: rgba(var(--cl-primary-rgb), 0.05);
+  border-color: var(--cl-accent);
+  color: var(--cl-accent);
+  background: rgba(var(--cl-accent-rgb), 0.08);
 }
 
 .cl-filter-tab.active {
-  border-color: var(--pvcc-blue);
-  background: var(--pvcc-blue);
+  border-color: var(--cl-accent);
+  background: var(--cl-accent);
   color: var(--white);
 }
 
@@ -1026,7 +1030,7 @@ html {
 }
 
 .cl-donate-btn {
-  background: var(--pvcc-blue);
+  background: var(--cl-button);
   color: var(--white);
   font-family: var(--font-body);
   font-weight: 700;
@@ -1041,7 +1045,8 @@ html {
 }
 
 .cl-donate-btn:hover {
-  background: var(--pvcc-blue-dark);
+  background: var(--cl-button);
+  filter: brightness(0.9);
   transform: translateY(-1px);
 }
 

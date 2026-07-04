@@ -11,8 +11,16 @@ export type PremiumLayoutProps = {
   schoolName: string;
   sportName: string;
   mascot: string;
-  primaryColor: string;
-  secondaryColor: string;
+  // Team colors — actual school/team branding. Used ONLY for identity
+  // elements (Program Identity swatches), never for page chrome.
+  teamPrimaryColor: string;
+  teamSecondaryColor: string;
+  // Campaign (page theme) colors — independent of team colors, drive the
+  // page's look (hero gradient, CTA, leaderboard highlights, etc.).
+  themePrimaryColor: string;
+  themeSecondaryColor: string;
+  themeAccentColor: string;
+  themeButtonColor: string;
   location: string;
   season: string;
   logoUrl: string;
@@ -64,7 +72,9 @@ export type PremiumLayoutProps = {
 };
 
 export default function PremiumLayout({
-  schoolName, sportName, mascot, primaryColor, secondaryColor,
+  schoolName, sportName, mascot,
+  teamPrimaryColor, teamSecondaryColor,
+  themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor,
   location, season, logoUrl,
   raised, donors, goal, daysLeft, percent,
   athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
@@ -102,7 +112,7 @@ export default function PremiumLayout({
 
       {/* PREMIUM HERO — full-width gradient banner */}
       <header style={{
-        background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+        background: `linear-gradient(135deg, ${themePrimaryColor} 0%, ${themeSecondaryColor} 100%)`,
         padding: "3.5rem 1.5rem 2.5rem",
         textAlign: "center",
         color: "#fff",
@@ -140,7 +150,7 @@ export default function PremiumLayout({
 
           {showDonationCard && (
             <a href="#donate" style={{
-              display: "inline-block", background: "#fff", color: primaryColor,
+              display: "inline-block", background: "#fff", color: themeButtonColor,
               fontWeight: 800, fontSize: "1rem", padding: ".85rem 2.5rem",
               borderRadius: 999, textDecoration: "none", letterSpacing: ".02em",
               boxShadow: "0 4px 20px rgba(0,0,0,.18)",
@@ -231,20 +241,20 @@ export default function PremiumLayout({
                   <div key={a.rank} style={{
                     display: "flex", alignItems: "center", gap: "1rem",
                     padding: ".75rem 1rem", borderRadius: 10,
-                    background: a.displayRank === 1 ? `${primaryColor}12` : "#f9fafb",
-                    border: a.displayRank === 1 ? `1.5px solid ${primaryColor}30` : "1.5px solid #f3f4f6",
+                    background: a.displayRank === 1 ? `${themeAccentColor}12` : "#f9fafb",
+                    border: a.displayRank === 1 ? `1.5px solid ${themeAccentColor}30` : "1.5px solid #f3f4f6",
                   }}>
                     <span style={{ fontSize: "1.4rem", width: 36, textAlign: "center" }}>{rankIcon(a.displayRank)}</span>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{a.name}</div>
-                      <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.class_year ?? a.event}</div>
+                      <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.class_year ?? "—"}</div>
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: "1rem", color: primaryColor }}>${a.raised.toLocaleString()}</div>
+                    <div style={{ fontWeight: 800, fontSize: "1rem", color: themePrimaryColor }}>${a.raised.toLocaleString()}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="cl-filter-empty">No athletes in this event group yet.</div>
+              <div className="cl-filter-empty">No athletes in this class group yet.</div>
             )}
           </div>
         )}
@@ -264,13 +274,13 @@ export default function PremiumLayout({
             <div className="cl-identity-grid">
               <div className="cl-identity-item">
                 <div className="cl-identity-label">Mascot</div>
-                <div className="cl-identity-value">🐾 {mascot}</div>
+                <div className="cl-identity-value">{mascot}</div>
               </div>
               <div className="cl-identity-item">
                 <div className="cl-identity-label">Colors</div>
                 <div className="cl-identity-value cl-identity-colors">
-                  <span className="cl-color-swatch" style={{ background: primaryColor }} />
-                  <span className="cl-color-swatch" style={{ background: secondaryColor }} />
+                  <span className="cl-color-swatch" style={{ background: teamPrimaryColor }} />
+                  <span className="cl-color-swatch" style={{ background: teamSecondaryColor }} />
                 </div>
               </div>
               <div className="cl-identity-item">

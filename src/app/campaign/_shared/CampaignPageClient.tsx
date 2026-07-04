@@ -5,6 +5,10 @@ import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
 
+// Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
+// since this is a client component and that module is server-only.
+const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+
 const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
@@ -79,8 +83,18 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");
   const [mascot,          setMascot]          = useState("Team");
+  // Team colors — actual school/team branding. Used ONLY for team identity
+  // elements (Program Identity swatches). Never drives page theme/chrome.
   const [primaryColor,    setPrimaryColor]    = useState("#1B4FA8");
   const [secondaryColor,  setSecondaryColor]  = useState("#C4A35A");
+  // Campaign (page theme) colors — independent of team colors, drive the
+  // fundraising page's look (hero, buttons, accents, progress bar, etc.).
+  // Default to the same values as team colors so a campaign with no theme
+  // configured yet renders identically to before this feature existed.
+  const [themePrimaryColor,   setThemePrimaryColor]   = useState("#1B4FA8");
+  const [themeSecondaryColor, setThemeSecondaryColor] = useState("#C4A35A");
+  const [themeAccentColor,    setThemeAccentColor]    = useState("#C4A35A");
+  const [themeButtonColor,    setThemeButtonColor]    = useState("#1B4FA8");
   const [location,        setLocation]        = useState("");
   const [season,          setSeason]          = useState("2025 Season");
   const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
@@ -107,6 +121,8 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           school_name: fetchedSchoolName, sport_name: fetchedSportName,
           mascot: fetchedMascot,
           primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
+          theme_primary_color: fetchedThemePrimary, theme_secondary_color: fetchedThemeSecondary,
+          theme_accent_color: fetchedThemeAccent, theme_button_color: fetchedThemeButton,
           location: fetchedLocation, season: fetchedSeason,
           logo_url: fetchedLogoUrl,
           archived: fetchedArchived,
@@ -130,6 +146,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedMascot     === "string" && fetchedMascot)     setMascot(fetchedMascot);
         if (typeof fetchedPrimary    === "string" && fetchedPrimary)    setPrimaryColor(fetchedPrimary);
         if (typeof fetchedSecondary  === "string" && fetchedSecondary)  setSecondaryColor(fetchedSecondary);
+        if (typeof fetchedThemePrimary   === "string" && fetchedThemePrimary)   setThemePrimaryColor(fetchedThemePrimary);
+        if (typeof fetchedThemeSecondary === "string" && fetchedThemeSecondary) setThemeSecondaryColor(fetchedThemeSecondary);
+        if (typeof fetchedThemeAccent    === "string" && fetchedThemeAccent)    setThemeAccentColor(fetchedThemeAccent);
+        if (typeof fetchedThemeButton    === "string" && fetchedThemeButton)    setThemeButtonColor(fetchedThemeButton);
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
@@ -165,16 +185,23 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       .catch(() => {/* keep fallback data */});
   }, [slug]);
 
+  // Page chrome (hero, buttons, accents, progress bar, headings, cards) is
+  // driven entirely by the CAMPAIGN theme colors, not the team colors —
+  // that's the whole point of separating them.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--cl-primary",       primaryColor);
-    root.style.setProperty("--cl-primary-rgb",   hexToRgb(primaryColor));
-    root.style.setProperty("--cl-secondary",     secondaryColor);
-    root.style.setProperty("--cl-secondary-rgb", hexToRgb(secondaryColor));
-  }, [primaryColor, secondaryColor]);
+    root.style.setProperty("--cl-primary",       themePrimaryColor);
+    root.style.setProperty("--cl-primary-rgb",   hexToRgb(themePrimaryColor));
+    root.style.setProperty("--cl-secondary",     themeSecondaryColor);
+    root.style.setProperty("--cl-secondary-rgb", hexToRgb(themeSecondaryColor));
+    root.style.setProperty("--cl-accent",        themeAccentColor);
+    root.style.setProperty("--cl-accent-rgb",    hexToRgb(themeAccentColor));
+    root.style.setProperty("--cl-button",        themeButtonColor);
+    root.style.setProperty("--cl-button-rgb",    hexToRgb(themeButtonColor));
+  }, [themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor]);
 
   const percent = Math.round((raised / goal) * 100);
-  const filters = ["Overall", ...Array.from(new Set(athletes.map((a) => a.event).filter((e): e is string => !!e)))];
+  const filters = ["Overall", ...ATHLETE_CLASS_OPTIONS];
 
   const displayAmount =
     selectedAmount === "Custom"
@@ -189,7 +216,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const filteredAthletes = (
     activeFilter === "Overall"
       ? athletes
-      : athletes.filter((a) => a.event === activeFilter)
+      : athletes.filter((a) => a.class_year === activeFilter)
   ).map((a, i) => ({ ...a, displayRank: i + 1 }));
 
   const handleDonate = async () => {
@@ -256,7 +283,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
 
   const sharedProps = {
     slug,
-    schoolName,   sportName, mascot, primaryColor, secondaryColor,
+    schoolName,   sportName, mascot,
+    teamPrimaryColor: primaryColor, teamSecondaryColor: secondaryColor,
+    themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor,
     location,     season,    logoUrl,
     raised,       donors,    goal,   daysLeft,     percent,
     athletes,     filteredAthletes,  filters,      activeFilter, setActiveFilter,
@@ -336,7 +365,6 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                 {sportName} &nbsp;·&nbsp; {location} &nbsp;·&nbsp; {season}
               </div>
             </div>
-            <div className="cl-school-season-badge">🐾 {season.toUpperCase()}</div>
           </div>
         </div>
 
@@ -439,14 +467,14 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                         <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
                           <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
                           <td className="cl-td-name">{a.name}</td>
-                          <td className="cl-td-event">{a.class_year ?? a.event}</td>
+                          <td className="cl-td-event">{a.class_year ?? "—"}</td>
                           <td className="cl-td-amount">${a.raised.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 ) : (
-                  <div className="cl-filter-empty">No athletes in this event group yet.</div>
+                  <div className="cl-filter-empty">No athletes in this class group yet.</div>
                 )}
               </div>
             )}
@@ -466,7 +494,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                 <div className="cl-identity-grid">
                   <div className="cl-identity-item">
                     <div className="cl-identity-label">Mascot</div>
-                    <div className="cl-identity-value">🐾 {mascot}</div>
+                    <div className="cl-identity-value">{mascot}</div>
                   </div>
                   <div className="cl-identity-item">
                     <div className="cl-identity-label">Colors</div>

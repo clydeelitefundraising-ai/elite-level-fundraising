@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
+type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
@@ -89,6 +89,33 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
+// Campaign theme colors are optional — null means "not customized, falls
+// back to the team color shown as `fallback`." Typing a value (or using the
+// picker) sets a custom color; Reset clears it back to null.
+function OptionalColorField({ label, value, fallback, onChange }: { label: string; value: string | null; fallback: string; onChange: (v: string | null) => void }) {
+  const effective = value ?? fallback;
+  return (
+    <label style={C.label}>
+      {label}{" "}
+      {value == null && (
+        <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "#9ca3af" }}>(using team color)</span>
+      )}
+      <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+        <input type="color" value={effective.match(/^#[0-9a-fA-F]{6}$/) ? effective : "#000000"}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: 38, height: 36, border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", padding: 2, flexShrink: 0, background: "none" }} />
+        <input style={{ ...C.input }} value={value ?? ""} onChange={e => onChange(e.target.value || null)} placeholder={`Default: ${fallback}`} />
+        {value != null && (
+          <button type="button" onClick={() => onChange(null)}
+            style={{ fontSize: ".68rem", fontWeight: 600, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 6, padding: ".3rem .55rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+            Reset
+          </button>
+        )}
+      </div>
+    </label>
+  );
+}
+
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
   gold:   { bg: "#fef9c3", color: "#854d0e" },
   silver: { bg: "#f1f5f9", color: "#475569" },
@@ -141,7 +168,7 @@ export function LoginView() {
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
+  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", theme_primary_color: null, theme_secondary_color: null, theme_accent_color: null, theme_button_color: null, location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
   const [settings, setSettings] = useState<Settings>(blank);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -207,6 +234,10 @@ export function AdminDashboard() {
         show_sponsors:         c.show_sponsors         ?? true,
         show_donation_card:    c.show_donation_card    ?? true,
         layout_variant:        c.layout_variant        ?? "classic",
+        theme_primary_color:   c.theme_primary_color   ?? null,
+        theme_secondary_color: c.theme_secondary_color ?? null,
+        theme_accent_color:    c.theme_accent_color    ?? null,
+        theme_button_color:    c.theme_button_color    ?? null,
       } : blank);
       setArchived(c?.archived === true);
       setAthletes(Array.isArray(a) ? a : []);
@@ -496,12 +527,12 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        {/* ── 3. Branding ── */}
+        {/* ── 3a. Team Colors ── */}
         <div style={C.card}>
-          <SectionHeader title="Branding" desc="Primary and secondary colors" />
+          <SectionHeader title="Team Colors" desc="Actual school/team branding — used for team identity elements only (logo accents, badges, Program Identity). Does not control the fundraising page's appearance." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <ColorField label="Primary Color"   value={settings.primary_color}   onChange={v => setSettings(s => ({ ...s, primary_color: v }))} />
-            <ColorField label="Secondary Color" value={settings.secondary_color} onChange={v => setSettings(s => ({ ...s, secondary_color: v }))} />
+            <ColorField label="Primary Team Color"   value={settings.primary_color}   onChange={v => setSettings(s => ({ ...s, primary_color: v }))} />
+            <ColorField label="Secondary Team Color" value={settings.secondary_color} onChange={v => setSettings(s => ({ ...s, secondary_color: v }))} />
           </div>
           <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", marginTop: "1rem", height: 48 }}>
             <div style={{ flex: 1, background: settings.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -512,7 +543,35 @@ export function AdminDashboard() {
             </div>
           </div>
           <div style={{ marginTop: "1.25rem" }}>
-            <Btn onClick={saveSettings} disabled={saving}>{saving ? "Saving…" : "Save Branding"}</Btn>
+            <Btn onClick={saveSettings} disabled={saving}>{saving ? "Saving…" : "Save Team Colors"}</Btn>
+          </div>
+        </div>
+
+        {/* ── 3b. Campaign Colors ── */}
+        <div style={C.card}>
+          <SectionHeader title="Campaign Colors" desc="Controls the fundraising page's look and feel — hero, buttons, section accents, headings, cards, progress bars. Independent of Team Colors; leave any field blank to use the matching team color." />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <OptionalColorField label="Primary Theme Color"   value={settings.theme_primary_color}   fallback={settings.primary_color}   onChange={v => setSettings(s => ({ ...s, theme_primary_color: v }))} />
+            <OptionalColorField label="Secondary Theme Color" value={settings.theme_secondary_color} fallback={settings.secondary_color} onChange={v => setSettings(s => ({ ...s, theme_secondary_color: v }))} />
+            <OptionalColorField label="Accent Color"          value={settings.theme_accent_color}    fallback={settings.theme_secondary_color ?? settings.secondary_color} onChange={v => setSettings(s => ({ ...s, theme_accent_color: v }))} />
+            <OptionalColorField label="Button Color"          value={settings.theme_button_color}    fallback={settings.theme_primary_color ?? settings.primary_color}     onChange={v => setSettings(s => ({ ...s, theme_button_color: v }))} />
+          </div>
+          <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", marginTop: "1rem", height: 48 }}>
+            <div style={{ flex: 1, background: settings.theme_primary_color ?? settings.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Primary</span>
+            </div>
+            <div style={{ flex: 1, background: settings.theme_secondary_color ?? settings.secondary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Secondary</span>
+            </div>
+            <div style={{ flex: 1, background: settings.theme_accent_color ?? settings.theme_secondary_color ?? settings.secondary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Accent</span>
+            </div>
+            <div style={{ flex: 1, background: settings.theme_button_color ?? settings.theme_primary_color ?? settings.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: ".68rem", fontWeight: 700, opacity: .85 }}>Button</span>
+            </div>
+          </div>
+          <div style={{ marginTop: "1.25rem" }}>
+            <Btn onClick={saveSettings} disabled={saving}>{saving ? "Saving…" : "Save Campaign Colors"}</Btn>
           </div>
         </div>
 
