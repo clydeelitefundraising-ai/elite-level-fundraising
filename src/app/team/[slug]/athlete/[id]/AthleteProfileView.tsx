@@ -114,9 +114,7 @@ export default function AthleteProfileView({
   const teamPct    = teamGoal > 0 ? (teamRaisedCents / teamGoal) * 100 : 0;
   const amtCents   = preset !== null ? preset * 100 : Math.round((parseFloat(custom) || 0) * 100);
 
-  // Canonical URL for sharing — prefer NEXT_PUBLIC_SITE_URL over window.location.origin
-  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
-    ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${siteOrigin}/team/${slug}/athlete/${athleteId}`;
 
   const handleDonate = async () => {

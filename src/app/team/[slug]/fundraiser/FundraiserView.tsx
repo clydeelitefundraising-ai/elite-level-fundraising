@@ -490,8 +490,7 @@ function AthleteView({
   const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
   const profilePath = `/team/${slug}/athlete/${athlete.id}`;
 
-  const siteOrigin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
-    ?? (typeof window !== "undefined" ? window.location.origin : "");
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const profileUrl = `${siteOrigin}${profilePath}`;
 
   useEffect(() => {
