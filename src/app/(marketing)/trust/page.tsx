@@ -18,6 +18,12 @@ const PAGES = [
   { href: "/trust/contact", title: "Business Contact", desc: "How to reach us directly." },
 ];
 
+const LEGAL_PAGES = [
+  { href: "/legal/terms", title: "Terms of Service" },
+  { href: "/legal/cookies", title: "Cookie Policy" },
+  { href: "/legal/acceptable-use", title: "Acceptable Use Policy" },
+];
+
 export default function TrustIndexPage() {
   return (
     <>
@@ -39,6 +45,21 @@ export default function TrustIndexPage() {
               <p>{p.desc}</p>
             </Link>
           ))}
+        </div>
+      </div>
+
+      <div className="mk-section mk-section-alt">
+        <div className="mk-container-narrow">
+          <h2 style={{ fontSize: "var(--mk-text-xl)", marginBottom: "var(--mk-space-4)" }}>Legal documents</h2>
+          <p style={{ color: "var(--mk-muted)", marginBottom: "var(--mk-space-6)" }}>
+            Some of these are still being finalized — each page states clearly whether it&rsquo;s
+            complete.
+          </p>
+          <ul className="mk-capability-list">
+            {LEGAL_PAGES.map((p) => (
+              <li key={p.href}><Link href={p.href} style={{ textDecoration: "underline", fontWeight: 600, color: "var(--mk-ink)" }}>{p.title}</Link></li>
+            ))}
+          </ul>
         </div>
       </div>
     </>

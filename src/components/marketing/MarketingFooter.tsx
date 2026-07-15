@@ -19,9 +19,10 @@ export function MarketingFooter() {
           <div>
             <div className="mk-footer-col-title">Platform</div>
             <ul className="mk-footer-links">
-              <li><Link href="/#fundraising">Fundraising</Link></li>
-              <li><Link href="/#communication">Communication &amp; Team Management</Link></li>
-              <li><Link href="/#sponsors">Sponsors &amp; Reporting</Link></li>
+              <li><Link href="/product">Product</Link></li>
+              <li><Link href="/fundraising">Fundraising</Link></li>
+              <li><Link href="/communication">Communication</Link></li>
+              <li><Link href="/sponsors">Sponsors &amp; Reporting</Link></li>
               <li><Link href="/#how">How It Works</Link></li>
             </ul>
           </div>
@@ -29,9 +30,12 @@ export function MarketingFooter() {
           <div>
             <div className="mk-footer-col-title">Company</div>
             <ul className="mk-footer-links">
+              <li><Link href="/why-elf">Why ELF</Link></li>
+              <li><Link href="/about">About</Link></li>
+              <li><Link href="/pricing">Pricing</Link></li>
               <li><Link href="/demo">Book a Demo</Link></li>
-              <li><Link href="/trust/contact">Contact</Link></li>
-              <li><Link href="/#faq">FAQ</Link></li>
+              <li><Link href="/contact">Contact</Link></li>
+              <li><Link href="/faq">FAQ</Link></li>
             </ul>
           </div>
 

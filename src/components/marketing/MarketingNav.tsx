@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
-  { href: "/#platform", label: "Platform" },
+  { href: "/product", label: "Product" },
   { href: "/#how", label: "How It Works" },
+  { href: "/why-elf", label: "Why ELF" },
+  { href: "/pricing", label: "Pricing" },
   { href: "/trust", label: "Trust Center" },
-  { href: "/#faq", label: "FAQ" },
+  { href: "/faq", label: "FAQ" },
 ];
 
 export function MarketingNav() {

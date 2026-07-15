@@ -515,6 +515,57 @@
 .mk-form-status.mk-status-success { background: var(--mk-good-soft); color: var(--mk-good); }
 .mk-form-status ul { margin: var(--mk-space-2) 0 0; padding-left: var(--mk-space-5); }
 
+/* ── Manifesto blocks (Why ELF) — editorial, no cards/previews ── */
+.mk-manifesto-block {
+  max-width: var(--mk-content-width-narrow);
+  padding: var(--mk-space-12) 0;
+  border-top: 1px solid var(--mk-line);
+}
+.mk-manifesto-block:first-child { border-top: none; padding-top: 0; }
+.mk-manifesto-block h2 { font-size: var(--mk-text-2xl); margin-bottom: var(--mk-space-4); }
+.mk-manifesto-block p { font-size: var(--mk-text-lg); color: var(--mk-muted); max-width: 62ch; }
+
+/* ── FAQ topic groups (/faq) ── */
+.mk-faq-topic { margin-bottom: var(--mk-space-16); }
+.mk-faq-topic:last-child { margin-bottom: 0; }
+.mk-faq-topic-title {
+  font-size: var(--mk-text-xl);
+  margin-bottom: var(--mk-space-6);
+  padding-bottom: var(--mk-space-3);
+  border-bottom: 2px solid var(--mk-line);
+}
+
+/* ── Persona blocks (Fundraising page) ── */
+.mk-persona-block { padding: var(--mk-space-12) 0; border-top: 1px solid var(--mk-line); }
+.mk-persona-block:first-child { border-top: none; }
+.mk-persona-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: var(--mk-space-12); align-items: start; }
+.mk-persona-grid h3 { font-size: var(--mk-text-xl); }
+@media (max-width: 760px) { .mk-persona-grid { grid-template-columns: 1fr; gap: var(--mk-space-4); } }
+
+/* ── Differentiator panel (Sponsors page) ── */
+.mk-differentiator {
+  border: 1px solid var(--mk-line-strong);
+  border-radius: var(--mk-radius-md);
+  background: var(--mk-paper-2);
+  padding: var(--mk-space-10);
+  margin-top: var(--mk-space-16);
+}
+.mk-differentiator h2 { font-size: var(--mk-text-2xl); margin-bottom: var(--mk-space-4); }
+.mk-differentiator p { font-size: var(--mk-text-base); color: var(--mk-ink-2); max-width: 68ch; }
+
+/* ── Pricing concerns (compact Q&A distinct from full FAQ styling) ── */
+.mk-concern { padding: var(--mk-space-5) 0; border-top: 1px solid var(--mk-line); }
+.mk-concern:first-child { border-top: none; }
+.mk-concern h3 { font-size: var(--mk-text-base); margin-bottom: var(--mk-space-2); }
+.mk-concern p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
+
+/* ── Contact page ── */
+.mk-contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-space-16); }
+.mk-contact-card { border: 1px solid var(--mk-line); border-radius: var(--mk-radius-md); padding: var(--mk-space-8); }
+.mk-contact-card h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-3); }
+.mk-contact-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); margin-bottom: var(--mk-space-5); }
+@media (max-width: 760px) { .mk-contact-grid { grid-template-columns: 1fr; } }
+
 /* ── Simple content pages (Trust/Legal placeholders) ── */
 .mk-page-hero { padding: var(--mk-space-20) 0 var(--mk-space-12); border-bottom: 1px solid var(--mk-line); }
 .mk-page-hero h1 { font-size: var(--mk-text-4xl); margin-bottom: var(--mk-space-4); }

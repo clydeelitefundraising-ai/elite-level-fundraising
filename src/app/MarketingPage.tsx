@@ -1,24 +1,25 @@
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LinkButton } from "@/components/marketing/Button";
 import { ProductPreview } from "@/components/marketing/ProductPreview";
+import { FaqList } from "@/components/marketing/FaqList";
 
 // Anchors here must match the section ids below exactly — one card per
 // section, no duplicates.
 const MODULES = [
   {
-    id: "fundraising",
+    href: "/fundraising",
     num: "01",
     title: "Fundraising",
     desc: "Athlete pages, live leaderboards, and transparent Stripe-secured payments.",
   },
   {
-    id: "communication",
+    href: "/communication",
     num: "02",
     title: "Communication",
     desc: "Announcements, messages, roster, and calendar — one thread instead of five.",
   },
   {
-    id: "sponsors",
+    href: "/sponsors",
     num: "03",
     title: "Sponsors & Reporting",
     desc: "A CRM built to match your program with local businesses ready to invest.",
@@ -67,7 +68,7 @@ export default function MarketingPage() {
             </p>
             <div className="mk-hero-actions">
               <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
-              <LinkButton href="/#platform" variant="secondary" size="lg">See the Platform</LinkButton>
+              <LinkButton href="/product" variant="secondary" size="lg">See the Platform</LinkButton>
             </div>
             <p className="mk-hero-note">No commitment. 20 minutes. Built around your program.</p>
           </div>
@@ -145,13 +146,16 @@ export default function MarketingPage() {
           </div>
           <div className="mk-module-grid">
             {MODULES.map((m) => (
-              <a href={`/#${m.id}`} className="mk-module-card" key={m.title}>
+              <a href={m.href} className="mk-module-card" key={m.title}>
                 <span className="mk-module-num">{m.num}</span>
                 <h3>{m.title}</h3>
                 <p>{m.desc}</p>
               </a>
             ))}
           </div>
+          <p style={{ marginTop: "var(--mk-space-8)" }}>
+            <a href="/product" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full guided walkthrough &rarr;</a>
+          </p>
         </div>
       </section>
 
@@ -340,17 +344,10 @@ export default function MarketingPage() {
             <span className="mk-eyebrow">Questions</span>
             <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Frequently asked questions</h2>
           </div>
-          <div className="mk-faq">
-            {FAQS.map((f) => (
-              <details className="mk-faq-item" key={f.q}>
-                <summary>
-                  {f.q}
-                  <span className="mk-faq-icon" aria-hidden="true">+</span>
-                </summary>
-                <p>{f.a}</p>
-              </details>
-            ))}
-          </div>
+          <FaqList items={FAQS} />
+          <p style={{ textAlign: "center", marginTop: "var(--mk-space-8)" }}>
+            <a href="/faq" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full FAQ &rarr;</a>
+          </p>
         </div>
       </section>
 
