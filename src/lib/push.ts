@@ -5,11 +5,21 @@ import type { ParticipantRef } from "@/lib/messages";
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+// Deferred (not module-load-time): some deployments — e.g. the marketing
+// site build, which pulls in this module transitively via
+// /api/jobs/notifications but never actually sends a push — don't have
+// VAPID env vars configured. Configuring eagerly at import time made the
+// entire build fail for those deployments even though push is never used.
+let vapidConfigured = false;
+function ensureVapidConfigured(): void {
+  if (vapidConfigured) return;
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!,
+  );
+  vapidConfigured = true;
+}
 
 type PushSub = {
   id: string;
@@ -50,6 +60,7 @@ async function dispatchPush(
 ): Promise<void> {
   if (sub.platform === "web" && sub.endpoint && sub.p256dh && sub.auth_key) {
     try {
+      ensureVapidConfigured();
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
         JSON.stringify(payload),
