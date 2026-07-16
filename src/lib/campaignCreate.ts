@@ -1,4 +1,4 @@
-import { createCampaignSettings } from "@/lib/supabase";
+import { createCampaignSettings, CampaignSettingsError } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { sendCoachWelcome } from "@/lib/email";
@@ -49,6 +49,11 @@ export type CampaignCoreParams = {
   coach_email:     string;
   coach_password:  string;
   contact_goal:    number;
+  // Optional CRM contact this campaign was launched from. Written as part of
+  // the campaign_settings insert itself (not a follow-up update) so a campaign
+  // can never exist without the link, and the DB's partial unique index on
+  // campaign_settings.crm_contact_id authoritatively blocks a second launch.
+  crmContactId?:   string | null;
 };
 
 export type CampaignCoreResult =
@@ -81,9 +86,21 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
       show_donation_card:         p.show_donation_card,
       layout_variant:             p.layout_variant,
       default_athlete_goal_cents: p.default_athlete_goal_cents,
+      crm_contact_id:             p.crmContactId ?? null,
     });
   } catch (err) {
+    if (err instanceof CampaignSettingsError) {
+      // `.message` was already built from code/constraint by
+      // parseCampaignSettingsError and is browser-safe — never `.raw`.
+      const isUniqueViolation = err.code === "23505";
+      return { ok: false, error: err.message, status: isUniqueViolation ? 409 : 500 };
+    }
     const message = err instanceof Error ? err.message : "Failed to create campaign.";
+    // Defensive fallback only — reached if createCampaignSettings ever throws
+    // a plain Error again instead of CampaignSettingsError.
+    if (message.includes("campaign_settings_crm_contact_id_key")) {
+      return { ok: false, error: "This CRM contact already has a linked campaign.", status: 409 };
+    }
     return { ok: false, error: message, status: message.includes("already exists") ? 409 : 500 };
   }
 

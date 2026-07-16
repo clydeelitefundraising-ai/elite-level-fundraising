@@ -26,9 +26,18 @@ export type CrmSummary = {
 };
 
 export type CrmData = {
-  contacts:        CrmContact[];
-  summary:         CrmSummary;
-  pipeline:        Record<CrmStatus, CrmContact[]>;
-  followUpsDue:    CrmContact[];
-  recentActivity:  CrmActivity[];
+  contacts:          CrmContact[];
+  summary:           CrmSummary;
+  pipeline:          Record<CrmStatus, CrmContact[]>;
+  followUpsDue:      CrmContact[];
+  recentActivity:    CrmActivity[];
+  // contact_id -> campaign_slug, for contacts that have already launched a campaign.
+  launchedCampaigns: Record<string, string>;
 };
+
+export type { DemoRequest, DemoRequestStatus } from "@/lib/platform/marketingDemoRequests";
+
+// Contacts eligible for Launch Campaign — declared order in CRM_STATUSES
+// ("prospect","contacted","demo_scheduled","proposal_sent","signed","active","returning","lost")
+// confirms "active" genuinely comes after "signed", not just assumed.
+export const LAUNCHABLE_STATUSES: CrmStatus[] = ["signed", "active"];

@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { redirect } from "next/navigation";
-import NewCampaignWizard from "./NewCampaignWizard";
+import { getContact } from "@/lib/platform/crm";
+import NewCampaignWizard, { type CrmSeed } from "./NewCampaignWizard";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +30,31 @@ type OrgDefaults = {
   default_show_donation_card:     boolean;
 };
 
-export default async function NewCampaignPage() {
+export default async function NewCampaignPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ crm_contact_id?: string }>;
+}) {
   const store = await cookies();
   if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+
+  // Only an opaque id ever appears in the URL — never school/sport/coach name
+  // or email. The wizard's seed values below come from an admin-authenticated
+  // server-side lookup, not from anything the browser could have supplied.
+  const { crm_contact_id } = await searchParams;
+  let crmSeed: CrmSeed | null = null;
+  if (crm_contact_id) {
+    const contact = await getContact(crm_contact_id);
+    if (contact) {
+      crmSeed = {
+        contactId:  contact.id,
+        schoolName: contact.school_name ?? "",
+        sportName:  contact.sport ?? "",
+        coachName:  contact.name,
+        coachEmail: contact.email ?? "",
+      };
+    }
+  }
 
   // Fetch org defaults to pre-populate the wizard
   let orgDefaults: Partial<OrgDefaults> = {};
@@ -48,5 +71,5 @@ export default async function NewCampaignPage() {
     // Non-fatal — wizard will use its own defaults
   }
 
-  return <NewCampaignWizard orgDefaults={orgDefaults} />;
+  return <NewCampaignWizard orgDefaults={orgDefaults} crmSeed={crmSeed} />;
 }

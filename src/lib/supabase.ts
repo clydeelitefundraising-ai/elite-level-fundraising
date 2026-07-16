@@ -50,6 +50,8 @@ export async function donationExists(sessionId: string): Promise<boolean> {
 export type CampaignSettings = {
   campaign_slug: string;
   team_id?: string;
+  // Which CRM contact's Launch Campaign action produced this campaign, if any.
+  crm_contact_id?: string | null;
   school_name: string;
   sport_name: string;
   mascot: string;
@@ -127,6 +129,64 @@ export async function getCampaignSettings(slug: string): Promise<CampaignSetting
   return rows[0] ?? null;
 }
 
+// Structured error for campaign_settings write failures — preserves
+// PostgREST's code/details/hint/constraint so callers can detect a specific
+// unique-constraint violation (e.g. crm_contact_id) without ever needing to
+// inspect (or accidentally forward to the browser) the raw DB error payload.
+// `.raw` is for server-side diagnostics/defensive fallback only.
+export class CampaignSettingsError extends Error {
+  code?:       string;
+  details?:    string;
+  hint?:       string;
+  constraint?: string;
+  raw:         string;
+  constructor(
+    message: string,
+    raw: string,
+    opts?: { code?: string; details?: string; hint?: string; constraint?: string },
+  ) {
+    super(message);
+    this.name       = "CampaignSettingsError";
+    this.code       = opts?.code;
+    this.details    = opts?.details;
+    this.hint       = opts?.hint;
+    this.constraint = opts?.constraint;
+    this.raw        = raw;
+  }
+}
+
+function parseCampaignSettingsError(raw: string, status: number): CampaignSettingsError {
+  let code: string | undefined;
+  let details: string | undefined;
+  let hint: string | undefined;
+  let constraint: string | undefined;
+  try {
+    const parsed = JSON.parse(raw) as { code?: string; message?: string; details?: string; hint?: string | null };
+    code    = parsed.code;
+    details = parsed.details;
+    hint    = parsed.hint ?? undefined;
+    constraint =
+      parsed.message?.match(/constraint "([^"]+)"/)?.[1] ??
+      parsed.details?.match(/constraint "([^"]+)"/)?.[1];
+  } catch {
+    // Non-JSON error body — code/details/hint/constraint stay undefined.
+    // `.raw` (below) remains available for a defensive substring fallback.
+  }
+
+  let message = `Failed to create campaign (status ${status}).`;
+  if (code === "23505") {
+    if (constraint === "campaign_settings_crm_contact_id_key") {
+      message = "This CRM contact already has a linked campaign.";
+    } else if (constraint === "coach_crm_contacts_demo_request_id_key") {
+      message = "This demo request has already been converted.";
+    } else {
+      message = "A record with this value already exists.";
+    }
+  }
+
+  return new CampaignSettingsError(message, raw, { code, details, hint, constraint });
+}
+
 export async function createCampaignSettings(data: CampaignSettings): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const res = await fetch(
@@ -138,8 +198,11 @@ export async function createCampaignSettings(data: CampaignSettings): Promise<vo
     },
   );
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`Supabase insert failed (${res.status}): ${msg}`);
+    const raw = await res.text();
+    // Full code/message/details/hint logged server-side only — never
+    // returned to a caller/browser.
+    console.error("[createCampaignSettings] insert failed:", res.status, raw);
+    throw parseCampaignSettingsError(raw, res.status);
   }
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length === 0) {

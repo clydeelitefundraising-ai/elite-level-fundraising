@@ -8,6 +8,18 @@ import { useRouter } from "next/navigation";
 type Step = 1 | 2 | 3 | 4 | 5;
 type SlugStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
+// Seed values for launching a campaign from a qualified Coach CRM contact.
+// Populated server-side (page.tsx) from an admin-authenticated CRM lookup —
+// never trust these as proof of the CRM association on their own; the
+// onboard route independently re-validates contactId server-side too.
+export type CrmSeed = {
+  contactId:  string;
+  schoolName: string;
+  sportName:  string;
+  coachName:  string;
+  coachEmail: string;
+};
+
 type WizardData = {
   // Step 1 — Team Info
   school_name:   string;
@@ -845,9 +857,13 @@ type OrgDefaults = {
   default_show_donation_card?:     boolean;
 };
 
-function buildInitial(org: OrgDefaults): WizardData {
+function buildInitial(org: OrgDefaults, crmSeed: CrmSeed | null): WizardData {
   return {
     ...BLANK,
+    school_name:                  crmSeed?.schoolName || BLANK.school_name,
+    sport_name:                   crmSeed?.sportName  || BLANK.sport_name,
+    coach_name:                   crmSeed?.coachName  || BLANK.coach_name,
+    coach_email:                  crmSeed?.coachEmail || BLANK.coach_email,
     primary_color:                org.primary_color   ?? BLANK.primary_color,
     secondary_color:              org.secondary_color ?? BLANK.secondary_color,
     logo_url:                     org.logo_url        ?? BLANK.logo_url,
@@ -873,11 +889,13 @@ function buildInitial(org: OrgDefaults): WizardData {
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
-export default function NewCampaignWizard({ orgDefaults = {} }: { orgDefaults?: OrgDefaults }) {
+export default function NewCampaignWizard({
+  orgDefaults = {}, crmSeed = null,
+}: { orgDefaults?: OrgDefaults; crmSeed?: CrmSeed | null }) {
   const router = useRouter();
 
   const [step,        setStep]        = useState<Step>(1);
-  const [d,           setD]           = useState<WizardData>(() => buildInitial(orgDefaults));
+  const [d,           setD]           = useState<WizardData>(() => buildInitial(orgDefaults, crmSeed));
   const [errors,      setErrors]      = useState<string[]>([]);
   const [slugStatus,  setSlugStatus]  = useState<SlugStatus>("idle");
   const [launching,   setLaunching]   = useState(false);
@@ -976,12 +994,17 @@ export default function NewCampaignWizard({ orgDefaults = {} }: { orgDefaults?: 
           coach_email:                d.coach_email.trim(),
           coach_password:             d.coach_password,
           starter_athletes:           [],
+          crm_contact_id:             crmSeed?.contactId ?? null,
         }),
       });
 
       const data = await res.json() as { slug?: string; error?: string };
 
       if (!res.ok) {
+        if (res.status === 409 && data.slug) {
+          router.push(`/admin/campaigns/${data.slug}`);
+          return;
+        }
         setLaunchError(data.error ?? "Launch failed. Please check your inputs and try again.");
         setLaunching(false);
         return;
@@ -1011,6 +1034,13 @@ export default function NewCampaignWizard({ orgDefaults = {} }: { orgDefaults?: 
         <p style={{ margin: ".3rem 0 0", fontSize: ".82rem", color: "#98989d" }}>
           Create a fully configured fundraising campaign in 5 steps.
         </p>
+        {crmSeed && (
+          <div style={{ marginTop: ".6rem", display: "inline-flex", alignItems: "center", gap: ".4rem", padding: ".3rem .7rem", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 999 }}>
+            <span style={{ fontSize: ".72rem", fontWeight: 600, color: "#1e40af" }}>
+              ☎ Linked to Coach CRM contact — will be recorded on launch
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Progress stepper */}

@@ -15,6 +15,44 @@ export function restUrl(path: string) {
   return `${BASE}/rest/v1/${path}`;
 }
 
+// Structured error for REST write failures. `.code`/`.constraint` are parsed
+// from PostgREST's JSON error body when available, for callers that need to
+// distinguish e.g. a specific unique-constraint violation from a generic
+// failure — without exposing the raw DB error text (which may include query
+// details) as `.message`, since `.message` is what routes tend to surface.
+export class RestError extends Error {
+  code?:       string;
+  constraint?: string;
+  // Raw PostgREST error body — for callers that need a defensive substring
+  // fallback if code/constraint parsing didn't recognize the shape. Logged
+  // server-side only; never return `.detail` in an HTTP response body.
+  detail:      string;
+  constructor(message: string, detail: string, opts?: { code?: string; constraint?: string }) {
+    super(message);
+    this.name = "RestError";
+    this.code = opts?.code;
+    this.constraint = opts?.constraint;
+    this.detail = detail;
+  }
+}
+
+async function toRestError(res: Response): Promise<RestError> {
+  const raw = await res.text();
+  let code: string | undefined;
+  let constraint: string | undefined;
+  try {
+    const parsed = JSON.parse(raw) as { code?: string; message?: string };
+    code = parsed.code;
+    constraint = parsed.message?.match(/constraint "([^"]+)"/)?.[1];
+  } catch {
+    // Non-JSON error body — code/constraint stay undefined; callers can
+    // still substring-match `.detail` as a defensive fallback.
+  }
+  console.error("[platform/_client] REST write failed:", res.status, raw);
+  const message = code === "23505" ? "A record with this value already exists." : "Request failed.";
+  return new RestError(message, raw, { code, constraint });
+}
+
 // GET that never throws — returns [] on any failure (missing table, network error, bad response).
 export async function restList<T>(path: string): Promise<T[]> {
   try {
@@ -33,7 +71,7 @@ export async function restInsert<T>(path: string, body: unknown, extraHeaders?: 
     headers: restHeaders({ Prefer: "return=representation", ...extraHeaders }),
     body:    JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await toRestError(res);
   return res.json();
 }
 
@@ -43,6 +81,6 @@ export async function restUpdate<T>(path: string, body: unknown): Promise<T[]> {
     headers: restHeaders({ Prefer: "return=representation" }),
     body:    JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await toRestError(res);
   return res.json();
 }

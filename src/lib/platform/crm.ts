@@ -34,6 +34,7 @@ export type CrmContact = {
   last_contacted_at:   string | null;
   next_follow_up_at:   string | null;
   notes:               string | null;
+  demo_request_id:     string | null;
   created_at:          string;
   updated_at:          string;
 };
@@ -70,6 +71,16 @@ export async function getContact(id: string): Promise<CrmContact | null> {
   return rows[0] ?? null;
 }
 
+// Targeted lookup for duplicate-conversion detection — do not use getContacts()
+// + an in-memory filter for this. The partial unique index on demo_request_id
+// is the authoritative concurrency guard; this is only for a friendly response.
+export async function getContactByDemoRequestId(demoRequestId: string): Promise<CrmContact | null> {
+  const rows = await restList<CrmContact>(
+    `coach_crm_contacts?demo_request_id=eq.${encodeURIComponent(demoRequestId)}&select=*&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
 export type CreateContactInput = Partial<Omit<CrmContact, "id" | "created_at" | "updated_at">> & { name: string };
 
 export async function createContact(input: CreateContactInput): Promise<CrmContact> {
@@ -87,6 +98,7 @@ export async function createContact(input: CreateContactInput): Promise<CrmConta
     expected_close_date: input.expected_close_date ?? null,
     next_follow_up_at:   input.next_follow_up_at ?? null,
     notes:               input.notes ?? null,
+    demo_request_id:     input.demo_request_id ?? null,
   });
   return rows[0];
 }
