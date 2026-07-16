@@ -42,24 +42,10 @@ export default function CommunicationPage() {
               <li>Posted from the same hub as the fundraising campaign</li>
             </ul>
           </div>
-          <ProductPreview label="Team Communication">
-            <div className="mk-thread">
-              <div className="mk-thread-msg">
-                <span className="mk-thread-avatar">C</span>
-                <div className="mk-thread-body">
-                  <div className="mk-thread-meta"><span className="mk-thread-name">Coach</span><span className="mk-thread-time">2h ago</span></div>
-                  <p className="mk-thread-text">Practice moved to 4pm today &mdash; same field.</p>
-                </div>
-              </div>
-              <div className="mk-thread-msg">
-                <span className="mk-thread-avatar">T</span>
-                <div className="mk-thread-body">
-                  <div className="mk-thread-meta"><span className="mk-thread-name">Team Calendar</span><span className="mk-thread-time">Today</span></div>
-                  <p className="mk-thread-text">Away game added &mdash; Saturday, 10am.</p>
-                </div>
-              </div>
-            </div>
-          </ProductPreview>
+          <ProductPreview
+            label="Team communications"
+            image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
+          />
         </div>
       </section>
 

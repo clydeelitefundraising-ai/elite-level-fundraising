@@ -41,7 +41,7 @@ export default function TrustIndexPage() {
         <div className="mk-container mk-trust-index-grid">
           {PAGES.map((p) => (
             <Link href={p.href} className="mk-module-card" key={p.href}>
-              <h3>{p.title}</h3>
+              <h2>{p.title}</h2>
               <p>{p.desc}</p>
             </Link>
           ))}

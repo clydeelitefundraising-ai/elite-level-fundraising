@@ -40,23 +40,11 @@ const STAGES = [
       "One shareable campaign page per team",
     ],
     preview: (
-      <ProductPreview label="Campaign Setup">
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">Track &amp; Field Boosters</span>
-          <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "0%" }} /></span>
-          <span className="mk-preview-row-value">Draft</span>
-        </div>
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">Goal</span>
-          <span className="mk-preview-bar" style={{ visibility: "hidden" }} />
-          <span className="mk-preview-row-value">Set by coach</span>
-        </div>
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">Deadline</span>
-          <span className="mk-preview-bar" style={{ visibility: "hidden" }} />
-          <span className="mk-preview-row-value">Season end</span>
-        </div>
-      </ProductPreview>
+      <ProductPreview
+        label="Live campaign page"
+        image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
+        demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+      />
     ),
   },
   {
@@ -84,20 +72,11 @@ const STAGES = [
       "Real-time progress toward the campaign goal",
     ],
     preview: (
-      <ProductPreview label="Athlete Leaderboard">
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">1. J. Ramirez</span>
-          <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "100%" }} /></span>
-        </div>
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">2. A. Chen</span>
-          <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "78%" }} /></span>
-        </div>
-        <div className="mk-preview-row">
-          <span className="mk-preview-row-label">3. M. Torres</span>
-          <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "64%" }} /></span>
-        </div>
-      </ProductPreview>
+      <ProductPreview
+        label="Athlete leaderboard"
+        image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
+        demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+      />
     ),
   },
   {
@@ -112,24 +91,10 @@ const STAGES = [
       "Push notifications, so nothing gets missed in a group text",
     ],
     preview: (
-      <ProductPreview label="Team Communication">
-        <div className="mk-thread">
-          <div className="mk-thread-msg">
-            <span className="mk-thread-avatar">C</span>
-            <div className="mk-thread-body">
-              <div className="mk-thread-meta"><span className="mk-thread-name">Coach</span><span className="mk-thread-time">2h ago</span></div>
-              <p className="mk-thread-text">Practice moved to 4pm today.</p>
-            </div>
-          </div>
-          <div className="mk-thread-msg">
-            <span className="mk-thread-avatar">P</span>
-            <div className="mk-thread-body">
-              <div className="mk-thread-meta"><span className="mk-thread-name">Parent</span><span className="mk-thread-time">1h ago</span></div>
-              <p className="mk-thread-text">Got it, thank you.</p>
-            </div>
-          </div>
-        </div>
-      </ProductPreview>
+      <ProductPreview
+        label="Team communications"
+        image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
+      />
     ),
   },
   {
@@ -144,18 +109,10 @@ const STAGES = [
       "Nothing depends on one person's inbox",
     ],
     preview: (
-      <ProductPreview label="Sponsor Directory">
-        <div className="mk-pipeline">
-          <div className="mk-pipeline-row">
-            <span className="mk-pipeline-name">Local restaurant</span>
-            <span className="mk-pipeline-status mk-pipeline-status-active">Active</span>
-          </div>
-          <div className="mk-pipeline-row">
-            <span className="mk-pipeline-name">Auto dealership</span>
-            <span className="mk-pipeline-status mk-pipeline-status-renewal">Renewal due</span>
-          </div>
-        </div>
-      </ProductPreview>
+      <ProductPreview
+        label="Sponsor placement"
+        image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
+      />
     ),
   },
   {

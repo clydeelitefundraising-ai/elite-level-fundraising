@@ -274,7 +274,7 @@
 @media (max-width: 480px) { .mk-trust-grid { grid-template-columns: 1fr; } }
 .mk-trust-item { display: flex; gap: var(--mk-space-3); align-items: flex-start; }
 .mk-trust-item svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--mk-accent-ink); margin-top: 2px; }
-.mk-trust-item h4 { font-size: var(--mk-text-sm); margin-bottom: 2px; }
+.mk-trust-item strong { display: block; font-size: var(--mk-text-sm); margin-bottom: 2px; font-weight: 700; }
 .mk-trust-item p { font-size: var(--mk-text-xs); color: var(--mk-muted); }
 
 /* ── Problem statement ── */
@@ -301,7 +301,7 @@
   transition: border-color var(--mk-duration) var(--mk-ease);
 }
 .mk-module-card:hover { border-color: var(--mk-line-strong); }
-.mk-module-card h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); }
+.mk-module-card h3, .mk-module-card h2 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); }
 .mk-module-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
 .mk-module-num { font-size: var(--mk-text-xs); font-weight: 700; color: var(--mk-accent-ink); margin-bottom: var(--mk-space-4); display: block; }
 @media (max-width: 860px) { .mk-module-grid { grid-template-columns: 1fr; } }
@@ -348,6 +348,15 @@
   white-space: nowrap;
 }
 .mk-preview-body { padding: var(--mk-space-6); font-size: var(--mk-text-xs); }
+.mk-preview-image-body { position: relative; }
+.mk-preview-image-body img { width: 100%; height: auto; display: block; }
+.mk-preview-demo-note {
+  padding: var(--mk-space-2) var(--mk-space-4);
+  font-size: 0.6875rem;
+  color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
 .mk-preview-body .mk-preview-label {
   font-size: var(--mk-text-xs);
   color: rgba(255,255,255,0.6);

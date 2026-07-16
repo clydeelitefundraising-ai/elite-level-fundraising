@@ -75,22 +75,10 @@ export default function SponsorsPage() {
               <li>Visibility for coaches, ADs, and booster leadership</li>
             </ul>
           </div>
-          <ProductPreview label="Sponsor Directory">
-            <div className="mk-pipeline">
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Local restaurant</span>
-                <span className="mk-pipeline-status mk-pipeline-status-active">Active</span>
-              </div>
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Auto dealership</span>
-                <span className="mk-pipeline-status mk-pipeline-status-renewal">Renewal due</span>
-              </div>
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Family dentistry</span>
-                <span className="mk-pipeline-status mk-pipeline-status-prospect">Prospect</span>
-              </div>
-            </div>
-          </ProductPreview>
+          <ProductPreview
+            label="Sponsor placement"
+            image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
+          />
         </div>
       </section>
 

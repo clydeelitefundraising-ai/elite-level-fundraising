@@ -74,23 +74,11 @@ export default function MarketingPage() {
           </div>
 
           <div className="mk-hero-visual">
-            <ProductPreview label="Team Fundraising">
-              <div className="mk-preview-row">
-                <span className="mk-preview-row-label">Track &amp; Field Boosters</span>
-                <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "68%" }} /></span>
-                <span className="mk-preview-row-value">68% to goal</span>
-              </div>
-              <div className="mk-preview-row">
-                <span className="mk-preview-row-label">Top athlete</span>
-                <span className="mk-preview-bar" style={{ visibility: "hidden" }} />
-                <span className="mk-preview-row-value">J. Ramirez</span>
-              </div>
-              <div className="mk-preview-row">
-                <span className="mk-preview-row-label">Status</span>
-                <span className="mk-preview-bar" style={{ visibility: "hidden" }} />
-                <span className="mk-preview-row-value">Live campaign page</span>
-              </div>
-            </ProductPreview>
+            <ProductPreview
+              label="Live campaign page"
+              image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
+              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+            />
           </div>
         </div>
       </section>
@@ -100,23 +88,23 @@ export default function MarketingPage() {
         <div className="mk-container mk-trust-grid">
           <div className="mk-trust-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z" /></svg>
-            <div><h4>Secure payments</h4><p>Every donation runs through Stripe. We never store card details.</p></div>
+            <div><strong>Secure payments</strong><p>Every donation runs through Stripe. We never store card details.</p></div>
           </div>
           <div className="mk-trust-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5A7 7 0 105 9.5C5 14.9 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
-            <div><h4>Built in Arizona</h4><p>Headquartered in Phoenix, built for schools first &mdash; not adapted from something else.</p></div>
+            <div><strong>Built in Arizona</strong><p>Headquartered in Phoenix, built for schools first &mdash; not adapted from something else.</p></div>
           </div>
           <div className="mk-trust-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
-            <div><h4>Built with coaches</h4><p>Every feature is shaped by direct feedback from the coaches using it.</p></div>
+            <div><strong>Built with coaches</strong><p>Every feature is shaped by direct feedback from the coaches using it.</p></div>
           </div>
           <div className="mk-trust-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 22c5.5-1.6 9-6 9-11V5l-9-3-9 3v6c0 5 3.5 9.4 9 11z" /></svg>
-            <div><h4>Real Trust Center</h4><p>Security, privacy, and accessibility practices, documented and public.</p></div>
+            <div><strong>Real Trust Center</strong><p>Security, privacy, and accessibility practices, documented and public.</p></div>
           </div>
           <div className="mk-trust-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9L20 10h-6.5l-0.5-8z" /></svg>
-            <div><h4>Direct support</h4><p>When you email us, a person who knows the product answers.</p></div>
+            <div><strong>Direct support</strong><p>When you email us, a person who knows the product answers.</p></div>
           </div>
         </div>
       </section>
@@ -174,20 +162,11 @@ export default function MarketingPage() {
               <li>Stripe-powered payments with clear, transparent fees</li>
             </ul>
           </div>
-          <ProductPreview label="Athlete Leaderboard">
-            <div className="mk-preview-row">
-              <span className="mk-preview-row-label">1. J. Ramirez</span>
-              <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "100%" }} /></span>
-            </div>
-            <div className="mk-preview-row">
-              <span className="mk-preview-row-label">2. A. Chen</span>
-              <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "78%" }} /></span>
-            </div>
-            <div className="mk-preview-row">
-              <span className="mk-preview-row-label">3. M. Torres</span>
-              <span className="mk-preview-bar"><span className="mk-preview-bar-fill" style={{ width: "64%" }} /></span>
-            </div>
-          </ProductPreview>
+          <ProductPreview
+            label="Athlete leaderboard"
+            image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
+            demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+          />
         </div>
       </section>
 
@@ -206,31 +185,10 @@ export default function MarketingPage() {
               <li>Team calendar and an optional team shop, all in one hub</li>
             </ul>
           </div>
-          <ProductPreview label="Team Communication">
-            <div className="mk-thread">
-              <div className="mk-thread-msg">
-                <span className="mk-thread-avatar">C</span>
-                <div className="mk-thread-body">
-                  <div className="mk-thread-meta"><span className="mk-thread-name">Coach</span><span className="mk-thread-time">2h ago</span></div>
-                  <p className="mk-thread-text">Practice moved to 4pm today &mdash; same field.</p>
-                </div>
-              </div>
-              <div className="mk-thread-msg">
-                <span className="mk-thread-avatar">P</span>
-                <div className="mk-thread-body">
-                  <div className="mk-thread-meta"><span className="mk-thread-name">Parent</span><span className="mk-thread-time">1h ago</span></div>
-                  <p className="mk-thread-text">Got it, thank you.</p>
-                </div>
-              </div>
-              <div className="mk-thread-msg">
-                <span className="mk-thread-avatar">T</span>
-                <div className="mk-thread-body">
-                  <div className="mk-thread-meta"><span className="mk-thread-name">Team Calendar</span><span className="mk-thread-time">Today</span></div>
-                  <p className="mk-thread-text">Away game added &mdash; Saturday, 10am.</p>
-                </div>
-              </div>
-            </div>
-          </ProductPreview>
+          <ProductPreview
+            label="Team communications"
+            image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
+          />
         </div>
       </section>
 
@@ -249,22 +207,10 @@ export default function MarketingPage() {
               <li>Reporting built for coaches, ADs, and booster leadership</li>
             </ul>
           </div>
-          <ProductPreview label="Sponsor Directory">
-            <div className="mk-pipeline">
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Local restaurant</span>
-                <span className="mk-pipeline-status mk-pipeline-status-active">Active</span>
-              </div>
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Auto dealership</span>
-                <span className="mk-pipeline-status mk-pipeline-status-renewal">Renewal due</span>
-              </div>
-              <div className="mk-pipeline-row">
-                <span className="mk-pipeline-name">Family dentistry</span>
-                <span className="mk-pipeline-status mk-pipeline-status-prospect">Prospect</span>
-              </div>
-            </div>
-          </ProductPreview>
+          <ProductPreview
+            label="Sponsor placement"
+            image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
+          />
         </div>
       </section>
 
