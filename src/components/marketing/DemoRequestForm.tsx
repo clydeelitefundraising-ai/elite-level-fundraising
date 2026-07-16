@@ -186,7 +186,7 @@ export function DemoRequestForm() {
       </div>
 
       <p className="mk-form-note">
-        By submitting, you agree to be contacted about Elite Level Fundraising. See our{" "}
+        By submitting, you agree to be contacted by Elite Level Fundraising LLC. See our{" "}
         <a href="/trust/privacy">Privacy Policy</a> for how your information is used.
       </p>
 

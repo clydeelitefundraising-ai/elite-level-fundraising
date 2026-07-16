@@ -11,7 +11,7 @@ export default function DataProtectionPage() {
   return (
     <PolicyPlaceholder
       title="Data Protection"
-      summary="A summary of where data goes today. Formal retention schedules and a full data-processing agreement are still being finalized."
+      summary="A summary of where your data goes today and how to request deletion."
     >
       <h2>Sub-processors we use</h2>
       <p>Supabase (database hosting), Stripe (payment processing), Resend (transactional email), Vercel (application hosting).</p>
@@ -19,6 +19,12 @@ export default function DataProtectionPage() {
       <p>
         Email <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a> to
         request deletion of information you&rsquo;ve submitted through the marketing site.
+      </p>
+      <h2>Data-processing agreements</h2>
+      <p>
+        If your school or district needs a formal data-processing agreement for procurement,
+        email <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a> and
+        we&rsquo;ll work through it directly.
       </p>
     </PolicyPlaceholder>
   );

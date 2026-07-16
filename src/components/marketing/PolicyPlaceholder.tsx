@@ -6,10 +6,9 @@ interface PolicyPlaceholderProps {
   children?: ReactNode;
 }
 
-// Shared template for Trust Center / legal pages whose final legal copy
-// hasn't been drafted or reviewed yet. Renders an explicit "in progress"
-// notice — never presents itself as a finished policy, and never states
-// unverified claims (certifications, compliance status, etc.).
+// Shared template for Trust Center / legal pages. Renders a plain-language
+// summary — never presents itself as a comprehensive legal document, and
+// never states unverified claims (certifications, compliance status, etc.).
 export function PolicyPlaceholder({ title, summary, children }: PolicyPlaceholderProps) {
   return (
     <>
@@ -23,8 +22,8 @@ export function PolicyPlaceholder({ title, summary, children }: PolicyPlaceholde
         <div className="mk-container-narrow mk-prose">
           {children}
           <div className="mk-notice">
-            This page is being finalized. It does not yet constitute a complete or legally binding policy.
-            For questions in the meantime, contact{" "}
+            This page is a plain-language summary published by Elite Level Fundraising LLC, not an
+            exhaustive legal document. For questions about specific terms, contact{" "}
             <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>.
           </div>
         </div>

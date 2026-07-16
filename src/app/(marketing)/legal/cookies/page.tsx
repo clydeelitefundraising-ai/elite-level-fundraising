@@ -11,11 +11,11 @@ export default function CookiesPage() {
   return (
     <PolicyPlaceholder
       title="Cookie Policy"
-      summary="Our full Cookie Policy is being finalized."
+      summary="How Elite Level Fundraising LLC uses cookies on this site."
     >
       <p>
         The marketing site does not currently set any analytics or advertising cookies. This page
-        will be updated with a full policy if and when that changes.
+        will be updated if that changes.
       </p>
     </PolicyPlaceholder>
   );

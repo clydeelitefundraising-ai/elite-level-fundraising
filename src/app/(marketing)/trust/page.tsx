@@ -31,9 +31,9 @@ export default function TrustIndexPage() {
         <div className="mk-container-narrow">
           <h1>Trust Center</h1>
           <p>
-            We don&rsquo;t have a decade of case studies yet — so trust has to come from how the
-            platform is built and how directly we answer questions. This page is where we keep
-            that honest, in one place.
+            Elite Level Fundraising LLC is a newly formed company. Trust comes from how the
+            platform is built and how directly we answer questions — this page is where we keep
+            that in one place.
           </p>
         </div>
       </div>
@@ -52,8 +52,7 @@ export default function TrustIndexPage() {
         <div className="mk-container-narrow">
           <h2 style={{ fontSize: "var(--mk-text-xl)", marginBottom: "var(--mk-space-4)" }}>Legal documents</h2>
           <p style={{ color: "var(--mk-muted)", marginBottom: "var(--mk-space-6)" }}>
-            Some of these are still being finalized — each page states clearly whether it&rsquo;s
-            complete.
+            Each page below describes our current policies in plain language.
           </p>
           <ul className="mk-capability-list">
             {LEGAL_PAGES.map((p) => (

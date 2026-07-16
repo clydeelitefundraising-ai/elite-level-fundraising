@@ -41,9 +41,9 @@ export default function ContactPage() {
             <h3>General questions</h3>
             <p>
               Email us directly at{" "}
-              <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>.
-              A person who knows the product answers &mdash; not a ticket queue. We aim to respond
-              within one business day.
+              <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>{" "}
+              or call <a href="tel:+16234988885">(623) 498-8885</a>. A person who knows the product
+              answers &mdash; not a ticket queue. We aim to respond within one business day.
             </p>
             <p style={{ marginBottom: 0 }}>
               Looking for formal business contact information (for procurement, security

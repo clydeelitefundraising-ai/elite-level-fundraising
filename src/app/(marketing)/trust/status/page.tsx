@@ -12,15 +12,15 @@ export default function StatusPage() {
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
           <h1>System Status</h1>
-          <p>This page is a placeholder for a future live status feed. For now, it reflects a manually-updated status.</p>
+          <p>Current platform status, updated manually by our team.</p>
         </div>
       </div>
       <div className="mk-section">
         <div className="mk-container-narrow">
           <span className="mk-status-pill">● All systems operational</span>
           <div className="mk-notice">
-            We don&rsquo;t yet have automated uptime monitoring wired into this page — treat the status
-            above as informational, not a live feed. If something seems wrong, email{" "}
+            Status is updated manually rather than through automated monitoring — treat it as
+            informational. If something seems wrong regardless of what&rsquo;s shown here, email{" "}
             <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>.
           </div>
         </div>

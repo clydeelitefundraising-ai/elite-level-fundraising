@@ -11,7 +11,7 @@ export default function PrivacyPage() {
   return (
     <PolicyPlaceholder
       title="Privacy"
-      summary="Our full Privacy Policy is being finalized. Here is a plain-language summary of what we collect today and why."
+      summary="A plain-language summary of what Elite Level Fundraising LLC collects and why."
     >
       <h2>What we collect</h2>
       <p>

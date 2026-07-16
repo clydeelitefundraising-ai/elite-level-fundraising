@@ -11,7 +11,7 @@ export default function TermsPage() {
   return (
     <PolicyPlaceholder
       title="Terms of Service"
-      summary="Our full Terms of Service are being finalized. By using this site or requesting a demo, you agree to be contacted about Elite Level Fundraising."
+      summary="By using this site or requesting a demo, you agree to be contacted by Elite Level Fundraising LLC about your inquiry."
     />
   );
 }

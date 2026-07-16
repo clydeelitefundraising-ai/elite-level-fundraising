@@ -52,7 +52,7 @@ export function MarketingFooter() {
         </div>
 
         <div className="mk-footer-bottom">
-          <span>&copy; {year} Elite Level Fundraising &middot; Phoenix, Arizona</span>
+          <span>&copy; {year} Elite Level Fundraising LLC &middot; Phoenix, Arizona &middot; (623) 498-8885</span>
           <nav aria-label="Legal">
             <ul className="mk-footer-links" style={{ flexDirection: "row", gap: "var(--mk-space-6)" }}>
               <li><Link href="/legal/terms">Terms</Link></li>
