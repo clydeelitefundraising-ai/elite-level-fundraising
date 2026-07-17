@@ -214,3 +214,94 @@ export async function sendCoachInvite(p: CoachInviteParams): Promise<void> {
 
   await sendEmail(p.to, `Set up your ELF coach account — ${p.teamName}`, html);
 }
+
+// ── Marketing: demo request notification (to ELF) ─────────────────────────────
+
+export interface DemoRequestNotificationParams {
+  to:            string;
+  firstName:     string;
+  lastName:      string;
+  schoolName:    string;
+  sportProgram:  string | null;
+  email:         string;
+  role:          string;
+  message:       string | null;
+}
+
+export async function sendDemoRequestNotification(p: DemoRequestNotificationParams): Promise<void> {
+  const rows: Array<[string, string]> = [
+    ["Name", `${p.firstName} ${p.lastName}`],
+    ["School", p.schoolName],
+    ["Sport / Program", p.sportProgram || "—"],
+    ["Role", p.role],
+    ["Email", p.email],
+  ];
+  const rowsHtml = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="color:#6b7280;font-size:0.9rem;padding:8px;width:140px;">${label}</td><td style="color:#0B1E3D;font-size:0.9rem;padding:8px;">${value}</td></tr>`,
+    )
+    .join("");
+  const messageBlock = p.message
+    ? `<tr><td style="color:#374151;font-size:0.95rem;line-height:1.6;padding:16px 8px 0;" colspan="2">${p.message}</td></tr>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:16px;">
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0;">New Demo Request</h1>
+        </td></tr>
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
+            ${rowsHtml}
+            ${messageBlock}
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, `New demo request — ${p.schoolName}`, html);
+}
+
+// ── Marketing: demo request confirmation (to prospect) ─────────────────────────
+
+export interface DemoRequestConfirmationParams {
+  to:        string;
+  firstName: string;
+}
+
+export async function sendDemoRequestConfirmation(p: DemoRequestConfirmationParams): Promise<void> {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:20px;">
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0 0 8px 0;">Thanks, ${p.firstName}!</h1>
+          <p style="color:#6b7280;margin:0;font-size:0.95rem;">We received your demo request.</p>
+        </td></tr>
+        <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:8px;">
+          <p style="margin:0;">A member of our team will follow up shortly to schedule a walkthrough built around your program. In the meantime, feel free to reply directly to this email with any questions.</p>
+        </td></tr>
+        <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;margin-top:20px;">
+          Questions? Contact us at <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          <span style="display:inline-block;margin-top:12px;">Elite Level Fundraising</span>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, "We received your demo request — Elite Level Fundraising", html);
+}

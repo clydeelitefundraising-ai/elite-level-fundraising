@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CRM_STATUSES, CRM_STATUS_LABELS, CRM_ACTIVITY_TYPES,
+  CRM_STATUSES, CRM_STATUS_LABELS, CRM_ACTIVITY_TYPES, LAUNCHABLE_STATUSES,
 } from "./types";
-import type { CrmContact, CrmActivity, CrmData, CrmStatus, CrmActivityType } from "./types";
+import type { CrmContact, CrmActivity, CrmData, CrmStatus, CrmActivityType, DemoRequest } from "./types";
 
 type Props = { data: CrmData };
 
@@ -200,6 +200,12 @@ export default function CoachCrmView({ data }: Props) {
             </div>
           </section>
 
+          {/* Marketing demo requests */}
+          <MarketingRequestsPanel
+            convertedIds={new Set(contacts.map(c => c.demo_request_id).filter((v): v is string => !!v))}
+            onConverted={contactId => { router.refresh(); setSelectedId(contactId); }}
+          />
+
           {/* Follow-ups due */}
           {followUpsDue.length > 0 && (
             <section style={{ marginBottom: "2rem" }}>
@@ -284,6 +290,7 @@ export default function CoachCrmView({ data }: Props) {
             contact={selected}
             onClose={() => setSelectedId(null)}
             onPatch={patch => patchContact(selected.id, patch)}
+            launchedCampaignSlug={data.launchedCampaigns[selected.id] ?? null}
           />
         )}
       </div>
@@ -443,11 +450,13 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
 
 // ── Contact detail panel ──────────────────────────────────────────────────────
 
-function ContactDetail({ contact, onClose, onPatch }: {
+function ContactDetail({ contact, onClose, onPatch, launchedCampaignSlug }: {
   contact: CrmContact;
   onClose: () => void;
   onPatch: (patch: Record<string, unknown>) => Promise<void>;
+  launchedCampaignSlug: string | null;
 }) {
+  const router = useRouter();
   const [editing, setEditing]     = useState(false);
   const [form, setForm]           = useState(contact);
   const [saving, setSaving]       = useState(false);
@@ -539,6 +548,26 @@ function ContactDetail({ contact, onClose, onPatch }: {
         </Field>
       </div>
 
+      {LAUNCHABLE_STATUSES.includes(contact.status) && (
+        <div style={{ marginTop: ".75rem" }}>
+          {launchedCampaignSlug ? (
+            <button
+              onClick={() => router.push(`/admin/campaigns/${launchedCampaignSlug}`)}
+              style={{ ...secondaryBtn, width: "100%" }}
+            >
+              View Campaign →
+            </button>
+          ) : (
+            <button
+              onClick={() => router.push(`/admin/campaigns/new?crm_contact_id=${contact.id}`)}
+              style={{ ...primaryBtn, width: "100%", background: "#16a34a" }}
+            >
+              Launch Campaign →
+            </button>
+          )}
+        </div>
+      )}
+
       {!editing ? (
         <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", gap: ".45rem", fontSize: ".8rem", color: "#374151" }}>
           <DetailLine label="Email" value={contact.email} />
@@ -612,6 +641,134 @@ function ContactDetail({ contact, onClose, onPatch }: {
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Marketing demo requests panel ─────────────────────────────────────────────
+
+function MarketingRequestsPanel({
+  convertedIds, onConverted,
+}: {
+  convertedIds: Set<string>;
+  onConverted: (contactId: string) => void;
+}) {
+  const [requests, setRequests] = useState<DemoRequest[] | null>(null);
+  const [error, setError]       = useState("");
+  const [query, setQuery]       = useState("");
+  const [converting, setConverting] = useState<string | null>(null);
+
+  async function load() {
+    setError("");
+    try {
+      const res = await fetch("/api/admin/marketing-requests");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed to load requests.");
+      setRequests(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load requests.");
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function convert(id: string) {
+    setConverting(id);
+    try {
+      const res = await fetch(`/api/admin/marketing-requests/${id}/convert`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Conversion failed.");
+      onConverted(data.contactId as string);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Conversion failed.");
+    } finally {
+      setConverting(null);
+    }
+  }
+
+  // Newest-first is the API's own order (created_at.desc) — re-sorted here
+  // too in case a future edit changes that default.
+  const filtered = (requests ?? [])
+    .filter(r => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return [r.first_name, r.last_name, r.school_name, r.sport_program, r.role, r.email]
+        .some(v => v?.toLowerCase().includes(q));
+    })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return (
+    <section style={{ marginBottom: "2rem" }}>
+      <div style={sectionLabel}>Marketing Requests</div>
+
+      <div style={{ marginBottom: ".75rem" }}>
+        <input
+          type="text"
+          placeholder="Search name, school, sport, role, email…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          style={{ ...inputStyle, maxWidth: 320 }}
+        />
+      </div>
+
+      {error && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: ".75rem 1rem", fontSize: ".8rem", color: "#dc2626", marginBottom: ".75rem" }}>
+          {error}
+        </div>
+      )}
+
+      {requests === null ? (
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "1.5rem", textAlign: "center", fontSize: ".8rem", color: "#94a3b8" }}>
+          Loading marketing requests…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: 10, padding: "1.5rem", textAlign: "center", fontSize: ".8rem", color: "#94a3b8" }}>
+          {requests.length === 0 ? "No public demo requests yet." : "No requests match your search."}
+        </div>
+      ) : (
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+          {filtered.map(r => {
+            const converted = convertedIds.has(r.id);
+            return (
+              <div key={r.id} style={{
+                display: "flex", flexWrap: "wrap", gap: ".75rem", alignItems: "center",
+                padding: ".75rem 1rem", borderBottom: "1px solid #f3f4f6",
+              }}>
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <div style={{ fontSize: ".84rem", fontWeight: 600, color: "#1d1d1f" }}>
+                    {r.first_name} {r.last_name}
+                  </div>
+                  <div style={{ fontSize: ".72rem", color: "#94a3b8", marginTop: ".1rem" }}>
+                    {[r.school_name, r.sport_program, r.role].filter(Boolean).join(" · ")}
+                  </div>
+                  <div style={{ fontSize: ".72rem", color: "#6e6e73", marginTop: ".1rem" }}>{r.email}</div>
+                </div>
+                {r.message && (
+                  <div style={{ flex: "2 1 220px", minWidth: 0, fontSize: ".76rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.message}
+                  </div>
+                )}
+                <div style={{ fontSize: ".7rem", color: "#94a3b8", flexShrink: 0 }}>{fmtDate(r.created_at)}</div>
+                <div style={{ flexShrink: 0 }}>
+                  {converted ? (
+                    <span style={{ fontSize: ".72rem", fontWeight: 600, color: "#16a34a" }}>✓ Converted</span>
+                  ) : (
+                    <button
+                      onClick={() => convert(r.id)}
+                      disabled={converting === r.id}
+                      style={{ ...secondaryBtn, padding: ".4rem .8rem" }}
+                    >
+                      {converting === r.id ? "Converting…" : "Convert to Contact"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 

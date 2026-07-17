@@ -86,6 +86,29 @@ export async function recordFailure(key: string, cfg: RateLimitConfig): Promise<
 }
 
 /**
+ * Increment and check a counter in one call — every request counts, not just
+ * failures. For throttling public, unauthenticated write endpoints (e.g. a
+ * marketing lead-capture form) rather than gating repeated auth attempts.
+ * Fails open: if Redis is unavailable, the request is allowed.
+ */
+export async function consumeRateLimit(key: string, cfg: RateLimitConfig): Promise<RateLimitResult> {
+  try {
+    const count = await r().incr(key);
+    if (count === 1) {
+      await r().expire(key, cfg.windowSeconds);
+    }
+    if (count > cfg.limit) {
+      const ttl = await r().ttl(key);
+      return { allowed: false, remaining: 0, retryAfter: Math.max(ttl, 0) };
+    }
+    return { allowed: true, remaining: cfg.limit - count, retryAfter: 0 };
+  } catch (err) {
+    console.error("[rateLimit] consumeRateLimit error — failing open:", err);
+    return { allowed: true, remaining: cfg.limit, retryAfter: 0 };
+  }
+}
+
+/**
  * Clear the failed-attempt counter for an IP after a successful authentication.
  * Prevents residual failures from locking out a user who has since provided correct credentials.
  * Fails silently: if Redis is unavailable, the stale counter is left to expire naturally.

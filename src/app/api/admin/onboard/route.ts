@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
 import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getContact, createActivity } from "@/lib/platform/crm";
+import { getCampaignByCrmContactId } from "@/lib/platform/campaigns";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -42,6 +44,7 @@ export async function POST(req: NextRequest) {
     layout_variant,
     default_athlete_goal_cents,
     contact_goal,
+    crm_contact_id,
   } = body;
 
   const slug = String(campaign_slug ?? "").trim();
@@ -53,6 +56,24 @@ export async function POST(req: NextRequest) {
   if (!String(coach_email ?? "").trim()) return NextResponse.json({ error: "Coach email is required." }, { status: 400 });
   const pw = String(coach_password ?? "").trim();
   if (pw.length < 8) return NextResponse.json({ error: "Coach password must be at least 8 characters." }, { status: 400 });
+
+  // A crm_contact_id, if present, is only ever a server-generated id passed
+  // through from the wizard's own state — never trust it as proof of the CRM
+  // association on its own. Independently re-validate it exists here.
+  let crmContactId: string | null = null;
+  if (crm_contact_id) {
+    const contact = await getContact(String(crm_contact_id));
+    if (!contact) return NextResponse.json({ error: "CRM contact not found." }, { status: 400 });
+
+    const existingCampaign = await getCampaignByCrmContactId(contact.id);
+    if (existingCampaign) {
+      return NextResponse.json(
+        { error: "This CRM contact already has a linked campaign.", slug: existingCampaign.campaign_slug },
+        { status: 409 },
+      );
+    }
+    crmContactId = contact.id;
+  }
 
   const result = await createCampaignCore({
     slug,
@@ -81,6 +102,7 @@ export async function POST(req: NextRequest) {
     coach_email:   String(coach_email).trim().toLowerCase(),
     coach_password: pw,
     contact_goal:  typeof contact_goal === "number" && contact_goal > 0 ? Math.round(contact_goal) : 0,
+    crmContactId,
   });
 
   if (!result.ok) {
@@ -119,6 +141,22 @@ export async function POST(req: NextRequest) {
         ),
       });
     }
+  }
+
+  // Historical metadata only — campaign_settings.crm_contact_id (written
+  // inside createCampaignCore's own insert, above) is the authoritative link.
+  // A failure here must never be treated as a failure of an already-created,
+  // already-linked campaign; log it and move on. Never include coach_password
+  // or any credential in this activity.
+  if (crmContactId) {
+    createActivity({
+      contact_id:    crmContactId,
+      activity_type: "note",
+      title:         "Campaign launched",
+      body:          `Campaign "${String(school_name ?? "").trim()}" (${slug}) was launched from this CRM contact.`,
+    }).catch(err => {
+      console.error("[onboard] CRM activity log for campaign launch failed:", err);
+    });
   }
 
   logAuditEvent({

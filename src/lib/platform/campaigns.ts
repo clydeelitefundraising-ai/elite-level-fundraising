@@ -40,6 +40,26 @@ export async function campaignExists(slug: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+// Targeted lookup for Launch Campaign's duplicate-prevention pre-check. The
+// partial unique index on campaign_settings.crm_contact_id is the authoritative
+// concurrency guard; this is only for a friendly response before attempting insert.
+export async function getCampaignByCrmContactId(crmContactId: string): Promise<CampaignSummary | null> {
+  const rows = await restList<CampaignSummary>(
+    `campaign_settings?crm_contact_id=eq.${encodeURIComponent(crmContactId)}&select=${SUMMARY_SELECT}&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+// Bulk contact_id -> campaign_slug map, for the CRM UI to show "View Campaign"
+// instead of "Launch Campaign" without a per-contact query.
+export type CrmLinkedCampaign = { crm_contact_id: string; campaign_slug: string };
+
+export async function getCampaignsByCrmContact(): Promise<CrmLinkedCampaign[]> {
+  return restList<CrmLinkedCampaign>(
+    "campaign_settings?crm_contact_id=not.is.null&select=campaign_slug,crm_contact_id&limit=2000",
+  );
+}
+
 export async function getCampaignMetrics(slug: string) {
   const [campaign, donations] = await Promise.all([getCampaign(slug), getAllDonations()]);
   if (!campaign) return null;

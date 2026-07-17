@@ -1,297 +1,310 @@
-import "./homepage.css";
-import Image from "next/image";
+import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { LinkButton } from "@/components/marketing/Button";
+import { ProductPreview } from "@/components/marketing/ProductPreview";
+import { FaqList } from "@/components/marketing/FaqList";
+
+// Anchors here must match the section ids below exactly — one card per
+// section, no duplicates.
+const MODULES = [
+  {
+    href: "/fundraising",
+    num: "01",
+    title: "Fundraising",
+    desc: "Athlete pages, live leaderboards, and transparent Stripe-secured payments.",
+  },
+  {
+    href: "/communication",
+    num: "02",
+    title: "Communication",
+    desc: "Announcements, messages, roster, and calendar — one thread instead of five.",
+  },
+  {
+    href: "/sponsors",
+    num: "03",
+    title: "Sponsors & Reporting",
+    desc: "A CRM built to match your program with local businesses ready to invest.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "What is Elite Level Fundraising?",
+    a: "A platform built for athletic programs that combines fundraising, team communication, roster and calendar management, and sponsor outreach in one place — instead of a separate tool for each.",
+  },
+  {
+    q: "Is fundraising the whole product?",
+    a: "No. Fundraising is one part of the platform. Coaches also use it for team communication, roster management, and sponsor relationships — the goal is one system instead of several disconnected ones.",
+  },
+  {
+    q: "Where is Elite Level Fundraising available?",
+    a: "We're currently focused on Arizona schools, and the platform is built to support athletic programs nationwide as we grow.",
+  },
+  {
+    q: "How are payments handled?",
+    a: "All donations are processed through Stripe. Elite Level Fundraising does not store card details.",
+  },
+  {
+    q: "What does it cost?",
+    a: "Pricing is tailored to your program and is still evolving as we grow. The best way to get an accurate answer is a short demo.",
+  },
+  {
+    q: "How do I get started?",
+    a: "Request a demo below. We'll walk through the platform using your sport and program as the example, and answer questions before you commit to anything.",
+  },
+];
 
 export default function MarketingPage() {
   return (
-    <>
-      {/* ── NAVIGATION ── */}
-      <nav className="site-nav">
-        <div className="nav-logo">
-          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising logo" height={54} width={54} style={{ width: "auto", height: "54px" }} />
-          ELITE LEVEL <span>FUNDRAISING</span>
-        </div>
-        <ul className="nav-links">
-          <li><a href="#why">Why Us</a></li>
-          <li><a href="#how">How It Works</a></li>
-          <li><a href="#sponsors">Sponsors</a></li>
-          <li><a href="#contact" className="nav-cta">Get Started</a></li>
-        </ul>
-        <button className="hp-menu-btn" aria-label="Open menu">☰</button>
-      </nav>
-
+    <MarketingShell>
       {/* ── HERO ── */}
-      <section className="hero">
-        <div className="hp-hero-grid">
-
-          {/* Left: headline + CTAs */}
+      <section className="mk-hero">
+        <div className="mk-container mk-hero-grid">
           <div>
-            <div className="hp-hero-tag">Arizona&rsquo;s Sports Fundraising Platform</div>
-            <h1 className="hp-hero-headline">
-              RAISE <em>MORE.</em><br />
-              KEEP <em>MORE.</em><br />
-              WIN MORE.
-            </h1>
-            <p className="hp-hero-sub">
-              Arizona&rsquo;s premium sports fundraising platform. Local. Transparent.
-              Zero overhead. Built for coaches, loved by parents, trusted by
-              300+ programs statewide.
+            <span className="mk-hero-tag">Proudly serving Arizona schools</span>
+            <h1>The operating system for athletic programs.</h1>
+            <p className="mk-hero-sub">
+              Fundraising, communication, and team management in one platform &mdash;
+              built so coaches spend less time on admin and more time coaching.
             </p>
-            <div className="btn-group">
-              <a href="#contact" className="btn-primary">Request a Free Demo →</a>
-              <a href="#how" className="btn-secondary">See How It Works</a>
+            <div className="mk-hero-actions">
+              <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
+              <LinkButton href="/product" variant="secondary" size="lg">See the Platform</LinkButton>
             </div>
+            <p className="mk-hero-note">No commitment. 20 minutes. Built around your program.</p>
           </div>
 
-          {/* Right: hero photo */}
-          <div className="hp-hero-photo-wrap">
-            <img
-              src="/az.school.sunset.png"
-              alt="Arizona high school athletics"
-              className="hp-hero-photo"
+          <div className="mk-hero-visual">
+            <ProductPreview
+              label="Live campaign page"
+              image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
+              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
             />
           </div>
-
         </div>
       </section>
 
-      {/* ── WHY / FEATURES ── */}
-      <section className="hp-features-section" id="why">
-        <div className="hp-features-header">
-          <p className="elf-section-label">Why Elite Level</p>
-          <h2 className="elf-section-title">EVERYTHING YOUR<br />PROGRAM NEEDS.</h2>
-          <p className="elf-section-sub">
-            Built for ADs, coaches, and booster clubs &mdash; not generic charity
-            platforms. Every feature is designed for Arizona school athletics.
+      {/* ── TRUST BAND ── */}
+      <section className="mk-trust-band">
+        <div className="mk-container mk-trust-grid">
+          <div className="mk-trust-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z" /></svg>
+            <div><strong>Secure payments</strong><p>Every donation runs through Stripe. We never store card details.</p></div>
+          </div>
+          <div className="mk-trust-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5A7 7 0 105 9.5C5 14.9 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
+            <div><strong>Built in Arizona</strong><p>Headquartered in Phoenix, built for schools first &mdash; not adapted from something else.</p></div>
+          </div>
+          <div className="mk-trust-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
+            <div><strong>Built with coaches</strong><p>Every feature is shaped by direct feedback from the coaches using it.</p></div>
+          </div>
+          <div className="mk-trust-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 22c5.5-1.6 9-6 9-11V5l-9-3-9 3v6c0 5 3.5 9.4 9 11z" /></svg>
+            <div><strong>Real Trust Center</strong><p>Security, privacy, and accessibility practices, documented and public.</p></div>
+          </div>
+          <div className="mk-trust-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9L20 10h-6.5l-0.5-8z" /></svg>
+            <div><strong>Direct support</strong><p>When you email us, a person who knows the product answers.</p></div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PROBLEM ── */}
+      <section className="mk-section">
+        <div className="mk-container mk-problem-grid">
+          <div>
+            <span className="mk-eyebrow">The problem</span>
+            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Running a program shouldn&rsquo;t mean juggling five different apps.</h2>
+          </div>
+          <ul className="mk-problem-list">
+            <li>A fundraising tool for donations, a group text for parents, a spreadsheet for the roster, a separate inbox for sponsors.</li>
+            <li>Coaches spend hours a week on admin instead of practice planning.</li>
+            <li>Nothing talks to anything else, so nothing important stays tracked for long.</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* ── PLATFORM OVERVIEW ── */}
+      <section className="mk-section mk-section-alt" id="platform">
+        <div className="mk-container">
+          <div className="mk-section-head">
+            <span className="mk-eyebrow">One platform</span>
+            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Less chaos. Better communication. More fundraising.</h2>
+            <p>Three modules, one system of record — fundraising is where we started, not where the platform ends.</p>
+          </div>
+          <div className="mk-module-grid">
+            {MODULES.map((m) => (
+              <a href={m.href} className="mk-module-card" key={m.title}>
+                <span className="mk-module-num">{m.num}</span>
+                <h3>{m.title}</h3>
+                <p>{m.desc}</p>
+              </a>
+            ))}
+          </div>
+          <p style={{ marginTop: "var(--mk-space-8)" }}>
+            <a href="/product" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full guided walkthrough &rarr;</a>
           </p>
         </div>
-        <div className="hp-features-grid">
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">💰</div>
-            <h3 className="hp-feature-title">KEEP MORE</h3>
-            <p className="hp-feature-desc">Transparent pricing with no surprise platform fees. More of every dollar stays with your program &mdash; for athletes, gear, travel, and team needs.</p>
+      </section>
+
+      {/* ── FUNDRAISING ── */}
+      <section className="mk-section mk-capability" id="fundraising">
+        <div className="mk-container mk-capability-grid">
+          <div className="mk-capability-copy">
+            <span className="mk-eyebrow">Fundraising</span>
+            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>Give every athlete a reason to share.</h2>
+            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
+              Each athlete gets a personal fundraising page and a spot on a live leaderboard, so donations feel like team momentum, not a cold ask.
+            </p>
+            <ul className="mk-capability-list">
+              <li>Personal athlete share links and live leaderboards</li>
+              <li>Real-time campaign tracking for coaches and ADs</li>
+              <li>Stripe-powered payments with clear, transparent fees</li>
+            </ul>
           </div>
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">🏈</div>
-            <h3 className="hp-feature-title">ATHLETE PAGES</h3>
-            <p className="hp-feature-desc">Every athlete gets a personal share link and live leaderboard ranking. Healthy competition drives more donations.</p>
+          <ProductPreview
+            label="Athlete leaderboard"
+            image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
+            demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+          />
+        </div>
+      </section>
+
+      {/* ── COMMUNICATION & TEAM MANAGEMENT ── */}
+      <section className="mk-section mk-section-alt mk-capability" id="communication">
+        <div className="mk-container mk-capability-grid mk-reverse">
+          <div className="mk-capability-copy">
+            <span className="mk-eyebrow">Communication &amp; Team Management</span>
+            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>One thread instead of five.</h2>
+            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
+              Announcements, direct messages, the roster, and the calendar all live in the same place coaches already check for donations.
+            </p>
+            <ul className="mk-capability-list">
+              <li>Announcements and direct messaging for coaches, parents, and athletes</li>
+              <li>Shared roster with class year, contact info, and athlete profiles</li>
+              <li>Team calendar and an optional team shop, all in one hub</li>
+            </ul>
           </div>
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">🔒</div>
-            <h3 className="hp-feature-title">SECURE PAYMENTS</h3>
-            <p className="hp-feature-desc">Stripe-powered, bank-grade security on every transaction. Parents and donors trust every dollar sent.</p>
+          <ProductPreview
+            label="Team communications"
+            image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
+          />
+        </div>
+      </section>
+
+      {/* ── SPONSORS & REPORTING ── */}
+      <section className="mk-section mk-capability" id="sponsors">
+        <div className="mk-container mk-capability-grid">
+          <div className="mk-capability-copy">
+            <span className="mk-eyebrow">Sponsors &amp; Reporting</span>
+            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>Sponsor relationships that don&rsquo;t rely on memory.</h2>
+            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
+              A dedicated CRM tracks every sponsor conversation, and reporting rolls it all up so coaches and ADs always know where things stand.
+            </p>
+            <ul className="mk-capability-list">
+              <li>Sponsor CRM with activity history and renewal tracking</li>
+              <li>Sponsor placement directly on your campaign page</li>
+              <li>Reporting built for coaches, ADs, and booster leadership</li>
+            </ul>
           </div>
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">📊</div>
-            <h3 className="hp-feature-title">LIVE DASHBOARD</h3>
-            <p className="hp-feature-desc">Real-time campaign tracking for coaches and ADs. Know exactly who donated, how much, and when &mdash; always.</p>
-          </div>
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">📍</div>
-            <h3 className="hp-feature-title">ARIZONA LOCAL</h3>
-            <p className="hp-feature-desc">Born here. Built for Arizona schools. We know your community, your AIA, and your season schedule.</p>
-          </div>
-          <div className="hp-feature-card">
-            <div className="hp-feature-icon">🤝</div>
-            <h3 className="hp-feature-title">SPONSOR TOOLS</h3>
-            <p className="hp-feature-desc">Sell ad placements directly on your campaign page. We connect programs with local Arizona businesses ready to invest.</p>
-          </div>
+          <ProductPreview
+            label="Sponsor placement"
+            image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
+          />
         </div>
       </section>
 
       {/* ── HOW IT WORKS ── */}
-      <section className="hp-steps-section" id="how">
-        <div className="hp-steps-inner">
-          <p className="elf-section-label">The Process</p>
-          <h2 className="elf-section-title">HOW IT WORKS</h2>
-          <p className="elf-section-sub">
-            We keep it simple so coaches can focus on coaching, not admin.
-            From application to first donation in 48 hours.
-          </p>
-          <div className="hp-steps-grid">
-            <div className="hp-step-card">
-              <div className="hp-step-num">01</div>
-              <h3 className="hp-step-title">APPLY</h3>
-              <p className="hp-step-desc">Fill out a short form about your team, sport, and fundraising goals. Takes less than 5 minutes.</p>
+      <section className="mk-section mk-section-alt" id="how">
+        <div className="mk-container">
+          <div className="mk-section-head">
+            <span className="mk-eyebrow">The process</span>
+            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>How it works</h2>
+            <p>We keep it simple so coaches can focus on coaching, not admin.</p>
+          </div>
+          <div className="mk-steps">
+            <div className="mk-step">
+              <span className="mk-step-num">01</span>
+              <h3>Apply</h3>
+              <p>Tell us about your team, sport, and goals. Takes less than five minutes.</p>
             </div>
-            <div className="hp-step-card">
-              <div className="hp-step-num">02</div>
-              <h3 className="hp-step-title">WE BUILD</h3>
-              <p className="hp-step-desc">We create your branded page, add your athletes, and set up sponsor outreach &mdash; all within 48 hours.</p>
+            <div className="mk-step">
+              <span className="mk-step-num">02</span>
+              <h3>We build</h3>
+              <p>We set up your branded page, add your athletes, and configure your team hub.</p>
             </div>
-            <div className="hp-step-card">
-              <div className="hp-step-num">03</div>
-              <h3 className="hp-step-title">YOU SHARE</h3>
-              <p className="hp-step-desc">Send the link to players, parents, and your community. We provide share templates that make it effortless.</p>
+            <div className="mk-step">
+              <span className="mk-step-num">03</span>
+              <h3>You share</h3>
+              <p>Send the link to players, parents, and your community with ready-made templates.</p>
             </div>
-            <div className="hp-step-card">
-              <div className="hp-step-num">04</div>
-              <h3 className="hp-step-title">GET PAID</h3>
-              <p className="hp-step-desc">Funds deposit directly to your program&rsquo;s account on a regular schedule. Transparent and simple.</p>
+            <div className="mk-step">
+              <span className="mk-step-num">04</span>
+              <h3>Stay connected</h3>
+              <p>Fundraising, communication, and your roster stay in one place all season.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── SPONSORS ── */}
-      <section className="hp-sponsors-section" id="sponsors">
-        <div className="elf-container">
-          <p className="elf-section-label" style={{ justifyContent: "center" }}>Local Business Sponsors</p>
-          <h2 className="elf-section-title" style={{ textAlign: "center", color: "var(--color-text-primary-dark)" }}>
-            ARIZONA BUSINESSES<br />INVEST IN LOCAL TEAMS
-          </h2>
-          <p className="elf-section-sub" style={{ margin: "0 auto", textAlign: "center" }}>
-            We connect your program with local sponsors who care about
-            Arizona youth athletics. Real relationships. Real sponsorships.
-          </p>
-          <div className="hp-sponsor-grid">
-            <div className="hp-sponsor-tile">DESERT AUTO GROUP</div>
-            <div className="hp-sponsor-tile">VALLEY DENTAL CARE</div>
-            <div className="hp-sponsor-tile">ARIZONA ROOFING PRO</div>
-            <div className="hp-sponsor-tile">MESA FAMILY CHIRO</div>
-            <div className="hp-sponsor-tile">SUNBELT INSURANCE</div>
-            <div className="hp-sponsor-tile">CACTUS BREWING CO</div>
+      {/* ── AUDIENCE VALUE ── */}
+      <section className="mk-section">
+        <div className="mk-container">
+          <div className="mk-section-head">
+            <span className="mk-eyebrow">Built for your role</span>
+            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Whoever you are on the team, it&rsquo;s built around your day.</h2>
           </div>
-          <div className="hp-sponsor-cta">
-            <a href="#contact" className="elf-btn elf-btn-secondary">
-              Become a Sponsor for Your Local Team →
-            </a>
-          </div>
-          <p className="hp-sponsor-note">
-            Placeholder sponsors shown &mdash; your campaign will feature real local Arizona partners.
-          </p>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section className="hp-cta-section">
-        <div className="elf-container-md">
-          <h2 className="hp-cta-headline">READY TO<br />RAISE MORE?</h2>
-          <p className="hp-cta-sub">
-            Join 312 Arizona programs. No contracts. No hidden fees.
-            Free to start in under 10 minutes.
-          </p>
-          <div className="hp-cta-actions">
-            <a href="#contact" className="elf-btn elf-btn-primary elf-btn-lg">
-              Start Your Free Campaign →
-            </a>
-          </div>
-          <div className="hp-cta-trust">
-            <span>✓ Free to start</span>
-            <span>✓ Setup in 10 minutes</span>
-            <span>✓ Cancel anytime</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CONTACT ── */}
-      <section className="contact-section" id="contact">
-        <div className="section-inner">
-          <p className="section-label">Get Started</p>
-          <h2 className="section-title" style={{ color: "var(--white)" }}>
-            REQUEST A<br />FREE DEMO
-          </h2>
-          <p className="section-sub">
-            No commitment. We&rsquo;ll show you exactly what your team&rsquo;s page would
-            look like and answer every question.
-          </p>
-          <form className="contact-form">
-            <div className="form-field">
-              <label>First Name</label>
-              <input type="text" placeholder="Coach Smith" />
-            </div>
-            <div className="form-field">
-              <label>Last Name</label>
-              <input type="text" placeholder="Jones" />
-            </div>
-            <div className="form-field">
-              <label>School Name</label>
-              <input type="text" placeholder="Mesa High School" />
-            </div>
-            <div className="form-field">
-              <label>Sport / Program</label>
-              <input type="text" placeholder="Varsity Football" />
-            </div>
-            <div className="form-field">
-              <label>Email Address</label>
-              <input type="email" placeholder="coach@school.edu" />
-            </div>
-            <div className="form-field">
-              <label>Your Role</label>
-              <select>
-                <option value="">Select your role</option>
-                <option>Athletic Director</option>
-                <option>Head Coach</option>
-                <option>Assistant Coach</option>
-                <option>Booster Club Member</option>
-                <option>Parent / Guardian</option>
-              </select>
-            </div>
-            <div className="form-field full">
-              <label>Tell us about your program</label>
-              <textarea
-                rows={4}
-                placeholder="What sport do you coach? What are your biggest fundraising challenges this season?"
-              />
-            </div>
-            <button type="submit" className="form-submit">
-              Request My Free Demo →
-            </button>
-          </form>
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer className="hp-footer">
-        <div className="hp-footer-inner">
-          <div className="hp-footer-grid">
-            <div>
-              <div className="hp-footer-logo">
-                <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising logo" height={46} width={46} style={{ width: "auto", height: "46px" }} />
-                ELITE LEVEL <span>FUNDRAISING</span>
-              </div>
-              <p className="hp-footer-tagline">
-                Arizona&rsquo;s premier sports fundraising platform. Built for coaches.
-                Trusted by programs statewide.
-              </p>
-              <div className="hp-footer-az-badge">🌵 Built in Arizona</div>
-            </div>
-            <div>
-              <div className="hp-footer-col-title">Platform</div>
-              <ul className="hp-footer-links">
-                <li><a href="#how">How It Works</a></li>
-                <li><a href="#why">Features</a></li>
-                <li><a href="#sponsors">Sponsors</a></li>
-                <li><a href="#contact">Get Started</a></li>
+          <div className="mk-audience-grid">
+            <div className="mk-audience-card">
+              <h3>Coaches</h3>
+              <ul>
+                <li>One login, not a group text and three spreadsheets</li>
+                <li>Less time on admin, more time coaching</li>
+                <li>Parent and athlete communication in one thread</li>
               </ul>
             </div>
-            <div>
-              <div className="hp-footer-col-title">Company</div>
-              <ul className="hp-footer-links">
-                <li><a href="#why">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li><a href="#contact">Arizona</a></li>
+            <div className="mk-audience-card">
+              <h3>Athletic Directors</h3>
+              <ul>
+                <li>Visibility across every team&rsquo;s fundraising</li>
+                <li>Consistent tools across the whole department</li>
+                <li>Sponsor relationships tracked, not lost to memory</li>
               </ul>
             </div>
-            <div>
-              <div className="hp-footer-col-title">Programs</div>
-              <ul className="hp-footer-links">
-                <li><a href="#contact">Football</a></li>
-                <li><a href="#contact">Basketball</a></li>
-                <li><a href="#contact">Track &amp; Field</a></li>
-                <li><a href="#contact">All Sports</a></li>
+            <div className="mk-audience-card">
+              <h3>Booster Clubs</h3>
+              <ul>
+                <li>Transparent, real-time fundraising totals</li>
+                <li>A shared system instead of parallel spreadsheets</li>
+                <li>Easier handoffs between volunteer leadership</li>
               </ul>
             </div>
           </div>
-          <div className="hp-footer-bottom">
-            <p className="hp-footer-copy">© 2026 Elite Level Fundraising &middot; Phoenix, Arizona</p>
-            <ul className="hp-footer-bottom-links">
-              <li><a href="#contact">Privacy</a></li>
-              <li><a href="#contact">Terms</a></li>
-              <li><a href="#contact">Contact</a></li>
-            </ul>
-          </div>
         </div>
-      </footer>
-    </>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="mk-section mk-section-alt" id="faq">
+        <div className="mk-container">
+          <div className="mk-section-head" style={{ margin: "0 auto var(--mk-space-10)", textAlign: "center" }}>
+            <span className="mk-eyebrow">Questions</span>
+            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Frequently asked questions</h2>
+          </div>
+          <FaqList items={FAQS} />
+          <p style={{ textAlign: "center", marginTop: "var(--mk-space-8)" }}>
+            <a href="/faq" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full FAQ &rarr;</a>
+          </p>
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ── */}
+      <section className="mk-section mk-cta-band">
+        <div className="mk-container-narrow">
+          <h2>See it running for a program like yours.</h2>
+          <p>No commitment. We&rsquo;ll walk through the platform using your sport as the example.</p>
+          <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
+        </div>
+      </section>
+    </MarketingShell>
   );
 }
