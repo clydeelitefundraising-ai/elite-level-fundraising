@@ -10,6 +10,49 @@ Severity scale:
 
 ---
 
+## ISSUE-4: Hydration mismatch (React error #418) on /settings
+
+**Severity:** Medium
+
+**Source:** Discovered incidentally during Phase 6 Web Bridge Deployment Validation — live browser validation against production (`app.elitelevelfundraising.com`) after the Batch 2 push, not part of the original Batch 1B Android pass.
+
+**Not caused by Phase 6 changes.** `SettingsView.tsx` was never touched by Batch 1B or Batch 2 (`MainActivity.java`, `AccountMenu.tsx`). The bug predates this phase's work; Phase 6 validation simply happened to be the first pass thorough enough to click into `/settings` with console-error capture.
+
+**Observed:** `pageerror: Minified React error #418` fired specifically when navigating into `/settings`, on desktop viewport. Did not occur during any AccountMenu open/close/reopen cycle, login, or any other page in the validation pass. Mobile viewport did not reproduce it in that same pass (viewport doesn't affect this class of bug — likely timing/network-dependent on whether it surfaces visibly before hydration completes).
+
+**Root cause (confirmed):** `SettingsView.tsx` line 27-29 (pre-fix) computed the shareable join link as:
+```ts
+const joinUrl = code
+  ? (typeof window !== "undefined" ? `${window.location.origin}/join/${code.code}` : `/join/${code.code}`)
+  : null;
+```
+Server-side render has no `window`, so it emits a relative path (`/join/CODE`) in the initial HTML. The browser's first hydration pass *does* have `window`, so React's client render computes an absolute URL (`https://.../join/CODE`) — different text than what's in the server HTML, which is exactly what triggers React error #418 (text hydration mismatch).
+
+**Status: Fix implemented, locally validated, awaiting approval to commit/push (not yet pushed — `main` auto-deploys to production for this project).**
+
+**Fix:** Replaced the runtime `typeof window` branch with the codebase's existing build-time-inlined pattern (already used identically in `src/lib/campaignCreate.ts` and the coach-invite API route):
+```ts
+const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
+const joinUrl = code ? `${appBase}/join/${code.code}` : null;
+```
+`NEXT_PUBLIC_*` vars are inlined as literal constants into both the server and client bundles at build time, so both renders now compute identical text by construction — no runtime environment branching left to diverge.
+
+**Validation performed:**
+- `npm run build`: clean, no errors
+- Compiled-artifact check: grepped both the SSR chunk (`.next/server/chunks/ssr/...`) and the browser chunk (`.next/static/chunks/...`) for the `joinUrl` computation — both use the identical `process.env.NEXT_PUBLIC_APP_URL ?? ""` expression, zero occurrences of `typeof window` in either. Structurally proves the mismatch is eliminated for any environment/value of the env var.
+- Live smoke check (local production server, Playwright, desktop + mobile): home, login, and an unauthenticated hit on `/settings` (correctly redirects to `/coach-login`, auth guard unaffected) — zero console errors/warnings.
+- Full authenticated E2E click-through of `/settings` could not be run locally: the local `.env.local` connects to a different backend than production, so the QA credentials don't authenticate locally (same constraint discovered during Batch 2). The compiled-artifact proof above is the direct evidence for this specific bug class (a build-time constant is either identical between bundles or it isn't — verified it is).
+
+**Estimated effort:** Low — single-expression fix, no new dependencies, no state/effect added.
+
+**Risk:** Low. Narrow diff, existing established codebase pattern, no behavior change to join-link generation/revocation/copy logic — only how the URL string is computed.
+
+**Blocking App Store?** No.
+
+**Blocking production?** No longer — this was already live in production (auto-deployed with Batch 2's push) before it was even found. Recommend shipping the fix promptly since it's a real, reproducible hydration error on a live page, but it's not a functional blocker (the page still works; React recovers from #418 by discarding and re-rendering client-side).
+
+---
+
 ## ISSUE-1: Hardware back button exits the app instead of closing open UI
 
 **Status: FIXED (Batch 2).** See "Batch 2 resolution" below.

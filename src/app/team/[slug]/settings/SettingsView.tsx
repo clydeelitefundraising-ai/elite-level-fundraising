@@ -24,9 +24,8 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
     router.push("/login");
   };
 
-  const joinUrl = code
-    ? (typeof window !== "undefined" ? `${window.location.origin}/join/${code.code}` : `/join/${code.code}`)
-    : null;
+  const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const joinUrl = code ? `${appBase}/join/${code.code}` : null;
 
   const handleGenerate = async () => {
     setWorking(true);
