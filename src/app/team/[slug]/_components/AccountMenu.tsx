@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
+
+declare global {
+  interface Window {
+    __elfHasOpenOverlay?: () => boolean;
+  }
+}
 
 export default function AccountMenu({
   currentSlug,
@@ -18,6 +24,20 @@ export default function AccountMenu({
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
+
+  // Lets the Android shell's hardware back button close this dropdown instead of
+  // exiting the app (MainActivity.java checks window.__elfHasOpenOverlay before
+  // deciding what back should do). No-op outside the Capacitor Android WebView.
+  useEffect(() => {
+    if (!open) return;
+    window.__elfHasOpenOverlay = () => true;
+    const handleAndroidBack = () => setOpen(false);
+    window.addEventListener("elfAndroidBackButton", handleAndroidBack);
+    return () => {
+      window.__elfHasOpenOverlay = undefined;
+      window.removeEventListener("elfAndroidBackButton", handleAndroidBack);
+    };
+  }, [open]);
 
   const initial = accountName
     ? accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")
