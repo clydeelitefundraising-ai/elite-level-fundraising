@@ -40,6 +40,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0b1e3d",
+  // Lets content and env(safe-area-inset-*) reach into the notch/gesture-bar
+  // area instead of Next's default viewport stopping short of it — TeamNav
+  // already reads safe-area-inset-bottom for its padding, but that value is
+  // always 0 without this.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
