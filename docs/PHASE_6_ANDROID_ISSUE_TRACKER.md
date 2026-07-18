@@ -12,6 +12,8 @@ Severity scale:
 
 ## ISSUE-4: Hydration mismatch (React error #418) on /settings
 
+**Status: FIXED and production-verified.** Commit `050d671`, deployed to `elf-team-app` production (`app.elitelevelfundraising.com`), confirmed live via authenticated browser validation on desktop and mobile — see "Production verification" below.
+
 **Severity:** Medium
 
 **Source:** Discovered incidentally during Phase 6 Web Bridge Deployment Validation — live browser validation against production (`app.elitelevelfundraising.com`) after the Batch 2 push, not part of the original Batch 1B Android pass.
@@ -28,7 +30,7 @@ const joinUrl = code
 ```
 Server-side render has no `window`, so it emits a relative path (`/join/CODE`) in the initial HTML. The browser's first hydration pass *does* have `window`, so React's client render computes an absolute URL (`https://.../join/CODE`) — different text than what's in the server HTML, which is exactly what triggers React error #418 (text hydration mismatch).
 
-**Status: Fix implemented, locally validated, awaiting approval to commit/push (not yet pushed — `main` auto-deploys to production for this project).**
+**Status history:** fix implemented → locally validated → approved → committed (`050d671`) → pushed → auto-deployed to production → production-verified. Complete.
 
 **Fix:** Replaced the runtime `typeof window` branch with the codebase's existing build-time-inlined pattern (already used identically in `src/lib/campaignCreate.ts` and the coach-invite API route):
 ```ts
@@ -50,6 +52,15 @@ const joinUrl = code ? `${appBase}/join/${code.code}` : null;
 **Blocking App Store?** No.
 
 **Blocking production?** No longer — this was already live in production (auto-deployed with Batch 2's push) before it was even found. Recommend shipping the fix promptly since it's a real, reproducible hydration error on a live page, but it's not a functional blocker (the page still works; React recovers from #418 by discarding and re-rendering client-side).
+
+**Production verification (post-deploy, commit `050d671`, authenticated Playwright run against `https://app.elitelevelfundraising.com`):**
+- Two separate hard navigations to `/settings` (fresh load + reload) on desktop: zero console/page errors, no #418, no hydration warnings of any kind
+- Same on mobile viewport (Pixel 7): zero console/page errors, no #418
+- Displayed join URL: `https://app.elitelevelfundraising.com/join/KD7NSR` — correct absolute production domain, on both desktop and mobile
+- "Copy Join Link" copies the identical complete absolute URL (verified via clipboard read)
+- AccountMenu regression check (open, `window.__elfHasOpenOverlay()` true while open, closes on outside click) — all pass, unaffected by this fix
+- Login and Home navigation before/after visiting Settings — no regressions
+- 17/17 automated checks passed; full detail in the deployment validation report
 
 ---
 
@@ -148,9 +159,10 @@ Logged in with "Remember me for 30 days" checked, confirmed full authenticated n
 
 | ID | Issue | Severity | Status |
 |---|---|---|---|
-| ISSUE-1 | Back button exits app instead of closing modal | High | **Fixed (Batch 2)** — native shell fixed; web half activates on production deploy |
+| ISSUE-1 | Back button exits app instead of closing modal | High | **Fixed (Batch 2)** — native shell fixed and deployed; web half live in production as of commit `a54a1c8` |
 | ISSUE-2 | Session doesn't survive restart | Medium (unconfirmed) | **Closed (Batch 2)** — confirmed expected behavior, no fix needed |
 | ISSUE-3 | No WebView console output captured | Low | Open, deferred |
+| ISSUE-4 | Hydration mismatch (#418) on /settings | Medium | **Fixed and production-verified** — commit `050d671` |
 
 ---
 
