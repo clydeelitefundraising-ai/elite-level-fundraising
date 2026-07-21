@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.elitelevelfundraising.team",
+      "sha256_cert_fingerprints": [
+        "6A:64:EF:BA:AD:09:9D:3A:1C:E4:ED:BF:CB:48:0B:3E:F6:AA:7C:0F:B4:2C:25:07:B3:ED:13:BE:0D:C6:AE:D4"
+      ]
+    }
+  }
+]

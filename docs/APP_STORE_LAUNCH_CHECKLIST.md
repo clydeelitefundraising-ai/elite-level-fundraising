@@ -23,7 +23,7 @@ Status key: ☐ not started · 🔶 in progress · ✅ done · 🚫 deferred (in
 | Status bar branding | ✅ | `@capacitor/status-bar`, verified live on Pixel 8 emulator — navy background, light icons |
 | Dark mode (WebView force-dark) | ✅ | `android:forceDarkAllowed="false"`, verified live: light-theme login form stays correctly light with system dark mode forced on |
 | Keyboard resize behavior | ✅ | `android:windowSoftInputMode="adjustResize"`, verified live: email field + Log In button stay visible above keyboard |
-| App Links (`/join`, `/coach-activate`) | ☐ | Phase M2.3 — blocked on nothing for Android half, but doing iOS+Android together |
+| App Links (`/join`, `/coach-activate`) | ✅ | `public/.well-known/assetlinks.json` + `autoVerify` intent-filter added, scoped to `/join` and `/coach-activate` prefixes only. Verified the JSON serves correctly with the release keystore's SHA-256. Live-device verification of the actual link-opens-app behavior needs a real signed install (Play-distributed or sideloaded release build), not yet done. |
 | Native push (FCM) | 🚫 | Deferred until after first store release, per explicit decision |
 | Orientation behavior verified | ✅ | Verified live: portrait↔landscape rotation, no crash, no reload (existing `configChanges` already covered this) |
 | Background/resume verified | ✅ | Verified live: home button → relaunch, state/screen preserved |
@@ -44,7 +44,7 @@ Status key: ☐ not started · 🔶 in progress · ✅ done · 🚫 deferred (in
 | Dark mode handling | ✅ | `UIUserInterfaceStyle=Light` in Info.plist (iOS equivalent of Android's `forceDarkAllowed=false`) |
 | Safe-area handling | 🔶 | CSS-driven, should work for free — needs device/simulator confirmation on a Mac |
 | Edge-swipe-back vs. in-app overlay conflict | ☐ | Phase M2.1 |
-| Universal Links (`/join`, `/coach-activate`) | ☐ | Phase M2.3 — **blocked on Apple Team ID from you** |
+| Universal Links (`/join`, `/coach-activate`) | ☐ | **Blocked on Apple Team ID from you** — Android half done (see above); iOS needs `apple-app-site-association` (requires Team ID) + Associated Domains capability in Xcode |
 | Apple Developer Program enrollment | ☐ | **Needed from you** — required before any TestFlight/App Store Connect work |
 | Distribution certificate + provisioning profile | ☐ | Needs active Apple Developer account |
 | Native push (APNs) | 🚫 | Deferred until after first store release |

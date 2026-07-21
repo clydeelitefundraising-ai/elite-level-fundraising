@@ -20,6 +20,25 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- App Links: opens invite/join links from email/SMS directly in the app instead
+                 of a browser. Scoped to the two flows actually distributed via external links —
+                 not a blanket deep-link scheme for the whole site. Verified via
+                 public/.well-known/assetlinks.json (autoVerify checks it over HTTPS at install
+                 time). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="app.elitelevelfundraising.com"
+                    android:pathPrefix="/join" />
+                <data
+                    android:scheme="https"
+                    android:host="app.elitelevelfundraising.com"
+                    android:pathPrefix="/coach-activate" />
+            </intent-filter>
         </activity>
 
         <provider
