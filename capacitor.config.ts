@@ -11,7 +11,16 @@ const config: CapacitorConfig = {
     // DNS/TLS/timeout/no-connectivity/cold-launch failures and HTTP 4xx/5xx —
     // identically on Android (BridgeWebViewClient) and iOS
     // (WebViewDelegationHandler). No native code needed for this.
-    errorPath: 'offline.html'
+    errorPath: 'offline.html',
+    // Restricts in-app navigation to ELF's own domain (default is unrestricted '*').
+    // Stripe Checkout redirects off-domain briefly during donation flow, so its
+    // hosted checkout/success domains are explicitly allowed too.
+    allowNavigation: [
+      'elitelevelfundraising.com',
+      '*.elitelevelfundraising.com',
+      'checkout.stripe.com',
+      '*.stripe.com'
+    ]
   }
 };
 
