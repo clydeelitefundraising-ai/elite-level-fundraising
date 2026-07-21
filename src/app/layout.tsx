@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./design-system.css";
 import { AppStoreProvider } from "./_store/AppStore";
+import { NativeBootstrap } from "./_components/NativeBootstrap";
 
 // Same build-time switch as page.tsx: NEXT_PUBLIC_APP_URL is set only in the
 // ELF Team App Vercel project, so this resolves to the right canonical domain
@@ -54,7 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body><AppStoreProvider>{children}</AppStoreProvider></body>
+      <body><NativeBootstrap /><AppStoreProvider>{children}</AppStoreProvider></body>
     </html>
   );
 }
