@@ -25,7 +25,7 @@ export default function Modal({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "1rem",
+        padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
         animation: "elf-backdropIn .18s ease both",
       } as React.CSSProperties}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
@@ -35,7 +35,9 @@ export default function Modal({
         borderRadius: 18,
         width: "100%",
         maxWidth: 480,
-        maxHeight: "90vh",
+        // dvh (not vh) so this shrinks with the visual viewport when the
+        // on-screen keyboard opens, instead of running under it.
+        maxHeight: "min(90vh, 90dvh)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

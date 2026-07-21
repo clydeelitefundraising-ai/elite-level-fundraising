@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { SponsorRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { coachSession, isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -133,6 +133,7 @@ function CoachCard({
   s,
   isFirst,
   isLast,
+  canManage,
   onEdit,
   onDelete,
   onMove,
@@ -140,6 +141,7 @@ function CoachCard({
   s: SponsorRow;
   isFirst: boolean;
   isLast: boolean;
+  canManage: boolean;
   onEdit: (s: SponsorRow) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, dir: "up" | "down") => void;
@@ -205,32 +207,34 @@ function CoachCard({
         </div>
       </div>
 
-      {/* Action row */}
-      <div style={{ display: "flex", alignItems: "center", gap: ".25rem", marginTop: ".65rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
-        <button
-          disabled={isFirst}
-          onClick={() => onMove(s.id, "up")}
-          style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", fontSize: ".75rem", color: isFirst ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
-        >↑</button>
-        <button
-          disabled={isLast}
-          onClick={() => onMove(s.id, "down")}
-          style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", fontSize: ".75rem", color: isLast ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
-        >↓</button>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={() => onEdit(s)}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#6b7280", padding: ".2rem .5rem", borderRadius: 6 }}
-        >
-          Edit
-        </button>
-        <button
-          onClick={() => onDelete(s.id)}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#fca5a5", padding: ".2rem .5rem", borderRadius: 6 }}
-        >
-          Remove
-        </button>
-      </div>
+      {/* Action row — booster/viewer staff see the card but not these controls */}
+      {canManage && (
+        <div style={{ display: "flex", alignItems: "center", gap: ".25rem", marginTop: ".65rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
+          <button
+            disabled={isFirst}
+            onClick={() => onMove(s.id, "up")}
+            style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", fontSize: ".75rem", color: isFirst ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
+          >↑</button>
+          <button
+            disabled={isLast}
+            onClick={() => onMove(s.id, "down")}
+            style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", fontSize: ".75rem", color: isLast ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
+          >↓</button>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => onEdit(s)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#6b7280", padding: ".2rem .5rem", borderRadius: 6 }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onDelete(s.id)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#fca5a5", padding: ".2rem .5rem", borderRadius: 6 }}
+          >
+            Remove
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -294,6 +298,13 @@ export default function SponsorsView({
   actor: TeamActor;
 }) {
   const coach = coachSession(actor);
+  // Sponsors CRUD is coach-only (head coach / assistant coach) — boosters,
+  // parents, and athletes get view access but not the management UI, per
+  // the RC-1 permission audit. `staff` still governs "can see the full
+  // list including hidden sponsors + internal contact fields", matching
+  // the API's broader isStaff() gate on GET.
+  const staff = isStaff(actor);
+  const canManage = isCoachOnly(actor) ? coach : null;
   const [sponsors,       setSponsors]       = useState<SponsorRow[]>(initialSponsors);
   const [form,           setForm]           = useState<SponForm>(BLANK);
   const [editing,        setEditing]        = useState<SponsorRow | null>(null);
@@ -443,7 +454,7 @@ export default function SponsorsView({
   const modalOpen = showAdd || isEditing;
 
   // Public view: only visible sponsors grouped by tier
-  const visibleSponsors = coach
+  const visibleSponsors = staff
     ? sponsors
     : sponsors.filter(s => s.visible);
 
@@ -470,7 +481,7 @@ export default function SponsorsView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Add Sponsor" onAdd={openAdd} />
+          <CoachBar show={!!canManage} label="Add Sponsor" onAdd={openAdd} />
         </div>
       </div>
 
@@ -485,11 +496,11 @@ export default function SponsorsView({
             No sponsors yet
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Add your first sponsor above." : "Sponsors coming soon."}
+            {canManage ? "Add your first sponsor above." : "Sponsors coming soon."}
           </div>
         </div>
-      ) : coach ? (
-        /* ── Coach management list ── */
+      ) : staff ? (
+        /* ── Staff list (coaches manage; boosters view the same list, read-only) ── */
         <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
           {sponsors.map((s, i) => (
             <CoachCard
@@ -497,6 +508,7 @@ export default function SponsorsView({
               s={s}
               isFirst={i === 0}
               isLast={i === sponsors.length - 1}
+              canManage={!!canManage}
               onEdit={openEdit}
               onDelete={handleDelete}
               onMove={handleMove}

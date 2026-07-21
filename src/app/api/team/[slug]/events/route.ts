@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -21,8 +21,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { title, event_date, event_time, location, type } = await req.json();
   if (!title?.trim() || !event_date) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE    = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET  = "team-files";
@@ -17,8 +17,8 @@ type RouteContext = { params: Promise<{ slug: string }> };
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { fileName, fileSize, mimeType } = await req.json();
   if (!fileName || !fileSize || !mimeType) {

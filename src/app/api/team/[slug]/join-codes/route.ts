@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -32,8 +32,8 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const res = await fetch(
     `${BASE}/rest/v1/team_join_codes?campaign_slug=eq.${encodeURIComponent(slug)}&revoked=eq.false&select=id,code,expires_at,created_at&limit=1`,
@@ -56,8 +56,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const newCode = generateCode();
 

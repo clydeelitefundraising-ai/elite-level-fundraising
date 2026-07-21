@@ -23,16 +23,20 @@ const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Spo
 export default function TeamNav({
   slug,
   primaryColor,
-  isStaff = false,
+  showSponsors = false,
   badgeCounts = {},
 }: {
   slug: string;
   primaryColor: string;
-  isStaff?: boolean;
+  showSponsors?: boolean;
   badgeCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
-  const tabs = isStaff ? [...BASE_TABS, STAFF_TAB] : BASE_TABS;
+  // Visible to every authenticated team role (coaches, boosters, parents,
+  // athletes) — Sponsors is view-only for non-coach roles, not hidden from
+  // them entirely. Write access is enforced separately (isCoachOnly) inside
+  // the page and API routes.
+  const tabs = showSponsors ? [...BASE_TABS, STAFF_TAB] : BASE_TABS;
 
   return (
     <div role="navigation" style={{

@@ -7,14 +7,14 @@ import TeamNav from "./TeamNav";
 export default function TeamNavWithBadge({
   slug,
   primaryColor,
-  isStaff,
+  showSponsors,
   announcementCount,
   latestAnnouncementAt,
   donorCount,
 }: {
   slug: string;
   primaryColor: string;
-  isStaff: boolean;
+  showSponsors: boolean;
   announcementCount: number;
   latestAnnouncementAt: string | null;
   donorCount: number;
@@ -67,7 +67,7 @@ export default function TeamNavWithBadge({
     <TeamNav
       slug={slug}
       primaryColor={primaryColor}
-      isStaff={isStaff}
+      showSponsors={showSponsors}
       badgeCounts={{ communications: badge + messageBadge, fundraiser: donorCount }}
     />
   );

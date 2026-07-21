@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
-import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isHeadCoachRole, type TeamActor } from "@/lib/permissions";
+import { isStaff, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -62,7 +61,7 @@ function DateGroupCard({
   evs,
   isToday,
   isTomorrow,
-  coach,
+  canManage,
   onEdit,
   onDelete,
 }: {
@@ -70,7 +69,7 @@ function DateGroupCard({
   evs: CalendarEventRow[];
   isToday: boolean;
   isTomorrow: boolean;
-  coach: CoachSession | null;
+  canManage: boolean;
   onEdit: (ev: CalendarEventRow) => void;
   onDelete: (id: string) => void;
 }) {
@@ -168,7 +167,7 @@ function DateGroupCard({
                 {ev.location && (
                   <div style={{ fontSize: ".74rem", color: "#6b7280" }}>📍 {ev.location}</div>
                 )}
-                {coach && (
+                {canManage && (
                   <div style={{ display: "flex", gap: ".1rem", marginTop: ".28rem" }}>
                     <button
                       onClick={() => onEdit(ev)}
@@ -176,14 +175,12 @@ function DateGroupCard({
                     >
                       Edit
                     </button>
-                    {isHeadCoachRole(coach.role) && (
-                      <button
-                        onClick={() => onDelete(ev.id)}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <button
+                      onClick={() => onDelete(ev.id)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                    >
+                      Delete
+                    </button>
                   </div>
                 )}
               </div>
@@ -222,7 +219,10 @@ export default function CalendarView({
   initialEvents: CalendarEventRow[];
   actor: TeamActor;
 }) {
-  const coach = coachSession(actor);
+  // Calendar CRUD is staff-level (head coach, assistant coach, AND booster —
+  // whether the booster row lives in team_coaches or team_members), per the
+  // RC-1 permission audit.
+  const canManage = isStaff(actor);
   const [events,  setEvents]  = useState<CalendarEventRow[]>(initialEvents);
   const [form,    setForm]    = useState<EvForm>(BLANK);
   const [editing, setEditing] = useState<CalendarEventRow | null>(null);
@@ -309,7 +309,7 @@ export default function CalendarView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Add Event" onAdd={openAdd} />
+          <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
         </div>
       </div>
 
@@ -324,7 +324,7 @@ export default function CalendarView({
             No events scheduled
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Add the first event above." : "Check back soon for schedule updates."}
+            {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
           </div>
         </div>
       ) : (
@@ -335,7 +335,7 @@ export default function CalendarView({
             evs={evs}
             isToday={date === today}
             isTomorrow={date === tomorrow}
-            coach={coach}
+            canManage={canManage}
             onEdit={openEdit}
             onDelete={handleDelete}
           />

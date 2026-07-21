@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
-import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
+import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -91,12 +90,14 @@ function labelDate(d: string): string {
 
 function AnnouncementCard({
   a,
-  coach,
+  canEdit,
+  canDelete,
   onEdit,
   onDelete,
 }: {
   a: AnnouncementRow;
-  coach: CoachSession | null;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
 }) {
@@ -199,7 +200,7 @@ function AnnouncementCard({
         </a>
       )}
 
-      {coach && (
+      {canEdit && (
         <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end", marginTop: ".38rem" }}>
           <button
             onClick={() => onEdit(a)}
@@ -207,7 +208,7 @@ function AnnouncementCard({
           >
             Edit
           </button>
-          {isHeadCoachRole(coach.role) && (
+          {canDelete && (
             <button
               onClick={() => onDelete(a.id)}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
@@ -357,7 +358,8 @@ function HomeContent({
   topAthleteName = null,
   primaryColor = "#0b1e3d",
 }: HomeViewProps) {
-  const coach = coachSession(actor);
+  const canEdit   = isStaff(actor);
+  const canDelete = isHeadCoach(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
   const [form,    setForm]    = useState<AForm>(BLANK);
   const [editing, setEditing] = useState<AnnouncementRow | null>(null);
@@ -471,7 +473,7 @@ function HomeContent({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Post" onAdd={openAdd} />
+          <CoachBar show={canEdit} label="Post" onAdd={openAdd} />
         </div>
       </div>
 
@@ -486,13 +488,13 @@ function HomeContent({
             No announcements yet
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Use the Post button to get started." : "Check back soon."}
+            {canEdit ? "Use the Post button to get started." : "Check back soon."}
           </div>
         </div>
       ) : (
         <>
           {preview.map(a => (
-            <AnnouncementCard key={a.id} a={a} coach={coach} onEdit={openEdit} onDelete={handleDelete} />
+            <AnnouncementCard key={a.id} a={a} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />
           ))}
           <a
             href={`/team/${slug}/communications?tab=updates`}

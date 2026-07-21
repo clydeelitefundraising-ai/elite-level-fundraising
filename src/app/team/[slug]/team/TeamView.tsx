@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isHeadCoachRole, isStaff, type TeamActor } from "@/lib/permissions";
+import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
@@ -90,15 +90,15 @@ function fromRow(a: TeamAthleteRow): AthForm {
 function AthleteCard({
   a,
   slug,
-  coach,
   staffMode,
+  canDelete,
   onEdit,
   onDelete,
 }: {
   a: TeamAthleteRow;
   slug: string;
-  coach: CoachSession | null;
   staffMode: boolean;
+  canDelete: boolean;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
 }) {
@@ -184,7 +184,7 @@ function AthleteCard({
         </div>
       )}
 
-      {coach && (
+      {staffMode && (
         <div style={{ display: "flex", gap: ".1rem", justifyContent: "center", marginTop: ".45rem" }}>
           <button
             onClick={e => { e.stopPropagation(); onEdit(a); }}
@@ -192,7 +192,7 @@ function AthleteCard({
           >
             Edit
           </button>
-          {isHeadCoachRole(coach.role) && (
+          {canDelete && (
             <button
               onClick={e => { e.stopPropagation(); onDelete(a.id); }}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
@@ -217,8 +217,8 @@ export default function TeamView({
   initialAthletes: TeamAthleteRow[];
   actor: TeamActor;
 }) {
-  const coach     = coachSession(actor);
   const staffMode = isStaff(actor);
+  const canDelete = isHeadCoach(actor);
   const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,           setForm]           = useState<AthForm>(BLANK);
   const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
@@ -358,7 +358,7 @@ export default function TeamView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Add Athlete" onAdd={openAdd} />
+          <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
         </div>
       </div>
 
@@ -373,7 +373,7 @@ export default function TeamView({
             Team is empty
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Add your first athlete above." : "Team roster coming soon."}
+            {staffMode ? "Add your first athlete above." : "Team roster coming soon."}
           </div>
         </div>
       ) : (
@@ -383,8 +383,8 @@ export default function TeamView({
               key={a.id}
               a={a}
               slug={slug}
-              coach={coach}
               staffMode={staffMode}
+              canDelete={canDelete}
               onEdit={openEdit}
               onDelete={handleDelete}
             />

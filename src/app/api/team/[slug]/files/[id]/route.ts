@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
-import { isHeadCoachRole } from "@/lib/permissions";
+import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 
 const BASE   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET = "team-files";
@@ -56,11 +55,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   });
 }
 
-// ── Rename — any coach
+// ── Rename — any staff (coach or booster)
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -76,9 +75,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 // ── Delete — head coach only
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isHeadCoachRole(coach.role)) {
+  const actor = await getTeamActor(slug);
+  if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only head coaches can delete files." }, { status: 403 });
   }
 

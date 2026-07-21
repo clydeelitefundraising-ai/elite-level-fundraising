@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -12,8 +12,8 @@ type Ctx = { params: Promise<{ slug: string; id: string }> };
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { name, description, category, price_cents, cost_cents, image_url, visible, display_order, external_url } = await req.json();
   const patch: Record<string, unknown> = {};
@@ -37,8 +37,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const res = await fetch(
     `${BASE}/rest/v1/team_products?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,

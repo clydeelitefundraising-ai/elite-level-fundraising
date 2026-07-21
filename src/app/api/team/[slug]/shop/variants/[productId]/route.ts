@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -13,8 +13,8 @@ type Ctx = { params: Promise<{ slug: string; productId: string }> };
 // POST — add a variant to a product
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { slug, productId } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Verify product belongs to this slug
   const checkRes = await fetch(
@@ -40,8 +40,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 // DELETE — remove a variant (by variant id in query param)
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const { slug, productId } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const variantId = req.nextUrl.searchParams.get("variantId");
   if (!variantId) return NextResponse.json({ error: "variantId required" }, { status: 400 });

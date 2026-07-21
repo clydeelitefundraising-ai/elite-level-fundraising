@@ -216,8 +216,6 @@ export async function updateCampaignSettings(
 ): Promise<void> {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const bodyStr = JSON.stringify(data);
-  console.log("[updateCampaignSettings] slug:", slug);
-  console.log("[updateCampaignSettings] body:", bodyStr);
   const res = await fetch(
     `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}`,
     {
@@ -227,7 +225,6 @@ export async function updateCampaignSettings(
     },
   );
   const resText = await res.text();
-  console.log("[updateCampaignSettings] response status:", res.status, "body:", resText);
   if (!res.ok) {
     throw new Error(`Supabase update failed (${res.status}): ${resText}`);
   }

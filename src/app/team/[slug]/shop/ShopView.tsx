@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
 import type { TeamProductRow } from "@/lib/teamData";
-import { coachSession, type TeamActor } from "@/lib/permissions";
+import { isStaff, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -327,8 +327,10 @@ export default function ShopView({
   initialProducts: TeamProductRow[];
   actor:           TeamActor;
 }) {
-  const coach   = coachSession(actor);
-  const isCoach = !!coach;
+  // "isCoach" here means "shop-management access", which per the RC-1
+  // permission audit is staff-level (coaches AND boosters, whichever table
+  // the booster row lives in) — kept the name to minimize the diff below.
+  const isCoach = isStaff(actor);
   const primary = settings.primary_color;
 
   const [products,       setProducts]       = useState<TeamProductRow[]>(initialProducts);
@@ -498,7 +500,7 @@ export default function ShopView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          {isCoach && <CoachBar coach={coach} label="Add Product" onAdd={openAdd} />}
+          <CoachBar show={isCoach} label="Add Product" onAdd={openAdd} />
         </div>
       </div>
 

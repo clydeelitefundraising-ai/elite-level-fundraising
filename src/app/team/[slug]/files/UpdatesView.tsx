@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { AnnouncementRow, TeamFileRow, TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isHeadCoachRole, staffRoleLabel, type TeamActor } from "@/lib/permissions";
+import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import type { ReadReceiptsResult } from "@/lib/notifications";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
@@ -204,13 +204,15 @@ function ReadReceiptPanel({ slug, announcementId }: { slug: string; announcement
 function UpdateCard({
   a,
   slug,
-  coach,
+  canEdit,
+  canDelete,
   onEdit,
   onDelete,
 }: {
   a: AnnouncementRow;
   slug: string;
-  coach: CoachSession | null;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
 }) {
@@ -290,7 +292,7 @@ function UpdateCard({
             ⚠️ Important
           </span>
         )}
-        {coach && scope !== "everyone" && (
+        {canEdit && scope !== "everyone" && (
           <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ecfdf5", color: "#065f46" }}>
             → {SCOPE_LABELS[scope as RecipientScope] ?? scope}
           </span>
@@ -339,8 +341,8 @@ function UpdateCard({
         </a>
       )}
 
-      {/* Coach actions + read receipts */}
-      {coach && (
+      {/* Staff actions + read receipts */}
+      {canEdit && (
         <div style={{ marginTop: ".38rem" }}>
           <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end" }}>
             <button
@@ -349,7 +351,7 @@ function UpdateCard({
             >
               Edit
             </button>
-            {isHeadCoachRole(coach.role) && (
+            {canDelete && (
               <button
                 onClick={() => onDelete(a.id)}
                 style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
@@ -401,7 +403,8 @@ export default function UpdatesView({
   actor: TeamActor;
   athletes: { id: string; name: string }[];
 }) {
-  const coach = coachSession(actor);
+  const canEdit   = isStaff(actor);
+  const canDelete = isHeadCoach(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialUpdates);
   const [form,      setForm]      = useState<UForm>(BLANK);
   const [editing,   setEditing]   = useState<AnnouncementRow | null>(null);
@@ -573,7 +576,7 @@ export default function UpdatesView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Post Update" onAdd={openAdd} />
+          <CoachBar show={canEdit} label="Post Update" onAdd={openAdd} />
         </div>
       </div>
 
@@ -615,7 +618,7 @@ export default function UpdatesView({
             {filterCat === "all" ? "No updates yet" : `No ${filterCat} posts yet`}
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Post your first update above." : "Check back soon."}
+            {canEdit ? "Post your first update above." : "Check back soon."}
           </div>
         </div>
       ) : (
@@ -623,25 +626,25 @@ export default function UpdatesView({
           {pinned.length > 0 && (
             <>
               <SectionLabel label="📌 Pinned" />
-              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
+              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {todayItems.length > 0 && (
             <>
               <SectionLabel label="Today" />
-              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
+              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {yesterdayItems.length > 0 && (
             <>
               <SectionLabel label="Yesterday" />
-              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
+              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
           {earlierItems.length > 0 && (
             <>
               <SectionLabel label="Earlier" />
-              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} coach={coach} onEdit={openEdit} onDelete={handleDelete} />)}
+              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}
         </>

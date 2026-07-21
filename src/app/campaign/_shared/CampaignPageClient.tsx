@@ -30,10 +30,6 @@ const initialDonations = [
 
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 
-const FALLBACK_GOLD_SPONSORS   = [{ name: "Local Business",    url: "https://example.com" }];
-const FALLBACK_SILVER_SPONSORS = [{ name: "Community Partner", url: "https://example.com" }];
-const FALLBACK_BRONZE_SPONSORS = [{ name: "Area Sponsor",      url: "https://example.com" }];
-
 const FALLBACK_MISSION = [
   { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
   { icon: "📋", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
@@ -76,9 +72,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [recentDonations, setRecentDonations] = useState(initialDonations);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
-  const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>(FALLBACK_GOLD_SPONSORS);
-  const [silverSponsors,    setSilverSponsors]    = useState<SponsorItem[]>(FALLBACK_SILVER_SPONSORS);
-  const [bronzeSponsors,    setBronzeSponsors]    = useState<SponsorItem[]>(FALLBACK_BRONZE_SPONSORS);
+  const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>([]);
+  const [silverSponsors,    setSilverSponsors]    = useState<SponsorItem[]>([]);
+  const [bronzeSponsors,    setBronzeSponsors]    = useState<SponsorItem[]>([]);
   const [communitySponsors, setCommunitySponsors] = useState<SponsorItem[]>([]);
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");

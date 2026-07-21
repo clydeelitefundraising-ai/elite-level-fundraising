@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff, isCoachOnly } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const VALID_TIERS = ["title", "platinum", "gold", "silver", "bronze", "community_partner"];
@@ -19,8 +19,9 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  const visibilityFilter = coach ? "" : "&visible=eq.true";
+  const actor = await getTeamActor(slug);
+  const staff = isStaff(actor);
+  const visibilityFilter = staff ? "" : "&visible=eq.true";
   const res = await fetch(
     `${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}${visibilityFilter}&order=display_order.asc,created_at.asc`,
     { headers: h(), cache: "no-store" },
@@ -28,8 +29,8 @@ export async function GET(
   if (!res.ok) return NextResponse.json([]);
   const rows = await res.json();
 
-  if (coach) {
-    // Coaches see all fields including internal contact info
+  if (staff) {
+    // Staff (coaches + boosters) see all fields including internal contact info
     return NextResponse.json(rows);
   }
 
@@ -52,8 +53,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const {
     name, url, tier, description, logo_url, visible, display_order,

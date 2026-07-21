@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -13,8 +13,8 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  const visFilter = coach ? "" : "&visible=eq.true";
+  const actor = await getTeamActor(slug);
+  const visFilter = isStaff(actor) ? "" : "&visible=eq.true";
   const res = await fetch(
     `${BASE}/rest/v1/team_products?campaign_slug=eq.${encodeURIComponent(slug)}${visFilter}&select=*,variants:team_product_variants(id,name,price_delta)&order=display_order.asc,created_at.asc`,
     { headers: h(), cache: "no-store" },
@@ -28,8 +28,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { name, description, category, price_cents, cost_cents, image_url, visible, display_order, external_url } = await req.json();
   if (!name?.trim() || !price_cents || price_cents < 0) {

@@ -233,6 +233,9 @@ export default function CampaignControlCenter({ detail }: Props) {
   });
 
   const [archived, setArchived] = useState(detail.archived);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // ── Saving state ──────────────────────────────────────────────────────────
 
@@ -337,6 +340,28 @@ export default function CampaignControlCenter({ detail }: Props) {
     if (next && !confirm(`Archive "${slug}"? It will no longer be publicly visible.`)) return;
     const ok = await patchCampaign("status", { archived: next });
     if (ok) setArchived(next);
+  }
+
+  async function handlePermanentDelete() {
+    if (deleteConfirmText !== "DELETE") return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/campaigns/${slug}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmText: deleteConfirmText }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        show(data.error ?? "Delete failed.", "error");
+        setDeleting(false);
+        return;
+      }
+      router.push("/admin/campaigns");
+    } catch {
+      show("Network error.", "error");
+      setDeleting(false);
+    }
   }
 
   // ── Derived display values ─────────────────────────────────────────────────
@@ -691,6 +716,20 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
+          {/* Danger Zone — deliberately separate from Status/Archive above.
+              Archive is the recommended workflow for everything short of a
+              legal/compliance deletion request; this is not offered as an
+              equivalent alternative. */}
+          <div style={{ ...T.card, border: "1px solid #fecaca" }}>
+            <SectionHeader title="Danger Zone" desc="Irreversible. Archive is almost always what you want instead." />
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              style={{ padding: ".5rem .9rem", background: "#fff", border: "1.5px solid #fecaca", borderRadius: 8, fontSize: ".78rem", fontWeight: 600, color: "#dc2626", cursor: "pointer" }}
+            >
+              Permanently delete campaign…
+            </button>
+          </div>
+
           {/* Quick Actions */}
           <div style={T.card}>
             <SectionHeader title="Quick Actions" />
@@ -712,6 +751,73 @@ export default function CampaignControlCenter({ detail }: Props) {
 
         </div>
       </div>
+
+      {/* Permanent delete confirmation */}
+      {showDeleteModal && (
+        <div
+          onClick={() => { if (!deleting) { setShowDeleteModal(false); setDeleteConfirmText(""); } }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 500,
+            background: "rgba(0,0,0,.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14, padding: "1.5rem",
+              width: "min(440px, 100%)", maxHeight: "min(90vh, 90dvh)", overflowY: "auto",
+              boxShadow: "0 12px 48px rgba(0,0,0,.3)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 .5rem", fontSize: "1.05rem", fontWeight: 800, color: "#dc2626" }}>
+              Permanently delete this campaign?
+            </h3>
+            <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "#4b5563", lineHeight: 1.5 }}>
+              This removes <strong>{detail.school_name || slug}</strong> and every related record —
+              athletes, coaches, members, donations, sponsors, calendar, files, messages — permanently.
+              There is no undo. If you just want to hide this campaign, close this and use{" "}
+              <strong>Archive</strong> instead.
+            </p>
+            <label style={{ display: "block", fontSize: ".72rem", fontWeight: 700, color: "#374151", marginBottom: ".3rem" }}>
+              Type DELETE to confirm
+            </label>
+            <input
+              autoFocus
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              style={{
+                width: "100%", boxSizing: "border-box", padding: ".55rem .7rem",
+                borderRadius: 8, border: "1.5px solid #e5e7eb", fontSize: ".85rem",
+                marginBottom: "1rem",
+              }}
+            />
+            <div style={{ display: "flex", gap: ".6rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+                disabled={deleting}
+                style={{ padding: ".5rem 1rem", background: "#f5f5f7", border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 600, color: "#1d1d1f", cursor: deleting ? "default" : "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePermanentDelete}
+                disabled={deleteConfirmText !== "DELETE" || deleting}
+                style={{
+                  padding: ".5rem 1rem", background: "#dc2626", border: "none", borderRadius: 8,
+                  fontSize: ".8rem", fontWeight: 700, color: "#fff",
+                  cursor: deleteConfirmText !== "DELETE" || deleting ? "default" : "pointer",
+                  opacity: deleteConfirmText !== "DELETE" || deleting ? .5 : 1,
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete Permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

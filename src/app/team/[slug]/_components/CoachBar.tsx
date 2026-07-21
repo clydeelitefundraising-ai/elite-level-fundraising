@@ -1,17 +1,15 @@
 "use client";
 
-import type { CoachSession } from "@/lib/teamSession";
-
 export default function CoachBar({
-  coach,
+  show,
   label,
   onAdd,
 }: {
-  coach: CoachSession | null;
+  show: boolean;
   label: string;
   onAdd: () => void;
 }) {
-  if (!coach) return null;
+  if (!show) return null;
 
   return (
     <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: ".75rem" }}>

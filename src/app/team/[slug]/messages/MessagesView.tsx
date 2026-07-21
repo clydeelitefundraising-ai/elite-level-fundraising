@@ -247,7 +247,11 @@ function ComposeModal({
       style={{
         position: "fixed", inset: 0, zIndex: 200,
         background: "rgba(0,0,0,.45)",
-        display: "flex", alignItems: "flex-end", justifyContent: "center",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        // 100dvh-based padding (not 100vh) so this reflows correctly when the
+        // on-screen keyboard shrinks the visual viewport, instead of leaving
+        // the sheet anchored under content the keyboard has covered.
+        padding: "max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom))",
         animation: "elf-backdropIn .18s ease both",
       }}
     >
@@ -256,11 +260,14 @@ function ComposeModal({
         style={{
           width: "min(430px,100%)",
           background: "#fff",
-          borderRadius: "18px 18px 0 0",
-          padding: "1.2rem 1rem 2rem",
+          borderRadius: 18,
+          padding: "1.2rem 1rem",
           animation: "elf-modalIn .2s ease both",
-          maxHeight: "90vh",
+          maxHeight: "calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
           overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>

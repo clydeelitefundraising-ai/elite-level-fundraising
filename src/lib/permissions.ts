@@ -7,6 +7,11 @@ import type { MemberSession } from "@/lib/memberSession";
 /** All roles stored in team_coaches that grant team-hub management access. */
 const STAFF_ROLES = new Set(["head_coach", "assistant_coach", "booster"]);
 
+/** team_coaches roles that are coaching staff specifically — excludes booster.
+ *  Used where a feature intentionally restricts write access to coaches only
+ *  (boosters view-only), as opposed to isStaff()'s broader coach+booster set. */
+const COACH_ONLY_ROLES = new Set(["head_coach", "assistant_coach"]);
+
 /** Staff roles that additionally carry destructive (delete) access. */
 const HEAD_COACH_ROLES = new Set(["head_coach"]);
 
@@ -31,6 +36,12 @@ export function isStaff(actor: TeamActor): boolean {
 /** True only for roles with destructive (delete) access. */
 export function isHeadCoach(actor: TeamActor): boolean {
   return actor.kind === "coach" && HEAD_COACH_ROLES.has(actor.session.role);
+}
+
+/** True only for coaching staff (head/assistant coach) — excludes boosters.
+ *  Use for features where boosters are intentionally view-only, e.g. Sponsors. */
+export function isCoachOnly(actor: TeamActor): boolean {
+  return actor.kind === "coach" && COACH_ONLY_ROLES.has(actor.session.role);
 }
 
 /** True for joined team members (athlete / parent). */

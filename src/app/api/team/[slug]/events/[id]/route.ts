@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
-import { isHeadCoachRole } from "@/lib/permissions";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -20,8 +19,8 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { title, event_date, event_time, location, type } = await req.json();
 
@@ -47,11 +46,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isHeadCoachRole(coach.role)) {
-    return NextResponse.json({ error: "Only head coaches can delete events." }, { status: 403 });
-  }
+  const actor = await getTeamActor(slug);
+  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const res = await fetch(
     `${BASE}/rest/v1/calendar_events?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,

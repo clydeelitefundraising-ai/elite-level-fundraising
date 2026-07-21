@@ -399,17 +399,18 @@ export default function ContactsView({
           style={{
             position: "fixed", inset: 0, zIndex: 200,
             background: "rgba(0,0,0,.45)",
-            display: "flex", alignItems: "flex-end", justifyContent: "center",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
           }}
           onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div style={{
             background: "#fff",
-            borderRadius: "18px 18px 0 0",
+            borderRadius: 18,
             width: "min(430px, 100%)",
-            maxHeight: "92vh",
+            maxHeight: "min(90vh, 90dvh)",
             overflowY: "auto",
-            padding: "1.25rem 1.1rem 2rem",
+            padding: "1.25rem 1.1rem",
           }}>
             {/* Modal header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>

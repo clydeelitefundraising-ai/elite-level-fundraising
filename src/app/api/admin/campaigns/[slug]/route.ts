@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -131,4 +132,126 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   }
 
   return NextResponse.json({ ok: true, ...(warnings.length ? { warnings } : {}) });
+}
+
+// ── Permanent delete — admin only, irreversible ─────────────────────────────
+//
+// Archive (PATCH {archived:true}) remains the recommended workflow and is
+// untouched by this. This is a separate, deliberately harder-to-reach nuke
+// button for the rare case a campaign must be fully removed (e.g. wrong
+// school entered, test data, a legal deletion request). It requires the
+// caller to send back the literal string "DELETE" as server-side proof the
+// client-side typed-confirmation UI was actually used — the UI enforces the
+// same thing, but a destructive endpoint should never trust client-only
+// validation for an action with no undo.
+//
+// Every table with a campaign_slug column (confirmed against the live
+// schema, not guessed from migration files) is swept, in child-before-parent
+// order so deletes don't fail on foreign keys regardless of whether DB-level
+// cascade is configured. audit_logs is deliberately excluded — deleting a
+// campaign's audit history would defeat the point of an audit trail, and a
+// final "campaign.permanently_deleted" entry is written after the sweep
+// completes so this action itself is always recorded.
+const CAMPAIGN_SLUG_TABLES = [
+  "push_subscriptions",
+  "athlete_outreach",
+  "fundraising_contact_goals",
+  "fundraising_contacts",
+  "sponsor_relationships",
+  "automation_events",
+  "announcements",
+  "calendar_events",
+  "donations",
+  "fund_uses",
+  "sponsors",
+  "team_files",
+  "team_join_codes",
+  "team_orders",
+  "team_products",
+  "team_members",
+  "team_coaches",
+  "message_threads",
+  "athletes",
+];
+
+export async function DELETE(req: NextRequest, { params }: RouteCtx) {
+  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { slug } = await params;
+
+  const body = await req.json().catch(() => null);
+  if (!body || body.confirmText !== "DELETE") {
+    return NextResponse.json(
+      { error: 'Type "DELETE" to confirm permanent deletion.' },
+      { status: 400 },
+    );
+  }
+
+  const settingsRes = await fetch(
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}&select=school_name,sport_name&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const settingsRows = settingsRes.ok ? await settingsRes.json() : [];
+  if (!settingsRows.length) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
+  const { school_name, sport_name } = settingsRows[0];
+
+  async function idsFor(table: string): Promise<string[]> {
+    const res = await fetch(
+      `${BASE}/rest/v1/${table}?campaign_slug=eq.${encodeURIComponent(slug)}&select=id`,
+      { headers: h(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const rows: { id: string }[] = await res.json();
+    return rows.map(r => r.id);
+  }
+
+  const [coachIds, productIds, threadIds] = await Promise.all([
+    idsFor("team_coaches"),
+    idsFor("team_products"),
+    idsFor("message_threads"),
+  ]);
+
+  async function deleteWhereIn(table: string, column: string, ids: string[]) {
+    if (!ids.length) return;
+    const list = ids.map(id => encodeURIComponent(id)).join(",");
+    await fetch(`${BASE}/rest/v1/${table}?${column}=in.(${list})`, {
+      method: "DELETE",
+      headers: h({ Prefer: "return=minimal" }),
+    });
+  }
+
+  // Grandchildren first (see CASCADE_CHILD_TABLES comment above)
+  await Promise.all([
+    deleteWhereIn("team_product_variants", "product_id", productIds),
+    deleteWhereIn("coach_invite_tokens", "coach_id", coachIds),
+    deleteWhereIn("messages", "thread_id", threadIds),
+    deleteWhereIn("message_reads", "thread_id", threadIds),
+    deleteWhereIn("message_thread_participants", "thread_id", threadIds),
+  ]);
+
+  // All direct campaign_slug-scoped tables, then the campaign itself
+  for (const table of CAMPAIGN_SLUG_TABLES) {
+    await fetch(
+      `${BASE}/rest/v1/${table}?campaign_slug=eq.${encodeURIComponent(slug)}`,
+      { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+    );
+  }
+  const finalRes = await fetch(
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}`,
+    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+  );
+  if (!finalRes.ok) {
+    return NextResponse.json({ error: "Failed to delete campaign record." }, { status: 500 });
+  }
+
+  logAuditEvent({
+    action:        "campaign.permanently_deleted",
+    entity_type:   "campaign",
+    entity_id:     slug,
+    campaign_slug: slug,
+    summary:       `Permanently deleted campaign "${slug}" (${school_name || "unnamed"}${sport_name ? `, ${sport_name}` : ""}) — irreversible`,
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
+
+  return NextResponse.json({ ok: true });
 }

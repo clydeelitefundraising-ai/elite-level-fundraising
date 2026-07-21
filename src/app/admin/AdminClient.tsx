@@ -250,11 +250,8 @@ export function AdminDashboard() {
   const saveSettings = async () => {
     setSaving(true);
     const payload = { ...settings, slug: selectedSlug };
-    console.log("[saveSettings] default_athlete_goal_cents in state:", settings.default_athlete_goal_cents);
-    console.log("[saveSettings] full payload:", JSON.stringify(payload));
     const res = await fetch("/api/admin/campaign", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const body = await res.json();
-    console.log("[saveSettings] response status:", res.status, "body:", JSON.stringify(body));
     setSaving(false);
     flash(res.ok ? "Settings saved." : `Error: ${JSON.stringify(body)}`);
   };

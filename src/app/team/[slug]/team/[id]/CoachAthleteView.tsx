@@ -206,15 +206,16 @@ function ContactModal({
       style={{
         position: "fixed", inset: 0, zIndex: 200,
         background: "rgba(0,0,0,.45)", display: "flex",
-        alignItems: "flex-end", justifyContent: "center",
+        alignItems: "center", justifyContent: "center",
+        padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#fff", borderRadius: "18px 18px 0 0",
-        padding: "1.25rem 1.1rem 2rem", width: "100%", maxWidth: 480,
-        boxShadow: "0 -4px 32px rgba(0,0,0,.12)",
-        maxHeight: "88vh", overflowY: "auto",
+        background: "#fff", borderRadius: 18,
+        padding: "1.25rem 1.1rem", width: "100%", maxWidth: 480,
+        boxShadow: "0 8px 32px rgba(0,0,0,.18)",
+        maxHeight: "min(90vh, 90dvh)", overflowY: "auto",
       }}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>
           <span style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>

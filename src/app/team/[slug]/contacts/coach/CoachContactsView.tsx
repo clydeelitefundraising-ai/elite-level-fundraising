@@ -118,13 +118,14 @@ function GoalModal({
         position: "fixed", inset: 0, zIndex: 300,
         background: "rgba(0,0,0,.45)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "1rem",
+        padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
       }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
         background: "#fff", borderRadius: 16,
         padding: "1.25rem", width: "min(360px, 100%)",
+        maxHeight: "min(90vh, 90dvh)", overflowY: "auto",
         boxShadow: "0 8px 32px rgba(0,0,0,.18)",
       }}>
         <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".25rem" }}>

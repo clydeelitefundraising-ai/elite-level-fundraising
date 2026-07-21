@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { TeamFileRow } from "@/lib/teamData";
-import { coachSession, isHeadCoachRole, type TeamActor } from "@/lib/permissions";
+import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -73,7 +73,8 @@ export default function FilesView({
   initialFiles: TeamFileRow[];
   actor: TeamActor;
 }) {
-  const coach = coachSession(actor);
+  const canUpload = isStaff(actor);
+  const canDelete = isHeadCoach(actor);
   const [files,        setFiles]        = useState<TeamFileRow[]>(initialFiles);
   const [uploading,    setUploading]    = useState(false);
   const [uploadFile,   setUploadFile]   = useState("");
@@ -202,7 +203,7 @@ export default function FilesView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <CoachBar coach={coach} label="Upload File" onAdd={openUpload} />
+          <CoachBar show={canUpload} label="Upload File" onAdd={openUpload} />
         </div>
       </div>
 
@@ -215,8 +216,8 @@ export default function FilesView({
         onChange={handleFileSelect}
       />
 
-      {/* Upload zone — coaches only */}
-      {coach && !uploading && (
+      {/* Upload zone — staff only */}
+      {canUpload && !uploading && (
         <div
           onClick={openUpload}
           onDragOver={handleDragOver}
@@ -282,7 +283,7 @@ export default function FilesView({
             No files uploaded yet
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {coach ? "Upload your first file above." : "Files coming soon."}
+            {canUpload ? "Upload your first file above." : "Files coming soon."}
           </div>
         </div>
       ) : (
@@ -337,7 +338,7 @@ export default function FilesView({
                   <div style={{ fontSize: ".65rem", color: "#9ca3af", marginTop: ".1rem" }}>
                     {file.uploaded_by} · {formatDate(file.created_at)}
                   </div>
-                  {coach && (
+                  {canUpload && (
                     <div style={{ display: "flex", gap: ".1rem", marginTop: ".2rem" }}>
                       <button
                         onClick={() => openEdit(file)}
@@ -345,7 +346,7 @@ export default function FilesView({
                       >
                         Rename
                       </button>
-                      {isHeadCoachRole(coach.role) && (
+                      {canDelete && (
                         <button
                           onClick={() => handleDelete(file.id)}
                           style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}

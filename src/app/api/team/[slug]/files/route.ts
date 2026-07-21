@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoachSession } from "@/lib/teamSession";
+import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -14,8 +14,10 @@ type RouteContext = { params: Promise<{ slug: string }> };
 
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
-  const coach = await getCoachSession(slug);
-  if (!coach) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public" || !isStaff(actor)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { name, storagePath, fileType, sizeBytes } = await req.json();
   if (!name?.trim() || !storagePath || !VALID_TYPES.has(fileType)) {
@@ -31,8 +33,8 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       storage_path:  storagePath,
       file_type:     fileType,
       size_bytes:    sizeBytes ?? 0,
-      uploaded_by:   coach.name,
-      coach_id:      coach.id,
+      uploaded_by:   actor.session.name,
+      coach_id:      actor.kind === "coach" ? actor.session.id : null,
     }),
   });
 

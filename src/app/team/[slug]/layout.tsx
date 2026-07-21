@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
-import { getTeamActor, isStaff as checkIsStaff } from "@/lib/permissions.server";
+import { getTeamActor } from "@/lib/permissions.server";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import TeamHeader from "./_components/TeamHeader";
@@ -90,7 +90,7 @@ export default async function TeamLayout({
         <TeamNavWithBadge
           slug={slug}
           primaryColor={settings.primary_color}
-          isStaff={checkIsStaff(actor)}
+          showSponsors={isAuthenticated}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
           donorCount={donationStats.donor_count}
