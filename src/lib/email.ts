@@ -96,7 +96,7 @@ export async function sendDonorReceipt(p: DonorReceiptParams): Promise<void> {
           <a href="${p.campaignUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:1rem;font-weight:bold;">View Campaign</a>
         </td></tr>
         <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;">
-          Questions? Contact us at <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          Questions? Contact us at <a href="mailto:billing@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">billing@elitelevelfundraising.com</a><br />
           <span style="display:inline-block;margin-top:12px;">Powered by Elite Level Fundraising</span>
         </td></tr>
       </table>
@@ -294,7 +294,7 @@ export async function sendDemoRequestConfirmation(p: DemoRequestConfirmationPara
           <p style="margin:0;">A member of our team will follow up shortly to schedule a walkthrough built around your program. In the meantime, feel free to reply directly to this email with any questions.</p>
         </td></tr>
         <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;margin-top:20px;">
-          Questions? Contact us at <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          Questions? Contact us at <a href="mailto:sales@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">sales@elitelevelfundraising.com</a><br />
           <span style="display:inline-block;margin-top:12px;">Elite Level Fundraising</span>
         </td></tr>
       </table>

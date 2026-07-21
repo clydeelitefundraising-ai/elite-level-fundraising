@@ -17,13 +17,13 @@ export default function DataProtectionPage() {
       <p>Supabase (database hosting), Stripe (payment processing), Resend (transactional email), Vercel (application hosting).</p>
       <h2>Deletion requests</h2>
       <p>
-        Email <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a> to
+        Email <a href="mailto:privacy@elitelevelfundraising.com">privacy@elitelevelfundraising.com</a> to
         request deletion of information you&rsquo;ve submitted through the marketing site.
       </p>
       <h2>Data-processing agreements</h2>
       <p>
         If your school or district needs a formal data-processing agreement for procurement,
-        email <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a> and
+        email <a href="mailto:privacy@elitelevelfundraising.com">privacy@elitelevelfundraising.com</a> and
         we&rsquo;ll work through it directly.
       </p>
     </PolicyPlaceholder>

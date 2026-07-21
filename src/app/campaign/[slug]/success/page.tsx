@@ -41,8 +41,8 @@ export default async function DonationSuccessPage({
           <p style={styles.note}>
             A confirmation will be sent to your email shortly. If you have any questions,
             contact us at{" "}
-            <a href="mailto:support@elitelevelfundraising.com" style={styles.link}>
-              support@elitelevelfundraising.com
+            <a href="mailto:billing@elitelevelfundraising.com" style={styles.link}>
+              billing@elitelevelfundraising.com
             </a>.
           </p>
           <a href={`/campaign/${slug}`} style={styles.btn}>← Back to Campaign</a>

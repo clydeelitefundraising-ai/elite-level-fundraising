@@ -23,7 +23,7 @@ export default function TrustContactPage() {
             Phone: <a href="tel:+16234988885">(623) 498-8885</a>
           </p>
           <p>
-            Email: <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>
+            Email: <a href="mailto:info@elitelevelfundraising.com">info@elitelevelfundraising.com</a>
           </p>
           <p>
             Website: <a href="https://elitelevelfundraising.com">https://elitelevelfundraising.com</a>

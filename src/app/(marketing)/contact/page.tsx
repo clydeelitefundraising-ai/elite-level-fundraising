@@ -41,7 +41,7 @@ export default function ContactPage() {
             <h3>General questions</h3>
             <p>
               Email us directly at{" "}
-              <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>{" "}
+              <a href="mailto:info@elitelevelfundraising.com">info@elitelevelfundraising.com</a>{" "}
               or call <a href="tel:+16234988885">(623) 498-8885</a>. A person who knows the product
               answers &mdash; not a ticket queue. We aim to respond within one business day.
             </p>

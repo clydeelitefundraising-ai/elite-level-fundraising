@@ -71,7 +71,7 @@ export default function PrivacyPage() {
       <p>
         To request a copy of your data, or to request that we delete information you&rsquo;ve
         submitted — on the marketing site or inside the Team App — email{" "}
-        <a href="mailto:support@elitelevelfundraising.com">support@elitelevelfundraising.com</a>.
+        <a href="mailto:privacy@elitelevelfundraising.com">privacy@elitelevelfundraising.com</a>.
       </p>
     </PolicyPlaceholder>
   );
