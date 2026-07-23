@@ -1,11 +1,20 @@
 "use client";
 
+// @deprecated — this whole-file single-page editor is being superseded by
+// /admin/campaigns/[slug] (CampaignControlCenter.tsx + the AdminCampaign*
+// section components under its _shared/ folder). Only mounted today at the
+// legacy /admin/edit route. Sponsors and Athletes management has already
+// moved to the new console; Fund Uses, Coaches, and the onboarding wizard
+// have not yet been ported and remain live here only. Do not delete this
+// file until every section has a working equivalent in the new console.
+
 import { useState, useEffect } from "react";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
-type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
+type SponsorTier = "title" | "platinum" | "gold" | "silver" | "bronze" | "community_partner";
+type Sponsor    = { id: string; name: string; url: string; tier: SponsorTier; logo_url: string | null };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
 type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; account_id: string | null; has_pending_invite: boolean; created_at: string };
 
@@ -116,18 +125,95 @@ function OptionalColorField({ label, value, fallback, onChange }: { label: strin
   );
 }
 
+const SPONSOR_TIERS: SponsorTier[] = ["title", "platinum", "gold", "silver", "bronze", "community_partner"];
+
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
-  gold:   { bg: "#fef9c3", color: "#854d0e" },
-  silver: { bg: "#f1f5f9", color: "#475569" },
-  bronze: { bg: "#fff7ed", color: "#9a3412" },
+  title:             { bg: "#ede9fe", color: "#4c1d95" },
+  platinum:          { bg: "#e0f2fe", color: "#0c4a6e" },
+  gold:              { bg: "#fef9c3", color: "#854d0e" },
+  silver:            { bg: "#f1f5f9", color: "#475569" },
+  bronze:            { bg: "#fff7ed", color: "#9a3412" },
+  community_partner: { bg: "#d1fae5", color: "#065f46" },
 };
 
 function TierBadge({ tier }: { tier: string }) {
   const s = TIER_COLORS[tier] ?? { bg: "#f3f4f6", color: "#374151" };
   return (
     <span style={{ padding: ".2rem .6rem", borderRadius: 100, fontSize: ".72rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: s.bg, color: s.color }}>
-      {tier}
+      {tier.replace("_", " ")}
     </span>
+  );
+}
+
+// Colored initial-letter avatar — mirrors the Team Portal's sponsor logo
+// fallback so both surfaces read identically when no logo is set.
+function SponsorLogoThumb({ name, logoUrl, size = 36 }: { name: string; logoUrl: string | null; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (logoUrl && !failed) {
+    return (
+      <img
+        src={logoUrl}
+        alt={name}
+        onError={() => setFailed(true)}
+        style={{ width: size, height: size, borderRadius: 6, objectFit: "contain", flexShrink: 0, background: "#f9fafb", border: "1px solid #e5e7eb" }}
+      />
+    );
+  }
+  const initial = name.trim()[0]?.toUpperCase() ?? "S";
+  const palette = ["#0b2044", "#4c1d95", "#065f46", "#7c2d12", "#0c4a6e", "#92400e"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  const bg = palette[hash % palette.length];
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: 6, background: bg,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontWeight: 800, fontSize: size * 0.42, color: "#fff", flexShrink: 0,
+    }}>
+      {initial}
+    </div>
+  );
+}
+
+// Upload/replace/remove control used in both the sponsor edit row and the
+// "add sponsor" row — mirrors the Team Portal's sponsor logo picker UX.
+function SponsorLogoUploadCell({
+  name, logoUrl, uploading, onUpload, onRemove,
+}: {
+  name: string;
+  logoUrl: string | null;
+  uploading: boolean;
+  onUpload: (file: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
+      <SponsorLogoThumb name={name} logoUrl={logoUrl} size={36} />
+      <label style={{
+        display: "inline-block", padding: ".3rem .55rem",
+        background: uploading ? "#f9fafb" : "#f3f4f6",
+        border: "1px solid #e5e7eb", borderRadius: 6,
+        fontSize: ".68rem", fontWeight: 600,
+        color: uploading ? "#9ca3af" : "#374151",
+        cursor: uploading ? "not-allowed" : "pointer",
+        whiteSpace: "nowrap",
+      }}>
+        {uploading ? "Uploading…" : logoUrl ? "Change" : "Upload"}
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/svg+xml"
+          style={{ display: "none" }}
+          disabled={uploading}
+          onChange={e => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
+        />
+      </label>
+      {logoUrl && !uploading && (
+        <button type="button" onClick={onRemove}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".68rem", fontWeight: 600, color: "#dc2626", padding: 0 }}>
+          Remove
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -184,8 +270,11 @@ export function AdminDashboard() {
   const [newSName,  setNewSName]  = useState("");
   const [newSUrl,   setNewSUrl]   = useState("");
   const [newSTier,  setNewSTier]  = useState<Sponsor["tier"]>("gold");
+  const [newSLogo,  setNewSLogo]  = useState<string | null>(null);
   const [editA,     setEditA]     = useState<Athlete | null>(null);
   const [editS,     setEditS]     = useState<Sponsor | null>(null);
+  const [sLogoUploading, setSLogoUploading] = useState<"new" | "edit" | null>(null);
+  const [sLogoError,     setSLogoError]     = useState("");
   const [fundUses,   setFundUses]   = useState<FundUse[]>([]);
   const [editFU,     setEditFU]     = useState<FundUse | null>(null);
   const [newFUTitle, setNewFUTitle] = useState("");
@@ -278,16 +367,29 @@ export function AdminDashboard() {
     if (res.ok) { setAthletes(p => p.filter(a => a.id !== id)); flash("Athlete deleted."); }
   };
 
+  const uploadSponsorLogo = async (file: File, target: "new" | "edit") => {
+    setSLogoUploading(target); setSLogoError("");
+    const fd = new FormData();
+    fd.append("logo", file);
+    fd.append("slug", selectedSlug);
+    const res = await fetch("/api/admin/sponsors/logo", { method: "POST", body: fd });
+    const data = await res.json();
+    setSLogoUploading(null);
+    if (!res.ok) { setSLogoError(data.error ?? "Upload failed"); return; }
+    if (target === "new") setNewSLogo(data.url);
+    else setEditS(v => v ? { ...v, logo_url: data.url } : v);
+  };
+
   const addSponsor = async () => {
     if (!newSName.trim() || !newSUrl.trim()) return;
-    const res = await fetch("/api/admin/sponsors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newSName.trim(), url: newSUrl.trim(), tier: newSTier }) });
-    if (res.ok) { const s = await res.json(); setSponsors(p => [...p, s]); setNewSName(""); setNewSUrl(""); setNewSTier("gold"); flash("Sponsor added."); }
+    const res = await fetch("/api/admin/sponsors", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, name: newSName.trim(), url: newSUrl.trim(), tier: newSTier, logo_url: newSLogo }) });
+    if (res.ok) { const s = await res.json(); setSponsors(p => [...p, s]); setNewSName(""); setNewSUrl(""); setNewSTier("gold"); setNewSLogo(null); setSLogoError(""); flash("Sponsor added."); }
   };
 
   const saveSponsor = async () => {
     if (!editS) return;
-    const res = await fetch(`/api/admin/sponsors/${editS.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editS.name, url: editS.url, tier: editS.tier }) });
-    if (res.ok) { setSponsors(p => p.map(s => s.id === editS.id ? editS : s)); setEditS(null); flash("Sponsor updated."); }
+    const res = await fetch(`/api/admin/sponsors/${editS.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: editS.name, url: editS.url, tier: editS.tier, logo_url: editS.logo_url ?? "" }) });
+    if (res.ok) { setSponsors(p => p.map(s => s.id === editS.id ? editS : s)); setEditS(null); setSLogoError(""); flash("Sponsor updated."); }
   };
 
   const deleteSponsor = async (id: string) => {
@@ -716,34 +818,43 @@ export function AdminDashboard() {
             <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #f3f4f6", borderRadius: 8, overflow: "hidden" }}>
               <thead>
                 <tr>
+                  <th style={{ ...C.th, width: 60 }}>Logo</th>
                   <th style={C.th}>Name</th>
                   <th style={C.th}>URL</th>
                   <th style={C.th}>Tier</th>
-                  <th style={{ ...C.th, width: 140 }}>Actions</th>
+                  <th style={{ ...C.th, width: 170 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sponsors.map(s => (
                   editS?.id === s.id ? (
                     <tr key={s.id} style={{ background: "#fafafa" }}>
+                      <td style={C.td}>
+                        <SponsorLogoUploadCell
+                          name={editS.name || s.name}
+                          logoUrl={editS.logo_url}
+                          uploading={sLogoUploading === "edit"}
+                          onUpload={f => uploadSponsorLogo(f, "edit")}
+                          onRemove={() => setEditS(v => v ? { ...v, logo_url: null } : v)}
+                        />
+                      </td>
                       <td style={C.td}><input style={C.input} value={editS.name} onChange={e => setEditS(v => v ? { ...v, name: e.target.value } : v)} /></td>
                       <td style={C.td}><input style={C.input} value={editS.url}  onChange={e => setEditS(v => v ? { ...v, url: e.target.value } : v)} /></td>
                       <td style={C.td}>
                         <select style={C.input} value={editS.tier} onChange={e => setEditS(v => v ? { ...v, tier: e.target.value as Sponsor["tier"] } : v)}>
-                          <option value="gold">Gold</option>
-                          <option value="silver">Silver</option>
-                          <option value="bronze">Bronze</option>
+                          {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
                         </select>
                       </td>
                       <td style={C.td}>
                         <div style={{ display: "flex", gap: ".4rem" }}>
-                          <Btn onClick={saveSponsor}>Save</Btn>
-                          <Btn color="#6b7280" onClick={() => setEditS(null)}>Cancel</Btn>
+                          <Btn onClick={saveSponsor} disabled={sLogoUploading === "edit"}>Save</Btn>
+                          <Btn color="#6b7280" onClick={() => { setEditS(null); setSLogoError(""); }}>Cancel</Btn>
                         </div>
                       </td>
                     </tr>
                   ) : (
                     <tr key={s.id}>
+                      <td style={C.td}><SponsorLogoThumb name={s.name} logoUrl={s.logo_url} /></td>
                       <td style={{ ...C.td, fontWeight: 600 }}>{s.name}</td>
                       <td style={{ ...C.td, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: "#2563eb", fontSize: ".8rem" }}>{s.url}</a>
@@ -751,7 +862,7 @@ export function AdminDashboard() {
                       <td style={C.td}><TierBadge tier={s.tier} /></td>
                       <td style={C.td}>
                         <div style={{ display: "flex", gap: ".4rem" }}>
-                          <Btn onClick={() => setEditS({ ...s })}>Edit</Btn>
+                          <Btn onClick={() => { setEditS({ ...s }); setSLogoError(""); }}>Edit</Btn>
                           <Btn color="#dc2626" onClick={() => deleteSponsor(s.id)}>Delete</Btn>
                         </div>
                       </td>
@@ -759,24 +870,35 @@ export function AdminDashboard() {
                   )
                 ))}
                 {sponsors.length === 0 && (
-                  <tr><td colSpan={4} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No sponsors yet. Add one below.</td></tr>
+                  <tr><td colSpan={5} style={{ ...C.td, color: "#9ca3af", textAlign: "center", padding: "1.5rem" }}>No sponsors yet. Add one below.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6" }}>
+          <div style={{ display: "flex", gap: ".75rem", alignItems: "flex-end", padding: "1rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #f3f4f6", flexWrap: "wrap" }}>
+            <div style={{ ...C.label, flex: "0 0 auto" }}>
+              Logo
+              <SponsorLogoUploadCell
+                name={newSName || "New sponsor"}
+                logoUrl={newSLogo}
+                uploading={sLogoUploading === "new"}
+                onUpload={f => uploadSponsorLogo(f, "new")}
+                onRemove={() => setNewSLogo(null)}
+              />
+            </div>
             <label style={{ ...C.label, flex: 2 }}>Name <input style={C.input} value={newSName} onChange={e => setNewSName(e.target.value)} placeholder="Business name" /></label>
             <label style={{ ...C.label, flex: 2 }}>URL  <input style={C.input} value={newSUrl}  onChange={e => setNewSUrl(e.target.value)} placeholder="https://…" /></label>
             <label style={{ ...C.label, flex: 1 }}>
               Tier
               <select style={C.input} value={newSTier} onChange={e => setNewSTier(e.target.value as Sponsor["tier"])}>
-                <option value="gold">Gold</option>
-                <option value="silver">Silver</option>
-                <option value="bronze">Bronze</option>
+                {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
               </select>
             </label>
-            <Btn color="#16a34a" onClick={addSponsor}>+ Add</Btn>
+            <Btn color="#16a34a" onClick={addSponsor} disabled={sLogoUploading === "new"}>+ Add</Btn>
           </div>
+          {sLogoError && (
+            <p style={{ margin: ".5rem 0 0", color: "#dc2626", fontSize: ".8rem" }}>{sLogoError}</p>
+          )}
         </div>
 
         {/* ── 7. Where Your Money Goes ── */}

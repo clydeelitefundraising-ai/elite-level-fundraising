@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeamActor, isCoachOnly } from "@/lib/permissions.server";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/adminAuth";
 import { MAX_LOGO_BYTES, allowedLogoMime, processLogoImage, uploadLogoToStorage, randomLogoPath } from "@/lib/logoUpload";
 
 const BUCKET = "sponsor-logos";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> },
-) {
-  const { slug } = await params;
-  const actor = await getTeamActor(slug);
-  if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+async function authed(): Promise<boolean> {
+  const store = await cookies();
+  return verifyToken(store.get("elf_admin")?.value);
+}
+
+export async function POST(req: NextRequest) {
+  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const form = await req.formData();
   const file = form.get("logo");
+  const slug = form.get("slug");
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: "logo file required" }, { status: 400 });
+  }
+  if (!slug || typeof slug !== "string") {
+    return NextResponse.json({ error: "slug required" }, { status: 400 });
   }
 
   const mime = file.type.toLowerCase();

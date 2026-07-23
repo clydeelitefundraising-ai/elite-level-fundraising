@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import "./campaign.css";
+import SponsorLogo from "./SponsorLogo";
 
 const rankIcon = (r: number) =>
   r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;
@@ -113,7 +114,7 @@ export default function PremiumLayout({
       {/* PREMIUM HERO — full-width gradient banner */}
       <header style={{
         background: `linear-gradient(135deg, ${themePrimaryColor} 0%, ${themeSecondaryColor} 100%)`,
-        padding: "3.5rem 1.5rem 2.5rem",
+        padding: "calc(80px + 3.5rem) 1.5rem 2.5rem",
         textAlign: "center",
         color: "#fff",
       }}>
@@ -384,10 +385,7 @@ export default function PremiumLayout({
                   {g.items.map((s) => (
                     <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className={`cl-sponsor-logo ${g.cls}`}>
                       <div className="cl-sponsor-logo-area">
-                        {s.logo_url
-                          ? <img src={s.logo_url} alt={s.name} className="cl-sponsor-logo-img" />
-                          : <span className="cl-sponsor-logo-fallback">{s.name[0]?.toUpperCase() ?? "S"}</span>
-                        }
+                        <SponsorLogo name={s.name} logoUrl={s.logo_url} />
                       </div>
                       <span className="cl-sponsor-name">{s.name}</span>
                       {s.description && <span className="cl-sponsor-desc">{s.description}</span>}

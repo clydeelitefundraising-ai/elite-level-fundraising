@@ -12,14 +12,16 @@ async function authed(): Promise<boolean> {
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const { name, url, tier } = await req.json();
-  await updateSponsor(id, { name, url, tier });
+  const { name, url, tier, logo_url } = await req.json();
+  // undefined = field absent from request, don't touch; "" = explicit clear.
+  const logoUrlPatch = logo_url === undefined ? undefined : (logo_url.trim() || null);
+  await updateSponsor(id, { name, url, tier, logo_url: logoUrlPatch });
   logAuditEvent({
     action:      "sponsor.updated",
     entity_type: "sponsor",
     entity_id:   id,
     summary:     `Updated sponsor ${id}: "${name}", ${tier}`,
-    new_value:   { name, url, tier },
+    new_value:   { name, url, tier, logo_url: logoUrlPatch },
     ip_address:  ipOf(req),
     user_agent:  req.headers.get("user-agent"),
   });
