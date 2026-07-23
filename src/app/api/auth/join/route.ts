@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie, parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
-import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
+import { generateMemberSalt } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { sendMemberWelcome } from "@/lib/email";
+
+// The single, unified join backend — used by both /join/[code] (the link
+// coaches actually share) and /enter-code. Every join, new or returning
+// account, athlete or parent, goes through this one route. Replaces the old
+// account-less /api/team/[slug]/join (see that file for the @deprecated note)
+// so there is exactly one code path that creates team_members rows for new
+// joiners, instead of two divergent ones.
+//
+// Every person gets exactly one elf_accounts row, keyed by email. Joining a
+// team never creates a second account for an email that already has one —
+// see the "existing account" branch below.
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -11,6 +23,14 @@ function h(extra?: Record<string, string>) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
+
+const cookieOpts = {
+  httpOnly: true,
+  secure:   process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path:     "/",
+  maxAge:   60 * 60 * 24 * 30,
+};
 
 export async function POST(req: NextRequest) {
   const key = rateLimitKey("account-join", req);
@@ -25,16 +45,19 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
-  const { code, name, email, password, role, athlete_id } = body;
+  const { code, name, email, password, role, athlete_id, athlete_ids } = body as {
+    code?: string; name?: string; email?: string; password?: string;
+    role?: string; athlete_id?: string; athlete_ids?: string[];
+  };
 
-  if (!code?.trim())  return NextResponse.json({ error: "Team code is required." }, { status: 400 });
-  if (!name?.trim())  return NextResponse.json({ error: "Name is required." }, { status: 400 });
-  if (!["athlete", "parent", "booster"].includes(role)) {
+  if (!code?.trim()) return NextResponse.json({ error: "Team code is required." }, { status: 400 });
+  if (!name?.trim()) return NextResponse.json({ error: "Name is required." }, { status: 400 });
+  if (!["athlete", "parent", "booster"].includes(role ?? "")) {
     return NextResponse.json({ error: "Role must be athlete, parent, or booster." }, { status: 400 });
   }
 
-  // Validate join code
-  const upperCode = (code as string).trim().toUpperCase();
+  // ── Validate join code ──────────────────────────────────────────────────
+  const upperCode = code.trim().toUpperCase();
   const codeRes = await fetch(
     `${BASE}/rest/v1/team_join_codes?code=eq.${encodeURIComponent(upperCode)}&revoked=eq.false&select=id,campaign_slug,expires_at&limit=1`,
     { headers: h(), cache: "no-store" },
@@ -46,16 +69,47 @@ export async function POST(req: NextRequest) {
     await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid or expired team code." }, { status: 400 });
   }
-
   const joinCode = codeRows[0];
   if (joinCode.expires_at && new Date(joinCode.expires_at) < new Date()) {
     await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "This team code has expired." }, { status: 400 });
   }
-
   const campaign_slug = joinCode.campaign_slug as string;
 
-  // Check if caller already has an elf_session (existing account joins another team)
+  // ── Roster selection — required for athlete/parent, validated against this campaign ──
+  let claimAthleteId: string | null = null;
+  let parentAthleteIds: string[] = [];
+
+  if (role === "athlete") {
+    if (!athlete_id) return NextResponse.json({ error: "Please select yourself from the roster." }, { status: 400 });
+    const aRes = await fetch(
+      `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(athlete_id)}&campaign_slug=eq.${encodeURIComponent(campaign_slug)}&select=id&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const aRows = aRes.ok ? await aRes.json() : [];
+    if (!Array.isArray(aRows) || aRows.length === 0) {
+      return NextResponse.json({ error: "That roster entry could not be found." }, { status: 400 });
+    }
+    claimAthleteId = athlete_id;
+  }
+
+  if (role === "parent") {
+    if (!Array.isArray(athlete_ids) || athlete_ids.length === 0) {
+      return NextResponse.json({ error: "Please select at least one athlete." }, { status: 400 });
+    }
+    const list = athlete_ids.map(id => encodeURIComponent(id)).join(",");
+    const aRes = await fetch(
+      `${BASE}/rest/v1/athletes?id=in.(${list})&campaign_slug=eq.${encodeURIComponent(campaign_slug)}&select=id`,
+      { headers: h(), cache: "no-store" },
+    );
+    const aRows: { id: string }[] = aRes.ok ? await aRes.json() : [];
+    parentAthleteIds = aRows.map(r => r.id);
+    if (parentAthleteIds.length === 0) {
+      return NextResponse.json({ error: "Selected athletes could not be found." }, { status: 400 });
+    }
+  }
+
+  // ── Identity: reuse an already-logged-in session, or resolve by email ──────
   let accountId: string | null = null;
   let newCookieValue: string | null = null;
 
@@ -69,92 +123,152 @@ export async function POST(req: NextRequest) {
       );
       if (acctRes.ok) {
         const acctRows = await acctRes.json();
-        if (Array.isArray(acctRows) && acctRows.length > 0) {
-          const a = acctRows[0];
-          if (verifyAccountCookie(existingCookie, a.id, a.salt)) {
-            accountId = a.id as string;
-          }
+        if (Array.isArray(acctRows) && acctRows.length > 0 && verifyAccountCookie(existingCookie, acctRows[0].id, acctRows[0].salt)) {
+          accountId = acctRows[0].id as string;
         }
       }
     }
   }
 
-  // Create account if not already logged in
   if (!accountId) {
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
-    }
-    if (!password || (password as string).length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-    }
+    if (!email?.trim()) return NextResponse.json({ error: "Email is required." }, { status: 400 });
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const salt          = generateAccountSalt();
-    const password_hash = hashAccountPassword(password as string, salt);
+    const lookupRes = await fetch(
+      `${BASE}/rest/v1/elf_accounts?email=eq.${encodeURIComponent(normalizedEmail)}&select=id,salt,password_hash&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const lookupRows = lookupRes.ok ? await lookupRes.json() : [];
+    const existingAccount = Array.isArray(lookupRows) && lookupRows.length > 0 ? lookupRows[0] : null;
 
-    const acctRes = await fetch(`${BASE}/rest/v1/elf_accounts`, {
+    if (existingAccount) {
+      // "We found your existing ELF account" — authenticate inline, never
+      // create a second account for this email.
+      if (!password) {
+        return NextResponse.json({ needsPassword: true, existingAccount: true });
+      }
+      if (hashAccountPassword(password, existingAccount.salt) !== existingAccount.password_hash) {
+        await recordFailure(key, LIMIT);
+        return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
+      }
+      accountId = existingAccount.id as string;
+      newCookieValue = makeAccountCookie(existingAccount.id as string, existingAccount.salt as string);
+    } else {
+      if (!password || password.length < 8) {
+        return NextResponse.json({ needsPassword: true, existingAccount: false });
+      }
+      const salt          = generateAccountSalt();
+      const password_hash = hashAccountPassword(password, salt);
+
+      const acctRes = await fetch(`${BASE}/rest/v1/elf_accounts`, {
+        method:  "POST",
+        headers: h({ Prefer: "return=representation" }),
+        body:    JSON.stringify({ email: normalizedEmail, password_hash, salt, name: name.trim() }),
+      });
+
+      if (!acctRes.ok) {
+        const msg = await acctRes.text();
+        if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
+          return NextResponse.json(
+            { error: "An account with that email already exists. Please try again." },
+            { status: 409 },
+          );
+        }
+        return NextResponse.json({ error: "Account creation failed. Please try again." }, { status: 500 });
+      }
+
+      const acctRows = await acctRes.json();
+      const acct     = acctRows[0];
+      accountId      = acct.id as string;
+      newCookieValue = makeAccountCookie(acct.id as string, acct.salt as string);
+    }
+  }
+
+  // ── Roster claim uniqueness (athlete role only) ─────────────────────────
+  if (role === "athlete" && claimAthleteId) {
+    const claimRes = await fetch(
+      `${BASE}/rest/v1/team_members?athlete_id=eq.${encodeURIComponent(claimAthleteId)}&role=eq.athlete&select=id,account_id&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const claimRows = claimRes.ok ? await claimRes.json() : [];
+    if (Array.isArray(claimRows) && claimRows.length > 0 && claimRows[0].account_id !== accountId) {
+      return NextResponse.json(
+        { error: "This athlete already has an account. If this is you, try logging in or use Forgot Password." },
+        { status: 409 },
+      );
+    }
+  }
+
+  // ── team_members row — idempotent if this account already joined this team ──
+  const existingMemberRes = await fetch(
+    `${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(campaign_slug)}&account_id=eq.${encodeURIComponent(accountId)}&select=id&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const existingMemberRows = existingMemberRes.ok ? await existingMemberRes.json() : [];
+  let memberId: string;
+  let isNewMembership = false;
+
+  if (Array.isArray(existingMemberRows) && existingMemberRows.length > 0) {
+    memberId = existingMemberRows[0].id as string;
+  } else {
+    const memberSalt = generateMemberSalt();
+    const memberRes = await fetch(`${BASE}/rest/v1/team_members`, {
       method:  "POST",
       headers: h({ Prefer: "return=representation" }),
-      body:    JSON.stringify({
-        email:         (email as string).trim().toLowerCase(),
-        password_hash,
-        salt,
-        name:          (name as string).trim(),
+      body: JSON.stringify({
+        campaign_slug,
+        role,
+        name:       name.trim(),
+        salt:       memberSalt,
+        account_id: accountId,
+        athlete_id: claimAthleteId,
       }),
     });
-
-    if (!acctRes.ok) {
-      const msg = await acctRes.text();
-      if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
+    if (!memberRes.ok) {
+      const msg = await memberRes.text();
+      const isClaimRace = msg.includes("team_members_athlete_claim_uniq") || msg.includes("23505");
+      if (isClaimRace && role === "athlete") {
         return NextResponse.json(
-          { error: "An account with that email already exists. Please log in instead." },
+          { error: "This athlete already has an account. If this is you, try logging in or use Forgot Password." },
           { status: 409 },
         );
       }
-      return NextResponse.json({ error: "Account creation failed. Please try again." }, { status: 500 });
+      return NextResponse.json({ error: `Failed to join team: ${msg}` }, { status: 500 });
     }
-
-    const acctRows = await acctRes.json();
-    const acct     = acctRows[0];
-    accountId      = acct.id as string;
-    newCookieValue = makeAccountCookie(acct.id as string, acct.salt as string);
+    const memberRows = await memberRes.json();
+    memberId = memberRows[0].id as string;
+    isNewMembership = true;
   }
 
-  // Create team_members row
-  const memberSalt = generateMemberSalt();
-  const memberBody: Record<string, unknown> = {
-    campaign_slug,
-    role,
-    name:       (name as string).trim(),
-    salt:       memberSalt,
-    account_id: accountId,
-  };
-  if (athlete_id && typeof athlete_id === "string") memberBody.athlete_id = athlete_id;
-
-  const memberRes = await fetch(`${BASE}/rest/v1/team_members`, {
-    method:  "POST",
-    headers: h({ Prefer: "return=representation" }),
-    body:    JSON.stringify(memberBody),
-  });
-
-  if (!memberRes.ok) {
-    const msg = await memberRes.text();
-    return NextResponse.json({ error: `Failed to join team: ${msg}` }, { status: 500 });
+  // Parent ↔ multiple-athletes links — additive, safe to re-run on idempotent re-join.
+  if (role === "parent" && parentAthleteIds.length > 0) {
+    await fetch(`${BASE}/rest/v1/team_member_athletes`, {
+      method:  "POST",
+      headers: h({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
+      body:    JSON.stringify(parentAthleteIds.map(aid => ({ team_member_id: memberId, athlete_id: aid }))),
+    });
   }
-
-  const memberRows = await memberRes.json();
-  const member     = memberRows[0];
-
-  const memberCookieValue = makeMemberCookie(member.id as string, member.salt as string);
-  const cookieOpts = {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
-    path:     "/",
-    maxAge:   60 * 60 * 24 * 30,
-  };
 
   const response = NextResponse.json({ ok: true, campaign_slug });
   if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
-  response.cookies.set("team_member", memberCookieValue, cookieOpts);
+
+  if (isNewMembership && email?.trim() && (role === "athlete" || role === "parent")) {
+    const appBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+    const settingsRes = await fetch(
+      `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(campaign_slug)}&select=school_name&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const settingsRows = settingsRes.ok ? await settingsRes.json() : [];
+    const teamName = settingsRows[0]?.school_name || campaign_slug;
+
+    sendMemberWelcome({
+      to:         email.trim().toLowerCase(),
+      name:       name.trim(),
+      teamName,
+      role,
+      teamHubUrl: `${appBase}/team/${campaign_slug}/home`,
+    }).catch(err => console.error("[auth/join] welcome email failed:", err));
+  }
+
   return response;
 }

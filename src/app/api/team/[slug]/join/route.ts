@@ -1,3 +1,13 @@
+// @deprecated — this is the old account-less join path (name + optional
+// phone, no email/password, no elf_accounts row ever created). Superseded by
+// the unified /api/auth/join (Phase A22: Identity & Account Modernization),
+// which /join/[code]'s JoinView.tsx and /enter-code's EnterCodeView.tsx both
+// call instead as of that phase. Nothing in the app calls this route anymore
+// (confirmed via grep). Left in place, not deleted, only because a handful of
+// pre-A22 users may still have this as their only session mechanism — see
+// getTeamActor's legacy-cookie fallback branch in permissions.server.ts,
+// which this route's team_member-cookie-only sessions still depend on and
+// which was deliberately left untouched for backward compatibility.
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";

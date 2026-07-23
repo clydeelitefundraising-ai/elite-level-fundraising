@@ -78,15 +78,20 @@ export default function LoginView() {
             />
           </label>
 
-          <label style={{ display: "flex", alignItems: "center", gap: ".55rem", cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0b1e3d" }}
-            />
-            <span style={{ fontSize: ".88rem", color: "#374151" }}>Remember me for 30 days</span>
-          </label>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: ".55rem", cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={e => setRememberMe(e.target.checked)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0b1e3d" }}
+              />
+              <span style={{ fontSize: ".88rem", color: "#374151" }}>Remember me for 30 days</span>
+            </label>
+            <a href="/request-reset" style={{ fontSize: ".82rem", color: "#0b1e3d", fontWeight: 600, textDecoration: "underline" }}>
+              Forgot password?
+            </a>
+          </div>
 
           <button
             type="submit"

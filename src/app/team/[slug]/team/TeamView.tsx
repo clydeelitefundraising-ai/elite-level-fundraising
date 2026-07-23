@@ -94,6 +94,7 @@ function AthleteCard({
   canDelete,
   onEdit,
   onDelete,
+  claimed,
 }: {
   a: TeamAthleteRow;
   slug: string;
@@ -101,6 +102,7 @@ function AthleteCard({
   canDelete: boolean;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
+  claimed: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const router  = useRouter();
@@ -163,6 +165,17 @@ function AthleteCard({
         {a.name}
       </div>
 
+      {staffMode && (
+        <span style={{
+          display: "inline-block", padding: ".07rem .4rem", borderRadius: 100,
+          fontSize: ".52rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em",
+          background: claimed ? "#dcfce7" : "#f3f4f6", color: claimed ? "#15803d" : "#9ca3af",
+          marginBottom: ".2rem",
+        }}>
+          {claimed ? "Account linked" : "Unclaimed"}
+        </span>
+      )}
+
       {/* Class is the primary attribute shown; Event/Position is secondary */}
       {(a.class_year || a.event) && (
         <span style={{
@@ -212,10 +225,12 @@ export default function TeamView({
   slug,
   initialAthletes,
   actor,
+  claimedIds,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
   actor: TeamActor;
+  claimedIds?: Set<string>;
 }) {
   const staffMode = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -387,6 +402,7 @@ export default function TeamView({
               canDelete={canDelete}
               onEdit={openEdit}
               onDelete={handleDelete}
+              claimed={claimedIds?.has(a.id) ?? false}
             />
           ))}
         </div>

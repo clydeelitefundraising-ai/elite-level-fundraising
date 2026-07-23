@@ -18,16 +18,22 @@ type Step = "code" | "details" | "submitting";
 export default function EnterCodeView({ loggedInName }: { loggedInName: string | null }) {
   const router = useRouter();
 
-  const [step, setStep]           = useState<Step>("code");
-  const [code, setCode]           = useState("");
-  const [teamInfo, setTeamInfo]   = useState<TeamInfo | null>(null);
-  const [role, setRole]           = useState<"athlete" | "parent" | "booster" | "">("");
-  const [athleteId, setAthleteId] = useState("");
-  const [name, setName]           = useState(loggedInName ?? "");
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [error, setError]         = useState<string | null>(null);
-  const [looking, setLooking]     = useState(false);
+  const [step, setStep]             = useState<Step>("code");
+  const [code, setCode]             = useState("");
+  const [teamInfo, setTeamInfo]     = useState<TeamInfo | null>(null);
+  const [role, setRole]             = useState<"athlete" | "parent" | "booster" | "">("");
+  const [athleteId, setAthleteId]   = useState("");   // athlete role
+  const [athleteIds, setAthleteIds] = useState<string[]>([]); // parent role — multiple kids
+  const [name, setName]             = useState(loggedInName ?? "");
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [error, setError]           = useState<string | null>(null);
+  const [needsPasswordHint, setNeedsPasswordHint] = useState<"new" | "existing" | null>(null);
+  const [looking, setLooking]       = useState(false);
+
+  const toggleKid = (id: string) => {
+    setAthleteIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   async function findTeam(e: React.FormEvent) {
     e.preventDefault();
@@ -49,10 +55,13 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
     if (!teamInfo || !role) return;
+    if (role === "athlete" && !athleteId) { setError("Please select yourself from the roster."); return; }
+    if (role === "parent" && athleteIds.length === 0) { setError("Please select at least one athlete."); return; }
     setError(null);
+    setNeedsPasswordHint(null);
     setStep("submitting");
     try {
-      const body: Record<string, string> = {
+      const body: Record<string, unknown> = {
         code: code.trim().toUpperCase(),
         name: name.trim(),
         role,
@@ -61,9 +70,8 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
         body.email    = email.trim();
         body.password = password;
       }
-      if ((role === "athlete" || role === "parent") && athleteId) {
-        body.athlete_id = athleteId;
-      }
+      if (role === "athlete" && athleteId) body.athlete_id = athleteId;
+      if (role === "parent"  && athleteIds.length > 0) body.athlete_ids = athleteIds;
 
       const res  = await fetch("/api/auth/join", {
         method:  "POST",
@@ -71,6 +79,12 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
         body:    JSON.stringify(body),
       });
       const data = await res.json();
+
+      if (data?.needsPassword) {
+        setNeedsPasswordHint(data.existingAccount ? "existing" : "new");
+        setStep("details");
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? "Join failed.");
         setStep("details");
@@ -84,6 +98,10 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
   }
 
   const needsAthleteSelect = role === "athlete" || role === "parent";
+  const rosterEmpty        = needsAthleteSelect && !!teamInfo && teamInfo.athletes.length === 0;
+  const canSubmit = role === "athlete" ? !!athleteId
+    : role === "parent" ? athleteIds.length > 0
+    : !!role;
   const isSubmitting       = step === "submitting";
 
   return (
@@ -172,6 +190,9 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
               {error && (
                 <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".88rem", color: "#991b1b" }}>
                   {error}
+                  {error === "Incorrect password." && (
+                    <> — <a href="/request-reset" style={{ color: "#991b1b", fontWeight: 700 }}>Forgot password?</a></>
+                  )}
                 </div>
               )}
 
@@ -185,7 +206,7 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
                     <button
                       key={r}
                       type="button"
-                      onClick={() => { setRole(r); setAthleteId(""); }}
+                      onClick={() => { setRole(r); setAthleteId(""); setAthleteIds([]); }}
                       style={{
                         flex: 1,
                         padding: ".65rem .5rem",
@@ -205,11 +226,17 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
                 </div>
               </div>
 
-              {/* Athlete select */}
-              {needsAthleteSelect && teamInfo.athletes.length > 0 && (
+              {/* Athlete select — single for athlete role, multi for parent (multiple kids) */}
+              {rosterEmpty && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".85rem", color: "#991b1b" }}>
+                  No athletes on the roster yet. Ask your coach to add the roster before joining.
+                </div>
+              )}
+
+              {needsAthleteSelect && role === "athlete" && teamInfo.athletes.length > 0 && (
                 <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
                   <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                    {role === "athlete" ? "Select Yourself" : "Select Athlete"}
+                    Select Yourself
                   </span>
                   <select
                     value={athleteId}
@@ -222,6 +249,45 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
                     ))}
                   </select>
                 </label>
+              )}
+
+              {needsAthleteSelect && role === "parent" && teamInfo.athletes.length > 0 && (
+                <div>
+                  <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                    Select Athlete(s)
+                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: ".4rem", marginTop: ".4rem" }}>
+                    {teamInfo.athletes.map(a => {
+                      const active = athleteIds.includes(a.id);
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => toggleKid(a.id)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: ".6rem",
+                            padding: ".65rem .75rem", borderRadius: ".5rem", textAlign: "left",
+                            border: `1.5px solid ${active ? "#0b1e3d" : "#d1d5db"}`,
+                            background: active ? "#eff0f3" : "#fff", cursor: "pointer",
+                          }}
+                        >
+                          <span style={{
+                            width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                            border: `1.5px solid ${active ? "#0b1e3d" : "#d1d5db"}`,
+                            background: active ? "#0b1e3d" : "#fff",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: ".65rem", color: "#fff",
+                          }}>
+                            {active ? "✓" : ""}
+                          </span>
+                          <span style={{ fontSize: ".9rem", color: "#111827" }}>
+                            {a.name}{a.event ? ` (${a.event})` : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
               {/* Name (when not logged in) */}
@@ -264,9 +330,22 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
                       onChange={e => setPassword(e.target.value)}
                       style={{ padding: ".75rem 1rem", borderRadius: ".5rem", border: "1.5px solid #d1d5db", fontSize: "1rem", background: "#fff", outline: "none" }}
                     />
-                    <span style={{ fontSize: ".78rem", color: "#9ca3af" }}>At least 8 characters</span>
+                    <span style={{ fontSize: ".78rem", color: "#9ca3af" }}>
+                      Already have an ELF account? Enter your existing password instead — we&apos;ll add this team to it.
+                    </span>
                   </label>
                 </>
+              )}
+
+              {needsPasswordHint === "existing" && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".85rem", color: "#1d4ed8" }}>
+                  We found your existing ELF account. Enter your password above to continue.
+                </div>
+              )}
+              {needsPasswordHint === "new" && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".85rem", color: "#1d4ed8" }}>
+                  Choose a password (at least 8 characters) to create your account.
+                </div>
               )}
 
               {/* Logged-in identity confirmation */}
@@ -278,7 +357,7 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
 
               <button
                 type="submit"
-                disabled={isSubmitting || !role}
+                disabled={isSubmitting || !canSubmit || rosterEmpty}
                 style={{
                   background: "#C4A35A",
                   color: "#0b1e3d",
@@ -287,8 +366,8 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
                   padding: "1rem",
                   borderRadius: ".75rem",
                   border: "none",
-                  cursor: (isSubmitting || !role) ? "not-allowed" : "pointer",
-                  opacity: (isSubmitting || !role) ? .6 : 1,
+                  cursor: (isSubmitting || !canSubmit || rosterEmpty) ? "not-allowed" : "pointer",
+                  opacity: (isSubmitting || !canSubmit || rosterEmpty) ? .6 : 1,
                 }}
               >
                 {isSubmitting ? "Joining…" : "Join Team →"}
@@ -296,7 +375,7 @@ export default function EnterCodeView({ loggedInName }: { loggedInName: string |
 
               <button
                 type="button"
-                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setError(null); }}
+                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setAthleteId(""); setAthleteIds([]); setError(null); setNeedsPasswordHint(null); }}
                 style={{ background: "none", border: "none", fontSize: ".88rem", color: "#6b7280", cursor: "pointer", textDecoration: "underline" }}
               >
                 ← Try a different code

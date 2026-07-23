@@ -105,6 +105,19 @@ export type ActiveJoinCode = {
   created_at: string;
 };
 
+// Roster claiming: an athlete row is "claimed" once a role="athlete"
+// team_members row links to it (enforced unique at the DB level — see
+// team_members_athlete_claim_uniq in phase_a22_account_modernization.sql).
+export async function getClaimedAthleteIds(slug: string): Promise<Set<string>> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&role=eq.athlete&athlete_id=not.is.null&select=athlete_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return new Set();
+  const rows: { athlete_id: string }[] = await res.json();
+  return new Set(Array.isArray(rows) ? rows.map(r => r.athlete_id) : []);
+}
+
 export async function getAthleteById(id: string): Promise<TeamAthleteRow | null> {
   const res = await fetch(
     `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}&limit=1`,

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
+import { getLinkedAthleteIds } from "@/lib/memberSession";
 import type { TeamActor } from "@/lib/permissions";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -68,6 +69,7 @@ export async function getActorForAccount(
     const rows = await memberRes.json();
     if (Array.isArray(rows) && rows.length > 0) {
       const m = rows[0];
+      const athlete_ids = m.role === "parent" ? await getLinkedAthleteIds(m.id) : [];
       return {
         kind: "member",
         session: {
@@ -76,6 +78,7 @@ export async function getActorForAccount(
           role:          m.role as "athlete" | "parent" | "booster",
           campaign_slug: m.campaign_slug,
           athlete_id:    m.athlete_id ?? null,
+          athlete_ids,
         },
       };
     }

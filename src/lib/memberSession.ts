@@ -18,6 +18,10 @@ export type MemberSession = {
   role: "athlete" | "parent" | "booster";
   campaign_slug: string;
   athlete_id: string | null;
+  // Parents can link to multiple athletes on the same roster (Phase A22) —
+  // athlete_id above stays as the athlete role's own single self-link;
+  // this is additive and only ever populated for role="parent".
+  athlete_ids: string[];
 };
 
 /**
@@ -45,11 +49,26 @@ export async function getMemberSession(
   const member = rows[0];
   if (!verifyMemberCookie(cookieValue, member.id, member.salt)) return null;
 
+  const athlete_ids = member.role === "parent"
+    ? await getLinkedAthleteIds(member.id)
+    : [];
+
   return {
     id: member.id,
     name: member.name,
     role: member.role as MemberSession["role"],
     campaign_slug: member.campaign_slug,
     athlete_id: member.athlete_id ?? null,
+    athlete_ids,
   };
+}
+
+export async function getLinkedAthleteIds(teamMemberId: string): Promise<string[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_member_athletes?team_member_id=eq.${encodeURIComponent(teamMemberId)}&select=athlete_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  const rows: { athlete_id: string }[] = await res.json();
+  return Array.isArray(rows) ? rows.map(r => r.athlete_id) : [];
 }
