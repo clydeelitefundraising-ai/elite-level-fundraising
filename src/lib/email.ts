@@ -223,12 +223,26 @@ export interface MemberWelcomeParams {
   teamName:    string;
   role:        "athlete" | "parent";
   teamHubUrl:  string;
+  // True only when this join created a brand-new elf_accounts row. False
+  // when an existing account (already had a password, possibly on another
+  // team) just added this team — that case must not say "your account is
+  // ready" / "welcome to ELF" as if an account was just created for them.
+  isNewAccount: boolean;
 }
 
 export async function sendMemberWelcome(p: MemberWelcomeParams): Promise<void> {
   const roleLine = p.role === "athlete"
     ? "Your account is linked to your roster profile — donations, updates, and your fundraising page are all in one place."
     : "Your account is linked to your athlete's profile — you'll see their fundraising progress, team updates, and calendar right here.";
+
+  const subject   = p.isNewAccount ? `Welcome to ${p.teamName} — Your ELF Account` : `You've joined ${p.teamName} on ELF`;
+  const heading   = p.isNewAccount ? `Welcome to ${p.teamName}` : `You've joined ${p.teamName}`;
+  const subheader = p.isNewAccount
+    ? "Your Elite Level Fundraising account is ready."
+    : "This team has been added to your existing ELF account — same email and password.";
+  const footerLine = p.isNewAccount
+    ? "This account works across every ELF team you join — no need to create a new one next season."
+    : "You can switch between all your teams from the Team Selector after logging in.";
 
   const html = `<!DOCTYPE html>
 <html>
@@ -238,8 +252,8 @@ export async function sendMemberWelcome(p: MemberWelcomeParams): Promise<void> {
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
         <tr><td style="padding-bottom:20px;">
-          <h1 style="color:#0B1E3D;font-size:1.6rem;margin:0 0 8px 0;font-family:Arial,sans-serif;">Welcome to ${p.teamName}</h1>
-          <p style="color:#6b7280;margin:0;font-size:0.95rem;">Your Elite Level Fundraising account is ready.</p>
+          <h1 style="color:#0B1E3D;font-size:1.6rem;margin:0 0 8px 0;font-family:Arial,sans-serif;">${heading}</h1>
+          <p style="color:#6b7280;margin:0;font-size:0.95rem;">${subheader}</p>
         </td></tr>
         <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:24px;">
           <p style="margin:0;">Hi ${p.name},</p>
@@ -249,7 +263,7 @@ export async function sendMemberWelcome(p: MemberWelcomeParams): Promise<void> {
           <a href="${p.teamHubUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:1rem;font-weight:bold;">Open Team Hub &rarr;</a>
         </td></tr>
         <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;">
-          This account works across every ELF team you join — no need to create a new one next season.<br />
+          ${footerLine}<br />
           Questions? <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
           <span style="display:inline-block;margin-top:12px;">Powered by Elite Level Fundraising</span>
         </td></tr>
@@ -259,7 +273,7 @@ export async function sendMemberWelcome(p: MemberWelcomeParams): Promise<void> {
 </body>
 </html>`;
 
-  await sendEmail(p.to, `Welcome to ${p.teamName} — Your ELF Account`, html);
+  await sendEmail(p.to, subject, html);
 }
 
 // ── Password reset ────────────────────────────────────────────────────────────

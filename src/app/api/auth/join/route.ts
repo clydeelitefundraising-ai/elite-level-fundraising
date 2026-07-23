@@ -109,9 +109,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Roster claim pre-check (athlete role only) — done BEFORE any identity
+  // resolution/account creation below, specifically so a rejected claim can
+  // never leave an orphaned elf_accounts row behind. The DB partial unique
+  // index (team_members_athlete_claim_uniq) remains the authoritative race
+  // backstop at insert time further down; this is the "don't even start
+  // creating an account for a claim we already know is taken" fast path.
+  let claimedByAccountId: string | null = null;
+  if (role === "athlete" && claimAthleteId) {
+    const claimRes = await fetch(
+      `${BASE}/rest/v1/team_members?athlete_id=eq.${encodeURIComponent(claimAthleteId)}&role=eq.athlete&select=account_id&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const claimRows = claimRes.ok ? await claimRes.json() : [];
+    if (Array.isArray(claimRows) && claimRows.length > 0) {
+      claimedByAccountId = claimRows[0].account_id ?? "unlinked";
+    }
+  }
+  const CLAIM_TAKEN_ERROR = "This athlete already has an account. If this is you, try logging in or use Forgot Password.";
+
   // ── Identity: reuse an already-logged-in session, or resolve by email ──────
   let accountId: string | null = null;
   let newCookieValue: string | null = null;
+  let isNewAccount = false; // true only when this request creates the elf_accounts row itself
 
   const existingCookie = req.cookies.get("elf_session")?.value;
   if (existingCookie) {
@@ -127,6 +147,9 @@ export async function POST(req: NextRequest) {
           accountId = acctRows[0].id as string;
         }
       }
+    }
+    if (accountId && claimedByAccountId && claimedByAccountId !== accountId) {
+      return NextResponse.json({ error: CLAIM_TAKEN_ERROR }, { status: 409 });
     }
   }
 
@@ -151,11 +174,19 @@ export async function POST(req: NextRequest) {
         await recordFailure(key, LIMIT);
         return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
       }
+      if (claimedByAccountId && claimedByAccountId !== existingAccount.id) {
+        return NextResponse.json({ error: CLAIM_TAKEN_ERROR }, { status: 409 });
+      }
       accountId = existingAccount.id as string;
       newCookieValue = makeAccountCookie(existingAccount.id as string, existingAccount.salt as string);
     } else {
       if (!password || password.length < 8) {
         return NextResponse.json({ needsPassword: true, existingAccount: false });
+      }
+      // A brand-new account can never match an existing claim — reject
+      // before creating anything if this athlete is already taken.
+      if (claimedByAccountId) {
+        return NextResponse.json({ error: CLAIM_TAKEN_ERROR }, { status: 409 });
       }
       const salt          = generateAccountSalt();
       const password_hash = hashAccountPassword(password, salt);
@@ -181,21 +212,24 @@ export async function POST(req: NextRequest) {
       const acct     = acctRows[0];
       accountId      = acct.id as string;
       newCookieValue = makeAccountCookie(acct.id as string, acct.salt as string);
+      isNewAccount   = true;
     }
   }
 
-  // ── Roster claim uniqueness (athlete role only) ─────────────────────────
+  // ── Roster claim uniqueness — freshness re-check ────────────────────────
+  // The pre-check above already rejects the common case before any account
+  // is created. This re-check catches a claim made by someone else in the
+  // window between that pre-check and this point; the DB partial unique
+  // index (team_members_athlete_claim_uniq) is still the final backstop for
+  // a true simultaneous race, handled in the insert's error branch below.
   if (role === "athlete" && claimAthleteId) {
     const claimRes = await fetch(
-      `${BASE}/rest/v1/team_members?athlete_id=eq.${encodeURIComponent(claimAthleteId)}&role=eq.athlete&select=id,account_id&limit=1`,
+      `${BASE}/rest/v1/team_members?athlete_id=eq.${encodeURIComponent(claimAthleteId)}&role=eq.athlete&select=account_id&limit=1`,
       { headers: h(), cache: "no-store" },
     );
     const claimRows = claimRes.ok ? await claimRes.json() : [];
     if (Array.isArray(claimRows) && claimRows.length > 0 && claimRows[0].account_id !== accountId) {
-      return NextResponse.json(
-        { error: "This athlete already has an account. If this is you, try logging in or use Forgot Password." },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: CLAIM_TAKEN_ERROR }, { status: 409 });
     }
   }
 
@@ -228,10 +262,7 @@ export async function POST(req: NextRequest) {
       const msg = await memberRes.text();
       const isClaimRace = msg.includes("team_members_athlete_claim_uniq") || msg.includes("23505");
       if (isClaimRace && role === "athlete") {
-        return NextResponse.json(
-          { error: "This athlete already has an account. If this is you, try logging in or use Forgot Password." },
-          { status: 409 },
-        );
+        return NextResponse.json({ error: CLAIM_TAKEN_ERROR }, { status: 409 });
       }
       return NextResponse.json({ error: `Failed to join team: ${msg}` }, { status: 500 });
     }
@@ -267,6 +298,7 @@ export async function POST(req: NextRequest) {
       teamName,
       role,
       teamHubUrl: `${appBase}/team/${campaign_slug}/home`,
+      isNewAccount,
     }).catch(err => console.error("[auth/join] welcome email failed:", err));
   }
 
