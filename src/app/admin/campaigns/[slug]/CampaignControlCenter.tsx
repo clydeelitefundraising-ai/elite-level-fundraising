@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { T, SectionHeader, Field, SaveBtn, useToast, Toast } from "./_shared/ui";
+import AdminCampaignSponsors from "./_shared/AdminCampaignSponsors";
+import AdminCampaignAthletes from "./_shared/AdminCampaignAthletes";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,45 +52,7 @@ export type CampaignDetail = {
 
 type Props = { detail: CampaignDetail };
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-
-const T = {
-  label:  { fontSize: ".72rem", fontWeight: 700, color: "#6e6e73", textTransform: "uppercase" as const, letterSpacing: ".05em", display: "block", marginBottom: ".35rem" },
-  input:  { padding: ".5rem .75rem", border: "1px solid #d1d5db", borderRadius: 8, fontSize: ".875rem", color: "#1d1d1f", background: "#fff", width: "100%", boxSizing: "border-box" as const, outline: "none" },
-  card:   { background: "#fff", borderRadius: 14, border: "1px solid #f0f0f2", padding: "1.5rem", marginBottom: "1rem" },
-  muted:  { fontSize: ".72rem", color: "#98989d", fontWeight: 500, marginTop: ".2rem" },
-  grid2:  { display: "grid" as const, gridTemplateColumns: "1fr 1fr" as const, gap: "1rem" },
-};
-
-// ── Helper components ─────────────────────────────────────────────────────────
-
-function SectionHeader({ title, desc }: { title: string; desc?: string }) {
-  return (
-    <div style={{ marginBottom: "1.25rem", paddingBottom: ".875rem", borderBottom: "1px solid #f5f5f7" }}>
-      <h2 style={{ margin: 0, fontSize: ".9rem", fontWeight: 700, color: "#1d1d1f" }}>{title}</h2>
-      {desc && <p style={{ margin: ".2rem 0 0", fontSize: ".75rem", color: "#98989d" }}>{desc}</p>}
-    </div>
-  );
-}
-
-function Field({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label style={T.label}>{label}</label>
-      {children}
-      {note && <div style={T.muted}>{note}</div>}
-    </div>
-  );
-}
-
-function SaveBtn({ saving, onClick, label = "Save changes" }: { saving: boolean; onClick: () => void; label?: string }) {
-  return (
-    <button onClick={onClick} disabled={saving}
-      style={{ padding: ".45rem 1.1rem", background: saving ? "#9ca3af" : "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer", fontSize: ".8rem", fontWeight: 600, marginTop: "1.25rem" }}>
-      {saving ? "Saving…" : label}
-    </button>
-  );
-}
+// ── Helper components (local to this page — not reused elsewhere yet) ──────
 
 function StatusBadge({ archived }: { archived: boolean }) {
   return (
@@ -169,17 +134,6 @@ function ContactRequirementPicker({ value, onChange, needsMigration }: { value: 
       </div>
     </div>
   );
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-
-function useToast() {
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const show = useCallback((msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  }, []);
-  return { toast, show };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -377,11 +331,7 @@ export default function CampaignControlCenter({ detail }: Props) {
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100, fontFamily: "system-ui, -apple-system, sans-serif" }}>
 
       {/* Toast */}
-      {toast && (
-        <div style={{ position: "fixed", bottom: "1.5rem", right: "1.5rem", background: toast.type === "error" ? "#dc2626" : "#0b1e3d", color: "#fff", padding: ".65rem 1.25rem", borderRadius: 10, zIndex: 1000, fontSize: ".82rem", fontWeight: 500, boxShadow: "0 4px 20px rgba(0,0,0,.25)", maxWidth: 360 }}>
-          {toast.msg}
-        </div>
-      )}
+      <Toast toast={toast} />
 
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: "1.25rem", fontSize: ".75rem", color: "#98989d" }}>
@@ -481,6 +431,9 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
+          {/* Athletes */}
+          <AdminCampaignAthletes slug={slug} />
+
           {/* Fundraising Settings */}
           <div style={T.card}>
             <SectionHeader title="Fundraising Settings" desc="Financial goals, deadline, and layout" />
@@ -537,6 +490,9 @@ export default function CampaignControlCenter({ detail }: Props) {
               <SaveBtn saving={!!saving.contact} onClick={saveContact} label="Save contact settings" />
             </div>
           </div>
+
+          {/* Sponsors */}
+          <AdminCampaignSponsors slug={slug} />
 
           {/* Per-athlete goal overrides */}
           {detail.athletes.length > 0 && (
@@ -738,7 +694,7 @@ export default function CampaignControlCenter({ detail }: Props) {
                 { label: "Registration dashboard",  href: `/admin/campaigns/${slug}/registration`, external: false },
                 { label: "Open campaign page",      href: `/campaign/${slug}`,                    external: true },
                 { label: "Open team hub",           href: `/team/${slug}/home`,                   external: true },
-                { label: "Open legacy editor",      href: "/admin/edit",                          external: false },
+                { label: "Open legacy editor (deprecated)", href: "/admin/edit",                   external: false },
               ].map(a => (
                 <a key={a.label} href={a.href} target={a.external ? "_blank" : undefined} rel={a.external ? "noopener noreferrer" : undefined}
                   style={{ padding: ".5rem .75rem", background: "#f5f5f7", borderRadius: 8, fontSize: ".78rem", fontWeight: 500, color: "#1d1d1f", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
