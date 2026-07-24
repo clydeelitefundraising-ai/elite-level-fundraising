@@ -30,6 +30,14 @@ export type PremiumLayoutProps = {
   goal: number;
   daysLeft: number;
   percent: number;
+  // Pre-computed in CampaignPageClient (single source of truth) so this
+  // layout never has to re-derive its own goal>0 guard — hasGoal is false
+  // whenever goal is 0/null/undefined, in which case percent/
+  // progressBarPercent/stillNeeded are all forced to 0 rather than
+  // NaN/Infinity/negative.
+  hasGoal: boolean;
+  progressBarPercent: number;
+  stillNeeded: number;
   athletes: { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
   filteredAthletes: { id: string; rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
   filters: string[];
@@ -79,6 +87,7 @@ export default function PremiumLayout({
   themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor,
   location, season, logoUrl,
   raised, donors, goal, daysLeft, percent,
+  hasGoal, progressBarPercent, stillNeeded,
   athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
   recentDonations,
   titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
@@ -134,7 +143,7 @@ export default function PremiumLayout({
           <div style={{ display: "flex", justifyContent: "center", gap: "2.5rem", flexWrap: "wrap", marginBottom: "1.75rem" }}>
             {[
               { val: `$${raised.toLocaleString()}`, label: "raised" },
-              { val: `$${goal.toLocaleString()}`, label: "goal" },
+              { val: hasGoal ? `$${goal.toLocaleString()}` : "Not set", label: "goal" },
               { val: String(donors), label: "donors" },
               { val: String(daysLeft), label: "days left" },
             ].map(({ val, label }) => (
@@ -147,9 +156,11 @@ export default function PremiumLayout({
 
           {/* Progress bar */}
           <div style={{ background: "rgba(255,255,255,.25)", borderRadius: 999, height: 10, maxWidth: 480, margin: "0 auto 1.5rem", overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${Math.min(percent, 100)}%`, background: "#fff", borderRadius: 999, transition: "width .6s ease" }} />
+            <div style={{ height: "100%", width: `${progressBarPercent}%`, background: "#fff", borderRadius: 999, transition: "width .6s ease" }} />
           </div>
-          <div style={{ fontSize: ".85rem", opacity: .8, marginBottom: "1.75rem" }}>{percent}% of goal · ${(goal - raised).toLocaleString()} still needed</div>
+          <div style={{ fontSize: ".85rem", opacity: .8, marginBottom: "1.75rem" }}>
+            {hasGoal ? `${percent}% of goal · $${stillNeeded.toLocaleString()} still needed` : "Goal not set"}
+          </div>
 
           {showDonationCard && (
             <a href="#donate" style={{

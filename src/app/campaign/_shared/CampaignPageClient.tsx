@@ -212,7 +212,13 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     root.style.setProperty("--cl-button-rgb",    hexToRgb(themeButtonColor));
   }, [themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor]);
 
-  const percent = Math.round((raised / goal) * 100);
+  // goal is dollars here (not cents) — 0/null/undefined all fail this check
+  // the same way, so every derived value below is safe by construction:
+  // never NaN, never Infinity, never a negative "still needed" figure.
+  const hasGoal           = goal > 0;
+  const percent           = hasGoal ? Math.round((raised / goal) * 100) : 0;
+  const progressBarPercent = hasGoal ? Math.min(100, Math.max(0, percent)) : 0;
+  const stillNeeded        = hasGoal ? Math.max(0, goal - raised) : 0;
   const filters = ["Overall", ...ATHLETE_CLASS_OPTIONS];
 
   const displayAmount =
@@ -301,6 +307,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor,
     location,     season,    logoUrl,
     raised,       donors,    goal,   daysLeft,     percent,
+    hasGoal, progressBarPercent, stillNeeded,
     athletes,     filteredAthletes,  filters,      activeFilter, setActiveFilter,
     recentDonations,
     titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
@@ -395,7 +402,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             <div className="cl-hero-stats">
               <div className="cl-hero-stat">
                 <strong>${raised.toLocaleString()}</strong>
-                <span>raised of ${goal.toLocaleString()}</span>
+                <span>{hasGoal ? `raised of $${goal.toLocaleString()}` : "Goal not set"}</span>
               </div>
               <div className="cl-stat-divider" />
               <div className="cl-hero-stat">
@@ -435,17 +442,17 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         <div className="cl-section-inner">
           <div className="cl-progress-labels">
             <span className="cl-progress-raised">${raised.toLocaleString()} raised</span>
-            <span className="cl-progress-pct">{percent}% of ${goal.toLocaleString()} goal</span>
+            <span className="cl-progress-pct">{hasGoal ? `${percent}% of $${goal.toLocaleString()} goal` : "Goal not set"}</span>
           </div>
           <div className="cl-progress-track">
-            <div className="cl-progress-fill" style={{ width: `${percent}%` }} />
+            <div className="cl-progress-fill" style={{ width: `${progressBarPercent}%` }} />
           </div>
           <div className="cl-progress-meta">
             <span>{donors} donors</span>
             <span>·</span>
             <span>{daysLeft} days remaining</span>
             <span>·</span>
-            <span>${(goal - raised).toLocaleString()} still needed</span>
+            <span>{hasGoal ? `$${stillNeeded.toLocaleString()} still needed` : "Goal not set"}</span>
           </div>
         </div>
       </div>
