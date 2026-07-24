@@ -11,24 +11,12 @@ import SponsorLogo from "./SponsorLogo";
 // since this is a client component and that module is server-only.
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 
+// Placeholder stat values only — a goal/countdown number, not fabricated
+// donor or roster activity. Shown briefly before the real campaign-stats
+// fetch resolves; never persisted if real data comes back empty (unlike
+// the donations/athletes fallbacks these replaced — see git history).
 const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
-
-const FALLBACK_ATHLETES = [
-  { id: "fallback-1", rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
-  { id: "fallback-2", rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
-  { id: "fallback-3", rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
-  { id: "fallback-4", rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
-  { id: "fallback-5", rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
-];
-
-const initialDonations = [
-  { name: "Robert T.",       amount: 100, message: "Go team! Proud to support this program!",  time: "2 hours ago" },
-  { name: "Sarah K.",        amount: 50,  message: "Best of luck this season!",                time: "4 hours ago" },
-  { name: "Anonymous",       amount: 250, message: "Keep running strong!",                     time: "6 hours ago" },
-  { name: "Mike & Janet L.", amount: 75,  message: "Our daughter loves this team!",            time: "1 day ago"   },
-  { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                   time: "1 day ago"   },
-];
 
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 
@@ -80,8 +68,8 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
-  const [recentDonations, setRecentDonations] = useState(initialDonations);
+  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>([]);
+  const [recentDonations, setRecentDonations] = useState<{ name: string; amount: number; message: string; time: string }[]>([]);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
   const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>([]);
@@ -161,10 +149,11 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
+        // athletes is always a real array from the API now (never omitted,
+        // never fabricated) — Array.isArray is just a defensive guard
+        // against a malformed response, not a fallback-data trigger.
         const base: { id: string; name: string; event: string | null; class_year?: string | null }[] =
-          Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
-            ? fetchedAthletes
-            : FALLBACK_ATHLETES;
+          Array.isArray(fetchedAthletes) ? fetchedAthletes : [];
         const nextAthletes = base
           .map((a) => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
           .sort((a, b) => b.raised - a.raised)
@@ -172,9 +161,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         setAthletes(nextAthletes);
 
         // Resolve the ?athlete= preselect against the campaign's own roster
-        // — only once, only against real (non-fallback) data, so an invalid
-        // id, an athlete from another campaign, or a missing param all fall
-        // through safely to Team General Fund (selectedAthlete stays "").
+        // — only once, so an invalid id, an athlete from another campaign,
+        // or a missing param all fall through safely to Team General Fund
+        // (selectedAthlete stays "").
         if (!appliedAthletePreselect.current && Array.isArray(fetchedAthletes) && athleteParam) {
           appliedAthletePreselect.current = true;
           const match = nextAthletes.find((a) => a.id === athleteParam);
@@ -183,7 +172,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             setPreselectedAthleteName(match.name);
           }
         }
-        if (Array.isArray(rd) && rd.length > 0) setRecentDonations(rd);
+        // Always replace with whatever the API returned — including an
+        // explicit empty array — so a donation-less campaign never keeps
+        // showing whatever was there before (placeholder or stale data).
+        setRecentDonations(Array.isArray(rd) ? rd : []);
         if (Array.isArray(data.fund_uses) && data.fund_uses.length > 0) {
           setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
         }
@@ -202,7 +194,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           setCommunitySponsors(byTier("community_partner"));
         }
       })
-      .catch(() => {/* keep fallback data */});
+      .catch(() => {/* network/parse failure — states remain at their real empty defaults, never fabricated */});
   }, [slug, athleteParam]);
 
   // Page chrome (hero, buttons, accents, progress bar, headings, cards) is
@@ -470,33 +462,42 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <div className="cl-card" id="leaderboard">
                 <h2 className="cl-card-title">ATHLETE LEADERBOARD</h2>
                 <p className="cl-card-sub">Top fundraisers on the team this season</p>
-                <div className="cl-filter-tabs">
-                  {filters.map((f) => (
-                    <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`} onClick={() => setActiveFilter(f)}>
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                {filteredAthletes.length > 0 ? (
-                  <table className="cl-table">
-                    <thead>
-                      <tr>
-                        <th>Rank</th><th>Athlete</th><th>Class</th><th>Raised</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAthletes.map((a) => (
-                        <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
-                          <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
-                          <td className="cl-td-name">{a.name}</td>
-                          <td className="cl-td-event">{a.class_year ?? "—"}</td>
-                          <td className="cl-td-amount">${a.raised.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {athletes.length === 0 ? (
+                  <div className="cl-empty-state">
+                    <p className="cl-empty-state-title">No athletes added yet</p>
+                    <p className="cl-empty-state-sub">Athletes will appear here once the roster is added.</p>
+                  </div>
                 ) : (
-                  <div className="cl-filter-empty">No athletes in this class group yet.</div>
+                  <>
+                    <div className="cl-filter-tabs">
+                      {filters.map((f) => (
+                        <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`} onClick={() => setActiveFilter(f)}>
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                    {filteredAthletes.length > 0 ? (
+                      <table className="cl-table">
+                        <thead>
+                          <tr>
+                            <th>Rank</th><th>Athlete</th><th>Class</th><th>Raised</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredAthletes.map((a) => (
+                            <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
+                              <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
+                              <td className="cl-td-name">{a.name}</td>
+                              <td className="cl-td-event">{a.class_year ?? "—"}</td>
+                              <td className="cl-td-amount">${a.raised.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="cl-filter-empty">No athletes in this class group yet.</div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -586,21 +587,28 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <div className="cl-card" id="donations">
                 <h2 className="cl-card-title">RECENT DONATIONS</h2>
                 <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
-                <div className="cl-donations-list">
-                  {recentDonations.map((d, i) => (
-                    <div className="cl-donation-item" key={i}>
-                      <div className="cl-avatar">{d.name[0]}</div>
-                      <div className="cl-donation-body">
-                        <div className="cl-donation-top">
-                          <span className="cl-donation-name">{d.name}</span>
-                          <span className="cl-donation-amount">${d.amount}</span>
+                {recentDonations.length === 0 ? (
+                  <div className="cl-empty-state">
+                    <p className="cl-empty-state-title">No donations yet</p>
+                    <p className="cl-empty-state-sub">Be the first to support the {mascot}.</p>
+                  </div>
+                ) : (
+                  <div className="cl-donations-list">
+                    {recentDonations.map((d, i) => (
+                      <div className="cl-donation-item" key={i}>
+                        <div className="cl-avatar">{d.name[0]}</div>
+                        <div className="cl-donation-body">
+                          <div className="cl-donation-top">
+                            <span className="cl-donation-name">{d.name}</span>
+                            <span className="cl-donation-amount">${d.amount}</span>
+                          </div>
+                          {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
+                          <span className="cl-donation-time">{d.time}</span>
                         </div>
-                        {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
-                        <span className="cl-donation-time">{d.time}</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

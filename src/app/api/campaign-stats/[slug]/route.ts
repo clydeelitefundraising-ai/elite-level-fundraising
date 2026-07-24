@@ -47,7 +47,10 @@ export async function GET(
     let archived: boolean | undefined;
     let layoutVariant: "classic" | "premium" | undefined;
     let visibility: Record<string, boolean> | undefined;
-    let athletes: { id: string; name: string; event: string | null; class_year: string | null }[] | undefined;
+    // Always a real array (never omitted, never undefined) — an empty
+    // roster is real data, not something for the client to paper over
+    // with placeholder athletes.
+    let athletes: { id: string; name: string; event: string | null; class_year: string | null }[] = [];
     let sponsors: { name: string; url: string; tier: string; logo_url: string | null; description: string | null }[] | undefined;
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
 
@@ -87,8 +90,8 @@ export async function GET(
 
     try {
       const rows = await getAthletes(slug);
-      if (rows.length > 0) athletes = rows.map(a => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null }));
-    } catch { /* keep undefined */ }
+      athletes = rows.map(a => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null }));
+    } catch { /* keep [] — a fetch failure is still "no athletes to show", not undefined */ }
 
     try {
       const rows = await getSponsors(slug);
@@ -122,7 +125,7 @@ export async function GET(
       ...(location       !== undefined && { location }),
       ...(season         !== undefined && { season }),
       ...(logoUrl        !== undefined && { logo_url:        logoUrl }),
-      ...(athletes       !== undefined && { athletes }),
+      athletes,
       ...(sponsors       !== undefined && { sponsors }),
       ...(archived       !== undefined && { archived }),
       ...(layoutVariant  !== undefined && { layout_variant: layoutVariant }),

@@ -233,34 +233,43 @@ export default function PremiumLayout({
           <div className="cl-card" id="leaderboard" style={{ marginBottom: "1.5rem" }}>
             <h2 className="cl-card-title">ATHLETE LEADERBOARD</h2>
             <p className="cl-card-sub">Top fundraisers on the team this season</p>
-            <div className="cl-filter-tabs">
-              {filters.map((f) => (
-                <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`}
-                  onClick={() => setActiveFilter(f)}>
-                  {f}
-                </button>
-              ))}
-            </div>
-            {filteredAthletes.length > 0 ? (
-              <div style={{ display: "grid", gap: ".6rem", marginTop: ".75rem" }}>
-                {filteredAthletes.map((a) => (
-                  <div key={a.rank} style={{
-                    display: "flex", alignItems: "center", gap: "1rem",
-                    padding: ".75rem 1rem", borderRadius: 10,
-                    background: a.displayRank === 1 ? `${themeAccentColor}12` : "#f9fafb",
-                    border: a.displayRank === 1 ? `1.5px solid ${themeAccentColor}30` : "1.5px solid #f3f4f6",
-                  }}>
-                    <span style={{ fontSize: "1.4rem", width: 36, textAlign: "center" }}>{rankIcon(a.displayRank)}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{a.name}</div>
-                      <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.class_year ?? "—"}</div>
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: "1rem", color: themePrimaryColor }}>${a.raised.toLocaleString()}</div>
-                  </div>
-                ))}
+            {athletes.length === 0 ? (
+              <div className="cl-empty-state">
+                <p className="cl-empty-state-title">No athletes added yet</p>
+                <p className="cl-empty-state-sub">Athletes will appear here once the roster is added.</p>
               </div>
             ) : (
-              <div className="cl-filter-empty">No athletes in this class group yet.</div>
+              <>
+                <div className="cl-filter-tabs">
+                  {filters.map((f) => (
+                    <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`}
+                      onClick={() => setActiveFilter(f)}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+                {filteredAthletes.length > 0 ? (
+                  <div style={{ display: "grid", gap: ".6rem", marginTop: ".75rem" }}>
+                    {filteredAthletes.map((a) => (
+                      <div key={a.rank} style={{
+                        display: "flex", alignItems: "center", gap: "1rem",
+                        padding: ".75rem 1rem", borderRadius: 10,
+                        background: a.displayRank === 1 ? `${themeAccentColor}12` : "#f9fafb",
+                        border: a.displayRank === 1 ? `1.5px solid ${themeAccentColor}30` : "1.5px solid #f3f4f6",
+                      }}>
+                        <span style={{ fontSize: "1.4rem", width: 36, textAlign: "center" }}>{rankIcon(a.displayRank)}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{a.name}</div>
+                          <div style={{ fontSize: ".75rem", color: "#9ca3af" }}>{a.class_year ?? "—"}</div>
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: "1rem", color: themePrimaryColor }}>${a.raised.toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cl-filter-empty">No athletes in this class group yet.</div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -325,21 +334,28 @@ export default function PremiumLayout({
           <div className="cl-card" id="donations" style={{ marginBottom: "1.5rem" }}>
             <h2 className="cl-card-title">RECENT DONATIONS</h2>
             <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
-            <div className="cl-donations-list">
-              {recentDonations.map((d, i) => (
-                <div className="cl-donation-item" key={i}>
-                  <div className="cl-avatar">{d.name[0]}</div>
-                  <div className="cl-donation-body">
-                    <div className="cl-donation-top">
-                      <span className="cl-donation-name">{d.name}</span>
-                      <span className="cl-donation-amount">${d.amount}</span>
+            {recentDonations.length === 0 ? (
+              <div className="cl-empty-state">
+                <p className="cl-empty-state-title">No donations yet</p>
+                <p className="cl-empty-state-sub">Be the first to support the {mascot}.</p>
+              </div>
+            ) : (
+              <div className="cl-donations-list">
+                {recentDonations.map((d, i) => (
+                  <div className="cl-donation-item" key={i}>
+                    <div className="cl-avatar">{d.name[0]}</div>
+                    <div className="cl-donation-body">
+                      <div className="cl-donation-top">
+                        <span className="cl-donation-name">{d.name}</span>
+                        <span className="cl-donation-amount">${d.amount}</span>
+                      </div>
+                      {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
+                      <span className="cl-donation-time">{d.time}</span>
                     </div>
-                    {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
-                    <span className="cl-donation-time">{d.time}</span>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

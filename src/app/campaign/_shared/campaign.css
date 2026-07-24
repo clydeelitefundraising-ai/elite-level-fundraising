@@ -610,6 +610,28 @@ html {
   color: var(--gray);
 }
 
+/* Polished empty state for a section with genuinely zero real data
+   (no donations yet, no roster yet) — distinct from .cl-filter-empty,
+   which is for a specific filter yielding no results within data that
+   does exist. */
+.cl-empty-state {
+  padding: 2.75rem 1rem;
+  text-align: center;
+}
+
+.cl-empty-state-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.cl-empty-state-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--gray);
+}
+
 /* ── TABLE ── */
 .cl-table {
   width: 100%;
