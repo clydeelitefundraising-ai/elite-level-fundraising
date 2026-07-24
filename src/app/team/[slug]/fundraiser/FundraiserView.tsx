@@ -42,6 +42,10 @@ type AthleteMode = {
   slug:                string;
   athlete:             TeamAthleteRow;
   settings:            CampaignSettings | null;
+  // Present only when the viewer (a parent) has claimed more than one
+  // athlete — lets them switch which dashboard is showing. Undefined for
+  // an athlete viewing their own single dashboard.
+  athleteOptions?:     { id: string; name: string }[];
   athleteRaisedCents:  number;
   goalCents:           number;
   rank:                number;
@@ -475,7 +479,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
 // ── Athlete dashboard ──────────────────────────────────────────────────────────
 
 function AthleteView({
-  slug, athlete, settings,
+  slug, athlete, settings, athleteOptions,
   athleteRaisedCents, goalCents, rank, totalAthletes, donorCount,
   recentDonations, leaderboard, teamFeed,
 }: AthleteMode) {
@@ -537,6 +541,30 @@ function AthleteView({
           My Dashboard
         </h2>
       </div>
+
+      {/* ── Athlete switcher (parents with more than one claimed athlete) ── */}
+      {athleteOptions && athleteOptions.length > 1 && (
+        <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", marginBottom: ".65rem" }}>
+          {athleteOptions.map(opt => {
+            const active = opt.id === athlete.id;
+            return (
+              <a
+                key={opt.id}
+                href={`?athlete=${opt.id}`}
+                style={{
+                  padding: ".4rem .8rem", borderRadius: 100, fontSize: ".78rem", fontWeight: 700,
+                  textDecoration: "none", whiteSpace: "nowrap",
+                  background: active ? primary : "#fff",
+                  color: active ? "#fff" : "#374151",
+                  border: `1.5px solid ${active ? primary : "#e5e7eb"}`,
+                }}
+              >
+                {opt.name}
+              </a>
+            );
+          })}
+        </div>
+      )}
 
       {/* ── Hero card ── */}
       <div style={{

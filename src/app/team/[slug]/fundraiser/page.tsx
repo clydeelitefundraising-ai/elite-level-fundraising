@@ -365,10 +365,13 @@ const DEFAULT_ATHLETE_GOAL_CENTS = 50_000;
 
 export default async function FundraiserPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ athlete?: string }>;
 }) {
   const { slug } = await params;
+  const { athlete: athleteParam } = await searchParams;
 
   const [settings, actor] = await Promise.all([
     getCampaignSettings(slug),
@@ -535,12 +538,27 @@ export default async function FundraiserPage({
   }
 
   // ── Member ──
-  const { athlete_id: athleteId } = actor.session;
+  // An athlete's own claim lives in team_members.athlete_id (single self-link,
+  // set at join time). A parent's claim(s) live in team_member_athletes —
+  // athlete_id is never set for a parent row, so it must never be used as the
+  // "has this account claimed anyone" signal on its own. Booster has neither.
+  const { athlete_id: selfAthleteId, athlete_ids: claimedAthleteIds, role: memberRole } = actor.session;
+  const effectiveAthleteIds = memberRole === "athlete" && selfAthleteId
+    ? [selfAthleteId]
+    : claimedAthleteIds;
 
-  if (!athleteId) {
+  if (effectiveAthleteIds.length === 0) {
     const roster = await getTeamAthletes(slug);
     return <FundraiserView mode="claim" slug={slug} roster={roster} settings={settings} />;
   }
+
+  // Which claimed athlete's dashboard to show — the ?athlete= switcher for
+  // parents with more than one claim, defaulting to the first. Ignores an
+  // invalid/foreign id rather than erroring, same safe-fallback pattern as
+  // the public campaign page's ?athlete= preselect.
+  const athleteId = (athleteParam && effectiveAthleteIds.includes(athleteParam))
+    ? athleteParam
+    : effectiveAthleteIds[0];
 
   const [athlete, athletes, donations] = await Promise.all([
     getAthleteById(athleteId),
@@ -592,12 +610,22 @@ export default async function FundraiserPage({
   const leaderboard = buildLeaderboard(athletes, donations);
   const teamFeed    = buildTeamFeed(athletes, donations);
 
+  // Only relevant for a parent claiming more than one athlete — an athlete's
+  // own single self-link never produces more than one option.
+  const athleteOptions = effectiveAthleteIds.length > 1
+    ? effectiveAthleteIds.map(id => ({
+        id,
+        name: athletes.find(a => a.id === id)?.name ?? "Unknown",
+      }))
+    : undefined;
+
   return (
     <FundraiserView
       mode="athlete"
       slug={slug}
       athlete={athlete}
       settings={settings}
+      athleteOptions={athleteOptions}
       athleteRaisedCents={athleteRaisedCents}
       goalCents={goalCents}
       rank={rank}
