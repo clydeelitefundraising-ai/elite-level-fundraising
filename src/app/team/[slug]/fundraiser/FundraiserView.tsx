@@ -488,7 +488,11 @@ function AthleteView({
   const bg        = avatarColor(athlete.name);
   const firstName = athlete.name.split(" ")[0];
   const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
-  const profilePath = `/team/${slug}/athlete/${athlete.id}`;
+  // Points at the public campaign fundraiser (not the internal Team App
+  // page) so donors who aren't logged into the team can open it — the
+  // athlete= param preselects them in the public donation form. Mirrors
+  // the same fix in AthleteProfileView.tsx's shareUrl.
+  const profilePath = `/campaign/${slug}?athlete=${athlete.id}`;
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const profileUrl = `${siteOrigin}${profilePath}`;
@@ -709,7 +713,7 @@ function AthleteView({
                 Scan to donate to {firstName}
               </div>
               <div style={{ fontSize: ".7rem", color: "#9ca3af", fontFamily: "monospace", wordBreak: "break-all" }}>
-                /team/{slug}/athlete/{athlete.id}
+                {profilePath}
               </div>
             </div>
             <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
