@@ -115,7 +115,10 @@ export default function AthleteProfileView({
   const amtCents   = preset !== null ? preset * 100 : Math.round((parseFloat(custom) || 0) * 100);
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
-  const shareUrl = `${siteOrigin}/team/${slug}/athlete/${athleteId}`;
+  // Points at the public campaign fundraiser (not the internal Team App
+  // page) so donors who aren't logged into the team can open it — the
+  // athlete= param preselects them in the public donation form.
+  const shareUrl = `${siteOrigin}/campaign/${slug}?athlete=${athleteId}`;
 
   const handleDonate = async () => {
     if (amtCents < 100) { setDonateErr("Minimum donation is $1."); return; }

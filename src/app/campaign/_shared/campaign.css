@@ -998,6 +998,13 @@ html {
   color: rgba(138, 143, 153, 0.65);
 }
 
+.cl-preselect-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cl-accent);
+}
+
 .cl-form-field input,
 .cl-form-field select,
 .cl-form-field textarea {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
@@ -14,11 +15,11 @@ const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
 const FALLBACK_ATHLETES = [
-  { rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
-  { rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
-  { rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
-  { rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
-  { rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
+  { id: "fallback-1", rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
+  { id: "fallback-2", rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
+  { id: "fallback-3", rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
+  { id: "fallback-4", rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
+  { id: "fallback-5", rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
 ];
 
 const initialDonations = [
@@ -53,10 +54,20 @@ function hexToRgb(hex: string): string {
 }
 
 export default function CampaignPageClient({ slug }: { slug: string }) {
+  const searchParams = useSearchParams();
+  const athleteParam = searchParams.get("athlete");
+
   const [selectedAmount,  setSelectedAmount]  = useState("$50");
   const [customAmount,    setCustomAmount]    = useState("");
   const [donorName,       setDonorName]       = useState("");
   const [selectedAthlete, setSelectedAthlete] = useState("");
+  // Set once, from a valid ?athlete= match — used only to decide whether the
+  // "Supporting X" indicator should render. Never re-derived from a manual
+  // dropdown change, so switching away from the preselected athlete (or to
+  // a different one) naturally hides it — selectedAthlete simply stops
+  // matching preselectedAthleteName.
+  const [preselectedAthleteName, setPreselectedAthleteName] = useState<string | null>(null);
+  const appliedAthletePreselect = useRef(false);
   const [donationMessage, setDonationMessage] = useState("");
   const [donating,        setDonating]        = useState(false);
   const [donateError,     setDonateError]     = useState("");
@@ -69,7 +80,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState<{ rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
+  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
@@ -150,16 +161,28 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
-        const base: { name: string; event: string | null; class_year?: string | null }[] =
+        const base: { id: string; name: string; event: string | null; class_year?: string | null }[] =
           Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
             ? fetchedAthletes
             : FALLBACK_ATHLETES;
-        setAthletes(
-          base
-            .map((a) => ({ name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
-            .sort((a, b) => b.raised - a.raised)
-            .map((a, i) => ({ ...a, rank: i + 1 })),
-        );
+        const nextAthletes = base
+          .map((a) => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
+          .sort((a, b) => b.raised - a.raised)
+          .map((a, i) => ({ ...a, rank: i + 1 }));
+        setAthletes(nextAthletes);
+
+        // Resolve the ?athlete= preselect against the campaign's own roster
+        // — only once, only against real (non-fallback) data, so an invalid
+        // id, an athlete from another campaign, or a missing param all fall
+        // through safely to Team General Fund (selectedAthlete stays "").
+        if (!appliedAthletePreselect.current && Array.isArray(fetchedAthletes) && athleteParam) {
+          appliedAthletePreselect.current = true;
+          const match = nextAthletes.find((a) => a.id === athleteParam);
+          if (match) {
+            setSelectedAthlete(match.name);
+            setPreselectedAthleteName(match.name);
+          }
+        }
         if (Array.isArray(rd) && rd.length > 0) setRecentDonations(rd);
         if (Array.isArray(data.fund_uses) && data.fund_uses.length > 0) {
           setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
@@ -180,7 +203,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         }
       })
       .catch(() => {/* keep fallback data */});
-  }, [slug]);
+  }, [slug, athleteParam]);
 
   // Page chrome (hero, buttons, accents, progress bar, headings, cards) is
   // driven entirely by the CAMPAIGN theme colors, not the team colors —
@@ -232,6 +255,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         body: JSON.stringify({
           amountCents:     Math.round(parsed * 100),
           athleteName:     selectedAthlete  || null,
+          athleteId:       athletes.find((a) => a.name === selectedAthlete)?.id || null,
           donorName:       donorName        || null,
           donationMessage: donationMessage  || null,
           campaignSlug:    slug,
@@ -293,6 +317,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     showFundUses,    showRecentDonations, showSponsors, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
     donorName,    setDonorName, selectedAthlete, setSelectedAthlete,
+    preselectedAthleteName,
     donationMessage, setDonationMessage,
     donating, donateError, donateLabel, handleDonate,
     copyConfirm, shareNote, handleCopyLink, handleText, handleEmail, handleSocial,
@@ -619,9 +644,12 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                     <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)}>
                       <option value="">— Team General Fund —</option>
                       {athletes.map((a) => (
-                        <option key={a.name} value={a.name}>{a.name}</option>
+                        <option key={a.id} value={a.name}>{a.name}</option>
                       ))}
                     </select>
+                    {preselectedAthleteName && selectedAthlete === preselectedAthleteName && (
+                      <p className="cl-preselect-note">Supporting {preselectedAthleteName}</p>
+                    )}
                   </div>
 
                   <div className="cl-form-field">

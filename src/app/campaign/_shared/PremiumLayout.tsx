@@ -30,8 +30,8 @@ export type PremiumLayoutProps = {
   goal: number;
   daysLeft: number;
   percent: number;
-  athletes: { rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
-  filteredAthletes: { rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
+  athletes: { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
+  filteredAthletes: { id: string; rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
   filters: string[];
   activeFilter: string;
   setActiveFilter: (v: string) => void;
@@ -58,6 +58,7 @@ export type PremiumLayoutProps = {
   setDonorName: (v: string) => void;
   selectedAthlete: string;
   setSelectedAthlete: (v: string) => void;
+  preselectedAthleteName: string | null;
   donationMessage: string;
   setDonationMessage: (v: string) => void;
   donating: boolean;
@@ -86,6 +87,7 @@ export default function PremiumLayout({
   showFundUses, showRecentDonations, showSponsors, showDonationCard,
   selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
   donorName, setDonorName, selectedAthlete, setSelectedAthlete,
+  preselectedAthleteName,
   donationMessage, setDonationMessage,
   donating, donateError, donateLabel, handleDonate,
   copyConfirm, shareNote, handleCopyLink, handleText, handleEmail, handleSocial,
@@ -202,9 +204,12 @@ export default function PremiumLayout({
                   <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)}>
                     <option value="">— Team General Fund —</option>
                     {athletes.map((a) => (
-                      <option key={a.name} value={a.name}>{a.name}</option>
+                      <option key={a.id} value={a.name}>{a.name}</option>
                     ))}
                   </select>
+                  {preselectedAthleteName && selectedAthlete === preselectedAthleteName && (
+                    <p className="cl-preselect-note">Supporting {preselectedAthleteName}</p>
+                  )}
                 </div>
               </div>
 
