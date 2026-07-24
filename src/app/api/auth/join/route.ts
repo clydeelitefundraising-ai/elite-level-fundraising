@@ -216,6 +216,34 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── Coach/athlete conflict guard (pilot scope: athlete role only) ───────
+  // A coach's own account must never also claim an athlete profile on the
+  // same campaign — that's exactly what produced the Michael Owens incident:
+  // a stray team_members(athlete) row on a coach's account shadowed his
+  // team_coaches(head_coach) identity via getActorForAccount's
+  // member-wins-over-coach precedence. That precedence is NOT changed here
+  // (see accountSession.ts) — it's still correct for a legitimate coach+parent
+  // account on the same campaign, which stays fully supported. Only
+  // coach+self-as-athlete is nonsensical and is blocked before any write.
+  // TODO(follow-up architecture): coach+parent on the same campaign still
+  // resolves as "member" today because of that same precedence — fine for
+  // now (parent view is a reasonable default for a coach who's also a
+  // parent), but worth a deliberate design pass if staff-view access is
+  // ever needed for that combination too.
+  if (role === "athlete") {
+    const coachConflictRes = await fetch(
+      `${BASE}/rest/v1/team_coaches?account_id=eq.${encodeURIComponent(accountId)}&campaign_slug=eq.${encodeURIComponent(campaign_slug)}&select=id&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const coachConflictRows = coachConflictRes.ok ? await coachConflictRes.json() : [];
+    if (Array.isArray(coachConflictRows) && coachConflictRows.length > 0) {
+      return NextResponse.json(
+        { error: "This account is already a coach on this team. A coach account can't also claim an athlete profile — the athlete needs to sign in or sign up with their own account." },
+        { status: 409 },
+      );
+    }
+  }
+
   // ── Roster claim uniqueness — freshness re-check ────────────────────────
   // The pre-check above already rejects the common case before any account
   // is created. This re-check catches a claim made by someone else in the
