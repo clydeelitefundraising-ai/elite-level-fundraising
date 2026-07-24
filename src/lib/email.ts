@@ -21,19 +21,23 @@ function getFromEmail(): string {
   return process.env.FROM_EMAIL ?? "ELF Fundraising <noreply@elitelevelfundraising.com>";
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+async function sendEmail(to: string, subject: string, html: string): Promise<{ id: string }> {
+  const from = getFromEmail();
   const res = await fetch(RESEND_API, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${getResendKey()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: getFromEmail(), to, subject, html }),
+    body: JSON.stringify({ from, to, subject, html }),
   });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Resend API error (${res.status}): ${body}`);
   }
+  const data = await res.json() as { id: string };
+  console.log(`[email] sent id=${data.id} to=${to} from=${from} subject=${JSON.stringify(subject)}`);
+  return data;
 }
 
 // ── Donor receipt ─────────────────────────────────────────────────────────────

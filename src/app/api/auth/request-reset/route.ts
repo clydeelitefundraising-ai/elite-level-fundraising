@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { generateInviteToken, hashInviteToken, tokenExpiresAt } from "@/lib/coachInvite";
 import { checkRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import { sendPasswordReset } from "@/lib/email";
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (account) {
     const rawToken  = generateInviteToken();
     const tokenHash = hashInviteToken(rawToken);
-    await fetch(`${BASE}/rest/v1/account_reset_tokens`, {
+    const tokenRes  = await fetch(`${BASE}/rest/v1/account_reset_tokens`, {
       method:  "POST",
       headers: h({ Prefer: "return=minimal" }),
       body: JSON.stringify({
@@ -49,11 +49,25 @@ export async function POST(req: NextRequest) {
         expires_at: tokenExpiresAt(1),
       }),
     });
-
-    const appBase  = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
-    const resetUrl = `${appBase}/reset-password/${rawToken}`;
-    sendPasswordReset({ to: account.email, name: account.name, resetUrl })
-      .catch(err => console.error("[auth/request-reset] email failed:", err));
+    if (!tokenRes.ok) {
+      console.error(`[auth/request-reset] token insert failed (${tokenRes.status}):`, await tokenRes.text());
+    } else {
+      const appBase  = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+      const resetUrl = `${appBase}/reset-password/${rawToken}`;
+      // Scheduled via after() rather than a bare fire-and-forget promise: once
+      // this handler returns, Vercel may freeze the function before an
+      // un-awaited fetch to Resend finishes — after() guarantees the callback
+      // runs to completion post-response instead of racing a freeze. Can't
+      // just await it inline: the "account not found" branch above does no
+      // extra async work before returning, so awaiting here only when an
+      // account exists would make response time a timing side-channel for
+      // account enumeration.
+      after(() =>
+        sendPasswordReset({ to: account.email, name: account.name, resetUrl })
+          .then(() => console.log(`[auth/request-reset] reset email dispatched to=${account.email}`))
+          .catch(err => console.error("[auth/request-reset] email failed:", err)),
+      );
+    }
   }
 
   return NextResponse.json(GENERIC_RESPONSE);
