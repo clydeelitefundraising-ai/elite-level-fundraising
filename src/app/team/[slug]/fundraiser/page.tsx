@@ -4,10 +4,11 @@ import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap } from "@/lib/teamData";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { LEADERBOARD_SUMMARY_LIMIT, buildAthleteProgress, computeNeedsAttention, rankNeedsAttentionByPriority } from "@/lib/teamRanking";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
-import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
+import type { TeamStats, PaceData, TopDonor } from "../analytics/AnalyticsView";
 
 export const dynamic = "force-dynamic";
 
@@ -43,45 +44,8 @@ function avatarBg(name: string): string {
 }
 
 // ── Data builders ─────────────────────────────────────────────────────────────
-
-function buildLeaderboard(
-  athletes: TeamAthleteRow[],
-  donations: DonationRow[],
-): LeaderboardEntry[] {
-  const nameToId: Record<string, string> = {};
-  for (const a of athletes) nameToId[a.name] = a.id;
-
-  const totals:      Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
-  const donorCounts: Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
-
-  for (const d of donations) {
-    if (d.athlete_id && totals[d.athlete_id] !== undefined) {
-      totals[d.athlete_id]      += d.amount_cents;
-      donorCounts[d.athlete_id] += 1;
-    } else if (!d.athlete_id && d.athlete_name) {
-      const aid = nameToId[d.athlete_name];
-      if (aid) {
-        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
-        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
-      }
-    }
-  }
-
-  return athletes
-    .map(a => ({
-      id:            a.id,
-      name:          a.name,
-      profile_photo: a.profile_photo,
-      event:         a.event,
-      class_year:    a.class_year ?? null,
-      raisedCents:   totals[a.id]      ?? 0,
-      goalCents:     a.goal_cents      ?? null,
-      donorCount:    donorCounts[a.id] ?? 0,
-      rank:          0,
-    }))
-    .sort((a, b) => b.raisedCents - a.raisedCents)
-    .map((a, i) => ({ ...a, rank: i + 1 }));
-}
+// Ranking/progress logic itself lives in @/lib/teamRanking (shared with
+// analytics/page.tsx, the full leaderboard page, and the participants page).
 
 function buildTeamFeed(
   athletes: TeamAthleteRow[],
@@ -110,12 +74,14 @@ function TeamCampaignView({
   donorCount,
   leaderboard,
   teamFeed,
+  slug,
 }: {
   settings:    CampaignSettings;
   raisedCents: number;
   donorCount:  number;
   leaderboard: LeaderboardEntry[];
   teamFeed:    FeedDonation[];
+  slug:        string;
 }) {
   const pct        = settings.goal_cents > 0
     ? Math.min(100, Math.round((raisedCents / settings.goal_cents) * 100))
@@ -226,21 +192,27 @@ function TeamCampaignView({
       </div>
 
       {/* ── Team leaderboard ── */}
-      {leaderboard.length > 0 && (
+      {leaderboard.length > 0 && (() => {
+        const displayed = leaderboard.slice(0, LEADERBOARD_SUMMARY_LIMIT);
+        const showViewAll = leaderboard.length > LEADERBOARD_SUMMARY_LIMIT;
+        return (
         <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
-          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
-              Team Leaderboard
+          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+              <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Top Fundraisers
+              </div>
+              <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
+                {displayed.length}
+              </span>
             </div>
-            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
-              {leaderboard.length}
-            </span>
+            <div style={{ fontSize: ".72rem", color: "#9ca3af", marginTop: ".3rem" }}>
+              See who is leading the campaign.
+            </div>
           </div>
           <div style={{ padding: ".25rem 0" }}>
-            {leaderboard.map((entry, i) => {
-              const pctEntry = entry.goalCents && entry.goalCents > 0
-                ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
-                : null;
+            {displayed.map((entry, i) => {
+              const pctEntry = entry.pct;
               const bg = avatarBg(entry.name);
               return (
                 <div
@@ -250,7 +222,7 @@ function TeamCampaignView({
                     alignItems: "flex-start",
                     gap: ".65rem",
                     padding: ".6rem 1rem",
-                    borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+                    borderBottom: i < displayed.length - 1 ? "1px solid #f9fafb" : "none",
                   }}
                 >
                   <div style={{ width: 22, fontWeight: 800, fontSize: ".72rem", color: entry.rank <= 3 ? "#0b1e3d" : "#9ca3af", flexShrink: 0, paddingTop: ".2rem", textAlign: "center" }}>
@@ -294,8 +266,21 @@ function TeamCampaignView({
               );
             })}
           </div>
+          {showViewAll && (
+            <a
+              href={`/team/${slug}/fundraiser/leaderboard`}
+              style={{
+                display: "block", textAlign: "center", padding: ".7rem",
+                borderTop: "1px solid #f3f4f6", fontSize: ".8rem", fontWeight: 700,
+                color: settings.primary_color, textDecoration: "none",
+              }}
+            >
+              View Full Leaderboard
+            </a>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Team donation feed ── */}
       {teamFeed.length > 0 && (
@@ -387,7 +372,7 @@ export default async function FundraiserPage({
       getDonations(slug),
     ]);
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
-    const leaderboard = buildLeaderboard(athletes, donations);
+    const leaderboard = buildAthleteProgress(athletes, donations, settings.default_athlete_goal_cents ?? null);
     const teamFeed    = buildTeamFeed(athletes, donations);
     return (
       <TeamCampaignView
@@ -396,6 +381,7 @@ export default async function FundraiserPage({
         donorCount={donations.length}
         leaderboard={leaderboard}
         teamFeed={teamFeed}
+        slug={slug}
       />
     );
   }
@@ -409,8 +395,12 @@ export default async function FundraiserPage({
     ]);
 
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
-    const leaderboard = buildLeaderboard(athletes, donations);
-    const teamFeed    = buildTeamFeed(athletes, donations);
+    // Same builder as the leaderboard above — its output already has every
+    // field the coach analytics views need (pct, lastDonationAt, contact
+    // info), so there is no separate "athlete progress" computation anymore.
+    const leaderboard     = buildAthleteProgress(athletes, donations, settings.default_athlete_goal_cents ?? null);
+    const athleteProgress = leaderboard;
+    const teamFeed         = buildTeamFeed(athletes, donations);
 
     // ── Analytics data ────────────────────────────────────────────────────────
     const teamGoalCents = settings.goal_cents ?? 0;
@@ -448,51 +438,10 @@ export default async function FundraiserPage({
       };
     }
 
-    const nameToId: Record<string, string> = {};
     const idToName: Record<string, string> = {};
-    for (const a of athletes) { nameToId[a.name] = a.id; idToName[a.id] = a.name; }
+    for (const a of athletes) idToName[a.id] = a.name;
 
-    const totals:      Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
-    const donorCounts: Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
-    const lastDon:     Record<string, string | null> = Object.fromEntries(athletes.map(a => [a.id, null]));
-
-    for (const d of donations) {
-      let aid: string | undefined;
-      if (d.athlete_id && totals[d.athlete_id] !== undefined)       aid = d.athlete_id;
-      else if (!d.athlete_id && d.athlete_name)                     aid = nameToId[d.athlete_name];
-      if (aid) {
-        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
-        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
-        if (!lastDon[aid]) lastDon[aid] = d.created_at;
-      }
-    }
-
-    const athleteProgress: AthleteProgress[] = athletes
-      .map(a => {
-        const raised = totals[a.id] ?? 0;
-        const goal   = a.goal_cents ?? null;
-        return {
-          id:             a.id,
-          name:           a.name,
-          event:          a.event,
-          class_year:     a.class_year ?? null,
-          profile_photo:  a.profile_photo ?? null,
-          raisedCents:    raised,
-          goalCents:      goal,
-          pct:            goal && goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : null,
-          donorCount:     donorCounts[a.id] ?? 0,
-          lastDonationAt: lastDon[a.id],
-          rank:           0,
-          contact_phone:  a.contact_phone ?? null,
-          contact_email:  a.contact_email ?? null,
-        };
-      })
-      .sort((a, b) => b.raisedCents - a.raisedCents)
-      .map((a, i) => ({ ...a, rank: i + 1 }));
-
-    const needsAttention = athleteProgress.filter(a =>
-      a.raisedCents === 0 || a.donorCount <= 1 || (a.pct !== null && a.pct < 10),
-    );
+    const needsAttention = rankNeedsAttentionByPriority(computeNeedsAttention(athleteProgress));
 
     const donorMap = new Map<string, { totalCents: number; count: number; athletes: Set<string> }>();
     for (const d of donations) {
@@ -522,6 +471,7 @@ export default async function FundraiserPage({
           donorCount={donorCount}
           leaderboard={leaderboard}
           teamFeed={teamFeed}
+          slug={slug}
         />
         <AnalyticsView
           slug={slug}
@@ -607,7 +557,7 @@ export default async function FundraiserPage({
       created_at:       d.created_at,
     }));
 
-  const leaderboard = buildLeaderboard(athletes, donations);
+  const leaderboard = buildAthleteProgress(athletes, donations, settings.default_athlete_goal_cents ?? null);
   const teamFeed    = buildTeamFeed(athletes, donations);
 
   // Only relevant for a parent claiming more than one athlete — an athlete's

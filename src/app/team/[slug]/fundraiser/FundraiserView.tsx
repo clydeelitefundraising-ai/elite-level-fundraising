@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
+import { LEADERBOARD_SUMMARY_LIMIT } from "@/lib/teamRanking";
+import type { AthleteProgress } from "@/lib/teamRanking";
 import Modal from "../_components/Modal";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
@@ -15,17 +17,12 @@ export type RecentDonation = {
   created_at:       string;
 };
 
-export type LeaderboardEntry = {
-  id:            string;
-  name:          string;
-  profile_photo: string | null;
-  event:         string | null;
-  class_year:    string | null;
-  raisedCents:   number;
-  goalCents:     number | null;
-  donorCount:    number;
-  rank:          number;
-};
+// Definition lives in src/lib/teamRanking.ts alongside the shared ranking
+// logic that produces it — re-exported under this name since existing
+// callers (page.tsx) already import "LeaderboardEntry" from this file.
+// AthleteProgress is a superset (adds pct/lastDonationAt/contact fields) but
+// every field this component's JSX reads is present on it.
+export type LeaderboardEntry = AthleteProgress;
 
 export type FeedDonation = {
   donor_name:       string | null;
@@ -162,16 +159,30 @@ function ContactsCard({ slug, primary }: { slug: string; primary: string }) {
 
 // ── Leaderboard section ───────────────────────────────────────────────────────
 
-function LeaderboardSection({
+export function LeaderboardSection({
   leaderboard,
   currentAthleteId,
   primary,
+  slug,
+  limit,
+  title = "Top Fundraisers",
+  subtitle = "See who is leading the campaign.",
 }: {
   leaderboard:       LeaderboardEntry[];
   currentAthleteId:  string;
   primary:           string;
+  // Present only on the summary view (team fundraiser page) — omit on the
+  // full leaderboard page itself, where every entry is already shown and
+  // there's nothing further to link to.
+  slug?:             string;
+  limit?:            number;
+  title?:            string;
+  subtitle?:         string;
 }) {
   if (leaderboard.length === 0) return null;
+
+  const displayed = typeof limit === "number" ? leaderboard.slice(0, limit) : leaderboard;
+  const showViewAll = slug && typeof limit === "number" && leaderboard.length > limit;
 
   return (
     <div style={{
@@ -184,20 +195,24 @@ function LeaderboardSection({
       <div style={{
         padding: ".875rem 1.25rem .6rem",
         borderBottom: "1px solid #f3f4f6",
-        display: "flex",
-        alignItems: "center",
-        gap: ".5rem",
       }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
-          Team Leaderboard
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+          <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+            {title}
+          </div>
+          <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
+            {displayed.length}
+          </span>
         </div>
-        <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
-          {leaderboard.length}
-        </span>
+        {subtitle && (
+          <div style={{ fontSize: ".72rem", color: "#9ca3af", marginTop: ".3rem" }}>
+            {subtitle}
+          </div>
+        )}
       </div>
 
       <div style={{ padding: ".2rem 0" }}>
-        {leaderboard.map((entry, i) => {
+        {displayed.map((entry, i) => {
           const isCurrent = entry.id === currentAthleteId;
           const pct = entry.goalCents && entry.goalCents > 0
             ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
@@ -214,7 +229,7 @@ function LeaderboardSection({
                 padding: ".6rem 1.25rem",
                 background: isCurrent ? `${primary}08` : "transparent",
                 borderLeft: isCurrent ? `3px solid ${primary}` : "3px solid transparent",
-                borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+                borderBottom: i < displayed.length - 1 ? "1px solid #f9fafb" : "none",
               }}
             >
               {/* Rank */}
@@ -284,6 +299,19 @@ function LeaderboardSection({
           );
         })}
       </div>
+
+      {showViewAll && (
+        <a
+          href={`/team/${slug}/fundraiser/leaderboard`}
+          style={{
+            display: "block", textAlign: "center", padding: ".7rem",
+            borderTop: "1px solid #f3f4f6", fontSize: ".8rem", fontWeight: 700,
+            color: primary, textDecoration: "none",
+          }}
+        >
+          View Full Leaderboard
+        </a>
+      )}
     </div>
   );
 }
@@ -651,6 +679,8 @@ function AthleteView({
         leaderboard={leaderboard}
         currentAthleteId={athlete.id}
         primary={primary}
+        slug={slug}
+        limit={LEADERBOARD_SUMMARY_LIMIT}
       />
 
       {/* ── Share actions ── */}

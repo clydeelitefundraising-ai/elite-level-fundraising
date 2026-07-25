@@ -3,6 +3,14 @@
 import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
 import type { OutreachCurrentRow } from "@/lib/teamData";
+import { LEADERBOARD_SUMMARY_LIMIT } from "@/lib/teamRanking";
+import type { AthleteProgress } from "@/lib/teamRanking";
+
+// Re-exported so existing callers (fundraiser/page.tsx, analytics/page.tsx)
+// keep importing this type from here — the definition itself now lives in
+// the shared src/lib/teamRanking.ts alongside the ranking/filtering logic
+// that produces it.
+export type { AthleteProgress };
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -22,22 +30,6 @@ export type PaceData = {
   projectedFinish: number;
   onTrack:         boolean;
 } | null;
-
-export type AthleteProgress = {
-  id:             string;
-  name:           string;
-  event:          string | null;
-  class_year:     string | null;
-  profile_photo:  string | null;
-  raisedCents:    number;
-  goalCents:      number | null;
-  pct:            number | null;
-  donorCount:     number;
-  lastDonationAt: string | null;
-  rank:           number;
-  contact_phone:  string | null;
-  contact_email:  string | null;
-};
 
 export type TopDonor = {
   name:          string;
@@ -168,14 +160,19 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
   resolved:        { label: "Resolved",    bg: "#d1fae5", color: "#065f46" },
 };
 
-function NeedsAttentionCard({
+export function NeedsAttentionCard({
   needsAttention,
   slug,
   initialOutreachMap,
+  limit,
 }: {
   needsAttention:     AthleteProgress[];
   slug:               string;
   initialOutreachMap: Record<string, OutreachCurrentRow>;
+  // Undefined = show everyone (used by the full Participants page). The
+  // summary view on the fundraiser/analytics dashboard passes
+  // LEADERBOARD_SUMMARY_LIMIT so it never shows more than the shared cap.
+  limit?:             number;
 }) {
   const [outreachMap,   setOutreachMap]   = useState<Record<string, OutreachCurrentRow>>(initialOutreachMap);
   const [resolvedIds,   setResolvedIds]   = useState<Set<string>>(new Set());
@@ -183,7 +180,8 @@ function NeedsAttentionCard({
   const [noteTexts,     setNoteTexts]     = useState<Record<string, string>>({});
   const [saving,        setSaving]        = useState<Record<string, boolean>>({});
 
-  const visible = needsAttention.filter(a => !resolvedIds.has(a.id));
+  const visible  = needsAttention.filter(a => !resolvedIds.has(a.id));
+  const displayed = typeof limit === "number" ? visible.slice(0, limit) : visible;
 
   const postAction = async (athleteId: string, status: string, note?: string) => {
     if (saving[athleteId]) return;
@@ -257,19 +255,23 @@ function NeedsAttentionCard({
     }}>
       <div style={{
         padding: ".75rem 1.25rem .55rem", borderBottom: "1px solid #f3f4f6",
-        display: "flex", alignItems: "center", gap: ".5rem",
       }}>
-        <span style={{ fontSize: ".82rem" }}>⚠️</span>
-        <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: ".07em" }}>
-          Needs Attention
-        </span>
-        <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
-          {visible.length}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+          <span style={{ fontSize: ".82rem" }}>⚠️</span>
+          <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: ".07em" }}>
+            Needs Attention
+          </span>
+          <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
+            {visible.length}
+          </span>
+        </div>
+        <div style={{ fontSize: ".72rem", color: "#9ca3af", marginTop: ".3rem" }}>
+          Participants who may need follow-up or support.
+        </div>
       </div>
 
       <div style={{ padding: ".25rem 0" }}>
-        {visible.map((a, i) => {
+        {displayed.map((a, i) => {
           const outreach    = outreachMap[a.id] ?? null;
           const status      = outreach?.status ?? null;
           const isSaving    = saving[a.id] ?? false;
@@ -289,7 +291,7 @@ function NeedsAttentionCard({
           };
 
           return (
-            <div key={a.id} style={{ borderBottom: i < visible.length - 1 ? "1px solid #f9fafb" : "none", padding: ".7rem 1.25rem" }}>
+            <div key={a.id} style={{ borderBottom: i < displayed.length - 1 ? "1px solid #f9fafb" : "none", padding: ".7rem 1.25rem" }}>
 
               {/* Profile row — tap → athlete profile */}
               <a href={`/team/${slug}/athlete/${a.id}`} style={{ display: "flex", alignItems: "center", gap: ".65rem", textDecoration: "none", marginBottom: ".55rem" }}>
@@ -463,7 +465,7 @@ function PaceCard({ pace, primary }: { pace: PaceData; primary: string }) {
 
 // ── Athlete progress ──────────────────────────────────────────────────────────
 
-function AthleteProgressCard({
+export function AthleteProgressCard({
   athleteProgress,
   primary,
 }: {
@@ -666,7 +668,22 @@ export default function AnalyticsView({
       </div>
 
       <TeamOverviewCard teamStats={teamStats} settings={settings} />
-      <NeedsAttentionCard needsAttention={needsAttention} slug={slug} initialOutreachMap={outreachMap} />
+      <NeedsAttentionCard
+        needsAttention={needsAttention}
+        slug={slug}
+        initialOutreachMap={outreachMap}
+        limit={LEADERBOARD_SUMMARY_LIMIT}
+      />
+      <a
+        href={`/team/${slug}/fundraiser/participants`}
+        style={{
+          display: "block", textAlign: "center", padding: ".65rem", marginTop: "-.4rem", marginBottom: ".75rem",
+          background: "#fff", borderRadius: 12, boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          fontSize: ".82rem", fontWeight: 700, color: primary, textDecoration: "none",
+        }}
+      >
+        View All Participants →
+      </a>
       <PaceCard pace={pace} primary={primary} />
       <AthleteProgressCard athleteProgress={athleteProgress} primary={primary} />
       <TopDonorsCard topDonors={topDonors} />
