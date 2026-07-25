@@ -52,8 +52,17 @@ export async function POST(req: NextRequest) {
     if (!tokenRes.ok) {
       console.error(`[auth/request-reset] token insert failed (${tokenRes.status}):`, await tokenRes.text());
     } else {
-      const appBase  = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
-      const resetUrl = `${appBase}/reset-password/${rawToken}`;
+      // NEXT_PUBLIC_APP_URL is configured for both Preview and Production in
+      // Vercel — using it unconditionally would hard-code every preview
+      // deployment's reset link to the production host, 404ing (or worse,
+      // silently pointing somewhere that hasn't shipped this route yet)
+      // instead of linking back to the preview that actually issued the
+      // token. Only trust the static app URL in production; everywhere else,
+      // link back to whichever deployment actually handled this request.
+      const appBase  = process.env.VERCEL_ENV === "production"
+        ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+        : new URL(req.url).origin;
+      const resetUrl = `${appBase}/reset-password/${encodeURIComponent(rawToken)}`;
       // Scheduled via after() rather than a bare fire-and-forget promise: once
       // this handler returns, Vercel may freeze the function before an
       // un-awaited fetch to Resend finishes — after() guarantees the callback

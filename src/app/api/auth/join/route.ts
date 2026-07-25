@@ -312,7 +312,13 @@ export async function POST(req: NextRequest) {
   if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
 
   if (isNewMembership && email?.trim() && (role === "athlete" || role === "parent")) {
-    const appBase = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+    // See src/app/api/auth/request-reset/route.ts for why this isn't a bare
+    // `NEXT_PUBLIC_APP_URL || origin` fallback — that env var is set for
+    // Preview too, so it would hard-code every preview deployment's welcome
+    // link to the production host instead of the deployment that issued it.
+    const appBase = process.env.VERCEL_ENV === "production"
+      ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+      : new URL(req.url).origin;
     const settingsRes = await fetch(
       `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(campaign_slug)}&select=school_name&limit=1`,
       { headers: h(), cache: "no-store" },
