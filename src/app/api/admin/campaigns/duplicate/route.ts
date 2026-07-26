@@ -127,6 +127,7 @@ export async function POST(req: NextRequest) {
   // ── Create the new campaign ───────────────────────────────────────────────────
   const result = await createCampaignCore({
     slug,
+    coach_mode: "new",
     school_name:     String(school_name ?? "").trim(),
     sport_name:      String(sport_name  ?? "").trim(),
     mascot:          String(mascot      ?? "").trim(),

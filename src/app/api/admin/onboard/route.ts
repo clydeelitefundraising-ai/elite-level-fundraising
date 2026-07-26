@@ -5,6 +5,7 @@ import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
 import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getContact, createActivity } from "@/lib/platform/crm";
 import { getCampaignByCrmContactId } from "@/lib/platform/campaigns";
+import { findAccountByEmail } from "@/lib/coachAssignment";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     primary_color, secondary_color, logo_url,
     goal_cents, deadline,
     external_store_url, store_provider,
-    coach_name, coach_email, coach_password,
+    coach_mode, coach_name, coach_email, coach_password, existing_coach_account_id,
     seed_fund_uses,
     starter_athletes,
     show_leaderboard, show_program_identity, show_share_section,
@@ -52,10 +53,36 @@ export async function POST(req: NextRequest) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) return NextResponse.json({ error: "Slug must be lowercase letters, numbers, and hyphens only." }, { status: 400 });
   if (slug.length < 3)                     return NextResponse.json({ error: "Slug must be at least 3 characters." }, { status: 400 });
 
-  if (!String(coach_name  ?? "").trim()) return NextResponse.json({ error: "Coach name is required." },  { status: 400 });
-  if (!String(coach_email ?? "").trim()) return NextResponse.json({ error: "Coach email is required." }, { status: 400 });
-  const pw = String(coach_password ?? "").trim();
-  if (pw.length < 8) return NextResponse.json({ error: "Coach password must be at least 8 characters." }, { status: 400 });
+  // "new" is the historical, default behavior — an admin who never sees or
+  // touches the new mode toggle gets exactly the pre-existing flow.
+  const mode: "new" | "existing" = coach_mode === "existing" ? "existing" : "new";
+  let pw = "";
+
+  if (mode === "existing") {
+    const accountId = String(existing_coach_account_id ?? "").trim();
+    if (!accountId) return NextResponse.json({ error: "An existing coach account must be selected." }, { status: 400 });
+  } else {
+    if (!String(coach_name  ?? "").trim()) return NextResponse.json({ error: "Coach name is required." },  { status: 400 });
+    const email = String(coach_email ?? "").trim();
+    if (!email) return NextResponse.json({ error: "Coach email is required." }, { status: 400 });
+    pw = String(coach_password ?? "").trim();
+    if (pw.length < 8) return NextResponse.json({ error: "Coach password must be at least 8 characters." }, { status: 400 });
+
+    // Server-side duplicate check — never rely on the client's search widget
+    // alone to prevent a second elf_accounts row for the same person.
+    // Normalized the same way every other account lookup in this codebase
+    // normalizes email (trim + lowercase).
+    const existingAccount = await findAccountByEmail(email);
+    if (existingAccount) {
+      return NextResponse.json(
+        {
+          error: "An ELF account already exists for this email. Select the existing coach instead.",
+          existing_account: { id: existingAccount.id, name: existingAccount.name, email: existingAccount.email },
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   // A crm_contact_id, if present, is only ever a server-generated id passed
   // through from the wizard's own state — never trust it as proof of the CRM
@@ -98,9 +125,10 @@ export async function POST(req: NextRequest) {
     show_donation_card:    typeof show_donation_card    === "boolean" ? show_donation_card    : true,
     layout_variant:        layout_variant === "premium" ? "premium" : "classic",
     default_athlete_goal_cents: typeof default_athlete_goal_cents === "number" ? Math.round(default_athlete_goal_cents) : null,
-    coach_name:    String(coach_name).trim(),
-    coach_email:   String(coach_email).trim().toLowerCase(),
-    coach_password: pw,
+    coach_mode: mode,
+    ...(mode === "existing"
+      ? { existing_coach_account_id: String(existing_coach_account_id).trim() }
+      : { coach_name: String(coach_name).trim(), coach_email: String(coach_email).trim().toLowerCase(), coach_password: pw }),
     contact_goal:  typeof contact_goal === "number" && contact_goal > 0 ? Math.round(contact_goal) : 0,
     crmContactId,
   });
@@ -164,8 +192,16 @@ export async function POST(req: NextRequest) {
     entity_type:   "campaign",
     entity_id:     slug,
     campaign_slug: slug,
-    summary:       `Created campaign "${String(school_name ?? "").trim()}" (${slug})`,
-    new_value:     { slug, school_name: String(school_name ?? "").trim(), sport_name: String(sport_name ?? "").trim(), season: String(season ?? "").trim(), coach_email: String(coach_email).trim().toLowerCase() },
+    summary:       `Created campaign "${String(school_name ?? "").trim()}" (${slug}) — head coach ${mode === "existing" ? "linked from existing account" : "newly created"}`,
+    new_value: {
+      slug,
+      school_name: String(school_name ?? "").trim(),
+      sport_name:  String(sport_name  ?? "").trim(),
+      season:      String(season      ?? "").trim(),
+      coach_email: result.coachEmail,
+      coach_assignment_type: result.coachAssignmentType,
+      head_coach_account_id: result.coachAccountId,
+    },
     ip_address:    ipOf(req),
     user_agent:    req.headers.get("user-agent"),
   });
@@ -174,6 +210,7 @@ export async function POST(req: NextRequest) {
     ok:          true,
     slug,
     join_code:   result.join_code,
-    coach_email: String(coach_email).trim().toLowerCase(),
+    coach_email: result.coachEmail,
+    coach_assignment_type: result.coachAssignmentType,
   });
 }

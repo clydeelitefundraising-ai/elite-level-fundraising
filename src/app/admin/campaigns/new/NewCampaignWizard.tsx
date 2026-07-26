@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import CoachSearchSelect, { type CoachSearchResult } from "./CoachSearchSelect";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,9 +52,14 @@ type WizardData = {
   show_recent_donations: boolean;
   show_sponsors:         boolean;
   // Step 5 — Review + Coach
+  coach_mode:     "new" | "existing";
   coach_name:     string;
   coach_email:    string;
   coach_password: string;
+  existing_coach: CoachSearchResult | null;
+  // Set only right after a duplicate-email rejection offers to switch modes
+  // with that account preselected — consumed once by CoachSearchSelect.
+  existing_coach_preselect_id: string | null;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -68,7 +74,8 @@ const BLANK: WizardData = {
   layout_variant: "classic",
   show_donation_card: true, show_leaderboard: true, show_program_identity: true,
   show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true,
-  coach_name: "", coach_email: "", coach_password: "",
+  coach_mode: "new", coach_name: "", coach_email: "", coach_password: "",
+  existing_coach: null, existing_coach_preselect_id: null,
 };
 
 const STEP_LABELS: Record<Step, string> = {
@@ -589,13 +596,15 @@ function Step4({
 // ── Step 5 – Review & Launch ──────────────────────────────────────────────────
 
 function Step5({
-  d, upd, launchError, launching, onLaunch,
+  d, upd, launchError, launching, onLaunch, duplicateAccount, onUseDuplicateAccount,
 }: {
   d: WizardData;
   upd: (p: Partial<WizardData>) => void;
   launchError: string;
   launching: boolean;
   onLaunch: () => void;
+  duplicateAccount: { id: string; name: string; email: string } | null;
+  onUseDuplicateAccount: () => void;
 }) {
   const [showPw, setShowPw] = useState(false);
   const slug     = d.campaign_slug || "your-slug";
@@ -656,6 +665,34 @@ function Step5({
             <ReviewRow label="Pre-fill Fund Uses"  value={d.seed_fund_uses ? "Yes" : "No"} />
           </div>
 
+          {/* Head coach summary */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1rem 1.25rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#98989d", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".6rem" }}>Head Coach</div>
+            {d.coach_mode === "existing" ? (
+              d.existing_coach ? (
+                <>
+                  <ReviewRow label="Mode"  value="Existing Coach Account" />
+                  <ReviewRow label="Coach" value={d.existing_coach.name} />
+                  <ReviewRow label="Email" value={d.existing_coach.email} />
+                  <div style={{ fontSize: ".72rem", color: "#15803d", marginTop: ".4rem" }}>
+                    This coach will use their current ELF login.
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: ".78rem", color: "#98989d" }}>No coach selected yet.</div>
+              )
+            ) : (
+              <>
+                <ReviewRow label="Mode"  value="New Account" />
+                <ReviewRow label="Coach" value={d.coach_name || "—"} />
+                <ReviewRow label="Email" value={d.coach_email || "—"} />
+                <div style={{ fontSize: ".72rem", color: "#98989d", marginTop: ".4rem" }}>
+                  A temporary password will be emailed to this address.
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Features summary */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1rem 1.25rem" }}>
             <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#98989d", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".6rem" }}>Enabled Sections</div>
@@ -695,50 +732,99 @@ function Step5({
 
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1.25rem" }}>
             <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#1d1d1f", marginBottom: ".2rem" }}>Head Coach Account</div>
-            <div style={{ fontSize: ".72rem", color: "#98989d", marginBottom: "1.1rem" }}>
-              Creates login credentials for the team hub. The coach can reset their password after first login.
+            <div style={{ fontSize: ".72rem", color: "#98989d", marginBottom: "1rem" }}>
+              {d.coach_mode === "existing"
+                ? "Assign a coach who already has an ELF account. They will use their current login for this team."
+                : "Creates login credentials for the team hub. The coach can reset their password after first login."}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: ".85rem" }}>
-              <label style={T.label}>
-                Coach Name *
-                <input style={T.input} value={d.coach_name}
-                  onChange={e => upd({ coach_name: e.target.value })}
-                  placeholder="Full name" />
-              </label>
-              <label style={T.label}>
-                Email Address *
-                <input type="email" style={T.input} value={d.coach_email}
-                  onChange={e => upd({ coach_email: e.target.value })}
-                  placeholder="coach@school.edu" />
-              </label>
-              <label style={T.label}>
-                Temporary Password *
-                <FieldNote>Min 8 characters. Share securely — cannot be recovered.</FieldNote>
-                <div style={{ position: "relative" }}>
-                  <input
-                    type={showPw ? "text" : "password"}
-                    style={{ ...T.input, paddingRight: "2.5rem" }}
-                    value={d.coach_password}
-                    onChange={e => upd({ coach_password: e.target.value })}
-                    placeholder="Min 8 characters"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(p => !p)}
-                    style={{ position: "absolute", right: ".65rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: ".75rem", color: "#9ca3af", padding: 0 }}>
-                    {showPw ? "Hide" : "Show"}
-                  </button>
+
+            {/* Mode toggle — matches the two-button style already used for
+                Page Layout in Step 4 of this same wizard. */}
+            <div style={{ display: "flex", gap: ".5rem", marginBottom: "1.1rem" }}>
+              {([
+                { id: "new" as const,      label: "Create New Coach" },
+                { id: "existing" as const, label: "Select Existing Coach" },
+              ]).map(opt => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => upd({ coach_mode: opt.id })}
+                  style={{
+                    flex: 1, padding: ".55rem .5rem", borderRadius: 8,
+                    border: `2px solid ${d.coach_mode === opt.id ? "#0b1e3d" : "#e5e7eb"}`,
+                    background: d.coach_mode === opt.id ? "#eff0f3" : "#fff",
+                    cursor: "pointer", fontSize: ".76rem", fontWeight: 700,
+                    color: d.coach_mode === opt.id ? "#0b1e3d" : "#6e6e73",
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {d.coach_mode === "existing" ? (
+              <div>
+                <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#1d1d1f", marginBottom: ".3rem" }}>
+                  Choose an Existing Coach
                 </div>
-                {d.coach_password.length > 0 && d.coach_password.length < 8 && (
-                  <span style={{ fontSize: ".72rem", color: "#dc2626" }}>{8 - d.coach_password.length} more character{8 - d.coach_password.length !== 1 ? "s" : ""} required</span>
-                )}
-              </label>
-            </div>
+                <CoachSearchSelect
+                  selected={d.existing_coach}
+                  onSelect={account => upd({ existing_coach: account, existing_coach_preselect_id: null })}
+                  initialAccountId={d.existing_coach_preselect_id}
+                />
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: ".85rem" }}>
+                <label style={T.label}>
+                  Coach Name *
+                  <input style={T.input} value={d.coach_name}
+                    onChange={e => upd({ coach_name: e.target.value })}
+                    placeholder="Full name" />
+                </label>
+                <label style={T.label}>
+                  Email Address *
+                  <input type="email" style={T.input} value={d.coach_email}
+                    onChange={e => upd({ coach_email: e.target.value })}
+                    placeholder="coach@school.edu" />
+                </label>
+                <label style={T.label}>
+                  Temporary Password *
+                  <FieldNote>Min 8 characters. Share securely — cannot be recovered.</FieldNote>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPw ? "text" : "password"}
+                      style={{ ...T.input, paddingRight: "2.5rem" }}
+                      value={d.coach_password}
+                      onChange={e => upd({ coach_password: e.target.value })}
+                      placeholder="Min 8 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(p => !p)}
+                      style={{ position: "absolute", right: ".65rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: ".75rem", color: "#9ca3af", padding: 0 }}>
+                      {showPw ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {d.coach_password.length > 0 && d.coach_password.length < 8 && (
+                    <span style={{ fontSize: ".72rem", color: "#dc2626" }}>{8 - d.coach_password.length} more character{8 - d.coach_password.length !== 1 ? "s" : ""} required</span>
+                  )}
+                </label>
+              </div>
+            )}
           </div>
 
           {launchError && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: ".75rem 1rem", fontSize: ".82rem", color: "#dc2626", fontWeight: 500 }}>
-              {launchError}
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: ".75rem 1rem" }}>
+              <div style={{ fontSize: ".82rem", color: "#dc2626", fontWeight: 500 }}>{launchError}</div>
+              {duplicateAccount && (
+                <button
+                  type="button"
+                  onClick={onUseDuplicateAccount}
+                  style={{ marginTop: ".6rem", background: "#fff", border: "1px solid #dc2626", borderRadius: 7, cursor: "pointer", fontSize: ".76rem", color: "#dc2626", fontWeight: 700, padding: ".4rem .8rem" }}
+                >
+                  Use this existing coach instead
+                </button>
+              )}
             </div>
           )}
 
@@ -831,9 +917,13 @@ function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus): string
     if (!HEX_RE.test(d.secondary_color)) errs.push("Secondary color must be a valid hex color (e.g. #C4A35A).");
   }
   if (step === 5) {
-    if (!d.coach_name.trim())                          errs.push("Coach name is required.");
-    if (!d.coach_email.trim() || !d.coach_email.includes("@")) errs.push("A valid coach email address is required.");
-    if (d.coach_password.length < 8)                   errs.push("Coach password must be at least 8 characters.");
+    if (d.coach_mode === "existing") {
+      if (!d.existing_coach) errs.push("Select an existing coach to assign as head coach.");
+    } else {
+      if (!d.coach_name.trim())                          errs.push("Coach name is required.");
+      if (!d.coach_email.trim() || !d.coach_email.includes("@")) errs.push("A valid coach email address is required.");
+      if (d.coach_password.length < 8)                   errs.push("Coach password must be at least 8 characters.");
+    }
   }
   return errs;
 }
@@ -900,6 +990,7 @@ export default function NewCampaignWizard({
   const [slugStatus,  setSlugStatus]  = useState<SlugStatus>("idle");
   const [launching,   setLaunching]   = useState(false);
   const [launchError, setLaunchError] = useState("");
+  const [duplicateAccount, setDuplicateAccount] = useState<{ id: string; name: string; email: string } | null>(null);
 
   const upd = useCallback((patch: Partial<WizardData>) => setD(p => ({ ...p, ...patch })), []);
 
@@ -956,6 +1047,7 @@ export default function NewCampaignWizard({
     setErrors([]);
     setLaunching(true);
     setLaunchError("");
+    setDuplicateAccount(null);
 
     try {
       const location  = [d.city.trim(), d.state.trim()].filter(Boolean).join(", ");
@@ -990,20 +1082,27 @@ export default function NewCampaignWizard({
           show_donation_card:         d.show_donation_card,
           layout_variant:             d.layout_variant,
           seed_fund_uses:             d.seed_fund_uses,
-          coach_name:                 d.coach_name.trim(),
-          coach_email:                d.coach_email.trim(),
-          coach_password:             d.coach_password,
+          coach_mode:                 d.coach_mode,
+          ...(d.coach_mode === "existing"
+            ? { existing_coach_account_id: d.existing_coach?.id ?? "" }
+            : { coach_name: d.coach_name.trim(), coach_email: d.coach_email.trim(), coach_password: d.coach_password }),
           starter_athletes:           [],
           crm_contact_id:             crmSeed?.contactId ?? null,
         }),
       });
 
-      const data = await res.json() as { slug?: string; error?: string };
+      const data = await res.json() as {
+        slug?: string; error?: string;
+        existing_account?: { id: string; name: string; email: string };
+      };
 
       if (!res.ok) {
         if (res.status === 409 && data.slug) {
           router.push(`/admin/campaigns/${data.slug}`);
           return;
+        }
+        if (res.status === 409 && data.existing_account) {
+          setDuplicateAccount(data.existing_account);
         }
         setLaunchError(data.error ?? "Launch failed. Please check your inputs and try again.");
         setLaunching(false);
@@ -1075,7 +1174,18 @@ export default function NewCampaignWizard({
         {step === 2 && <Step2 d={d} upd={upd} />}
         {step === 3 && <Step3 d={d} upd={upd} />}
         {step === 4 && <Step4 d={d} upd={upd} />}
-        {step === 5 && <Step5 d={d} upd={upd} launchError={launchError} launching={launching} onLaunch={launch} />}
+        {step === 5 && (
+          <Step5
+            d={d} upd={upd} launchError={launchError} launching={launching} onLaunch={launch}
+            duplicateAccount={duplicateAccount}
+            onUseDuplicateAccount={() => {
+              if (!duplicateAccount) return;
+              upd({ coach_mode: "existing", existing_coach: null, existing_coach_preselect_id: duplicateAccount.id });
+              setDuplicateAccount(null);
+              setLaunchError("");
+            }}
+          />
+        )}
 
       </div>
 

@@ -2,6 +2,7 @@ import { createCampaignSettings, CampaignSettingsError } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { sendCoachWelcome } from "@/lib/email";
+import { assignExistingCoachToCampaign } from "@/lib/coachAssignment";
 import { randomBytes } from "crypto";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -45,9 +46,14 @@ export type CampaignCoreParams = {
   show_donation_card:          boolean;
   layout_variant:              "classic" | "premium";
   default_athlete_goal_cents:  number | null;
-  coach_name:      string;
-  coach_email:     string;
-  coach_password:  string;
+  // "new" (default): create a brand-new coach + elf_accounts row, as before.
+  // "existing": reuse an already-selected elf_accounts holder — no password,
+  // no new account, no welcome email. See src/lib/coachAssignment.ts.
+  coach_mode:      "new" | "existing";
+  coach_name?:     string;
+  coach_email?:    string;
+  coach_password?: string;
+  existing_coach_account_id?: string;
   contact_goal:    number;
   // Optional CRM contact this campaign was launched from. Written as part of
   // the campaign_settings insert itself (not a follow-up update) so a campaign
@@ -57,7 +63,7 @@ export type CampaignCoreParams = {
 };
 
 export type CampaignCoreResult =
-  | { ok: true;  join_code: string }
+  | { ok: true; join_code: string; coachName: string; coachEmail: string; coachAssignmentType: "new" | "existing"; coachAccountId: string | null; coachAlreadyLinked?: boolean }
   | { ok: false; error: string; status: number };
 
 export async function createCampaignCore(p: CampaignCoreParams): Promise<CampaignCoreResult> {
@@ -104,38 +110,63 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
     return { ok: false, error: message, status: message.includes("already exists") ? 409 : 500 };
   }
 
-  // 2. team_coaches
-  const salt         = generateSalt();
-  const passwordHash = hashPassword(p.coach_password, salt);
+  // 2. Head coach — two entirely separate paths, no shared logic beyond both
+  // ultimately producing a team_coaches row for this campaign.
+  let coachName: string;
+  let coachEmail: string;
+  let coachAccountId: string | null = null;
+  let coachAlreadyLinked = false;
 
-  const coachRes = await fetch(`${BASE}/rest/v1/team_coaches`, {
-    method:  "POST",
-    headers: supabaseHeaders({ Prefer: "return=minimal" }),
-    body:    JSON.stringify({
-      campaign_slug: p.slug,
-      name:          p.coach_name,
-      email:         p.coach_email.toLowerCase(),
-      role:          "head_coach",
-      password_hash: passwordHash,
-      salt,
-    }),
-  });
+  if (p.coach_mode === "existing") {
+    if (!p.existing_coach_account_id) {
+      return { ok: false, error: "An existing coach account must be selected.", status: 400 };
+    }
+    const assignResult = await assignExistingCoachToCampaign(p.slug, p.existing_coach_account_id);
+    if (!assignResult.ok) {
+      return { ok: false, error: assignResult.error, status: assignResult.status };
+    }
+    coachName          = assignResult.coachName;
+    coachEmail         = assignResult.coachEmail;
+    coachAccountId     = p.existing_coach_account_id;
+    coachAlreadyLinked = assignResult.alreadyLinked;
+    // No new elf_accounts row, no password touched, no welcome email — the
+    // coach keeps using their existing ELF login unchanged.
+  } else {
+    const salt         = generateSalt();
+    const passwordHash = hashPassword(p.coach_password ?? "", salt);
 
-  if (!coachRes.ok) {
-    const msg    = await coachRes.text();
-    const unique = msg.includes("23505") || msg.includes("unique");
-    return {
-      ok:     false,
-      error:  unique ? "A coach with this email already exists." : "Failed to create coach account.",
-      status: unique ? 409 : 500,
-    };
+    const coachRes = await fetch(`${BASE}/rest/v1/team_coaches`, {
+      method:  "POST",
+      headers: supabaseHeaders({ Prefer: "return=minimal" }),
+      body:    JSON.stringify({
+        campaign_slug: p.slug,
+        name:          p.coach_name,
+        email:         (p.coach_email ?? "").toLowerCase(),
+        role:          "head_coach",
+        password_hash: passwordHash,
+        salt,
+      }),
+    });
+
+    if (!coachRes.ok) {
+      const msg    = await coachRes.text();
+      const unique = msg.includes("23505") || msg.includes("unique");
+      return {
+        ok:     false,
+        error:  unique ? "A coach with this email already exists." : "Failed to create coach account.",
+        status: unique ? 409 : 500,
+      };
+    }
+
+    coachName  = p.coach_name ?? "";
+    coachEmail = (p.coach_email ?? "").toLowerCase();
+
+    // elf_accounts link (fire-and-forget — failure does not block campaign creation)
+    void linkElfAccount(p.slug, p.coach_name ?? "", p.coach_email ?? "", p.coach_password ?? "");
+
+    // welcome email (fire-and-forget)
+    void sendWelcomeEmail(p);
   }
-
-  // 2b. elf_accounts link (fire-and-forget — failure does not block campaign creation)
-  void linkElfAccount(p.slug, p.coach_name, p.coach_email, p.coach_password);
-
-  // 2c. welcome email (fire-and-forget)
-  void sendWelcomeEmail(p);
 
   // 3. join code
   const joinCode = generateJoinCode();
@@ -154,7 +185,13 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
     }).catch(() => {});
   }
 
-  return { ok: true, join_code: joinCode };
+  return {
+    ok: true, join_code: joinCode,
+    coachName, coachEmail,
+    coachAssignmentType: p.coach_mode,
+    coachAccountId,
+    coachAlreadyLinked,
+  };
 }
 
 async function linkElfAccount(
@@ -215,12 +252,12 @@ async function sendWelcomeEmail(p: CampaignCoreParams): Promise<void> {
     const teamName = [p.school_name, p.mascot, p.sport_name].filter(Boolean).join(" ");
     const appBase  = process.env.NEXT_PUBLIC_APP_URL ?? "";
     await sendCoachWelcome({
-      to:           p.coach_email.toLowerCase(),
-      coachName:    p.coach_name,
+      to:           (p.coach_email ?? "").toLowerCase(),
+      coachName:    p.coach_name ?? "",
       teamName:     teamName || p.slug,
       loginUrl:     `${appBase}/login`,
-      email:        p.coach_email.toLowerCase(),
-      tempPassword: p.coach_password,
+      email:        (p.coach_email ?? "").toLowerCase(),
+      tempPassword: p.coach_password ?? "",
       teamHubUrl:   `${appBase}/team/${p.slug}`,
     });
   } catch (err) {
