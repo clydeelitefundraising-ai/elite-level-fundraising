@@ -2,7 +2,7 @@ import { createCampaignSettings, CampaignSettingsError } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { sendCoachWelcome } from "@/lib/email";
-import { assignExistingCoachToCampaign } from "@/lib/coachAssignment";
+import { assignExistingCoachToCampaign, checkExistingCoachEligibility } from "@/lib/coachAssignment";
 import { randomBytes } from "crypto";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -67,6 +67,20 @@ export type CampaignCoreResult =
   | { ok: false; error: string; status: number };
 
 export async function createCampaignCore(p: CampaignCoreParams): Promise<CampaignCoreResult> {
+  // 0. Existing-coach eligibility — deterministic, read-only, must run
+  // before any campaign-related write. An ineligible account (missing,
+  // non-coach) must never leave a partially-created campaign_settings row
+  // behind with no coach, join code, or athletes attached.
+  if (p.coach_mode === "existing") {
+    if (!p.existing_coach_account_id) {
+      return { ok: false, error: "An existing coach account must be selected.", status: 400 };
+    }
+    const eligibility = await checkExistingCoachEligibility(p.existing_coach_account_id);
+    if (!eligibility.ok) {
+      return { ok: false, error: eligibility.error, status: eligibility.status };
+    }
+  }
+
   // 1. campaign_settings
   try {
     await createCampaignSettings({

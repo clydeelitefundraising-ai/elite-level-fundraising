@@ -176,19 +176,16 @@ export async function searchCoachAccounts(query: string, limit = 8): Promise<Coa
   return results.slice(0, limit);
 }
 
-export type AssignExistingCoachResult =
-  | { ok: true;  alreadyLinked: boolean; coachName: string; coachEmail: string }
+export type CoachEligibilityResult =
+  | { ok: true;  name: string; email: string }
   | { ok: false; error: string; status: number };
 
-// Attaches an already-existing elf_accounts holder as head coach of `slug`.
-// Never creates a second elf_accounts row, never touches the account's
-// password, never sends a welcome/temp-password email. Idempotent: if the
-// account is already linked to this campaign, returns success without
-// inserting a duplicate row.
-export async function assignExistingCoachToCampaign(
-  slug: string,
-  accountId: string,
-): Promise<AssignExistingCoachResult> {
+// Deterministic, read-only eligibility check — no writes. Callable as a
+// pre-flight before any campaign-related rows are created (so an ineligible
+// account can never leave a partially-created campaign behind), and reused
+// internally by assignExistingCoachToCampaign so the two checks can never
+// drift out of sync.
+export async function checkExistingCoachEligibility(accountId: string): Promise<CoachEligibilityResult> {
   const account = await fetch(
     `${BASE}/rest/v1/elf_accounts?id=eq.${encodeURIComponent(accountId)}&select=id,name,email&limit=1`,
     { headers: h(), cache: "no-store" },
@@ -203,6 +200,26 @@ export async function assignExistingCoachToCampaign(
   if (!capable) {
     return { ok: false, error: "This account is not currently a coach and can't be assigned this way.", status: 400 };
   }
+
+  return { ok: true, name, email };
+}
+
+export type AssignExistingCoachResult =
+  | { ok: true;  alreadyLinked: boolean; coachName: string; coachEmail: string }
+  | { ok: false; error: string; status: number };
+
+// Attaches an already-existing elf_accounts holder as head coach of `slug`.
+// Never creates a second elf_accounts row, never touches the account's
+// password, never sends a welcome/temp-password email. Idempotent: if the
+// account is already linked to this campaign, returns success without
+// inserting a duplicate row.
+export async function assignExistingCoachToCampaign(
+  slug: string,
+  accountId: string,
+): Promise<AssignExistingCoachResult> {
+  const eligibility = await checkExistingCoachEligibility(accountId);
+  if (!eligibility.ok) return eligibility;
+  const { name, email } = eligibility;
 
   // Idempotency: if this exact (campaign, account) relationship already
   // exists — from a prior attempt, a double-click, or a browser retry —
