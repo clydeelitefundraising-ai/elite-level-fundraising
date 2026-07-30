@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
+import { TIER_META } from "@/lib/sponsorTiers";
+import { isSafeExternalUrl } from "@/lib/urlSafety";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -527,56 +529,71 @@ function HomeContent({
               href={`/team/${slug}/sponsors`}
               style={{ fontSize: ".7rem", fontWeight: 700, color: "#0b1e3d", textDecoration: "none" }}
             >
-              View All →
+              View All Sponsors →
             </a>
           </div>
           <div style={{ display: "flex", gap: ".5rem", overflowX: "auto", paddingBottom: ".25rem", scrollbarWidth: "none" } as React.CSSProperties}>
-            {sponsors.slice(0, 5).map(s => (
-              <a
-                key={s.id}
-                href={s.url || `/team/${slug}/sponsors`}
-                target={s.url ? "_blank" : undefined}
-                rel={s.url ? "noopener noreferrer" : undefined}
-                style={{
-                  flexShrink: 0,
-                  width: 80,
-                  background: "#fff",
-                  borderRadius: 12,
-                  padding: ".6rem .4rem .5rem",
-                  boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: ".3rem",
-                  textDecoration: "none",
-                }}
-              >
-                {s.logo_url ? (
-                  <img
-                    src={s.logo_url}
-                    alt={s.name}
-                    style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 6 }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 6,
-                    background: "#f0f4ff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: ".9rem", color: "#1d4ed8",
+            {sponsors.slice(0, 5).map(s => {
+              const hasSafeLink = isSafeExternalUrl(s.url);
+              const tier = TIER_META[s.tier];
+              const cardStyle: React.CSSProperties = {
+                flexShrink: 0,
+                width: 80,
+                background: "#fff",
+                borderRadius: 12,
+                padding: ".6rem .4rem .5rem",
+                boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: ".3rem",
+                textDecoration: "none",
+              };
+              const cardContent = (
+                <>
+                  {s.logo_url ? (
+                    <img
+                      src={s.logo_url}
+                      alt={s.name}
+                      style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 6 }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 6,
+                      background: "#f0f4ff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontWeight: 800, fontSize: ".9rem", color: "#1d4ed8",
+                    }}>
+                      {s.name.trim()[0]?.toUpperCase() ?? "S"}
+                    </div>
+                  )}
+                  <span style={{
+                    fontSize: ".58rem", fontWeight: 700, color: "#374151",
+                    textAlign: "center", lineHeight: 1.25,
+                    overflow: "hidden", display: "-webkit-box",
+                    WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
                   }}>
-                    {s.name.trim()[0]?.toUpperCase() ?? "S"}
-                  </div>
-                )}
-                <span style={{
-                  fontSize: ".58rem", fontWeight: 700, color: "#374151",
-                  textAlign: "center", lineHeight: 1.25,
-                  overflow: "hidden", display: "-webkit-box",
-                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-                }}>
-                  {s.name}
-                </span>
-              </a>
-            ))}
+                    {s.name}
+                  </span>
+                  <span style={{
+                    fontSize: ".5rem", fontWeight: 700, color: tier.color,
+                    background: tier.bg, borderRadius: 100, padding: ".05rem .32rem",
+                    textTransform: "uppercase", letterSpacing: ".03em",
+                  }}>
+                    {tier.label}
+                  </span>
+                </>
+              );
+              return hasSafeLink ? (
+                <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" style={cardStyle}>
+                  {cardContent}
+                </a>
+              ) : (
+                <a key={s.id} href={`/team/${slug}/sponsors`} style={cardStyle}>
+                  {cardContent}
+                </a>
+              );
+            })}
           </div>
         </div>
       )}

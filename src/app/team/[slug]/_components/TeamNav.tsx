@@ -32,10 +32,12 @@ export default function TeamNav({
   badgeCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
-  // Visible to every authenticated team role (coaches, boosters, parents,
-  // athletes) — Sponsors is view-only for non-coach roles, not hidden from
-  // them entirely. Write access is enforced separately (isCoachOnly) inside
-  // the page and API routes.
+  // Staff-only tab (head coach, assistant coach, booster — see
+  // canSeeSponsorsNavigation in permissions.ts). Athletes and parents reach
+  // the same Sponsors page via a "View All Sponsors" link on Home instead of
+  // a dedicated tab. Sponsors itself remains view-only for non-coach roles;
+  // write access is enforced separately (isCoachOnly) inside the page and
+  // API routes.
   const tabs = showSponsors ? [...BASE_TABS, STAFF_TAB] : BASE_TABS;
 
   return (

@@ -4,25 +4,10 @@ import { useState } from "react";
 import type { SponsorRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { coachSession, isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
+import { TIER_ORDER, TIER_META, type Tier } from "@/lib/sponsorTiers";
+import { isSafeExternalUrl } from "@/lib/urlSafety";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
-
-// ── Tier config ───────────────────────────────────────────────────────────────
-
-const TIER_ORDER = [
-  "title", "platinum", "gold", "silver", "bronze", "community_partner",
-] as const;
-
-type Tier = typeof TIER_ORDER[number];
-
-const TIER_META: Record<Tier, { label: string; color: string; bg: string }> = {
-  title:             { label: "Title Sponsor",     color: "#4c1d95", bg: "#ede9fe" },
-  platinum:          { label: "Platinum",          color: "#0c4a6e", bg: "#e0f2fe" },
-  gold:              { label: "Gold",              color: "#92400e", bg: "#fef3c7" },
-  silver:            { label: "Silver",            color: "#374151", bg: "#f3f4f6" },
-  bronze:            { label: "Bronze",            color: "#7c2d12", bg: "#ffedd5" },
-  community_partner: { label: "Community Partner", color: "#065f46", bg: "#d1fae5" },
-};
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -242,23 +227,21 @@ function CoachCard({
 // ── Public sponsor card ───────────────────────────────────────────────────────
 
 function PublicCard({ s }: { s: SponsorRow }) {
-  return (
-    <a
-      href={s.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        display: "flex",
-        gap: ".75rem",
-        alignItems: "center",
-        background: "#fff",
-        borderRadius: 14,
-        padding: ".85rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        textDecoration: "none",
-        borderLeft: `3px solid ${TIER_META[s.tier].color}`,
-      }}
-    >
+  const hasSafeLink = isSafeExternalUrl(s.url);
+  const cardStyle: React.CSSProperties = {
+    display: "flex",
+    gap: ".75rem",
+    alignItems: "center",
+    background: "#fff",
+    borderRadius: 14,
+    padding: ".85rem",
+    boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+    textDecoration: "none",
+    borderLeft: `3px solid ${TIER_META[s.tier].color}`,
+  };
+
+  const content = (
+    <>
       {s.logo_url ? (
         <img
           src={s.logo_url}
@@ -281,8 +264,16 @@ function PublicCard({ s }: { s: SponsorRow }) {
         )}
       </div>
 
-      <span style={{ fontSize: ".72rem", color: "#9ca3af", flexShrink: 0 }}>↗</span>
+      {hasSafeLink && <span style={{ fontSize: ".72rem", color: "#9ca3af", flexShrink: 0 }}>↗</span>}
+    </>
+  );
+
+  return hasSafeLink ? (
+    <a href={s.url} target="_blank" rel="noopener noreferrer" style={cardStyle}>
+      {content}
     </a>
+  ) : (
+    <div style={cardStyle}>{content}</div>
   );
 }
 
@@ -453,10 +444,12 @@ export default function SponsorsView({
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
 
-  // Public view: only visible sponsors grouped by tier
-  const visibleSponsors = staff
-    ? sponsors
-    : sponsors.filter(s => s.visible);
+  // Non-staff never receive hidden sponsors in the first place — the server
+  // page filters them out before this component's props are ever
+  // serialized (see sponsors/page.tsx), so `sponsors` here is already the
+  // correct list for the current actor. Staff continue to get the full
+  // list (hidden sponsors included, marked "Hidden") for management.
+  const visibleSponsors = sponsors;
 
   const grouped = TIER_ORDER.reduce<Record<string, SponsorRow[]>>((acc, t) => {
     const items = visibleSponsors.filter(s => s.tier === t);

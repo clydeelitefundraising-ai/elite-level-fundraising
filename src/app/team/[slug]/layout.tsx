@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { canSeeSponsorsNavigation } from "@/lib/permissions";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import TeamHeader from "./_components/TeamHeader";
@@ -90,7 +91,7 @@ export default async function TeamLayout({
         <TeamNavWithBadge
           slug={slug}
           primaryColor={settings.primary_color}
-          showSponsors={isAuthenticated}
+          showSponsors={canSeeSponsorsNavigation(actor)}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
           donorCount={donationStats.donor_count}

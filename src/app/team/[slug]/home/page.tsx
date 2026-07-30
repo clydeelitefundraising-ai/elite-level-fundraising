@@ -2,6 +2,7 @@ import { getAnnouncements, getCalendarEvents, getTeamSponsors, getDonationStats,
 import type { SponsorRow } from "@/lib/teamData";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { getCampaignSettings } from "@/lib/supabase";
+import { sortSponsorsForHome } from "@/lib/sponsorRotation";
 import HomeView from "./HomeView";
 
 export default async function HomePage({
@@ -21,7 +22,10 @@ export default async function HomePage({
     getDonationStats(slug),
     getTeamFundraiserSummary(slug),
   ]);
-  const sponsors: SponsorRow[] = allSponsors.filter(s => s.visible !== false);
+  const visibleSponsors: SponsorRow[] = allSponsors.filter(s => s.visible !== false);
+  // Gold-and-above always outrank Silver, Silver above Bronze, Bronze above
+  // untiered; only the order within a tier rotates — see sponsorRotation.ts.
+  const sponsors = sortSponsorsForHome(visibleSponsors, slug);
   return (
     <HomeView
       slug={slug}

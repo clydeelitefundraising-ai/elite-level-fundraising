@@ -60,6 +60,17 @@ export function canWrite(actor: TeamActor): boolean {
   return isStaff(actor);
 }
 
+/** True if this actor should see the dedicated Sponsors nav tab (head coach,
+ *  assistant coach, booster). Athletes and parents access sponsors via the
+ *  Home page instead. A session only ever carries one active role at a time,
+ *  so an account that is both a coach and a parent elsewhere sees this tab
+ *  whenever they're acting in the staff session — no separate "multi-role"
+ *  branch needed. Single source of truth: reuses isStaff() rather than
+ *  duplicating the role check at each nav call site. */
+export function canSeeSponsorsNavigation(actor: TeamActor): boolean {
+  return isStaff(actor);
+}
+
 // ── Role-string helpers (for use with raw CoachSession.role values) ───────────
 
 /** True if a raw team_coaches role string carries destructive access. */
