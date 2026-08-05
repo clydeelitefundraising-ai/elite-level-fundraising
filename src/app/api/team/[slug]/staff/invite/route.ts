@@ -51,7 +51,14 @@ export async function POST(
 
   await consumeRateLimit(key, LIMIT);
 
-  const appBase = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  // NEXT_PUBLIC_APP_URL is a NEXT_PUBLIC_* var baked in at build time — only
+  // trust it in production. On preview, always link back to whichever
+  // deployment actually handled this request, or the link points at
+  // production instead of the preview that issued it. Same fix already
+  // applied to /api/auth/request-reset for the identical class of bug.
+  const appBase = process.env.VERCEL_ENV === "production"
+    ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+    : new URL(req.url).origin;
   const inviteUrl = `${appBase}/staff-invite/${result.rawToken}`;
 
   let emailSent = false;
