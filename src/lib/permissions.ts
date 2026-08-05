@@ -71,6 +71,16 @@ export function canSeeSponsorsNavigation(actor: TeamActor): boolean {
   return isStaff(actor);
 }
 
+/** True only for the Head Coach of the campaign this actor is currently
+ *  resolved against — the sole role allowed to manage Team Staff (invite,
+ *  assign, remove Assistant Coaches/Boosters). Assistant coaches and
+ *  boosters are staff too but must not get management rights, so this is
+ *  deliberately narrower than isStaff()/isCoachOnly(). Single source of
+ *  truth for staff-management authorization — reused by every staff route. */
+export function canManageStaff(actor: TeamActor): boolean {
+  return isHeadCoach(actor);
+}
+
 // ── Role-string helpers (for use with raw CoachSession.role values) ───────────
 
 /** True if a raw team_coaches role string carries destructive access. */
