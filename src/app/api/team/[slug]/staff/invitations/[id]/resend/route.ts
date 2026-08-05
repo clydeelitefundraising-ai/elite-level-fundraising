@@ -29,7 +29,11 @@ export async function POST(
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   await consumeRateLimit(key, LIMIT);
 
-  const appBase = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  // Same preview-vs-production URL fix as /api/team/[slug]/staff/invite and
+  // /api/auth/request-reset — see comment there for why.
+  const appBase = process.env.VERCEL_ENV === "production"
+    ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+    : new URL(req.url).origin;
   const inviteUrl = `${appBase}/staff-invite/${result.rawToken}`;
 
   let emailSent = false;
