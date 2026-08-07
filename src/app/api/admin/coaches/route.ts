@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
@@ -145,8 +145,12 @@ export async function POST(req: NextRequest) {
     // elf_accounts linking is best-effort; coach row is already created
   }
 
-  // Fire-and-forget welcome email — failure never blocks coach creation.
-  void (async () => {
+  // Scheduled via after() rather than a bare fire-and-forget promise: once
+  // this handler returns, Vercel may freeze the function before an
+  // un-awaited fetch to Resend finishes — after() guarantees the callback
+  // runs to completion post-response instead of racing a freeze. Same
+  // pattern already established in auth/request-reset/route.ts.
+  after(async () => {
     try {
       const settings = await getCampaignSettings(campaign_slug.trim()).catch(() => null);
       const teamName = settings
@@ -167,7 +171,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error("[coaches] sendCoachWelcome failed:", err);
     }
-  })();
+  });
 
   logAuditEvent({
     action:        "coach.added",

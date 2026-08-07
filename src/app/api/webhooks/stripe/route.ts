@@ -24,7 +24,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "crypto";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { insertDonation, donationExists, getCampaignSettings } from "@/lib/supabase";
 import { sendDonorReceipt } from "@/lib/email";
 
@@ -186,10 +186,13 @@ export async function POST(req: NextRequest) {
 
   console.log("[stripe-webhook] donation saved, session:", session.id, "amount:", session.amount_total);
 
-  // ── 9. Donor receipt email — fire-and-forget, never blocks Stripe's 200.
+  // ── 9. Donor receipt email — scheduled via after() so it never blocks
+  //       Stripe's 200 response, and (unlike a bare fire-and-forget promise)
+  //       is guaranteed to run to completion instead of racing a possible
+  //       function freeze once the response has been sent.
   const donorEmail = session.customer_details?.email;
   if (donorEmail) {
-    void (async () => {
+    after(async () => {
       try {
         const slug     = session.metadata?.campaign_slug ?? "";
         const settings = slug ? await getCampaignSettings(slug).catch(() => null) : null;
@@ -211,7 +214,7 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("[stripe-webhook] sendDonorReceipt failed:", err);
       }
-    })();
+    });
   }
 
   return NextResponse.json({ received: true });

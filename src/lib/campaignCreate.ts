@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createCampaignSettings, CampaignSettingsError } from "@/lib/supabase";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
@@ -178,8 +179,12 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
     // elf_accounts link (fire-and-forget — failure does not block campaign creation)
     void linkElfAccount(p.slug, p.coach_name ?? "", p.coach_email ?? "", p.coach_password ?? "");
 
-    // welcome email (fire-and-forget)
-    void sendWelcomeEmail(p);
+    // welcome email — scheduled via after() rather than a bare fire-and-forget
+    // promise: once the calling route's handler returns, Vercel may freeze the
+    // function before an un-awaited fetch to Resend finishes. after() runs
+    // this to completion post-response instead of racing that freeze. Same
+    // pattern already established in auth/request-reset/route.ts.
+    after(() => sendWelcomeEmail(p));
   }
 
   // 3. join code
