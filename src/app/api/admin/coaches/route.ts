@@ -152,7 +152,9 @@ export async function POST(req: NextRequest) {
       const teamName = settings
         ? `${settings.school_name} ${settings.mascot} ${settings.sport_name}`.trim()
         : campaign_slug.trim();
-      const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
+      const appBase = process.env.VERCEL_ENV === "production"
+        ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+        : new URL(req.url).origin;
       await sendCoachWelcome({
         to:           email.trim().toLowerCase(),
         coachName:    name.trim(),

@@ -17,7 +17,7 @@ async function authed(): Promise<boolean> {
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -74,7 +74,9 @@ export async function POST(
     return NextResponse.json({ error: "Failed to generate invite token." }, { status: 500 });
   }
 
-  const appBase   = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const appBase   = process.env.VERCEL_ENV === "production"
+    ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+    : new URL(req.url).origin;
   const inviteUrl = `${appBase}/coach-activate/${rawToken}`;
 
   // Best-effort email — failure does not block the response

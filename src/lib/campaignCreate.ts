@@ -264,7 +264,14 @@ async function linkElfAccount(
 async function sendWelcomeEmail(p: CampaignCoreParams): Promise<void> {
   try {
     const teamName = [p.school_name, p.mascot, p.sport_name].filter(Boolean).join(" ");
-    const appBase  = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    // No request object is available here — this is a shared helper called
+    // from eight different admin routes, not a route handler itself. Vercel
+    // sets VERCEL_URL on every deployment (Preview and Production alike) to
+    // that deployment's own real host, so it's used as the non-production
+    // fallback instead of threading req/origin through every caller.
+    const appBase  = process.env.VERCEL_ENV === "production" && process.env.NEXT_PUBLIC_APP_URL
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : `https://${process.env.VERCEL_URL}`;
     await sendCoachWelcome({
       to:           (p.coach_email ?? "").toLowerCase(),
       coachName:    p.coach_name ?? "",

@@ -196,7 +196,9 @@ export async function POST(req: NextRequest) {
         const teamName = settings
           ? `${settings.school_name} ${settings.mascot} ${settings.sport_name}`.trim()
           : "the team";
-        const appBase    = process.env.NEXT_PUBLIC_APP_URL ?? "";
+        const appBase    = process.env.VERCEL_ENV === "production"
+          ? (process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin)
+          : new URL(req.url).origin;
         const campaignUrl = slug ? `${appBase}/campaign/${slug}` : appBase;
         await sendDonorReceipt({
           to:          donorEmail,
