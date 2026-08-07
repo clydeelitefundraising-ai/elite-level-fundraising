@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
+
+// 10 requests per 10 minutes per IP. Every attempt counts — this is an
+// unauthenticated, public, payment-adjacent endpoint (creates a live Stripe
+// Checkout Session per call), so throttling scripted flooding matters even
+// though no charge occurs until Stripe's own hosted checkout is completed.
+const LIMIT = { limit: 10, windowSeconds: 60 * 10 };
 
 export async function POST(req: NextRequest) {
+  const rl = await consumeRateLimit(rateLimitKey("checkout-create", req), LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const { amountCents, athleteName, athleteId, donorName, donationMessage, campaignSlug } =
     await req.json();
 

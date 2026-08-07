@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { generateInviteToken, hashInviteToken, tokenExpiresAt } from "@/lib/coachInvite";
-import { checkRateLimit, rateLimitKey } from "@/lib/rateLimit";
+import { consumeRateLimit, compoundRateLimitKey, rateLimitKey } from "@/lib/rateLimit";
 import { sendPasswordReset } from "@/lib/email";
 
-const LIMIT = { limit: 5, windowSeconds: 60 * 60 };
+// Layered protection, same rationale as the login routes. consumeRateLimit
+// (every request counts, not just failures) is used here rather than
+// check+recordFailure: this route always returns the same generic response
+// whether or not the email matches an account, so there is no
+// success/failure distinction to gate a recordFailure call on without
+// itself becoming an account-existence side channel.
+const BROAD_LIMIT  = { limit: 20, windowSeconds: 60 * 60 };
+const NARROW_LIMIT = { limit: 5,  windowSeconds: 60 * 60 };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 function h(extra?: Record<string, string>) {
@@ -17,18 +24,20 @@ function h(extra?: Record<string, string>) {
 const GENERIC_RESPONSE = { ok: true, message: "If an account exists for that email, we've sent a password reset link." };
 
 export async function POST(req: NextRequest) {
-  const key = rateLimitKey("password-reset-request", req);
-  const rl  = await checkRateLimit(key, LIMIT);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "Too many attempts. Try again later.", retryAfter: rl.retryAfter },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
-    );
-  }
-
   const body = await req.json().catch(() => null);
   const email = (body?.email as string | undefined)?.trim().toLowerCase();
   if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
+
+  const [broadCheck, narrowCheck] = await Promise.all([
+    consumeRateLimit(rateLimitKey("password-reset-request", req), BROAD_LIMIT),
+    consumeRateLimit(compoundRateLimitKey("password-reset-request-id", req, email), NARROW_LIMIT),
+  ]);
+  if (!broadCheck.allowed || !narrowCheck.allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later.", retryAfter: Math.max(broadCheck.retryAfter, narrowCheck.retryAfter) },
+      { status: 429, headers: { "Retry-After": String(Math.max(broadCheck.retryAfter, narrowCheck.retryAfter)) } },
+    );
+  }
 
   const acctRes = await fetch(
     `${BASE}/rest/v1/elf_accounts?email=eq.${encodeURIComponent(email)}&select=id,name,email&limit=1`,

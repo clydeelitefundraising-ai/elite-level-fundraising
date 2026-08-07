@@ -10,7 +10,7 @@
 // which was deliberately left untouched for backward compatibility.
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
-import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";
+import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 
 // 20 failed attempts per hour per IP.
 // Most lenient limit — members may try old or misremembered codes.
@@ -34,7 +34,7 @@ export async function POST(
 ) {
   const { slug } = await params;
 
-  const key = `rl:member-join:${slug}:${getClientIp(req)}`;
+  const key = rateLimitKey(`member-join:${slug}`, req);
   const rl  = await checkRateLimit(key, LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(

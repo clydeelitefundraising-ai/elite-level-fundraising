@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+// 15 failed (invalid/expired) attempts per 15 minutes per IP. Codes have
+// decent entropy (32^6 keyspace), but this endpoint is public, unauthenticated,
+// and returns a full athlete roster on success — throttling blunts both
+// brute-force enumeration and bulk scraping. Checked once per form submit
+// in the UI (not per keystroke), so this carries no real UX cost.
+const LIMIT = { limit: 15, windowSeconds: 60 * 15 };
 
 function h() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -8,6 +16,15 @@ function h() {
 }
 
 export async function GET(req: NextRequest) {
+  const key = rateLimitKey("validate-code", req);
+  const rl  = await checkRateLimit(key, LIMIT);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later.", retryAfter: rl.retryAfter },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const code = req.nextUrl.searchParams.get("code")?.trim().toUpperCase();
   if (!code) return NextResponse.json({ error: "Code is required." }, { status: 400 });
 
@@ -19,11 +36,13 @@ export async function GET(req: NextRequest) {
 
   const codeRows = await codeRes.json();
   if (!Array.isArray(codeRows) || codeRows.length === 0) {
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid or expired team code." }, { status: 404 });
   }
 
   const joinCode = codeRows[0];
   if (joinCode.expires_at && new Date(joinCode.expires_at) < new Date()) {
+    await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "This team code has expired." }, { status: 410 });
   }
 

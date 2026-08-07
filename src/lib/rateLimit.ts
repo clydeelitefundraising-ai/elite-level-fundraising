@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { Redis } from "@upstash/redis";
+import { getTrustedClientIp } from "@/lib/clientIp";
 
 let _redis: Redis | undefined;
 
@@ -32,21 +34,50 @@ export interface RateLimitResult {
 type HeadersLike = { headers: { get(name: string): string | null } };
 
 /**
- * Extract the client IP from standard reverse-proxy headers.
- * Vercel sets x-forwarded-for; fallback to x-real-ip then "unknown".
+ * Extract the trusted client IP. Kept as a re-export under this name so
+ * every existing caller (rateLimitKey below, and the couple of routes that
+ * build their own keys directly) picks up the verified-safe implementation
+ * with no call-site changes. See src/lib/clientIp.ts for the trust-boundary
+ * analysis and verification behind this.
  */
-export function getClientIp(req: HeadersLike): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+export const getClientIp = getTrustedClientIp;
+
+/**
+ * Short tag identifying which deployment environment this key belongs to.
+ * Upstash's free tier allows only one Redis database, so Preview and
+ * Production share a single instance — this tag is what keeps their rate
+ * limit buckets from colliding with each other despite that. Derived from
+ * VERCEL_ENV (set by Vercel at runtime, not client-controllable), never
+ * from a header, so it can't be spoofed by a request.
+ */
+function environmentTag(): string {
+  const env = process.env.VERCEL_ENV;
+  if (env === "production") return "prod";
+  if (env === "preview") return "preview";
+  return "dev";
 }
 
 /**
- * Build a namespaced rate-limit key: "rl:<prefix>:<ip>".
+ * Build a namespaced rate-limit key: "rl:<env>:<prefix>:<ip>".
  * Use a distinct prefix per route so limits are independent.
  */
 export function rateLimitKey(prefix: string, req: HeadersLike): string {
-  return `rl:${prefix}:${getClientIp(req)}`;
+  return `rl:${environmentTag()}:${prefix}:${getClientIp(req)}`;
+}
+
+/**
+ * Build a compound rate-limit key scoping a broader per-IP prefix down to a
+ * specific login identifier (e.g. email): "rl:<env>:<prefix>:<ip>:<idHash>".
+ * The identifier is hashed (not stored raw) so Redis keys never carry a
+ * readable email address. Used alongside a plain rateLimitKey() bucket to
+ * layer protection: the broad IP bucket catches one attacker spraying many
+ * different accounts, while this narrow bucket protects one account without
+ * locking out every other real user who happens to share that IP (school
+ * networks, households, mobile carrier NAT).
+ */
+export function compoundRateLimitKey(prefix: string, req: HeadersLike, identifier: string): string {
+  const idHash = createHash("sha256").update(identifier.trim().toLowerCase()).digest("hex").slice(0, 16);
+  return `rl:${environmentTag()}:${prefix}:${getClientIp(req)}:${idHash}`;
 }
 
 /**
@@ -109,14 +140,23 @@ export async function consumeRateLimit(key: string, cfg: RateLimitConfig): Promi
 }
 
 /**
- * Clear the failed-attempt counter for an IP after a successful authentication.
- * Prevents residual failures from locking out a user who has since provided correct credentials.
+ * Clear the failed-attempt counter for an already-built key after a
+ * successful authentication. Prevents residual failures from locking out a
+ * user who has since provided correct credentials.
  * Fails silently: if Redis is unavailable, the stale counter is left to expire naturally.
  */
-export async function clearRateLimit(req: HeadersLike, prefix: string): Promise<void> {
+export async function clearRateLimitKey(key: string): Promise<void> {
   try {
-    await r().del(rateLimitKey(prefix, req));
+    await r().del(key);
   } catch (err) {
     console.error("[rateLimit] clearRateLimit error — skipping:", err);
   }
+}
+
+/**
+ * Convenience wrapper over clearRateLimitKey for the common single-IP-key
+ * case: clears "rl:<prefix>:<ip>" for the request's trusted IP.
+ */
+export async function clearRateLimit(req: HeadersLike, prefix: string): Promise<void> {
+  await clearRateLimitKey(rateLimitKey(prefix, req));
 }

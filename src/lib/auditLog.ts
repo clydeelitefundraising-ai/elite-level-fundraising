@@ -1,3 +1,5 @@
+import { getTrustedClientIp } from "@/lib/clientIp";
+
 export type AuditEventParams = {
   action:          string;
   entity_type?:    string;
@@ -39,7 +41,6 @@ export function logAuditEvent(params: AuditEventParams): void {
 }
 
 export function ipOf(req: { headers: { get(k: string): string | null } }): string | null {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip");
+  const ip = getTrustedClientIp(req);
+  return ip === "unknown" ? null : ip;
 }
