@@ -109,6 +109,7 @@ export type SponsorRow = {
   tier: "title" | "platinum" | "gold" | "silver" | "bronze" | "community_partner";
   logo_url: string | null;
   description: string | null;
+  industry?: string | null;
   display_order: number;
   visible: boolean;
   sponsorship_amount_cents: number | null;

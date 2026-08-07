@@ -70,6 +70,7 @@ export type CalendarEventRow = {
   event_time: string;
   location: string;
   type: "practice" | "meet" | "fundraiser" | "team";
+  description?: string | null;
   created_at: string;
 };
 
