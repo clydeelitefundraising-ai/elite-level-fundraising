@@ -6,14 +6,30 @@
 // single Head Coach's own campaign rather than platform-wide admin.
 import { randomBytes } from "crypto";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
-import { generateInviteToken, hashInviteToken, tokenExpiresAt } from "@/lib/coachInvite";
-import { findAccountByEmail, type CoachAccount } from "@/lib/coachAssignment";
+import { generateInviteToken, hashInviteToken, inviteExpiresAt } from "@/lib/coachInvite";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 function h(extra?: Record<string, string>) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
+}
+
+// Local, dependency-free equivalent of coachAssignment.ts's findAccountByEmail
+// (that module belongs to the separate, still-unmerged Phase A26 existing-coach
+// assignment feature — kept out of this isolated A28 release on purpose).
+export type CoachAccount = { id: string; name: string; email: string };
+
+export async function findAccountByEmail(email: string): Promise<CoachAccount | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const res = await fetch(
+    `${BASE}/rest/v1/elf_accounts?email=eq.${encodeURIComponent(normalized)}&select=id,name,email&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0 ? (rows[0] as CoachAccount) : null;
 }
 
 export const STAFF_ASSIGNABLE_ROLES = ["assistant_coach", "booster"] as const;
@@ -28,9 +44,7 @@ export function normalizeEmail(email: string): string {
 }
 
 // Invitations reuse the same 24h duration as the existing coach-invite flow
-// (coachInvite.ts's inviteExpiresAt) — same category of "set up account
-// access" token, not the 1h password-reset duration.
-const INVITE_EXPIRY_HOURS = 24;
+// (coachInvite.ts's inviteExpiresAt(), hardcoded to 24h on main).
 
 export type StaffRow = {
   id: string;
@@ -84,9 +98,6 @@ export async function hasSameCampaignRelationship(accountId: string, slug: strin
   const memberRows = memberRes.ok ? await memberRes.json() : [];
   return (Array.isArray(coachRows) && coachRows.length > 0) || (Array.isArray(memberRows) && memberRows.length > 0);
 }
-
-export { findAccountByEmail };
-export type { CoachAccount };
 
 // ── Direct assignment (temp-password or existing-account) ─────────────────────
 
@@ -257,7 +268,7 @@ export async function createStaffInvitation(
 
   const rawToken = generateInviteToken();
   const tokenHash = hashInviteToken(rawToken);
-  const expiresAt = tokenExpiresAt(INVITE_EXPIRY_HOURS);
+  const expiresAt = inviteExpiresAt();
 
   const insertRes = await fetch(`${BASE}/rest/v1/team_staff_invitations`, {
     method: "POST",
@@ -307,7 +318,7 @@ export async function resendStaffInvitation(id: string, slug: string): Promise<M
   // avoids ever having more than one valid token per invitation.
   const rawToken = generateInviteToken();
   const tokenHash = hashInviteToken(rawToken);
-  const expiresAt = tokenExpiresAt(INVITE_EXPIRY_HOURS);
+  const expiresAt = inviteExpiresAt();
 
   const updateRes = await fetch(
     `${BASE}/rest/v1/team_staff_invitations?id=eq.${encodeURIComponent(id)}`,
