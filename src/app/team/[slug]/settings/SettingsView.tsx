@@ -273,6 +273,30 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
         </div>
       </div>
 
+      {/* ── Team Staff section (Head Coach only) ── */}
+      {coach.role === "head_coach" && (
+        <div style={{
+          background: "#fff",
+          borderRadius: 13,
+          padding: "1rem",
+          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          marginTop: ".75rem",
+        }}>
+          <h2 style={{ margin: "0 0 .18rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
+            Team Staff
+          </h2>
+          <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+            Manage the assistant coaches and boosters who help run your team.
+          </p>
+          <button
+            onClick={() => router.push(`/team/${slug}/staff`)}
+            style={{ width: "100%", padding: ".6rem .75rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
+          >
+            Manage Team Staff
+          </button>
+        </div>
+      )}
+
       {/* ── Your Teams section ── */}
       <div style={{
         background: "#fff",
