@@ -282,7 +282,7 @@ export default function EnterCodeView({
                   either pick yourself, or explicitly say you're not listed).
                   Optional for role=parent (existing behavior preserved). */}
               {needsAthleteSelect && athleteMode === "select" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
                     <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
                       {role === "athlete" ? "Select Yourself" : "Select Athlete (optional)"}
@@ -303,7 +303,21 @@ export default function EnterCodeView({
                     <button
                       type="button"
                       onClick={() => { setAthleteMode("not_listed"); setAthleteId(""); setError(null); }}
-                      style={{ alignSelf: "flex-start", background: "none", border: "none", padding: 0, fontSize: ".82rem", color: "#0b1e3d", fontWeight: 600, textDecoration: "underline", cursor: "pointer" }}
+                      style={{
+                        alignSelf: "flex-start",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minHeight: 44,
+                        padding: ".55rem 1rem",
+                        borderRadius: ".65rem",
+                        border: "1.5px solid #d1d5db",
+                        background: "#fff",
+                        fontSize: ".82rem",
+                        color: "#0b1e3d",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
                     >
                       I don&apos;t see my name
                     </button>
