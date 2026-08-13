@@ -3,14 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { MessageThread, ResolvedParticipant, ResolvedMessage } from "@/lib/messages";
-
-const ROLE_LABEL: Record<string, string> = {
-  head_coach:      "Head Coach",
-  assistant_coach: "Asst. Coach",
-  booster:         "Booster",
-  athlete:         "Athlete",
-  parent:          "Parent",
-};
+import {
+  roleLabel, otherParticipants, observerParticipants, conversationDisplayName, isFamilyThread,
+} from "../_shared/participantDisplay";
+import Avatar from "../_shared/Avatar";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -21,10 +17,6 @@ function relativeTime(iso: string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }).format(d);
-}
-
-function initials(name: string): string {
-  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
 function isOwnMessage(
@@ -41,10 +33,12 @@ function isOwnMessage(
 function MessageBubble({
   msg,
   isSelf,
+  showSenderInfo,
   primaryColor,
 }: {
   msg: ResolvedMessage;
   isSelf: boolean;
+  showSenderInfo: boolean;
   primaryColor: string;
 }) {
   return (
@@ -54,42 +48,38 @@ function MessageBubble({
         flexDirection:  isSelf ? "row-reverse" : "row",
         alignItems:     "flex-end",
         gap:            ".45rem",
-        marginBottom:   ".65rem",
+        marginBottom:   ".5rem",
       }}
     >
-      {/* Avatar */}
+      {/* Avatar — only on the other side, and only on the last bubble of a
+          run from the same sender, so consecutive messages don't repeat it. */}
       {!isSelf && (
-        <div style={{
-          width: 30, height: 30, borderRadius: "50%",
-          background: "#e5e7eb",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: ".6rem", fontWeight: 700, color: "#6b7280",
-          flexShrink: 0,
-        }}>
-          {initials(msg.sender_name)}
+        <div style={{ width: 28, flexShrink: 0 }}>
+          {showSenderInfo && <Avatar name={msg.sender_name} photoUrl={msg.sender_photo_url} size={28} />}
         </div>
       )}
 
       <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isSelf ? "flex-end" : "flex-start" }}>
-        {!isSelf && (
+        {!isSelf && showSenderInfo && (
           <span style={{ fontSize: ".65rem", color: "#9ca3af", marginBottom: ".18rem", fontWeight: 500 }}>
-            {msg.sender_name} · {ROLE_LABEL[msg.sender_role] ?? msg.sender_role}
+            {msg.sender_name} · {roleLabel(msg.sender_role)}
           </span>
         )}
         <div style={{
           background:   isSelf ? primaryColor : "#fff",
           color:        isSelf ? "#fff" : "#1f2937",
-          borderRadius: isSelf ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-          padding:      ".55rem .75rem",
-          fontSize:     ".85rem",
-          lineHeight:   1.5,
+          borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+          padding:      ".6rem .8rem",
+          fontSize:     "1rem",
+          lineHeight:   1.45,
           boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
           whiteSpace:   "pre-wrap",
           wordBreak:    "break-word",
+          overflowWrap: "anywhere",
         }}>
           {msg.body}
         </div>
-        <span style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".18rem" }}>
+        <span style={{ fontSize: ".6rem", color: "#c1c7d0", marginTop: ".15rem" }}>
           {relativeTime(msg.created_at)}
         </span>
       </div>
@@ -141,21 +131,11 @@ export default function ThreadView({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  const mainParticipants = participants.filter(p => !p.is_observer);
-  const observers = participants.filter(p => p.is_observer);
-  const hasFamily =
-    mainParticipants.some(p => p.role === "athlete") &&
-    mainParticipants.some(p => p.role === "parent");
-
-  // Display name for others (non-self, non-observer)
-  const otherNames = mainParticipants
-    .filter(p => {
-      if (actorKind === "coach") return !(p.actor_type === "coach" && p.coach_id === actorId);
-      return !(p.actor_type === "member" && p.member_id === actorId);
-    })
-    .map(p => p.name);
-
-  const threadTitle = thread.subject ?? otherNames.slice(0, 2).join(", ") ?? "Thread";
+  const others = otherParticipants(participants, actorKind, actorId);
+  const observers = observerParticipants(participants);
+  const family = isFamilyThread(participants);
+  const displayName = conversationDisplayName(participants, actorKind, actorId);
+  const primaryOther = others[0];
 
   const handleSend = useCallback(async () => {
     if (!replyBody.trim() || sending) return;
@@ -173,6 +153,7 @@ export default function ThreadView({
       created_at:       new Date().toISOString(),
       sender_name:      actorName,
       sender_role:      "",
+      sender_photo_url: null,
       read_at:          new Date().toISOString(),
     };
     setMessages(prev => [...prev, optimistic]);
@@ -216,80 +197,67 @@ export default function ThreadView({
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 140px)", animation: "elf-fadeUp .22s ease both" }}>
-      {/* Header */}
+    // 100dvh, not 100vh — 100vh does not shrink when the iOS on-screen
+    // keyboard opens, which left the composer stuck below the visible
+    // area. 100dvh tracks the actual visible viewport.
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 140px)", animation: "elf-fadeUp .22s ease both" }}>
+      {/* Header — participant identity is primary. Legacy subject (only on
+          threads created before Phase 2B) appears as small secondary
+          context, never as the primary line. */}
       <div style={{
-        display: "flex", alignItems: "center", gap: ".5rem",
-        marginBottom: ".65rem", paddingBottom: ".65rem",
+        display: "flex", alignItems: "center", gap: ".6rem",
+        marginBottom: ".5rem", paddingBottom: ".65rem",
         borderBottom: "1px solid #e5e7eb",
       }}>
         <button
           onClick={() => router.push(`/team/${slug}/communications?tab=messages`)}
+          aria-label="Back to messages"
           style={{
             background: "none", border: "none", cursor: "pointer",
-            fontSize: "1.1rem", color: "#6b7280", padding: ".1rem .2rem",
-            lineHeight: 1, borderRadius: 6,
+            fontSize: "1.2rem", color: "#6b7280", padding: ".2rem .3rem",
+            lineHeight: 1, borderRadius: 6, flexShrink: 0,
           }}
         >
           ←
         </button>
+        {primaryOther && <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={36} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontWeight: 800, fontSize: ".9rem", color: "#0b1e3d",
+            fontWeight: 800, fontSize: ".95rem", color: "#0b1e3d",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>
-            {threadTitle}
+            {displayName}
           </div>
-          <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>
-            {mainParticipants.length} participant{mainParticipants.length !== 1 ? "s" : ""}
-            {observers.length > 0 && ` · ${observers.length} observer${observers.length !== 1 ? "s" : ""}`}
-          </div>
+          {thread.subject && (
+            <div style={{ fontSize: ".68rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {thread.subject}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Safety transparency banner */}
-      {(hasFamily || observers.length > 0) && (
+      {/* Subordinate context line — family inclusion + oversight, kept
+          small and secondary to the header rather than a full-width
+          banner competing with it. */}
+      {(family || observers.length > 0) && (
         <div style={{
-          background: "#f0fdf4", border: "1px solid #bbf7d0",
-          borderRadius: 10, padding: ".55rem .75rem",
-          fontSize: ".73rem", color: "#166534",
-          marginBottom: ".75rem", display: "flex", gap: ".35rem", alignItems: "flex-start",
+          display: "flex", flexDirection: "column", gap: ".2rem",
+          marginBottom: ".65rem", fontSize: ".72rem", color: "#6b7280",
         }}>
-          <span style={{ flexShrink: 0 }}>🛡️</span>
-          <span>
-            {hasFamily && "Family thread — athlete and parent/guardian are included. "}
-            {observers.length > 0 && (
-              <>
-                {observers.map(o => o.name).join(", ")} ({ROLE_LABEL[observers[0]?.role] ?? "Coach"}) included for oversight.
-              </>
-            )}
-          </span>
+          {family && (
+            <div style={{ display: "flex", alignItems: "center", gap: ".3rem" }}>
+              <span aria-hidden="true">🛡️</span>
+              <span>Parent/guardian included</span>
+            </div>
+          )}
+          {observers.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: ".3rem" }}>
+              <span aria-hidden="true">👁</span>
+              <span>{observers.map(o => o.name).join(", ")} included for oversight</span>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Participant strip */}
-      <div style={{
-        display: "flex", gap: ".3rem", flexWrap: "wrap",
-        marginBottom: ".75rem",
-      }}>
-        {participants.map(p => (
-          <span
-            key={p.id}
-            style={{
-              padding: ".18rem .5rem",
-              borderRadius: 100,
-              fontSize: ".65rem",
-              fontWeight: 600,
-              background: p.is_observer ? "#fef3c7" : "#ede9fe",
-              color:      p.is_observer ? "#92400e" : "#5b21b6",
-              display: "flex", alignItems: "center", gap: ".25rem",
-            }}
-          >
-            {p.is_observer && <span style={{ fontSize: ".6rem" }}>👁</span>}
-            {p.name}
-          </span>
-        ))}
-      </div>
 
       {/* Messages */}
       <div style={{ flex: 1 }}>
@@ -301,25 +269,37 @@ export default function ThreadView({
             No messages yet. Say something!
           </div>
         ) : (
-          messages.map(m => (
-            <MessageBubble
-              key={m.id}
-              msg={m}
-              isSelf={isOwnMessage(m, actorKind, actorId)}
-              primaryColor={primaryColor}
-            />
-          ))
+          messages.map((m, i) => {
+            const prev = messages[i - 1];
+            const sameSenderAsPrev = prev
+              ? prev.sender_coach_id === m.sender_coach_id && prev.sender_member_id === m.sender_member_id
+              : false;
+            return (
+              <MessageBubble
+                key={m.id}
+                msg={m}
+                isSelf={isOwnMessage(m, actorKind, actorId)}
+                showSenderInfo={!sameSenderAsPrev}
+                primaryColor={primaryColor}
+              />
+            );
+          })
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Reply box */}
+      {/* Reply box — sticky at a fixed offset matching the team shell's own
+          reserved bottom-nav space (layout.tsx's <main> uses the same
+          5.5rem bottom padding), plus a genuine safe-area buffer on top of
+          that, rather than a magic hardcoded pixel value with no relation
+          to either the nav's real height or the device's safe area. */}
       <div style={{
         borderTop: "1px solid #e5e7eb",
         paddingTop: ".75rem",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
         marginTop: ".75rem",
         position: "sticky",
-        bottom: 80,
+        bottom: "5.5rem",
         background: "#f5f6f8",
       }}>
         {error && (
@@ -340,12 +320,13 @@ export default function ThreadView({
             placeholder="Reply… (⌘+Enter to send)"
             maxLength={3000}
             rows={2}
+            aria-label="Reply"
             style={{
               flex: 1,
-              padding: ".5rem .65rem",
+              padding: ".55rem .7rem",
               borderRadius: 10,
               border: "1.5px solid #e5e7eb",
-              fontSize: ".85rem",
+              fontSize: "1rem",
               color: "#374151",
               resize: "none",
               lineHeight: 1.5,
@@ -355,8 +336,9 @@ export default function ThreadView({
           <button
             onClick={handleSend}
             disabled={sending || !replyBody.trim()}
+            aria-label="Send message"
             style={{
-              padding: ".5rem .85rem",
+              padding: ".55rem .9rem",
               background: primaryColor,
               color: "#fff",
               border: "none",
@@ -367,6 +349,7 @@ export default function ThreadView({
               opacity: sending || !replyBody.trim() ? .45 : 1,
               transition: "opacity .15s",
               flexShrink: 0,
+              minHeight: 40,
             }}
           >
             {sending ? "…" : "Send"}
