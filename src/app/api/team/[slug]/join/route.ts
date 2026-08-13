@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";
 import { validateAthleteForCampaign } from "@/lib/platform/athletes";
+import { syncParentIntoAthleteThreads } from "@/lib/messages";
 
 // 20 failed attempts per hour per IP.
 // Most lenient limit — members may try old or misremembered codes.
@@ -133,6 +134,17 @@ export async function POST(
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
+
+  // Parent selected their athlete during signup — catch up any pre-existing
+  // athlete↔coach thread the same way members/me's later-linking path does.
+  // Best-effort — must never fail the join that already succeeded.
+  if (role === "parent" && athlete_id && typeof athlete_id === "string") {
+    try {
+      await syncParentIntoAthleteThreads(athlete_id, slug);
+    } catch (err) {
+      console.error("[team/join] syncParentIntoAthleteThreads failed:", err);
+    }
+  }
 
   return response;
 }

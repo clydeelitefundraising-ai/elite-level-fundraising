@@ -441,6 +441,69 @@ export async function syncRequiredThreadParticipants(
   );
 }
 
+// Called when a parent becomes newly linked to an athlete (from the
+// canonical linking call sites — members/me self-link, and the parent
+// branches of the join endpoints — never from a client-facing "add
+// participant" API). Finds every EXISTING same-campaign thread that
+// already includes this athlete AND at least one coach, and synchronizes
+// each via the same syncRequiredThreadParticipants() used at thread
+// creation/reply — no family-resolution logic is duplicated here, this
+// only discovers which threads need a sync pass. Additive only, same as
+// the function it delegates to: never removes anyone, never touches
+// coach/observer rows, idempotent (a parent already present in a thread
+// is simply skipped by the underlying sync).
+export async function syncParentIntoAthleteThreads(
+  athleteId: string,
+  campaignSlug: string,
+): Promise<void> {
+  const athleteMemberRes = await fetch(
+    `${BASE}/rest/v1/team_members` +
+    `?athlete_id=eq.${encodeURIComponent(athleteId)}` +
+    `&role=eq.athlete` +
+    `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}` +
+    `&select=id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const athleteMembers: { id: string }[] = athleteMemberRes.ok ? await athleteMemberRes.json() : [];
+  if (!athleteMembers.length) return;
+
+  const memberIds = athleteMembers.map(m => m.id);
+  const ptRes = await fetch(
+    `${BASE}/rest/v1/message_thread_participants` +
+    `?actor_type=eq.member&member_id=in.(${memberIds.map(encodeURIComponent).join(",")})` +
+    `&select=thread_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const ptRows: { thread_id: string }[] = ptRes.ok ? await ptRes.json() : [];
+  if (!ptRows.length) return;
+
+  const threadIds = [...new Set(ptRows.map(r => r.thread_id))];
+  const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
+
+  // Restrict to: same campaign, AND has at least one coach participant.
+  const [threadsRes, coachPartsRes] = await Promise.all([
+    fetch(
+      `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id`,
+      { headers: h(), cache: "no-store" },
+    ),
+    fetch(
+      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&actor_type=eq.coach&select=thread_id`,
+      { headers: h(), cache: "no-store" },
+    ),
+  ]);
+  const sameCampaignIds = new Set<string>(
+    (threadsRes.ok ? await threadsRes.json() : []).map((t: { id: string }) => t.id),
+  );
+  const coachThreadIds = new Set<string>(
+    (coachPartsRes.ok ? await coachPartsRes.json() : []).map((p: { thread_id: string }) => p.thread_id),
+  );
+
+  const targets = threadIds.filter(id => sameCampaignIds.has(id) && coachThreadIds.has(id));
+  for (const threadId of targets) {
+    await syncRequiredThreadParticipants(threadId, campaignSlug);
+  }
+}
+
 export async function insertMessage(
   threadId: string,
   actor: ActorKey,
