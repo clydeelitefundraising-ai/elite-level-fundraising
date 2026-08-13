@@ -6,6 +6,7 @@ import {
   getThreadParticipants,
   insertMessage,
   updateThreadMeta,
+  syncRequiredThreadParticipants,
   type ActorKey,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
@@ -44,6 +45,11 @@ export async function POST(
   if (msgBody.length > 3000) {
     return NextResponse.json({ error: "Message too long." }, { status: 400 });
   }
+
+  // Self-healing: a parent linked to this athlete after the thread was
+  // created gets added here, before the new message is sent — additive
+  // only, never removes an existing (even since-unlinked) participant.
+  await syncRequiredThreadParticipants(threadId, slug);
 
   const msg = await insertMessage(threadId, actorKey, msgBody.trim());
   if (!msg) {

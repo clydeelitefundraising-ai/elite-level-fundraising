@@ -6,7 +6,7 @@ import {
   insertMessage,
   fetchMemberById,
   fetchCoachById,
-  fetchMembersByAthleteId,
+  resolveRequiredFamilyParticipants,
   fetchHeadCoaches,
   type ParticipantInsert,
   type ActorKey,
@@ -123,18 +123,19 @@ export async function POST(
     false,
   );
 
-  // Family auto-include (athlete ↔ parent)
-  if (recipientMember) {
-    const { role, athlete_id } = recipientMember;
-    if (athlete_id) {
-      if (role === "athlete") {
-        const parents = await fetchMembersByAthleteId(athlete_id, "parent", slug);
-        for (const p of parents) addParticipant("member", p.id, true, false);
-      } else if (role === "parent") {
-        const athletes = await fetchMembersByAthleteId(athlete_id, "athlete", slug);
-        for (const a of athletes) addParticipant("member", a.id, true, false);
-      }
-    }
+  // Family auto-include (athlete ↔ parent) — canonical, symmetric in both
+  // directions. Seeds from whichever side(s) of this thread are members:
+  // the actor (covers athlete→coach, parent→coach) and the explicit
+  // recipient (covers coach→athlete, coach→parent). The thread initiator
+  // never determines whether assigned parents are included — both
+  // directions resolve through the same canonical team_members/athlete_id
+  // relationship, never inferred from name/email.
+  const familySeedIds: string[] = [];
+  if (actorKey.kind === "member") familySeedIds.push(actorKey.id);
+  if (recipientMember) familySeedIds.push(recipientMember.id);
+  const familyParticipants = await resolveRequiredFamilyParticipants(familySeedIds, slug);
+  for (const fp of familyParticipants) {
+    if (fp.member_id) addParticipant("member", fp.member_id, true, false);
   }
 
   // Head coach oversight: add if thread has athlete/parent OR actor is not head coach.
