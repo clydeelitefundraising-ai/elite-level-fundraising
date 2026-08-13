@@ -26,6 +26,7 @@ export type ResolvedParticipant = {
   name: string;
   role: string;
   athlete_id: string | null;
+  photo_url: string | null;
 };
 
 export type ResolvedMessage = {
@@ -38,6 +39,7 @@ export type ResolvedMessage = {
   created_at: string;
   sender_name: string;
   sender_role: string;
+  sender_photo_url: string | null;
   read_at: string | null;
 };
 
@@ -75,6 +77,29 @@ export type ParticipantRef = {
 
 // ─── Internal raw types ───────────────────────────────────────────────────────
 
+// Photo resolution rule (canonical, single source of truth — see
+// resolvePhotoUrl below): athletes use athletes.profile_photo (kept in
+// sync with the account's own photo upload via
+// /api/account/profile/photo's propagateToAthletes — so this is already
+// the effectively-canonical value for an athlete, not a secondary
+// fallback). Every other actor type (coach, parent, booster) has no photo
+// field of its own — team_coaches/team_members carry none — so they
+// resolve via their linked elf_accounts.profile_photo_url. Both are
+// fetched via the SAME existing embedded PostgREST select already used
+// for participant name/role — zero additional queries (see PARTICIPANT_
+// SELECT/MESSAGE_SELECT below).
+export type RawCoachInfo   = { name: string; role: string; elf_accounts: { profile_photo_url: string | null } | null };
+export type RawMemberInfo  = {
+  name: string; role: string; athlete_id: string | null;
+  athletes: { profile_photo: string | null } | null;
+  elf_accounts: { profile_photo_url: string | null } | null;
+};
+
+export function resolvePhotoUrl(coach: RawCoachInfo | null, member: RawMemberInfo | null): string | null {
+  if (member?.role === "athlete" && member.athletes?.profile_photo) return member.athletes.profile_photo;
+  return coach?.elf_accounts?.profile_photo_url ?? member?.elf_accounts?.profile_photo_url ?? null;
+}
+
 type RawParticipant = {
   id: string;
   thread_id: string;
@@ -83,8 +108,8 @@ type RawParticipant = {
   member_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
-  team_coaches: { name: string; role: string } | null;
-  team_members: { name: string; role: string; athlete_id: string | null } | null;
+  team_coaches: RawCoachInfo | null;
+  team_members: RawMemberInfo | null;
 };
 
 type RawMessage = {
@@ -95,8 +120,8 @@ type RawMessage = {
   sender_member_id: string | null;
   body: string;
   created_at: string;
-  team_coaches: { name: string; role: string } | null;
-  team_members: { name: string; role: string } | null;
+  team_coaches: RawCoachInfo | null;
+  team_members: RawMemberInfo | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -112,12 +137,16 @@ function resolveParticipant(raw: RawParticipant): ResolvedParticipant {
     name: raw.team_coaches?.name ?? raw.team_members?.name ?? "Unknown",
     role: raw.team_coaches?.role ?? raw.team_members?.role ?? "",
     athlete_id: raw.team_members?.athlete_id ?? null,
+    photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members),
   };
 }
 
+const COACH_INFO_SELECT  = "name,role,elf_accounts!account_id(profile_photo_url)";
+const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
+
 const PARTICIPANT_SELECT =
   "id,thread_id,actor_type,coach_id,member_id,is_auto_included,is_observer," +
-  "team_coaches!coach_id(name,role),team_members!member_id(name,role,athlete_id)";
+  `team_coaches!coach_id(${COACH_INFO_SELECT}),team_members!member_id(${MEMBER_INFO_SELECT})`;
 
 // ─── Thread list ──────────────────────────────────────────────────────────────
 
@@ -252,7 +281,7 @@ export async function getMessagesForThread(
     `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
     `&order=created_at.asc&limit=${limit}` +
     `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,body,created_at,` +
-    `team_coaches!sender_coach_id(name,role),team_members!sender_member_id(name,role)`,
+    `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT})`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];
@@ -281,6 +310,7 @@ export async function getMessagesForThread(
     created_at: r.created_at,
     sender_name: r.team_coaches?.name ?? r.team_members?.name ?? "Unknown",
     sender_role: r.team_coaches?.role ?? r.team_members?.role ?? "",
+    sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
     read_at: readMap.get(r.id) ?? null,
   }));
 }
@@ -527,6 +557,128 @@ export async function syncParentIntoAthleteThreads(
   for (const threadId of targets) {
     await syncRequiredThreadParticipants(threadId, campaignSlug);
   }
+}
+
+// ─── Canonical conversation identity + reuse (Phase 2B) ──────────────────────
+//
+// Two "+ New" attempts at the same NON-OBSERVER participant/family group
+// should land in the same ongoing conversation, matching iMessage-style
+// texting rather than always creating a new thread. Identity is defined
+// ONLY by the set of non-observer participants — Head Coach oversight
+// (is_observer=true) never contributes to identity, matching the explicit
+// product rule that observers must not define conversation identity.
+// Auto-included family members are treated identically to explicitly-
+// added ones: resolveRequiredFamilyParticipants() already fully resolves
+// the family group before this key is computed, so two attempts at "the
+// same conversation" — regardless of who initiated, or whether a parent
+// was linked before or after — always converge on the same key.
+function canonicalParticipantKey(participants: ParticipantRef[]): string {
+  return participants
+    .map(p => `${p.actor_type}:${p.actor_type === "coach" ? p.coach_id : p.member_id}`)
+    .sort()
+    .join("|");
+}
+
+// Finds an existing thread whose CURRENT non-observer participant set
+// EXACTLY matches the desired canonical set — never a superset or subset
+// (partial participant overlap never counts as a match, per the product
+// rule). Scoped to threads the acting user already participates in
+// (bounded by the actor's own thread count, same bound already accepted
+// by getThreadsForActor — not a campaign-wide scan) and restricted to this
+// campaign via campaign_slug=eq.<slug>.
+//
+// DETERMINISTIC SELECTION RULE when multiple historical threads match
+// (duplicates that existed before this feature shipped): the thread with
+// the most recent last_message_at is chosen — threads are fetched
+// order=last_message_at.desc, so the first exact match found is that
+// thread. No historical thread is modified, merged, or deleted by this
+// function — it only reads and selects; if no exact match exists it
+// returns null and the caller creates a new thread exactly as before.
+export async function findCanonicalExistingThread(
+  slug: string,
+  actor: ActorKey,
+  desiredNonObserverParticipants: ParticipantRef[],
+): Promise<MessageThread | null> {
+  const desiredKey = canonicalParticipantKey(desiredNonObserverParticipants);
+  if (!desiredKey) return null;
+
+  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const ptRes = await fetch(
+    `${BASE}/rest/v1/message_thread_participants` +
+    `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&select=thread_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!ptRes.ok) return null;
+  const ptRows: { thread_id: string }[] = await ptRes.json();
+  if (!ptRows.length) return null;
+
+  const threadIds = ptRows.map(r => r.thread_id);
+  const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
+
+  const [threadsRes, partsRes] = await Promise.all([
+    fetch(
+      `${BASE}/rest/v1/message_threads?id=in.${inClause}` +
+      `&campaign_slug=eq.${encodeURIComponent(slug)}` +
+      `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,last_message_at,last_message_preview,created_at` +
+      `&order=last_message_at.desc`,
+      { headers: h(), cache: "no-store" },
+    ),
+    fetch(
+      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&select=thread_id,actor_type,coach_id,member_id,is_observer`,
+      { headers: h(), cache: "no-store" },
+    ),
+  ]);
+  const threads: MessageThread[] = threadsRes.ok ? await threadsRes.json() : [];
+  if (!threads.length) return null;
+
+  type PartStub = { thread_id: string; actor_type: string; coach_id: string | null; member_id: string | null; is_observer: boolean };
+  const allParts: PartStub[] = partsRes.ok ? await partsRes.json() : [];
+
+  const partsByThread = new Map<string, PartStub[]>();
+  for (const p of allParts) {
+    const list = partsByThread.get(p.thread_id) ?? [];
+    list.push(p);
+    partsByThread.set(p.thread_id, list);
+  }
+
+  for (const t of threads) {
+    const parts = partsByThread.get(t.id) ?? [];
+    const nonObserver: ParticipantRef[] = parts
+      .filter(p => !p.is_observer)
+      .map(p => ({ actor_type: p.actor_type as "coach" | "member", coach_id: p.coach_id, member_id: p.member_id }));
+    if (canonicalParticipantKey(nonObserver) === desiredKey) {
+      return t;
+    }
+  }
+  return null;
+}
+
+// Tops up Head Coach oversight participants on an EXISTING thread when
+// it's reused instead of newly created, so reuse never leaves a
+// conversation with weaker oversight than a brand-new thread would have
+// gotten. Same additive/idempotent guarantee as syncRequiredThreadParticipants
+// (uses the same safe insert) — never removes anyone, never touches an
+// existing row's is_observer flag, only adds missing oversight rows.
+export async function ensureHeadCoachOversight(
+  threadId: string,
+  headCoachIds: string[],
+): Promise<void> {
+  if (!headCoachIds.length) return;
+  const current = await getThreadParticipants(threadId);
+  const currentCoachIds = new Set(current.filter(p => p.actor_type === "coach").map(p => p.coach_id));
+  const missing = headCoachIds.filter(id => !currentCoachIds.has(id));
+  if (!missing.length) return;
+
+  await insertParticipantsIgnoringDuplicates(
+    missing.map(id => ({
+      thread_id:        threadId,
+      actor_type:       "coach" as const,
+      coach_id:         id,
+      member_id:        null,
+      is_auto_included: true,
+      is_observer:       true,
+    })),
+  );
 }
 
 export async function insertMessage(
