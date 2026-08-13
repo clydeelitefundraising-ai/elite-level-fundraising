@@ -11,6 +11,7 @@
 // application-level warning, not a DB-level rule) — see Phase 1A plan.
 
 import { restList, restInsert, restUpdate } from "./_client";
+import { generateMemberSalt } from "@/lib/memberAuth";
 
 export type AthleteRow = {
   id:             string;
@@ -71,6 +72,28 @@ export type UnlinkedAthleteMember = {
   role:          string;
   created_at:    string;
 };
+
+export type TeamMemberRow = {
+  id:            string;
+  campaign_slug: string;
+  account_id:    string | null;
+  role:          string;
+  athlete_id:    string | null;
+  name:          string;
+  salt:          string;
+  created_at:    string;
+};
+
+export type CreateLinkedAthleteMemberInput = {
+  campaignSlug: string;
+  athleteId:    string;
+  accountId:    string;
+  name:         string;
+};
+
+export type CreateLinkedAthleteMemberResult =
+  | { ok: true;  member: TeamMemberRow }
+  | { ok: false; reason: "athlete_not_found" };
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -194,6 +217,47 @@ export async function linkMemberToAthlete(
   if (!athlete) return { ok: false, reason: "not_found" };
   await restUpdate(`team_members?id=eq.${encodeURIComponent(memberId)}`, { athlete_id: athleteId });
   return { ok: true };
+}
+
+// Atomic "create the team_members row and link it to a canonical athlete"
+// helper — for flows where no member row exists yet at all (Phase 1B:
+// existing-roster-athlete self-join, and Head Coach approval of a
+// not-listed request). Distinct from linkMemberToAthlete(), which patches
+// an athlete_id onto an ALREADY-existing member row (Phase 1A: parent
+// self-link via members/me).
+//
+// Validates the athlete belongs to the campaign first — never creates a
+// membership with a nonexistent or cross-campaign athlete_id, and by
+// construction never returns a member with athlete_id = null. If a
+// team_members row already exists for this account+campaign (e.g. a race,
+// or an account that already joined some other way), links the athlete
+// onto that existing row instead of creating a second membership.
+export async function createLinkedAthleteMember(
+  input: CreateLinkedAthleteMemberInput,
+): Promise<CreateLinkedAthleteMemberResult> {
+  const athlete = await validateAthleteForCampaign(input.athleteId, input.campaignSlug);
+  if (!athlete) return { ok: false, reason: "athlete_not_found" };
+
+  const existing = await restList<TeamMemberRow>(
+    `team_members?account_id=eq.${encodeURIComponent(input.accountId)}&campaign_slug=eq.${encodeURIComponent(input.campaignSlug)}&select=*&limit=1`,
+  );
+  if (existing[0]) {
+    const rows = await restUpdate<TeamMemberRow>(
+      `team_members?id=eq.${encodeURIComponent(existing[0].id)}`,
+      { athlete_id: input.athleteId },
+    );
+    return { ok: true, member: rows[0] };
+  }
+
+  const rows = await restInsert<TeamMemberRow>("team_members", {
+    campaign_slug: input.campaignSlug,
+    account_id:    input.accountId,
+    role:          "athlete",
+    name:          input.name,
+    athlete_id:    input.athleteId,
+    salt:          generateMemberSalt(),
+  });
+  return { ok: true, member: rows[0] };
 }
 
 // Diagnostic read only — does not remediate. Identifies athlete-role team
