@@ -4,11 +4,17 @@ import {
   getThreadsForActor,
   insertParticipants,
   insertMessage,
+  updateThreadMeta,
+  getThreadParticipants,
   fetchMemberById,
   fetchCoachById,
   resolveRequiredFamilyParticipants,
+  syncRequiredThreadParticipants,
+  findCanonicalExistingThread,
+  ensureHeadCoachOversight,
   fetchHeadCoaches,
   type ParticipantInsert,
+  type ParticipantRef,
   type ActorKey,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
@@ -57,7 +63,10 @@ export async function POST(
   }
 
   const body = await req.json().catch(() => null);
-  const { recipient_actor_type, recipient_id, subject, body: msgBody } = body ?? {};
+  // subject is intentionally no longer accepted — new conversations are
+  // always subjectless (Phase 2B); the column stays nullable, historical
+  // threads with a subject are untouched.
+  const { recipient_actor_type, recipient_id, body: msgBody } = body ?? {};
 
   if (!msgBody?.trim()) {
     return NextResponse.json({ error: "body required" }, { status: 400 });
@@ -138,7 +147,11 @@ export async function POST(
     if (fp.member_id) addParticipant("member", fp.member_id, true, false);
   }
 
-  // Head coach oversight: add if thread has athlete/parent OR actor is not head coach.
+  // Head coach oversight condition: add if thread has athlete/parent OR
+  // actor is not head coach. Computed once, used by both the reuse path
+  // (top-up on an existing thread) and the fresh-create path below — same
+  // rule either way, so reuse never leaves weaker oversight than a brand
+  // new thread would have gotten.
   const hasAthleteOrParent = participants.some(p => {
     if (p.actor_type !== "member") return false;
     const id = p.member_id!;
@@ -147,19 +160,64 @@ export async function POST(
       : true;
   });
   const actorIsHeadCoach = actor.kind === "coach" && actor.session.role === "head_coach";
+  const needsOversight = hasAthleteOrParent || !actorIsHeadCoach;
+  const headCoaches = needsOversight ? await fetchHeadCoaches(slug) : [];
 
-  if (hasAthleteOrParent || !actorIsHeadCoach) {
-    const headCoaches = await fetchHeadCoaches(slug);
-    for (const hc of headCoaches) addParticipant("coach", hc.id, true, true);
+  // Canonical conversation reuse (Phase 2B): `participants` at this point
+  // is exactly the desired NON-OBSERVER set (creator + explicit recipient
+  // + resolved family) — oversight hasn't been added yet, so observers
+  // are excluded from the identity check by construction, not by a filter.
+  const desiredNonObserver: ParticipantRef[] = participants.map(p => ({
+    actor_type: p.actor_type, coach_id: p.coach_id, member_id: p.member_id,
+  }));
+  const existingThread = await findCanonicalExistingThread(slug, actorKey, desiredNonObserver);
+
+  if (existingThread) {
+    // Reuse: sync family (defensive — the match already requires an exact
+    // current-state match, but cheap and correct to re-assert) and top up
+    // any missing oversight, then send through the exact same downstream
+    // path a reply would use — same push, same unread mechanics, same
+    // Phase 2A guarantees. No new thread row, no participant duplication.
+    try {
+      await syncRequiredThreadParticipants(existingThread.id, slug);
+      if (headCoaches.length) {
+        await ensureHeadCoachOversight(existingThread.id, headCoaches.map(hc => hc.id));
+      }
+    } catch {
+      return NextResponse.json({ error: "Unable to send message right now. Please try again." }, { status: 500 });
+    }
+
+    const msg = await insertMessage(existingThread.id, actorKey, msgBody.trim());
+    if (!msg) {
+      return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
+    }
+    void updateThreadMeta(existingThread.id, msgBody.trim());
+
+    void (async () => {
+      try {
+        const currentParticipants = await getThreadParticipants(existingThread.id);
+        const senderKey = `${actorKey.kind}:${actorKey.id}`;
+        await sendPushToParticipants(slug, currentParticipants, senderKey, {
+          title: `New message from ${actor.session.name}`,
+          body:  msgBody.trim().slice(0, 100),
+          url:   `/team/${slug}/messages/${existingThread.id}`,
+        });
+      } catch {}
+    })();
+
+    return NextResponse.json({ thread_id: existingThread.id, ...existingThread, reused: true }, { status: 200 });
   }
 
-  // Create thread
+  for (const hc of headCoaches) addParticipant("coach", hc.id, true, true);
+
+  // Create thread — always subjectless going forward (see body destructure
+  // above). Historical threads with a subject are never touched by this.
   const threadRes = await fetch(`${BASE}/rest/v1/message_threads`, {
     method:  "POST",
     headers: h({ Prefer: "return=representation" }),
     body:    JSON.stringify({
       campaign_slug:        slug,
-      subject:              subject?.trim() || null,
+      subject:              null,
       created_by_type:      actorKey.kind,
       created_by_coach_id:  actorKey.kind === "coach"  ? actorKey.id : null,
       created_by_member_id: actorKey.kind === "member" ? actorKey.id : null,
