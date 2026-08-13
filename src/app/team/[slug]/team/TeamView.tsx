@@ -268,7 +268,7 @@ export default function TeamView({
   };
 
   const handleAdd = async () => {
-    if (!form.name.trim() || !form.event.trim()) { setError("Name and event are required."); return; }
+    if (!form.name.trim() || !form.class_year.trim()) { setError("Name and class are required."); return; }
     setSaving(true); setError("");
     const res = await fetch(`/api/team/${slug}/roster`, {
       method: "POST",
@@ -293,7 +293,7 @@ export default function TeamView({
   };
 
   const handleEdit = async () => {
-    if (!editing || !form.name.trim() || !form.event.trim()) { setError("Name and event are required."); return; }
+    if (!editing || !form.name.trim() || !form.class_year.trim()) { setError("Name and class are required."); return; }
     setSaving(true); setError("");
     const res = await fetch(`/api/team/${slug}/roster/${editing.id}`, {
       method: "PUT",
@@ -402,14 +402,14 @@ export default function TeamView({
                 <input style={inp} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Athlete name" autoFocus />
               </label>
               <label style={{ ...lbl, gridColumn: "1 / -1" }}>
-                Class
+                Class *
                 <select style={inp} value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}>
                   <option value="">Select class…</option>
                   {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
               <label style={{ ...lbl, gridColumn: "1 / -1" }}>
-                Event / Position *
+                Event / Position
                 <input style={inp} value={form.event} onChange={e => setForm(f => ({ ...f, event: e.target.value }))} placeholder="e.g. Sprints, Distance, Jumps" />
               </label>
               <label style={lbl}>

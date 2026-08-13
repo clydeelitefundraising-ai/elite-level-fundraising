@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";
+import { validateAthleteForCampaign } from "@/lib/platform/athletes";
 
 // 20 failed attempts per hour per IP.
 // Most lenient limit — members may try old or misremembered codes.
@@ -74,6 +75,19 @@ export async function POST(
     return NextResponse.json({ error: "This join code has expired." }, { status: 400 });
   }
 
+  // athlete_id links a parent to their athlete, or an athlete to their roster entry.
+  // Optional in Phase 1A — omitted athlete_id still joins normally. When
+  // supplied, it must be a real athlete belonging to this campaign.
+  if (athlete_id !== undefined && athlete_id !== null) {
+    if (typeof athlete_id !== "string") {
+      return NextResponse.json({ error: "Invalid athlete_id." }, { status: 400 });
+    }
+    const athlete = await validateAthleteForCampaign(athlete_id, slug);
+    if (!athlete) {
+      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
+    }
+  }
+
   const salt = generateMemberSalt();
 
   const memberBody: Record<string, unknown> = {
@@ -83,7 +97,6 @@ export async function POST(
     salt,
   };
   if (phone?.trim()) memberBody.phone = phone.trim();
-  // athlete_id links a parent to their athlete, or an athlete to their roster entry
   if (athlete_id && typeof athlete_id === "string") memberBody.athlete_id = athlete_id;
 
   const insertRes = await fetch(`${BASE}/rest/v1/team_members`, {

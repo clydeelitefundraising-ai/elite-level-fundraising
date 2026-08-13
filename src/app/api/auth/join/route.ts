@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie, parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { validateAthleteForCampaign } from "@/lib/platform/athletes";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
   }
 
   const campaign_slug = joinCode.campaign_slug as string;
+
+  // athlete_id links a parent to their athlete, or an athlete to their roster
+  // entry. Optional in Phase 1A — omitted athlete_id still joins normally.
+  // When supplied, it must be a real athlete belonging to this campaign.
+  if (athlete_id !== undefined && athlete_id !== null) {
+    if (typeof athlete_id !== "string") {
+      return NextResponse.json({ error: "Invalid athlete_id." }, { status: 400 });
+    }
+    const athlete = await validateAthleteForCampaign(athlete_id, campaign_slug);
+    if (!athlete) {
+      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
+    }
+  }
 
   // Check if caller already has an elf_session (existing account joins another team)
   let accountId: string | null = null;
