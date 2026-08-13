@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateAccountSalt, hashAccountPassword, makeAccountCookie, parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
-import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
+import { makeMemberCookie, generateMemberSalt } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
-import { validateAthleteForCampaign } from "@/lib/platform/athletes";
+import { validateAthleteForCampaign, createLinkedAthleteMember } from "@/lib/platform/athletes";
+import { resolveOrCreateAccount } from "@/lib/accountJoin";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -12,6 +12,14 @@ function h(extra?: Record<string, string>) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
+
+const cookieOpts = {
+  httpOnly: true,
+  secure:   process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path:     "/",
+  maxAge:   60 * 60 * 24 * 30,
+};
 
 export async function POST(req: NextRequest) {
   const key = rateLimitKey("account-join", req);
@@ -30,8 +38,13 @@ export async function POST(req: NextRequest) {
 
   if (!code?.trim())  return NextResponse.json({ error: "Team code is required." }, { status: 400 });
   if (!name?.trim())  return NextResponse.json({ error: "Name is required." }, { status: 400 });
-  if (!["athlete", "parent", "booster"].includes(role)) {
-    return NextResponse.json({ error: "Role must be athlete, parent, or booster." }, { status: 400 });
+  // Booster is intentionally excluded — Phase 1B removes booster from
+  // public/team-code self-registration. Boosters remain valid staff, but
+  // only via the Head-Coach-gated staff-invite flow (team/[slug]/staff).
+  // Rejected here regardless of what the client sends, not just hidden
+  // from the UI.
+  if (role !== "athlete" && role !== "parent") {
+    return NextResponse.json({ error: "Role must be athlete or parent." }, { status: 400 });
   }
 
   // Validate join code
@@ -56,10 +69,23 @@ export async function POST(req: NextRequest) {
 
   const campaign_slug = joinCode.campaign_slug as string;
 
-  // athlete_id links a parent to their athlete, or an athlete to their roster
-  // entry. Optional in Phase 1A — omitted athlete_id still joins normally.
-  // When supplied, it must be a real athlete belonging to this campaign.
-  if (athlete_id !== undefined && athlete_id !== null) {
+  // Athlete role: this endpoint is now only for "select yourself from the
+  // roster" — the "not listed" case goes through /api/auth/join-request
+  // instead and never reaches here. athlete_id is therefore REQUIRED for
+  // role=athlete (never allow an athlete membership with athlete_id=null),
+  // and always validated server-side against this exact campaign.
+  //
+  // Parent role: athlete_id remains optional, unchanged from before —
+  // parents may link their athlete later via PATCH members/me.
+  if (role === "athlete") {
+    if (!athlete_id || typeof athlete_id !== "string") {
+      return NextResponse.json({ error: "Please select your athlete from the roster." }, { status: 400 });
+    }
+    const athlete = await validateAthleteForCampaign(athlete_id, campaign_slug);
+    if (!athlete) {
+      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
+    }
+  } else if (athlete_id !== undefined && athlete_id !== null) {
     if (typeof athlete_id !== "string") {
       return NextResponse.json({ error: "Invalid athlete_id." }, { status: 400 });
     }
@@ -69,71 +95,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Check if caller already has an elf_session (existing account joins another team)
-  let accountId: string | null = null;
-  let newCookieValue: string | null = null;
-
-  const existingCookie = req.cookies.get("elf_session")?.value;
-  if (existingCookie) {
-    const parsedId = parseAccountId(existingCookie);
-    if (parsedId) {
-      const acctRes = await fetch(
-        `${BASE}/rest/v1/elf_accounts?id=eq.${encodeURIComponent(parsedId)}&select=id,salt&limit=1`,
-        { headers: h(), cache: "no-store" },
-      );
-      if (acctRes.ok) {
-        const acctRows = await acctRes.json();
-        if (Array.isArray(acctRows) && acctRows.length > 0) {
-          const a = acctRows[0];
-          if (verifyAccountCookie(existingCookie, a.id, a.salt)) {
-            accountId = a.id as string;
-          }
-        }
-      }
-    }
+  const accountResult = await resolveOrCreateAccount(req, { name, email, password });
+  if (!accountResult.ok) {
+    return NextResponse.json({ error: accountResult.error }, { status: accountResult.status });
   }
+  const { accountId, newCookieValue } = accountResult;
 
-  // Create account if not already logged in
-  if (!accountId) {
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
-    }
-    if (!password || (password as string).length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-    }
+  const response = NextResponse.json({ ok: true, campaign_slug });
+  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
 
-    const salt          = generateAccountSalt();
-    const password_hash = hashAccountPassword(password as string, salt);
-
-    const acctRes = await fetch(`${BASE}/rest/v1/elf_accounts`, {
-      method:  "POST",
-      headers: h({ Prefer: "return=representation" }),
-      body:    JSON.stringify({
-        email:         (email as string).trim().toLowerCase(),
-        password_hash,
-        salt,
-        name:          (name as string).trim(),
-      }),
+  if (role === "athlete") {
+    // athlete_id was validated above and is guaranteed non-null here.
+    const linkResult = await createLinkedAthleteMember({
+      campaignSlug: campaign_slug,
+      athleteId:    athlete_id as string,
+      accountId,
+      name:         (name as string).trim(),
     });
-
-    if (!acctRes.ok) {
-      const msg = await acctRes.text();
-      if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
-        return NextResponse.json(
-          { error: "An account with that email already exists. Please log in instead." },
-          { status: 409 },
-        );
-      }
-      return NextResponse.json({ error: "Account creation failed. Please try again." }, { status: 500 });
+    if (!linkResult.ok) {
+      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
     }
-
-    const acctRows = await acctRes.json();
-    const acct     = acctRows[0];
-    accountId      = acct.id as string;
-    newCookieValue = makeAccountCookie(acct.id as string, acct.salt as string);
+    response.cookies.set("team_member", makeMemberCookie(linkResult.member.id, linkResult.member.salt), cookieOpts);
+    return response;
   }
 
-  // Create team_members row
+  // Parent (and any future non-athlete role): unchanged raw insert path —
+  // no pre-existing member row is expected here either, so there's nothing
+  // for createLinkedAthleteMember's "already a member" branch to help with.
   const memberSalt = generateMemberSalt();
   const memberBody: Record<string, unknown> = {
     campaign_slug,
@@ -157,18 +145,7 @@ export async function POST(req: NextRequest) {
 
   const memberRows = await memberRes.json();
   const member     = memberRows[0];
-
   const memberCookieValue = makeMemberCookie(member.id as string, member.salt as string);
-  const cookieOpts = {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === "production",
-    sameSite: "strict" as const,
-    path:     "/",
-    maxAge:   60 * 60 * 24 * 30,
-  };
-
-  const response = NextResponse.json({ ok: true, campaign_slug });
-  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
   response.cookies.set("team_member", memberCookieValue, cookieOpts);
   return response;
 }

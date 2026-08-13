@@ -5,6 +5,15 @@ import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 
+export type PendingTeamCard = {
+  campaign_slug:  string;
+  school_name:    string;
+  sport_name:     string;
+  status:         "pending" | "declined";
+  created_at:     string;
+  decline_reason: string | null;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -92,11 +101,63 @@ const menuItemStyle: React.CSSProperties = {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// Pending/declined athlete-request card — deliberately not an <a>, no
+// "Enter Team" action. This is the visible state a pending/declined user
+// sees instead of team access, per Phase 1B.
+function PendingCard({ card }: { card: PendingTeamCard }) {
+  const isDeclined = card.status === "declined";
+  return (
+    <div
+      style={{
+        borderRadius: "1.1rem",
+        overflow: "hidden",
+        background: "#fff",
+        boxShadow: "0 3px 12px 0 rgba(11,30,61,.1)",
+        border: `1.5px dashed ${isDeclined ? "#fca5a5" : "#d1d5db"}`,
+      }}
+    >
+      <div style={{ padding: "1.1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "1rem", flexShrink: 0,
+          background: isDeclined ? "#fef2f2" : "#eef1f6",
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem",
+        }}>
+          {isDeclined ? "🚫" : "⏳"}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: "1.02rem", color: "#0b1e3d", lineHeight: 1.25 }}>
+            {card.school_name}
+          </div>
+          <div style={{ fontSize: ".8rem", color: "#6b7280", marginTop: ".25rem" }}>
+            {card.sport_name}
+          </div>
+          <span style={{
+            display: "inline-flex", alignItems: "center", marginTop: ".5rem",
+            background: isDeclined ? "#fef2f2" : "#fffbeb",
+            color: isDeclined ? "#b91c1c" : "#92400e",
+            borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
+            padding: ".25rem .6rem", textTransform: "uppercase", letterSpacing: ".03em",
+          }}>
+            {isDeclined ? "Request Declined" : "Pending Approval"}
+          </span>
+          {isDeclined && card.decline_reason && (
+            <div style={{ fontSize: ".76rem", color: "#9ca3af", marginTop: ".4rem", lineHeight: 1.4 }}>
+              {card.decline_reason}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TeamsView({
   teams,
+  pendingCards,
   accountName,
 }: {
   teams: TeamSummary[];
+  pendingCards: PendingTeamCard[];
   accountName: string;
 }) {
   return (
@@ -125,17 +186,23 @@ export default function TeamsView({
             Welcome back, {accountName.split(" ")[0]}
           </div>
           <div style={{ fontSize: ".82rem", color: "#6b7280", marginTop: ".2rem" }}>
-            {teams.length === 0
+            {teams.length === 0 && pendingCards.length === 0
               ? "You're not on any teams yet."
-              : teams.length === 1
+              : teams.length === 1 && pendingCards.length === 0
               ? "Your team is ready."
-              : `You're on ${teams.length} teams.`}
+              : teams.length > 0
+              ? `You're on ${teams.length} team${teams.length !== 1 ? "s" : ""}.`
+              : "You have a pending request."}
           </div>
         </div>
 
         {/* Team cards */}
         <div style={{ padding: "0 1.25rem", display: "flex", flexDirection: "column", gap: ".85rem", flex: 1 }}>
-          {teams.length === 0 ? (
+          {pendingCards.map(card => (
+            <PendingCard key={`${card.campaign_slug}-${card.status}`} card={card} />
+          ))}
+
+          {teams.length === 0 && pendingCards.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: ".75rem" }}>🏫</div>
               <p style={{ color: "#6b7280", margin: "0 0 1.25rem", fontSize: ".9rem", lineHeight: 1.5 }}>
@@ -227,7 +294,7 @@ export default function TeamsView({
             })
           )}
 
-          {teams.length > 0 && (
+          {(teams.length > 0 || pendingCards.length > 0) && (
             <a
               href="/enter-code"
               style={{
@@ -242,7 +309,7 @@ export default function TeamsView({
           )}
 
           {/* Informational footer — replaces empty whitespace below the cards */}
-          {teams.length > 0 && (
+          {(teams.length > 0 || pendingCards.length > 0) && (
             <div style={{
               display: "flex", gap: ".7rem", alignItems: "flex-start",
               margin: ".25rem 0 1.5rem", padding: "1rem 1.1rem",

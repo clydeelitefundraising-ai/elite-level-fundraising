@@ -1,8 +1,12 @@
-import { notFound } from "next/navigation";
-import { getCampaignSettings } from "@/lib/supabase";
-import { getJoinCode, getTeamAthletes } from "@/lib/teamData";
-import JoinView from "./JoinView";
+import { redirect } from "next/navigation";
+import { getJoinCode } from "@/lib/teamData";
 
+// Compatibility route — Phase 1B made /enter-code the canonical join
+// experience. This route still validates the code (so previously
+// distributed links, QR codes, and printed materials that pointed here
+// keep working) but no longer renders its own join form; it hands off
+// straight into the canonical flow, prefilled, so the user lands directly
+// on the team-specific step instead of retyping the code.
 export default async function JoinPage({
   params,
 }: {
@@ -16,21 +20,7 @@ export default async function JoinPage({
     return <InvalidCode code={upperCode} />;
   }
 
-  const [settings, athletes] = await Promise.all([
-    getCampaignSettings(joinCode.campaign_slug),
-    getTeamAthletes(joinCode.campaign_slug),
-  ]);
-
-  if (!settings) notFound();
-
-  return (
-    <JoinView
-      code={upperCode}
-      campaignSlug={joinCode.campaign_slug}
-      settings={settings}
-      athletes={athletes}
-    />
-  );
+  redirect(`/enter-code?code=${encodeURIComponent(upperCode)}`);
 }
 
 function InvalidCode({ code }: { code: string }) {
