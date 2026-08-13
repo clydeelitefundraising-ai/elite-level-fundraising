@@ -60,6 +60,21 @@ export function isFamilyThread(participants: ResolvedParticipant[]): boolean {
   return main.some(p => p.role === "athlete") && main.some(p => p.role === "parent");
 }
 
+// The acting user's OWN participant row on a thread, if any — source of
+// truth for Head Coach "For Me / Oversight" classification (is_observer on
+// THIS actor's own row, never inferred from creator/participant-count/role
+// combinations).
+export function selfParticipantRow(
+  participants: ResolvedParticipant[],
+  actorKind: "coach" | "member",
+  actorId: string,
+): ResolvedParticipant | undefined {
+  return participants.find(p =>
+    actorKind === "coach" ? p.actor_type === "coach" && p.coach_id === actorId
+                          : p.actor_type === "member" && p.member_id === actorId,
+  );
+}
+
 export function initials(name: string): string {
   return name
     .split(" ")

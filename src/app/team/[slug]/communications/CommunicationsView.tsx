@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
-import type { TeamActor } from "@/lib/permissions";
+import { isHeadCoach, type TeamActor } from "@/lib/permissions";
 import type { ThreadWithDetails } from "@/lib/messages";
 import UpdatesView from "../files/UpdatesView";
 import MessagesView from "../messages/MessagesView";
@@ -146,6 +146,7 @@ export default function CommunicationsView({
             actorId={actorId!}
             actorName={actorName!}
             isStaff={isStaff}
+            isHeadCoach={isHeadCoach(actor)}
             primaryColor={primaryColor}
             onUnreadChange={setDmUnreadCount}
           />

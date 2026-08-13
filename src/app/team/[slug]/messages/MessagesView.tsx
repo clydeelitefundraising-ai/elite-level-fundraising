@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ThreadWithDetails } from "@/lib/messages";
 import {
-  roleLabel, otherParticipants, conversationDisplayName, isFamilyThread,
+  roleLabel, otherParticipants, conversationDisplayName, isFamilyThread, selfParticipantRow,
 } from "./_shared/participantDisplay";
 import Avatar from "./_shared/Avatar";
 
@@ -510,6 +510,7 @@ export default function MessagesView({
   actorId,
   actorName,
   isStaff,
+  isHeadCoach,
   primaryColor,
   onUnreadChange,
 }: {
@@ -519,12 +520,14 @@ export default function MessagesView({
   actorId: string;
   actorName: string;
   isStaff: boolean;
+  isHeadCoach?: boolean;
   primaryColor: string;
   onUnreadChange?: (count: number) => void;
 }) {
   const router = useRouter();
   const [threads, setThreads] = useState<ThreadWithDetails[]>(initialThreads);
   const [showCompose, setShowCompose] = useState(false);
+  const [hcTab, setHcTab] = useState<"forMe" | "oversight">("forMe");
 
   // Live refresh: a thread being read (ThreadView), or a new one being
   // created (handleCreated below), both dispatch elf:messages-changed.
@@ -554,6 +557,22 @@ export default function MessagesView({
     window.dispatchEvent(new CustomEvent("elf:messages-changed"));
     router.push(`/team/${slug}/messages/${threadId}`);
   };
+
+  // Head Coach only: split threads into "For Me" (this HC's own row is NOT
+  // an observer row — normal participant) vs "Oversight" (this HC's own
+  // row IS is_observer=true). Source of truth is the actor's own
+  // participant row, never creator/participant-count/role inference.
+  const forMeThreads = isHeadCoach
+    ? threads.filter(t => !selfParticipantRow(t.participants, actorKind, actorId)?.is_observer)
+    : threads;
+  const oversightThreads = isHeadCoach
+    ? threads.filter(t => selfParticipantRow(t.participants, actorKind, actorId)?.is_observer === true)
+    : [];
+  const forMeUnread = forMeThreads.reduce((sum, t) => sum + t.unread_count, 0);
+  const oversightUnread = oversightThreads.reduce((sum, t) => sum + t.unread_count, 0);
+  const visibleThreads = isHeadCoach
+    ? (hcTab === "forMe" ? forMeThreads : oversightThreads)
+    : threads;
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -589,8 +608,55 @@ export default function MessagesView({
         </button>
       </div>
 
+      {/* Head Coach only: For Me / Oversight — separates threads where this
+          Head Coach is a normal participant from ones they're only
+          auto-included on for oversight. Never shown to non-Head-Coach
+          users, who keep the plain list below. */}
+      {isHeadCoach && threads.length > 0 && (
+        <div style={{
+          display: "flex", gap: ".4rem", marginBottom: ".75rem",
+          background: "#eef0f4", padding: ".25rem", borderRadius: 12,
+        }}>
+          {([
+            { id: "forMe" as const, label: "For Me", count: forMeUnread },
+            { id: "oversight" as const, label: "Oversight", count: oversightUnread },
+          ]).map(tab => {
+            const active = hcTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setHcTab(tab.id)}
+                style={{
+                  flex: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem",
+                  padding: ".5rem .5rem",
+                  background: active ? "#fff" : "transparent",
+                  boxShadow: active ? "0 1px 4px rgba(0,0,0,.1)" : "none",
+                  border: "none", borderRadius: 9,
+                  fontSize: ".78rem", fontWeight: 700,
+                  color: active ? "#0b1e3d" : "#6b7280",
+                  cursor: "pointer",
+                  transition: "background .15s ease, box-shadow .15s ease",
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span style={{
+                    background: active ? primaryColor : "#9ca3af", color: "#fff",
+                    borderRadius: 100, fontSize: ".62rem", fontWeight: 700,
+                    padding: ".05rem .35rem", minWidth: 15, textAlign: "center",
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Thread list */}
-      {threads.length === 0 ? (
+      {visibleThreads.length === 0 ? (
         <div style={{
           background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
           textAlign: "center",
@@ -598,16 +664,22 @@ export default function MessagesView({
         }}>
           <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .3 }}>💬</div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            No messages yet
+            {isHeadCoach && threads.length > 0
+              ? (hcTab === "forMe" ? "Nothing addressed to you directly" : "No oversight conversations")
+              : "No messages yet"}
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {isStaff
-              ? "Tap + New to start a conversation with an athlete, parent, or coach."
-              : "Your coach will start a conversation with you here."}
+            {isHeadCoach && threads.length > 0
+              ? (hcTab === "forMe"
+                  ? "Conversations you're only auto-included on for oversight show up under Oversight."
+                  : "Conversations you're auto-included on for oversight will show up here.")
+              : isStaff
+                ? "Tap + New to start a conversation with an athlete, parent, or coach."
+                : "Your coach will start a conversation with you here."}
           </div>
         </div>
       ) : (
-        threads.map(t => (
+        visibleThreads.map(t => (
           <ThreadCard
             key={t.id}
             thread={t}
