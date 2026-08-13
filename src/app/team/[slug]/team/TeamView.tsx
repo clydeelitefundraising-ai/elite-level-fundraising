@@ -347,7 +347,7 @@ export default function TeamView({
       {/* Head-Coach-only — canDelete is already isHeadCoach(actor), the
           narrowest check available (excludes assistant coaches, boosters,
           and any coach not resolved against THIS campaign). */}
-      {canDelete && <AthleteRequestsPanel slug={slug} />}
+      {canDelete && <AthleteRequestsPanel slug={slug} rosterAthletes={athletes} />}
 
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>

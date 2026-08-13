@@ -16,6 +16,8 @@ type PendingRequest = {
   possibleMatches: PossibleMatch[];
 };
 
+type RosterAthlete = { id: string; name: string; event: string | null; class_year?: string | null };
+
 type Collision = { existing: { id: string; name: string; class_year: string | null; event: string | null } };
 
 function timeAgo(iso: string): string {
@@ -27,18 +29,24 @@ function timeAgo(iso: string): string {
 }
 
 function RequestCard({
-  slug, request, onDecided,
+  slug, request, rosterAthletes, onDecided,
 }: {
   slug: string;
   request: PendingRequest;
+  rosterAthletes: RosterAthlete[];
   onDecided: (id: string) => void;
 }) {
   const [linkAthleteId, setLinkAthleteId] = useState("");
+  const [rosterSearch, setRosterSearch]   = useState("");
   const [busy, setBusy]                   = useState(false);
   const [error, setError]                 = useState("");
   const [collision, setCollision]         = useState<Collision | null>(null);
   const [showDecline, setShowDecline]     = useState(false);
   const [declineReason, setDeclineReason] = useState("");
+
+  const filteredRoster = rosterSearch.trim()
+    ? rosterAthletes.filter(a => a.name.toLowerCase().includes(rosterSearch.trim().toLowerCase()))
+    : rosterAthletes;
 
   async function act(body: Record<string, unknown>) {
     setBusy(true);
@@ -80,13 +88,24 @@ function RequestCard({
       {request.possibleMatches.length > 0 && (
         <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: ".55rem .65rem" }}>
           <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#92400e", marginBottom: ".3rem" }}>
-            Possible existing match{request.possibleMatches.length > 1 ? "es" : ""} — not automatic, review before linking:
+            Suggested match{request.possibleMatches.length > 1 ? "es" : ""} — a convenience shortcut only, not automatic. Review before linking:
           </div>
-          {request.possibleMatches.map(m => (
-            <div key={m.athlete.id} style={{ fontSize: ".78rem", color: "#78350f" }}>
-              {m.athlete.name}{m.athlete.class_year ? ` · ${m.athlete.class_year}` : ""}
-            </div>
-          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: ".2rem" }}>
+            {request.possibleMatches.map(m => (
+              <button
+                key={m.athlete.id}
+                type="button"
+                onClick={() => setLinkAthleteId(m.athlete.id)}
+                style={{
+                  textAlign: "left", background: linkAthleteId === m.athlete.id ? "#fef3c7" : "transparent",
+                  border: "none", borderRadius: 6, padding: ".2rem .35rem", cursor: "pointer",
+                  fontSize: ".78rem", color: "#78350f",
+                }}
+              >
+                {m.athlete.name}{m.athlete.class_year ? ` · ${m.athlete.class_year}` : ""} — click to select below
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -102,24 +121,40 @@ function RequestCard({
 
       {!showDecline ? (
         <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-          <div style={{ display: "flex", gap: ".4rem" }}>
-            <select
-              value={linkAthleteId}
-              onChange={e => setLinkAthleteId(e.target.value)}
-              style={{ flex: 1, padding: ".4rem .5rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".78rem" }}
-            >
-              <option value="">— Link to existing athlete —</option>
-              {request.possibleMatches.map(m => (
-                <option key={m.athlete.id} value={m.athlete.id}>{m.athlete.name}</option>
-              ))}
-            </select>
-            <button
-              disabled={busy || !linkAthleteId}
-              onClick={() => act({ action: "approve", linkAthleteId })}
-              style={{ padding: ".4rem .7rem", borderRadius: 7, border: "1.5px solid #0b1e3d", background: "#fff", color: "#0b1e3d", fontWeight: 700, fontSize: ".76rem", cursor: busy || !linkAthleteId ? "not-allowed" : "pointer" }}
-            >
-              Link
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: ".3rem" }}>
+            <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".04em" }}>
+              Link to Existing Athlete
+            </div>
+            <input
+              type="text"
+              placeholder="Search full roster by name…"
+              value={rosterSearch}
+              onChange={e => setRosterSearch(e.target.value)}
+              style={{ padding: ".4rem .5rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".78rem" }}
+            />
+            <div style={{ display: "flex", gap: ".4rem" }}>
+              <select
+                value={linkAthleteId}
+                onChange={e => setLinkAthleteId(e.target.value)}
+                style={{ flex: 1, padding: ".4rem .5rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".78rem" }}
+              >
+                <option value="">
+                  {rosterAthletes.length === 0 ? "— No athletes on this roster yet —" : "— Choose an athlete —"}
+                </option>
+                {filteredRoster.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}{a.class_year ? ` · ${a.class_year}` : ""}{a.event ? ` · ${a.event}` : ""}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={busy || !linkAthleteId}
+                onClick={() => act({ action: "approve", linkAthleteId })}
+                style={{ padding: ".4rem .7rem", borderRadius: 7, border: "1.5px solid #0b1e3d", background: "#fff", color: "#0b1e3d", fontWeight: 700, fontSize: ".76rem", cursor: busy || !linkAthleteId ? "not-allowed" : "pointer" }}
+              >
+                Link
+              </button>
+            </div>
           </div>
           <div style={{ display: "flex", gap: ".4rem" }}>
             <button
@@ -172,7 +207,16 @@ function RequestCard({
 // Head-Coach-only — parent (TeamView.tsx) only renders this when
 // isHeadCoach(actor) is true, and the underlying API independently
 // enforces the same check server-side regardless of what renders here.
-export default function AthleteRequestsPanel({ slug }: { slug: string }) {
+//
+// rosterAthletes reuses the same roster data TeamView.tsx already fetched
+// for the page (getTeamAthletes) — deliberately not a separate athlete
+// directory fetch/endpoint, per instruction.
+export default function AthleteRequestsPanel({
+  slug, rosterAthletes,
+}: {
+  slug: string;
+  rosterAthletes: RosterAthlete[];
+}) {
   const [requests, setRequests] = useState<PendingRequest[] | null>(null);
 
   const load = () => {
@@ -198,7 +242,7 @@ export default function AthleteRequestsPanel({ slug }: { slug: string }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
         {requests.map(r => (
-          <RequestCard key={r.id} slug={slug} request={r} onDecided={() => load()} />
+          <RequestCard key={r.id} slug={slug} request={r} rosterAthletes={rosterAthletes} onDecided={() => load()} />
         ))}
       </div>
     </div>
