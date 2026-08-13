@@ -6,7 +6,7 @@ import {
   insertMessage,
   fetchMemberById,
   fetchCoachById,
-  fetchMembersByAthleteId,
+  resolveRequiredFamilyParticipants,
   fetchHeadCoaches,
   type ParticipantInsert,
   type ActorKey,
@@ -123,18 +123,19 @@ export async function POST(
     false,
   );
 
-  // Family auto-include (athlete ↔ parent)
-  if (recipientMember) {
-    const { role, athlete_id } = recipientMember;
-    if (athlete_id) {
-      if (role === "athlete") {
-        const parents = await fetchMembersByAthleteId(athlete_id, "parent", slug);
-        for (const p of parents) addParticipant("member", p.id, true, false);
-      } else if (role === "parent") {
-        const athletes = await fetchMembersByAthleteId(athlete_id, "athlete", slug);
-        for (const a of athletes) addParticipant("member", a.id, true, false);
-      }
-    }
+  // Family auto-include (athlete ↔ parent) — canonical, symmetric in both
+  // directions. Seeds from whichever side(s) of this thread are members:
+  // the actor (covers athlete→coach, parent→coach) and the explicit
+  // recipient (covers coach→athlete, coach→parent). The thread initiator
+  // never determines whether assigned parents are included — both
+  // directions resolve through the same canonical team_members/athlete_id
+  // relationship, never inferred from name/email.
+  const familySeedIds: string[] = [];
+  if (actorKey.kind === "member") familySeedIds.push(actorKey.id);
+  if (recipientMember) familySeedIds.push(recipientMember.id);
+  const familyParticipants = await resolveRequiredFamilyParticipants(familySeedIds, slug);
+  for (const fp of familyParticipants) {
+    if (fp.member_id) addParticipant("member", fp.member_id, true, false);
   }
 
   // Head coach oversight: add if thread has athlete/parent OR actor is not head coach.
@@ -170,12 +171,23 @@ export async function POST(
   }
   const [thread] = await threadRes.json();
 
-  // Insert participants
+  // Insert participants. Must not silently create a thread that omits
+  // required parents/oversight — fail cleanly instead of continuing to
+  // insert the first message. (No compensating delete of the already-
+  // created thread row here — this codebase has no distributed
+  // transactions anywhere; this failure mode is rare, and an empty,
+  // never-messaged thread with the wrong participants is an acceptable
+  // residual artifact compared to the alternative of silently presenting
+  // an incorrectly-participated conversation as if it succeeded.)
   const ptInserts: ParticipantInsert[] = participants.map(p => ({
     ...p,
     thread_id: thread.id,
   }));
-  await insertParticipants(ptInserts);
+  try {
+    await insertParticipants(ptInserts);
+  } catch {
+    return NextResponse.json({ error: "Failed to set up conversation participants. Please try again." }, { status: 500 });
+  }
 
   // Insert first message
   const msg = await insertMessage(thread.id, actorKey, msgBody.trim());

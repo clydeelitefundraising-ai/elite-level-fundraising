@@ -6,6 +6,8 @@ import {
   getThreadParticipants,
   insertMessage,
   updateThreadMeta,
+  syncRequiredThreadParticipants,
+  ParticipantSyncError,
   type ActorKey,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
@@ -43,6 +45,22 @@ export async function POST(
   }
   if (msgBody.length > 3000) {
     return NextResponse.json({ error: "Message too long." }, { status: 400 });
+  }
+
+  // Self-healing: a parent linked to this athlete after the thread was
+  // created gets added here, before the new message is sent — additive
+  // only, never removes an existing (even since-unlinked) participant.
+  // If this fails, the family/oversight integrity rule is authoritative:
+  // do not silently continue and send a message into a thread that's
+  // missing a required parent. Fail cleanly, thread and messages
+  // untouched — the reply was never inserted.
+  try {
+    await syncRequiredThreadParticipants(threadId, slug);
+  } catch (err) {
+    if (err instanceof ParticipantSyncError) {
+      return NextResponse.json({ error: "Unable to send message right now. Please try again." }, { status: 500 });
+    }
+    throw err;
   }
 
   const msg = await insertMessage(threadId, actorKey, msgBody.trim());

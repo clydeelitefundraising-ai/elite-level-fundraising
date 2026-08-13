@@ -44,6 +44,10 @@ export default function CommunicationsView({
   const initialSection: Section = searchParams.get("tab") === "messages" ? "messages" : "updates";
   const [section, setSection] = useState<Section>(initialSection);
 
+  // Derived from the same thread data already fetched server-side for this
+  // page (force-dynamic — fresh on every navigation here) — no extra query.
+  const dmUnreadCount = initialThreads.reduce((sum, t) => sum + t.unread_count, 0);
+
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
 
@@ -64,6 +68,7 @@ export default function CommunicationsView({
       }}>
         {SEG.map(s => {
           const active = section === s.id;
+          const unread = s.id === "messages" ? dmUnreadCount : 0;
           return (
             <button
               key={s.id}
@@ -82,6 +87,21 @@ export default function CommunicationsView({
               }}
             >
               <span>{s.icon}</span>{s.label}
+              {unread > 0 && (
+                <span style={{
+                  background: "#dc2626",
+                  color: "#fff",
+                  borderRadius: 100,
+                  fontSize: ".65rem",
+                  fontWeight: 700,
+                  padding: ".05rem .4rem",
+                  minWidth: 16,
+                  textAlign: "center",
+                  lineHeight: 1.4,
+                }}>
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </button>
           );
         })}

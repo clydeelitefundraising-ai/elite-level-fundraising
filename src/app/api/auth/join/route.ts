@@ -3,6 +3,7 @@ import { makeMemberCookie, generateMemberSalt } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { validateAthleteForCampaign, createLinkedAthleteMember } from "@/lib/platform/athletes";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
+import { syncParentIntoAthleteThreads } from "@/lib/messages";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -147,5 +148,17 @@ export async function POST(req: NextRequest) {
   const member     = memberRows[0];
   const memberCookieValue = makeMemberCookie(member.id as string, member.salt as string);
   response.cookies.set("team_member", memberCookieValue, cookieOpts);
+
+  // Parent selected their athlete during signup — catch up any pre-existing
+  // athlete↔coach thread the same way members/me's later-linking path does.
+  // Best-effort — must never fail the join that already succeeded.
+  if (role === "parent" && athlete_id && typeof athlete_id === "string") {
+    try {
+      await syncParentIntoAthleteThreads(athlete_id, campaign_slug);
+    } catch (err) {
+      console.error("[auth/join] syncParentIntoAthleteThreads failed:", err);
+    }
+  }
+
   return response;
 }

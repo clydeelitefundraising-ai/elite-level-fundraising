@@ -53,16 +53,18 @@ export default function TeamNavWithBadge({
       localStorage.setItem(storageKey, new Date().toISOString());
     }
     // Communications covers both former routes (Updates + Messages) — clear
-    // both badge sources when the tab is visited. /messages/[threadId] is
-    // still a valid deep link (unaffected by the merge), so it clears the
-    // message badge the same way it always did.
+    // the Team Updates badge just by visiting (that badge only ever meant
+    // "there's something new to see on this tab", not "you've read it").
+    // /files is still a valid deep link, cleared the same way it always was.
     if (pathname.startsWith(`/team/${slug}/communications`) || pathname.startsWith(`/team/${slug}/files`)) {
       setBadge(0);
     }
-    if (pathname.startsWith(`/team/${slug}/communications`) || pathname.startsWith(`/team/${slug}/messages`)) {
-      // Refresh count after reading (the read API fires elf:messages-changed)
-      setMessageBadge(0);
-    }
+    // The DM unread badge is intentionally NOT cleared here. Merely opening
+    // Communications (which defaults to the Team Updates segment, not
+    // Direct Messages) must not make the unread-DM indicator disappear
+    // before the user actually views the conversation — it only clears in
+    // response to the elf:messages-changed event, dispatched by
+    // ThreadView.tsx after it actually marks a thread's messages read.
   }, [pathname, slug, storageKey]);
 
   return (
