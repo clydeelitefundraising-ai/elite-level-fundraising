@@ -171,12 +171,23 @@ export async function POST(
   }
   const [thread] = await threadRes.json();
 
-  // Insert participants
+  // Insert participants. Must not silently create a thread that omits
+  // required parents/oversight — fail cleanly instead of continuing to
+  // insert the first message. (No compensating delete of the already-
+  // created thread row here — this codebase has no distributed
+  // transactions anywhere; this failure mode is rare, and an empty,
+  // never-messaged thread with the wrong participants is an acceptable
+  // residual artifact compared to the alternative of silently presenting
+  // an incorrectly-participated conversation as if it succeeded.)
   const ptInserts: ParticipantInsert[] = participants.map(p => ({
     ...p,
     thread_id: thread.id,
   }));
-  await insertParticipants(ptInserts);
+  try {
+    await insertParticipants(ptInserts);
+  } catch {
+    return NextResponse.json({ error: "Failed to set up conversation participants. Please try again." }, { status: 500 });
+  }
 
   // Insert first message
   const msg = await insertMessage(thread.id, actorKey, msgBody.trim());

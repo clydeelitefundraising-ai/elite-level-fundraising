@@ -328,32 +328,57 @@ export async function getUnreadMessageCount(
 
 // ─── Write helpers ────────────────────────────────────────────────────────────
 
+// Thrown by the write helpers below on a failed insert — callers decide
+// whether that's fatal (thread creation, reply-time sync) or best-effort
+// (the parent-linking hooks already wrap their sync call in try/catch).
+// Message never exposes raw Postgres/PostgREST details.
+export class ParticipantSyncError extends Error {
+  constructor(context: string) {
+    super(`Failed to synchronize thread participants (${context}).`);
+    this.name = "ParticipantSyncError";
+  }
+}
+
 export async function insertParticipants(
   rows: ParticipantInsert[],
 ): Promise<void> {
   if (!rows.length) return;
-  await fetch(`${BASE}/rest/v1/message_thread_participants`, {
+  const res = await fetch(`${BASE}/rest/v1/message_thread_participants`, {
     method:  "POST",
     headers: h({ Prefer: "return=minimal" }),
     body:    JSON.stringify(rows),
   });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] insertParticipants failed:", res.status, detail);
+    throw new ParticipantSyncError("insert");
+  }
 }
 
-// Same insert, but tolerant of a row that already exists (thread_id,
-// member_id) — used by syncRequiredThreadParticipants(), which may race
-// against a concurrent sync call (e.g. two replies landing close together).
-// mtp_member_uniq is a partial unique index on (thread_id, member_id)
-// WHERE member_id IS NOT NULL — safe as an on_conflict target here since
-// every row this function inserts is a member row.
+// Same insert, but tolerant of a row that already exists — used by
+// syncRequiredThreadParticipants(), which may race against a concurrent
+// sync call (e.g. two replies landing close together). Targets
+// (thread_id, participant_key) — a GENERATED, NON-partial-indexed column
+// (phase_2a_message_thread_participants_conflict_fix migration).
+// mtp_member_uniq/mtp_coach_uniq are partial indexes (WHERE ... IS NOT
+// NULL) and cannot be used as a PostgREST on_conflict target at all —
+// using them silently fails every insert at the database level (this is
+// the exact issue phase28b already fixed for message_reads via its own
+// participant_key column; this table needed the same fix).
 async function insertParticipantsIgnoringDuplicates(
   rows: ParticipantInsert[],
 ): Promise<void> {
   if (!rows.length) return;
-  await fetch(`${BASE}/rest/v1/message_thread_participants?on_conflict=thread_id,member_id`, {
+  const res = await fetch(`${BASE}/rest/v1/message_thread_participants?on_conflict=thread_id,participant_key`, {
     method:  "POST",
     headers: h({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
     body:    JSON.stringify(rows),
   });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] insertParticipantsIgnoringDuplicates failed:", res.status, detail);
+    throw new ParticipantSyncError("sync");
+  }
 }
 
 // ─── Canonical family participant sync ───────────────────────────────────────
