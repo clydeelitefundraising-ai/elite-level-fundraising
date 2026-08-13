@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
+import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
 import TeamHeader from "./_components/TeamHeader";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
@@ -43,6 +45,10 @@ export default async function TeamLayout({
     : 0;
 
   const accountTeams = accountSession ? await getAccountTeams(accountSession.id) : [];
+
+  // Head-Coach-only badge — matches AthleteRequestsPanel's own gating.
+  // Assistant coaches and boosters never see this count, per Phase 1B.
+  const pendingAthleteRequestCount = isHeadCoach(actor) ? await getPendingRequestCount(slug) : 0;
 
   return (
     <>
@@ -94,6 +100,7 @@ export default async function TeamLayout({
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
           donorCount={donationStats.donor_count}
+          pendingAthleteRequestCount={pendingAthleteRequestCount}
         />
       </div>
     </div>

@@ -11,6 +11,7 @@ export default function TeamNavWithBadge({
   announcementCount,
   latestAnnouncementAt,
   donorCount,
+  pendingAthleteRequestCount = 0,
 }: {
   slug: string;
   primaryColor: string;
@@ -18,6 +19,7 @@ export default function TeamNavWithBadge({
   announcementCount: number;
   latestAnnouncementAt: string | null;
   donorCount: number;
+  pendingAthleteRequestCount?: number;
 }) {
   const pathname = usePathname();
   const storageKey = `elf_home_read_${slug}`;
@@ -68,7 +70,7 @@ export default function TeamNavWithBadge({
       slug={slug}
       primaryColor={primaryColor}
       showSponsors={showSponsors}
-      badgeCounts={{ communications: badge + messageBadge, fundraiser: donorCount }}
+      badgeCounts={{ communications: badge + messageBadge, fundraiser: donorCount, team: pendingAthleteRequestCount }}
     />
   );
 }

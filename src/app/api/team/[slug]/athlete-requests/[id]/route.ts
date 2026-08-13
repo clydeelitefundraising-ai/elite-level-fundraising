@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getTeamActor } from "@/lib/permissions.server";
+import { isHeadCoach } from "@/lib/permissions";
+import { getAccountSession } from "@/lib/accountSession";
+import { approveRequest, declineRequest } from "@/lib/platform/athleteRequests";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+
+type RouteCtx = { params: Promise<{ slug: string; id: string }> };
+
+// Approve or decline a pending athlete request. Head-Coach-only for THIS
+// campaign — see route.ts (GET) for why isHeadCoach() is the correct check.
+// decided_by_account_id records the elf_accounts id (not the team_coaches
+// row id CoachSession carries), so this also requires a resolved account
+// session — matching the spec's "authenticated account === Head Coach"
+// framing exactly, and excluding any pre-Phase-21 coach who somehow still
+// only has the legacy team_coach cookie with no linked account.
+// The campaign is taken from the URL (trusted server/route context), never
+// from the request body — so a Head Coach of a different campaign cannot
+// act on this request even if they somehow learn its id, and nothing in
+// the body (role, campaign, status, athlete id) is trusted without the
+// server-side checks below.
+export async function PATCH(req: NextRequest, { params }: RouteCtx) {
+  const { slug, id } = await params;
+  const [actor, account] = await Promise.all([getTeamActor(slug), getAccountSession()]);
+  if (!isHeadCoach(actor) || !account) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  if (!body || (body.action !== "approve" && body.action !== "decline")) {
+    return NextResponse.json({ error: "action must be 'approve' or 'decline'." }, { status: 400 });
+  }
+
+  if (body.action === "decline") {
+    const result = await declineRequest(
+      { requestId: id, campaignSlug: slug, decidedByAccountId: account.id },
+      typeof body.declineReason === "string" ? body.declineReason : undefined,
+    );
+    if (!result.ok) {
+      const status = result.reason === "not_found" ? 404 : 409;
+      return NextResponse.json({ error: result.reason === "not_found" ? "Request not found." : "This request has already been decided." }, { status });
+    }
+    logAuditEvent({
+      action:        "athlete_request.declined",
+      entity_type:   "pending_athlete_request",
+      entity_id:     id,
+      campaign_slug: slug,
+      summary:       `Declined athlete join request for "${result.request.full_name}"`,
+      ip_address:    ipOf(req),
+      user_agent:    req.headers.get("user-agent"),
+    });
+    return NextResponse.json({ ok: true, request: result.request });
+  }
+
+  // action === "approve"
+  const linkAthleteId = typeof body.linkAthleteId === "string" && body.linkAthleteId ? body.linkAthleteId : null;
+  const decision = linkAthleteId
+    ? { action: "link" as const, athleteId: linkAthleteId }
+    : { action: "create" as const, overrideCollision: body.overrideCollision === true };
+
+  const result = await approveRequest(
+    { requestId: id, campaignSlug: slug, decidedByAccountId: account.id },
+    decision,
+  );
+
+  if (!result.ok) {
+    if (result.reason === "not_found")         return NextResponse.json({ error: "Request not found." }, { status: 404 });
+    if (result.reason === "already_decided")   return NextResponse.json({ error: "This request has already been decided." }, { status: 409 });
+    if (result.reason === "athlete_not_found") return NextResponse.json({ error: "Selected athlete not found on this team." }, { status: 404 });
+    if (result.reason === "validation")        return NextResponse.json({ error: result.message }, { status: 400 });
+    // collision
+    return NextResponse.json(
+      { error: `An athlete named "${(result.collision as { existing: { name: string } }).existing.name}" already exists on this team.`, collision: result.collision },
+      { status: 409 },
+    );
+  }
+
+  logAuditEvent({
+    action:        "athlete_request.approved",
+    entity_type:   "pending_athlete_request",
+    entity_id:     id,
+    campaign_slug: slug,
+    summary:       `Approved athlete join request for "${result.request.full_name}" (athlete_id=${result.request.resulting_athlete_id})`,
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
+  return NextResponse.json({ ok: true, request: result.request });
+}
