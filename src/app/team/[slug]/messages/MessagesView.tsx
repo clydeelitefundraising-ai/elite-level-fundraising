@@ -169,6 +169,7 @@ function ComposeModal({
     isStaff ? null : "coach",
   );
   const [recipientId, setRecipientId] = useState("");
+  const [search, setSearch] = useState("");
   const [step, setStep] = useState<ComposeStep>("recipient");
   const [msgBody, setMsgBody] = useState("");
   const [sending, setSending] = useState(false);
@@ -188,6 +189,7 @@ function ComposeModal({
     // is a separate control the user just changed).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecipientId("");
+    setSearch("");
   }, [recipientType]);
 
   useEffect(() => {
@@ -199,6 +201,15 @@ function ComposeModal({
     : recipientType === "athlete"
       ? (dir?.athletes ?? [])
       : (dir?.parents ?? []);
+
+  const query = search.trim().toLowerCase();
+  const filteredRecipients = query
+    ? recipients.filter(r => r.name.toLowerCase().includes(query))
+    : recipients;
+
+  const searchLabel = recipientType === "athlete" ? "Search athletes"
+    : recipientType === "parent" ? "Search parents"
+    : "Search coaches";
 
   const selectedRecipient = recipients.find(r => r.id === recipientId);
   const actorType = recipientType === "coach" ? "coach" : "member";
@@ -333,12 +344,30 @@ function ComposeModal({
                 <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280", marginBottom: ".5rem" }}>
                   {isStaff ? "Choose recipient" : "Choose coach"}
                 </div>
+                {dir && recipients.length > 0 && (
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder={searchLabel}
+                    aria-label={searchLabel}
+                    style={{
+                      width: "100%", padding: ".55rem .7rem", marginBottom: ".5rem",
+                      borderRadius: 10, border: "1.5px solid #e5e7eb",
+                      fontSize: "1rem", color: "#374151", boxSizing: "border-box",
+                    }}
+                  />
+                )}
                 {dir ? (
                   recipients.length === 0 ? (
                     <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No one to message here yet.</div>
+                  ) : filteredRecipients.length === 0 ? (
+                    <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: ".4rem 0" }}>
+                      No matches for &ldquo;{search.trim()}&rdquo;.
+                    </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
-                      {recipients.map(r => {
+                      {filteredRecipients.map(r => {
                         const active = r.id === recipientId;
                         return (
                           <button
