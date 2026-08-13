@@ -743,6 +743,37 @@ export async function markMessagesReadForActor(
   );
 }
 
+// ─── Mark thread read (Phase 2B QA fix) ───────────────────────────────────────
+//
+// Root cause of the Preview regression where opening a thread never cleared
+// its unread state: the /read route used to filter with
+// `${fk}=neq.<actorId>` directly in PostgREST, where fk was the READER's own
+// actor-type column (e.g. sender_member_id for a member reader). Messages
+// sent by the OTHER actor type have that column NULL, and `NULL <> value`
+// evaluates to NULL (no match) in Postgres — so every message from the other
+// actor type was silently excluded from the read-marking set, which is the
+// overwhelmingly common case (a member's unread messages are almost always
+// from a coach, and vice versa). This mirrors the exact "other people's
+// messages" filter already proven correct in getThreadsForActor/
+// getUnreadMessageCount: fetch every message in the thread, then exclude the
+// actor's own by JS equality, which — unlike SQL neq — handles null fine.
+export async function markThreadReadForActor(
+  threadId: string,
+  actor: ActorKey,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
+    `&select=id,sender_coach_id,sender_member_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const msgs: { id: string; sender_coach_id: string | null; sender_member_id: string | null }[] =
+    res.ok ? await res.json() : [];
+  const others = msgs.filter(m =>
+    actor.kind === "coach" ? m.sender_coach_id !== actor.id : m.sender_member_id !== actor.id,
+  );
+  await markMessagesReadForActor(others.map(m => m.id), actor);
+}
+
 // ─── Safety helpers ───────────────────────────────────────────────────────────
 
 export async function fetchMemberById(

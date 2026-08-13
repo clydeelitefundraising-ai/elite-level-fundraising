@@ -44,9 +44,14 @@ export default function CommunicationsView({
   const initialSection: Section = searchParams.get("tab") === "messages" ? "messages" : "updates";
   const [section, setSection] = useState<Section>(initialSection);
 
-  // Derived from the same thread data already fetched server-side for this
-  // page (force-dynamic — fresh on every navigation here) — no extra query.
-  const dmUnreadCount = initialThreads.reduce((sum, t) => sum + t.unread_count, 0);
+  // Seeded from the same thread data fetched server-side for this page,
+  // then kept live by MessagesView's onUnreadChange callback — MessagesView
+  // already refetches threads on elf:messages-changed (thread read, new
+  // thread created), so this derives from that same data instead of
+  // issuing its own redundant fetch.
+  const [dmUnreadCount, setDmUnreadCount] = useState(
+    initialThreads.reduce((sum, t) => sum + t.unread_count, 0),
+  );
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -142,6 +147,7 @@ export default function CommunicationsView({
             actorName={actorName!}
             isStaff={isStaff}
             primaryColor={primaryColor}
+            onUnreadChange={setDmUnreadCount}
           />
         )
       )}

@@ -511,6 +511,7 @@ export default function MessagesView({
   actorName,
   isStaff,
   primaryColor,
+  onUnreadChange,
 }: {
   slug: string;
   initialThreads: ThreadWithDetails[];
@@ -519,10 +520,33 @@ export default function MessagesView({
   actorName: string;
   isStaff: boolean;
   primaryColor: string;
+  onUnreadChange?: (count: number) => void;
 }) {
   const router = useRouter();
   const [threads, setThreads] = useState<ThreadWithDetails[]>(initialThreads);
   const [showCompose, setShowCompose] = useState(false);
+
+  // Live refresh: a thread being read (ThreadView), or a new one being
+  // created (handleCreated below), both dispatch elf:messages-changed.
+  // Refetch the SAME data this page was seeded with server-side (no new
+  // endpoint) so unread indicators/counts update without a full reload.
+  useEffect(() => {
+    const load = () => {
+      fetch(`/api/team/${slug}/messages/threads`)
+        .then(r => r.ok ? r.json() : null)
+        .then((d: ThreadWithDetails[] | null) => { if (d) setThreads(d); })
+        .catch(() => {});
+    };
+    window.addEventListener("elf:messages-changed", load);
+    return () => window.removeEventListener("elf:messages-changed", load);
+  }, [slug]);
+
+  // Report the total unread MESSAGE count up to the parent (Communications
+  // DM segment badge) whenever it changes — derived from the same threads
+  // data already held here, no extra fetch.
+  useEffect(() => {
+    onUnreadChange?.(threads.reduce((sum, t) => sum + t.unread_count, 0));
+  }, [threads, onUnreadChange]);
 
   const handleCreated = (threadId: string) => {
     setShowCompose(false);
