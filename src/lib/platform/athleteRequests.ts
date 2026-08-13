@@ -160,7 +160,19 @@ export type ApproveRequestResult =
   | { ok: false; reason: "already_decided" }
   | { ok: false; reason: "validation"; message: string }
   | { ok: false; reason: "collision"; collision: unknown }
-  | { ok: false; reason: "athlete_not_found" };
+  | { ok: false; reason: "athlete_not_found" }
+  // A downstream step threw (raw DB/REST error, e.g. a schema constraint
+  // the app layer doesn't model) rather than returning a modeled failure.
+  // Caught centrally in approveRequest() so this never reaches the route
+  // handler as an unhandled exception. The request has been reverted to
+  // pending — safe to retry.
+  | { ok: false; reason: "internal_error" }
+  // The athlete and team membership were successfully created/linked, but
+  // the final bookkeeping update on pending_athlete_requests itself failed.
+  // Deliberately NOT reverted to pending — an athlete and membership now
+  // genuinely exist, so re-approving would risk a duplicate. Needs manual
+  // follow-up rather than an automatic retry.
+  | { ok: false; reason: "partial_success"; athleteId: string; memberId: string };
 
 // Atomically claims the request (WHERE status='pending') before doing
 // anything else — the race-safety mechanism for "two approvals at once" /
@@ -206,80 +218,130 @@ export async function approveRequest(
   const claimed = await claimPendingRequest(ctx.requestId, ctx.campaignSlug);
   if (!claimed) return { ok: false, reason: "already_decided" };
 
-  let athleteId: string;
-  if (decision.action === "link") {
-    const athlete = await validateAthleteForCampaign(decision.athleteId, ctx.campaignSlug);
-    if (!athlete) {
+  // Everything from here on runs against a request we exclusively own
+  // (status='approved', claimed above). Wrapped in try/catch: a *thrown*
+  // exception from any downstream step (createAthlete, createLinkedAthlete-
+  // Member, validateAthleteForCampaign, or the final bookkeeping update —
+  // e.g. a raw Postgres constraint violation the app layer doesn't model)
+  // must never leave the request stuck in "approved" with null resulting
+  // IDs. Modeled failures (createAthlete's collision/validation results)
+  // are still handled inline below, same as before — this catch only
+  // covers genuine throws.
+  try {
+    let athleteId: string;
+    if (decision.action === "link") {
+      const athlete = await validateAthleteForCampaign(decision.athleteId, ctx.campaignSlug);
+      if (!athlete) {
+        await revertToPending(ctx.requestId);
+        return { ok: false, reason: "athlete_not_found" };
+      }
+      athleteId = athlete.id;
+    } else {
+      const result = await createAthlete(
+        { campaignSlug: ctx.campaignSlug, name: existing.full_name, classYear: existing.class_year, event: existing.event },
+        { overrideCollision: decision.overrideCollision === true },
+      );
+      if (!result.ok) {
+        await revertToPending(ctx.requestId);
+        if (result.reason === "validation") return { ok: false, reason: "validation", message: result.message };
+        if (result.reason === "collision")  return { ok: false, reason: "collision", collision: result.collision };
+        return { ok: false, reason: "validation", message: "Failed to create athlete." };
+      }
+      athleteId = result.athlete.id;
+    }
+
+    const linkResult = await createLinkedAthleteMember({
+      campaignSlug: ctx.campaignSlug,
+      athleteId,
+      accountId:    existing.account_id,
+      name:         existing.full_name,
+    });
+    // athleteId was just validated/created above — this branch is only
+    // reachable on a genuine race (athlete deleted between resolve and link).
+    if (!linkResult.ok) {
       await revertToPending(ctx.requestId);
       return { ok: false, reason: "athlete_not_found" };
     }
-    athleteId = athlete.id;
-  } else {
-    const result = await createAthlete(
-      { campaignSlug: ctx.campaignSlug, name: existing.full_name, classYear: existing.class_year, event: existing.event },
-      { overrideCollision: decision.overrideCollision === true },
-    );
-    if (!result.ok) {
-      await revertToPending(ctx.requestId);
-      if (result.reason === "validation") return { ok: false, reason: "validation", message: result.message };
-      if (result.reason === "collision")  return { ok: false, reason: "collision", collision: result.collision };
-      return { ok: false, reason: "validation", message: "Failed to create athlete." };
+
+    // The athlete and membership are now genuinely created/linked. From
+    // here, a failure — thrown OR an empty response — must NOT fall into
+    // the outer catch's revert-to-pending: that would make a real,
+    // already-live athlete+membership look like nothing happened, and
+    // invite the Head Coach to "retry" a request that's actually done.
+    // Isolated in its own try/catch so both failure shapes land on
+    // partial_success instead.
+    try {
+      const finalRows = await restUpdate<PendingAthleteRequest>(
+        `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}`,
+        {
+          decided_by_account_id: ctx.decidedByAccountId,
+          decided_at:            new Date().toISOString(),
+          matched_athlete_id:    decision.action === "link" ? athleteId : null,
+          resulting_athlete_id:  athleteId,
+          resulting_member_id:   linkResult.member.id,
+          updated_at:            new Date().toISOString(),
+        },
+      );
+      if (!finalRows[0]) {
+        return { ok: false, reason: "partial_success", athleteId, memberId: linkResult.member.id };
+      }
+      return { ok: true, request: finalRows[0] };
+    } catch (finalErr) {
+      console.error("[athleteRequests] approveRequest: athlete+member created but final update threw:", finalErr);
+      return { ok: false, reason: "partial_success", athleteId, memberId: linkResult.member.id };
     }
-    athleteId = result.athlete.id;
+  } catch (err) {
+    console.error("[athleteRequests] approveRequest failed after claim:", err);
+    try {
+      await revertToPending(ctx.requestId);
+    } catch (revertErr) {
+      // Revert itself failed — log loudly, but still return a clean
+      // modeled error rather than letting either exception reach the
+      // route handler unhandled. The request may be left in "approved"
+      // with no results in this rare case; getPendingRequestsForCampaign
+      // (status=eq.pending) simply won't surface it, so it's silently
+      // stuck rather than duplicated — the safer of the two failure modes.
+      console.error("[athleteRequests] revertToPending also failed:", revertErr);
+    }
+    return { ok: false, reason: "internal_error" };
   }
-
-  const linkResult = await createLinkedAthleteMember({
-    campaignSlug: ctx.campaignSlug,
-    athleteId,
-    accountId:    existing.account_id,
-    name:         existing.full_name,
-  });
-  // athleteId was just validated/created above — this branch is only
-  // reachable on a genuine race (athlete deleted between resolve and link).
-  if (!linkResult.ok) {
-    await revertToPending(ctx.requestId);
-    return { ok: false, reason: "athlete_not_found" };
-  }
-
-  const finalRows = await restUpdate<PendingAthleteRequest>(
-    `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}`,
-    {
-      decided_by_account_id: ctx.decidedByAccountId,
-      decided_at:            new Date().toISOString(),
-      matched_athlete_id:    decision.action === "link" ? athleteId : null,
-      resulting_athlete_id:  athleteId,
-      resulting_member_id:   linkResult.member.id,
-      updated_at:            new Date().toISOString(),
-    },
-  );
-
-  return { ok: true, request: finalRows[0] };
 }
 
 export type DeclineRequestResult =
   | { ok: true;  request: PendingAthleteRequest }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "already_decided" };
+  | { ok: false; reason: "already_decided" }
+  | { ok: false; reason: "internal_error" };
 
+// Single atomic conditional UPDATE (WHERE status='pending') — unlike
+// approveRequest() there's no claim-then-multi-step sequence and therefore
+// no orphaned-state risk if this throws (nothing has been half-done), but
+// it's still wrapped so the route handler never sees an unhandled
+// exception either, keeping "always return valid JSON" true for both verbs.
 export async function declineRequest(
   ctx: DecideRequestContext,
   declineReason?: string,
 ): Promise<DeclineRequestResult> {
-  const rows = await restUpdate<PendingAthleteRequest>(
-    `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}&campaign_slug=eq.${encodeURIComponent(ctx.campaignSlug)}&status=eq.pending`,
-    {
-      status:                 "declined",
-      decided_by_account_id:  ctx.decidedByAccountId,
-      decided_at:             new Date().toISOString(),
-      decline_reason:         declineReason?.trim() || null,
-      updated_at:             new Date().toISOString(),
-    },
-  );
-  if (!rows[0]) {
-    const check = await restList<PendingAthleteRequest>(
-      `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}&campaign_slug=eq.${encodeURIComponent(ctx.campaignSlug)}&limit=1`,
+  try {
+    const rows = await restUpdate<PendingAthleteRequest>(
+      `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}&campaign_slug=eq.${encodeURIComponent(ctx.campaignSlug)}&status=eq.pending`,
+      {
+        status:                 "declined",
+        decided_by_account_id:  ctx.decidedByAccountId,
+        decided_at:             new Date().toISOString(),
+        decline_reason:         declineReason?.trim() || null,
+        updated_at:             new Date().toISOString(),
+      },
     );
-    return check[0] ? { ok: false, reason: "already_decided" } : { ok: false, reason: "not_found" };
+    if (!rows[0]) {
+      const check = await restList<PendingAthleteRequest>(
+        `pending_athlete_requests?id=eq.${encodeURIComponent(ctx.requestId)}&campaign_slug=eq.${encodeURIComponent(ctx.campaignSlug)}&limit=1`,
+      );
+      return check[0] ? { ok: false, reason: "already_decided" } : { ok: false, reason: "not_found" };
+    }
+    return { ok: true, request: rows[0] };
+  } catch (err) {
+    console.error("[athleteRequests] declineRequest failed:", err);
+    return { ok: false, reason: "internal_error" };
   }
-  return { ok: true, request: rows[0] };
 }

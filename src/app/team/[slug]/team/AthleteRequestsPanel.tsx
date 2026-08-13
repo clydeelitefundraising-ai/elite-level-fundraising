@@ -29,12 +29,19 @@ function timeAgo(iso: string): string {
 }
 
 function RequestCard({
-  slug, request, rosterAthletes, onDecided,
+  slug, request, rosterAthletes, onActionComplete,
 }: {
   slug: string;
   request: PendingRequest;
   rosterAthletes: RosterAthlete[];
-  onDecided: (id: string) => void;
+  // Called after every attempt — success AND failure — so the list is
+  // always refreshed against true server state. A failed approval may
+  // still have changed server-side state (e.g. reverted a claim back to
+  // pending); refreshing here means the UI never keeps showing a stale
+  // pre-attempt snapshot. Safe to call unconditionally: React keeps this
+  // card's own local error/collision state across the refresh since the
+  // request's id (used as the list key) doesn't change.
+  onActionComplete: () => void;
 }) {
   const [linkAthleteId, setLinkAthleteId] = useState("");
   const [rosterSearch, setRosterSearch]   = useState("");
@@ -64,11 +71,13 @@ function RequestCard({
         setError(data.error ?? "Action failed.");
         return;
       }
-      onDecided(request.id);
     } catch {
       setError("Network error. Please try again.");
+      return;
     } finally {
       setBusy(false);
+      // Always refresh — see onActionComplete's doc comment above.
+      onActionComplete();
     }
   }
 
@@ -242,7 +251,7 @@ export default function AthleteRequestsPanel({
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
         {requests.map(r => (
-          <RequestCard key={r.id} slug={slug} request={r} rosterAthletes={rosterAthletes} onDecided={() => load()} />
+          <RequestCard key={r.id} slug={slug} request={r} rosterAthletes={rosterAthletes} onActionComplete={() => load()} />
         ))}
       </div>
     </div>

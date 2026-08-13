@@ -37,8 +37,10 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
       typeof body.declineReason === "string" ? body.declineReason : undefined,
     );
     if (!result.ok) {
-      const status = result.reason === "not_found" ? 404 : 409;
-      return NextResponse.json({ error: result.reason === "not_found" ? "Request not found." : "This request has already been decided." }, { status });
+      if (result.reason === "not_found")       return NextResponse.json({ error: "Request not found." }, { status: 404 });
+      if (result.reason === "already_decided") return NextResponse.json({ error: "This request has already been decided." }, { status: 409 });
+      // internal_error — never expose raw DB/REST internals to the client.
+      return NextResponse.json({ error: "Failed to decline this request. Please try again." }, { status: 500 });
     }
     logAuditEvent({
       action:        "athlete_request.declined",
@@ -68,11 +70,27 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     if (result.reason === "already_decided")   return NextResponse.json({ error: "This request has already been decided." }, { status: 409 });
     if (result.reason === "athlete_not_found") return NextResponse.json({ error: "Selected athlete not found on this team." }, { status: 404 });
     if (result.reason === "validation")        return NextResponse.json({ error: result.message }, { status: 400 });
-    // collision
-    return NextResponse.json(
-      { error: `An athlete named "${(result.collision as { existing: { name: string } }).existing.name}" already exists on this team.`, collision: result.collision },
-      { status: 409 },
-    );
+    if (result.reason === "collision") {
+      return NextResponse.json(
+        { error: `An athlete named "${(result.collision as { existing: { name: string } }).existing.name}" already exists on this team.`, collision: result.collision },
+        { status: 409 },
+      );
+    }
+    if (result.reason === "partial_success") {
+      // Athlete + membership were genuinely created/linked but the final
+      // status update on the request row failed — log for manual
+      // follow-up rather than exposing internals; the request is not
+      // reverted to pending, so re-approving is deliberately blocked.
+      console.error(
+        `[athlete-requests] partial_success on approve: request=${id} athlete=${result.athleteId} member=${result.memberId} — needs manual pending_athlete_requests update`,
+      );
+      return NextResponse.json(
+        { error: "The athlete was created, but finishing this request failed. Please contact support." },
+        { status: 500 },
+      );
+    }
+    // internal_error — never expose raw DB/REST internals to the client.
+    return NextResponse.json({ error: "Failed to approve this request. Please try again." }, { status: 500 });
   }
 
   logAuditEvent({
