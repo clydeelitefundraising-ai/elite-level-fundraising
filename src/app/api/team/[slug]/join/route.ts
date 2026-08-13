@@ -46,8 +46,13 @@ export async function POST(
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required." }, { status: 400 });
   }
-  if (role !== "athlete" && role !== "parent" && role !== "booster") {
-    return NextResponse.json({ error: "Role must be athlete, parent, or booster." }, { status: 400 });
+  // Booster is intentionally excluded — Phase 1B removes booster from
+  // public/team-code self-registration on every join endpoint, including
+  // this legacy one (no UI routes here anymore, but it remains a reachable
+  // public endpoint for old shared links). Boosters remain valid staff via
+  // the Head-Coach-gated staff-invite flow only.
+  if (role !== "athlete" && role !== "parent") {
+    return NextResponse.json({ error: "Role must be athlete or parent." }, { status: 400 });
   }
 
   const upperCode = code.trim().toUpperCase();

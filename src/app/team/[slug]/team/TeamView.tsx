@@ -8,6 +8,7 @@ import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import AthleteRequestsPanel from "./AthleteRequestsPanel";
 
 // This page is intentionally athlete-focused for now. Future phases will
 // expand "Team" to include coaches, assistant coaches, managers, volunteers,
@@ -343,6 +344,11 @@ export default function TeamView({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+      {/* Head-Coach-only — canDelete is already isHeadCoach(actor), the
+          narrowest check available (excludes assistant coaches, boosters,
+          and any coach not resolved against THIS campaign). */}
+      {canDelete && <AthleteRequestsPanel slug={slug} rosterAthletes={athletes} />}
+
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
