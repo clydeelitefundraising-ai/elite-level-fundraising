@@ -3,7 +3,7 @@ import type { SponsorRow } from "@/lib/teamData";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
-import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
+import { getPendingRequestSummary } from "@/lib/platform/requests";
 import HomeView from "./HomeView";
 
 export default async function HomePage({
@@ -15,9 +15,12 @@ export default async function HomePage({
   // Home is not a public-facing route (unlike Fundraiser/athlete donor
   // pages) — gate it to logged-in members of this team.
   const actor = await requireTeamMembership(slug);
-  // Head-Coach-only — same canonical count function/gating already used by
-  // layout.tsx (nav badge) and team/page.tsx (Phase 3B-1).
-  const pendingRequestCount = isHeadCoach(actor) ? await getPendingRequestCount(slug) : 0;
+  // Head-Coach-only. Phase 3B-2: the Home badge now reflects the FULL
+  // Requests total (athlete requests + comment approvals) via the shared
+  // aggregator — unlike layout.tsx's nav badge and team/page.tsx's roster
+  // banner, which intentionally stay athlete-request-only since their
+  // meaning is specifically roster-page-adjacent, not "all Requests."
+  const pendingRequestCount = isHeadCoach(actor) ? (await getPendingRequestSummary(slug)).total : 0;
   const [announcements, upcoming, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
     getAnnouncements(slug),
     getCalendarEvents(slug, true),
