@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
+import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import EventDetailsModal from "../_components/EventDetailsModal";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -41,13 +43,6 @@ const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string
   "team":       { bg: "#f3f4f6", color: "#374151", accent: "#9ca3af" },
 };
 
-const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
-  practice:   { bg: "#dbeafe", color: "#1d4ed8" },
-  meet:       { bg: "#ede9fe", color: "#6d28d9" },
-  fundraiser: { bg: "#fef3c7", color: "#b45309" },
-  team:       { bg: "#f3f4f6", color: "#374151" },
-};
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtMoney(cents: number): string {
@@ -74,16 +69,6 @@ function relativeTime(iso: string): string {
   if (sec < 86400)  return `${Math.floor(sec / 3600)}h ago`;
   if (sec < 604800) return `${Math.floor(sec / 86400)}d ago`;
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
-}
-
-function labelDate(d: string): string {
-  const today    = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-  if (d === today)    return "Today";
-  if (d === tomorrow) return "Tomorrow";
-  const [y, m, day] = d.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
-    .format(new Date(y, m - 1, day));
 }
 
 // ── Subcomponents ─────────────────────────────────────────────────────────────
@@ -222,13 +207,21 @@ function AnnouncementCard({
   );
 }
 
-function UpcomingEventRow({ ev }: { ev: CalendarEventRow }) {
-  const s = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE["team"];
+function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen: (ev: CalendarEventRow) => void }) {
+  const s = eventTypeStyle(ev.type);
+  const time = displayEventTime(ev);
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", gap: ".75rem", padding: ".7rem 0", borderBottom: "1px solid #f3f4f6" }}>
+    <button
+      onClick={() => onOpen(ev)}
+      style={{
+        display: "flex", alignItems: "flex-start", gap: ".75rem", padding: ".7rem 0",
+        width: "100%", border: "none", borderBottom: "1px solid #f3f4f6",
+        background: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit",
+      }}
+    >
       <div style={{ flexShrink: 0, width: 44, textAlign: "center", paddingTop: ".1rem" }}>
         <div style={{ fontSize: ".62rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em" }}>
-          {labelDate(ev.event_date).slice(0, 3)}
+          {formatDateLabel(ev.event_date).slice(0, 3)}
         </div>
         <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>
           {ev.event_date.split("-")[2]}
@@ -241,13 +234,13 @@ function UpcomingEventRow({ ev }: { ev: CalendarEventRow }) {
             {ev.type}
           </span>
         </div>
-        {(ev.event_time || ev.location) && (
+        {(time || ev.location) && (
           <div style={{ fontSize: ".78rem", color: "#6b7280" }}>
-            {[ev.event_time, ev.location].filter(Boolean).join(" · ")}
+            {[time, ev.location].filter(Boolean).join(" · ")}
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -424,6 +417,7 @@ function HomeContent({
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const [unread,  setUnread]  = useState(0);
+  const [viewingEvent, setViewingEvent] = useState<CalendarEventRow | null>(null);
 
   const next3 = initialUpcoming.slice(0, 3);
 
@@ -508,7 +502,7 @@ function HomeContent({
           </h2>
           {next3.map((ev, i) => (
             <div key={ev.id} style={i === next3.length - 1 ? { borderBottom: "none" } : {}}>
-              <UpcomingEventRow ev={ev} />
+              <UpcomingEventRow ev={ev} onOpen={setViewingEvent} />
             </div>
           ))}
         </div>
@@ -649,6 +643,19 @@ function HomeContent({
         topAthleteName={topAthleteName}
         primaryColor={primaryColor}
       />
+
+      {/* Event details — same shared component the Calendar page uses, so
+          Home can never show different information than Calendar for the
+          same event. Home doesn't own event-mutation state, so this is
+          always view-only here regardless of role; full management stays
+          on the Calendar page. */}
+      {viewingEvent && (
+        <EventDetailsModal
+          ev={viewingEvent}
+          canManage={false}
+          onClose={() => setViewingEvent(null)}
+        />
+      )}
 
       {/* Announcement modal */}
       {modalOpen && (
