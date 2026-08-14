@@ -251,6 +251,58 @@ function UpcomingEventRow({ ev }: { ev: CalendarEventRow }) {
   );
 }
 
+// ── Requests entry point (Phase 3B-1, Head Coach only) ─────────────────────
+//
+// Deliberately NOT the approval cards themselves — this is only a link to
+// the dedicated Requests Center (/team/[slug]/requests), per the explicit
+// product requirement that Home never render approve/decline controls
+// directly. Stays visible at zero (not hidden/collapsed) so the feature
+// remains discoverable, but drops the alarming red badge when there's
+// nothing pending.
+function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
+  const hasPending = count > 0;
+  return (
+    <a
+      href={`/team/${slug}/requests`}
+      style={{
+        display: "flex", alignItems: "center", gap: ".7rem",
+        background: "#fff", borderRadius: 14, padding: ".9rem 1rem",
+        marginBottom: ".8rem", textDecoration: "none",
+        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        borderLeft: hasPending ? "4px solid #dc2626" : "4px solid transparent",
+      }}
+    >
+      <div style={{
+        width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: "1.1rem",
+        background: hasPending ? "#fee2e2" : "#f3f4f6",
+      }}>
+        📋
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
+          <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d" }}>Requests</span>
+          {hasPending && (
+            <span style={{
+              background: "#dc2626", color: "#fff", borderRadius: 100,
+              fontSize: ".62rem", fontWeight: 700, padding: ".08rem .44rem", lineHeight: 1.4,
+            }}>
+              {count}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: ".76rem", color: hasPending ? "#6b7280" : "#9ca3af", marginTop: ".1rem" }}>
+          {hasPending
+            ? `Athlete and team approval${count !== 1 ? "s" : ""} waiting`
+            : "No pending requests"}
+        </div>
+      </div>
+      <span style={{ fontSize: ".9rem", color: "#c1c7d0", flexShrink: 0 }}>→</span>
+    </a>
+  );
+}
+
 function FundraiserSnapshot({
   slug,
   raisedCents,
@@ -336,6 +388,7 @@ type HomeViewProps = {
   goalCents?: number;
   topAthleteName?: string | null;
   primaryColor?: string;
+  pendingRequestCount?: number;
 };
 
 // ── Role-based entry point (future-proofed for role dashboards) ────────────────
@@ -357,9 +410,13 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   primaryColor = "#0b1e3d",
+  pendingRequestCount = 0,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
+  // Separately named (rather than reusing canDelete) so the Requests-card
+  // gate below reads clearly on its own — same underlying check.
+  const isHeadCoachViewer = canDelete;
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
   const [form,    setForm]    = useState<AForm>(BLANK);
   const [editing, setEditing] = useState<AnnouncementRow | null>(null);
@@ -433,6 +490,9 @@ function HomeContent({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+
+      {/* 0 — Requests entry point (Head Coach only, Phase 3B-1) */}
+      {isHeadCoachViewer && <RequestsEntryCard slug={slug} count={pendingRequestCount} />}
 
       {/* 1 — Upcoming Events */}
       {next3.length > 0 && (
