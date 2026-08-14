@@ -4,6 +4,7 @@ import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getPendingRequestSummary } from "@/lib/platform/requests";
+import { getDisplayGoalCents } from "@/lib/platform/donations";
 import HomeView from "./HomeView";
 
 export default async function HomePage({
@@ -38,7 +39,9 @@ export default async function HomePage({
       actor={actor}
       sponsors={sponsors}
       raisedCents={donationStats.raised_cents}
-      goalCents={settings?.goal_cents ?? 0}
+      // Phase 3D: Home's fundraising progress tile is fundraising-facing —
+      // shows the dynamic display goal, never the raw base goal_cents.
+      goalCents={getDisplayGoalCents(settings?.goal_cents ?? 0, donationStats.raised_cents)}
       topAthleteName={fundraiserSummary.topAthleteName}
       primaryColor={settings?.primary_color ?? "#0b1e3d"}
       pendingRequestCount={pendingRequestCount}
