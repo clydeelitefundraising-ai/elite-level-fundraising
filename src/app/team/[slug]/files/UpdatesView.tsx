@@ -8,6 +8,7 @@ import type { ReadReceiptsResult } from "@/lib/notifications";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
+import CommentsSection from "./CommentsSection";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -363,6 +364,10 @@ function UpdateCard({
           <ReadReceiptPanel slug={slug} announcementId={a.id} />
         </div>
       )}
+
+      {/* Comments (Phase 3B-2) — reads/writes are already scoped per-viewer
+          server-side, so this renders identically regardless of role. */}
+      <CommentsSection slug={slug} announcementId={a.id} />
     </div>
   );
 }
