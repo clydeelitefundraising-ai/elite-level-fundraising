@@ -5,6 +5,7 @@ import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamDa
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import ActivationChecklist from "./ActivationChecklist";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -336,6 +337,9 @@ type HomeViewProps = {
   goalCents?: number;
   topAthleteName?: string | null;
   primaryColor?: string;
+  athleteCount?: number;
+  staffCount?: number;
+  pendingRequestCount?: number;
 };
 
 // ── Role-based entry point (future-proofed for role dashboards) ────────────────
@@ -357,6 +361,9 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   primaryColor = "#0b1e3d",
+  athleteCount = 0,
+  staffCount = 0,
+  pendingRequestCount = 0,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -433,6 +440,17 @@ function HomeContent({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+
+      {/* 0 — Fundraiser Setup ("Get Your Team Ready") — Phase 3A-1 */}
+      <ActivationChecklist
+        slug={slug}
+        actor={actor}
+        athleteCount={athleteCount}
+        staffCount={staffCount}
+        pendingRequestCount={pendingRequestCount}
+        sponsorCount={sponsors.length}
+        goalCents={goalCents}
+      />
 
       {/* 1 — Upcoming Events */}
       {next3.length > 0 && (
