@@ -100,9 +100,16 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-// ── Contacts progress card (athlete/parent only) ──────────────────────────────
+// ── People to Contact — elevated next-action card (athlete/parent only) ───────
+//
+// Reuses the exact same /contacts summary endpoint and fundraising_contacts/
+// fundraising_contact_goals data as before (Phase 29) — only the presentation
+// and CTA copy changed for Phase 3A-1. Once the contact goal is met, the CTA
+// switches from "Add Contacts" to "View Contacts" so the card stays useful
+// instead of looking like there's nothing left to do (contact status/
+// outreach tracking itself is explicitly out of scope for this phase).
 
-function ContactsCard({ slug, primary }: { slug: string; primary: string }) {
+function PeopleToContactCard({ slug, primary }: { slug: string; primary: string }) {
   const [count, setCount] = useState<number | null>(null);
   const [goal,  setGoal]  = useState<number>(10);
 
@@ -114,41 +121,54 @@ function ContactsCard({ slug, primary }: { slug: string; primary: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pct = goal > 0 && count !== null ? Math.min(100, Math.round((count / goal) * 100)) : 0;
+  const pct       = goal > 0 && count !== null ? Math.min(100, Math.round((count / goal) * 100)) : 0;
+  const goalMet    = count !== null && count >= goal;
+  const ctaLabel   = goalMet ? "View Contacts →" : "Add Contacts →";
 
   return (
     <div style={{
       background: "#fff", borderRadius: 16, overflow: "hidden",
       boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
       marginBottom: ".65rem",
+      borderLeft: `4px solid ${primary}`,
     }}>
-      <div style={{ padding: ".875rem 1.25rem .6rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>My Contacts</div>
-          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginTop: ".1rem" }}>Fundraising Contacts</div>
+      <div style={{ padding: ".9rem 1.15rem .6rem" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Next Action
         </div>
-        <a
-          href={`/team/${slug}/contacts`}
-          style={{ padding: ".4rem .9rem", background: primary, color: "#fff", borderRadius: 20, fontSize: ".75rem", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
-        >
-          Add Contacts →
-        </a>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", marginTop: ".1rem" }}>
+          People to Contact
+        </div>
       </div>
-      <div style={{ padding: ".75rem 1.25rem" }}>
+      <div style={{ padding: "0 1.15rem .9rem" }}>
         {count === null ? (
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
         ) : (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".45rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".5rem" }}>
               <div>
                 <span style={{ fontWeight: 800, fontSize: "1.4rem", color: "#0b1e3d", lineHeight: 1 }}>{count}</span>
-                <span style={{ fontSize: ".78rem", color: "#6b7280", marginLeft: ".3rem" }}>of {goal} contacts</span>
+                <span style={{ fontSize: ".78rem", color: "#6b7280", marginLeft: ".3rem" }}>of {goal} contacts added</span>
               </div>
-              <span style={{ fontSize: ".75rem", fontWeight: 700, color: pct >= 100 ? "#059669" : "#6b7280" }}>{pct}%</span>
+              {goalMet && (
+                <span style={{ fontSize: ".65rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: ".15rem .5rem", borderRadius: 100 }}>
+                  ✓ Goal met
+                </span>
+              )}
             </div>
-            <div style={{ background: "#e5e7eb", borderRadius: 100, height: 7, overflow: "hidden" }}>
-              <div style={{ background: pct >= 100 ? "#059669" : primary, borderRadius: 100, height: "100%", width: `${pct}%`, transition: "width .5s ease" }} />
+            <div style={{ background: "#e5e7eb", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".75rem" }}>
+              <div style={{ background: goalMet ? "#059669" : primary, borderRadius: 100, height: "100%", width: `${pct}%`, transition: "width .5s ease" }} />
             </div>
+            <a
+              href={`/team/${slug}/contacts`}
+              style={{
+                display: "block", textAlign: "center", padding: ".65rem", width: "100%", boxSizing: "border-box",
+                background: goalMet ? "#f3f4f6" : primary, color: goalMet ? "#374151" : "#fff",
+                borderRadius: 10, fontSize: ".85rem", fontWeight: 700, textDecoration: "none",
+              }}
+            >
+              {ctaLabel}
+            </a>
           </>
         )}
       </div>
@@ -488,7 +508,13 @@ function AthleteView({
   const bg        = avatarColor(athlete.name);
   const firstName = athlete.name.split(" ")[0];
   const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
-  const profilePath = `/team/${slug}/athlete/${athlete.id}`;
+  // Canonical donor-facing share URL (Phase 3A-1 share-path fix): the
+  // public campaign page with this athlete preselected via ?athlete=<id>
+  // — NOT the internal Team App /team/[slug]/athlete/[id] page, which
+  // donors should never land on. athleteId is the stable canonical
+  // attribution key; /api/checkout re-validates it server-side against
+  // this exact campaign before it's ever trusted (see checkout route).
+  const profilePath = `/campaign/${slug}?athlete=${athlete.id}`;
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const profileUrl = `${siteOrigin}${profilePath}`;
@@ -530,7 +556,7 @@ function AthleteView({
           Fundraiser
         </span>
         <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-          My Dashboard
+          Your Fundraiser
         </h2>
       </div>
 
@@ -594,54 +620,57 @@ function AthleteView({
         </div>
 
         <ProgressBar pct={pct} color={primary} />
-        <div style={{ fontSize: ".68rem", color: "#6b7280", marginTop: ".4rem", textAlign: "right" }}>
-          {Math.round(pct)}% complete
-        </div>
-
-        <div style={{ display: "flex", gap: ".5rem", marginTop: ".875rem", paddingTop: ".875rem", borderTop: "1px solid #f3f4f6" }}>
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontWeight: 800, fontSize: "1.15rem", color: primary }}>#{rank}</div>
-            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>of {totalAthletes} athletes</div>
-          </div>
-          <div style={{ width: 1, background: "#f3f4f6", flexShrink: 0 }} />
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontWeight: 800, fontSize: "1.15rem", color: "#0b1e3d" }}>{donorCount}</div>
-            <div style={{ fontSize: ".63rem", color: "#9ca3af", marginTop: ".1rem" }}>{donorCount === 1 ? "donor" : "donors"}</div>
-          </div>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          marginTop: ".5rem", paddingTop: ".5rem", borderTop: "1px solid #f3f4f6",
+        }}>
+          <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>
+            Rank <strong style={{ color: "#6b7280" }}>#{rank}</strong> of {totalAthletes} · {donorCount} {donorCount === 1 ? "donor" : "donors"}
+          </span>
+          <span style={{ fontSize: ".72rem", color: "#6b7280", fontWeight: 600 }}>
+            {Math.round(pct)}% complete
+          </span>
         </div>
       </div>
 
-      {/* ── Fundraising contacts ── */}
-      <ContactsCard slug={slug} primary={primary} />
-
-      {/* ── Team leaderboard ── */}
-      <LeaderboardSection
-        leaderboard={leaderboard}
-        currentAthleteId={athlete.id}
-        primary={primary}
-      />
-
-      {/* ── Share actions ── */}
+      {/* ── Share — the strongest action on the page ── */}
       <div style={{
-        background: "#fff", borderRadius: 16, padding: "1rem 1.25rem",
+        background: "#fff", borderRadius: 16, padding: "1.15rem 1.25rem",
         boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         marginBottom: ".65rem",
+        borderLeft: `4px solid ${primary}`,
       }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
-          Share your fundraising page
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Next Action
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: ".5rem" }}>
-          <button onClick={handleCopy} style={{ padding: ".65rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", margin: ".1rem 0 .2rem" }}>
+          Share Your Fundraiser
+        </div>
+        <p style={{ margin: "0 0 .8rem", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
+          Send your personal link to family and friends.
+        </p>
+        <button
+          onClick={handleShare}
+          style={{
+            width: "100%", padding: ".8rem", background: primary, color: "#fff",
+            border: "none", borderRadius: 12, fontSize: ".92rem", fontWeight: 700,
+            cursor: "pointer", marginBottom: ".5rem",
+          }}
+        >
+          Share My Fundraiser ↗
+        </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".5rem" }}>
+          <button onClick={handleCopy} style={{ padding: ".6rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
             {copied ? "✓ Copied" : "Copy Link"}
           </button>
-          <button onClick={handleShare} style={{ padding: ".65rem .25rem", background: primary, color: "#fff", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
-            Share ↗
-          </button>
-          <button onClick={() => setShowQr(true)} style={{ padding: ".65rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={() => setShowQr(true)} style={{ padding: ".6rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
             QR Code
           </button>
         </div>
       </div>
+
+      {/* ── People to contact ── */}
+      <PeopleToContactCard slug={slug} primary={primary} />
 
       {/* ── My recent donations ── */}
       {recentDonations.length > 0 && (
@@ -690,6 +719,14 @@ function AthleteView({
         </div>
       )}
 
+      {/* ── Team leaderboard (context/motivation, secondary to the athlete's
+            own next actions above) ── */}
+      <LeaderboardSection
+        leaderboard={leaderboard}
+        currentAthleteId={athlete.id}
+        primary={primary}
+      />
+
       {/* ── Team donation feed ── */}
       <TeamDonationFeed teamFeed={teamFeed} secondary={secondary} />
 
@@ -709,7 +746,7 @@ function AthleteView({
                 Scan to donate to {firstName}
               </div>
               <div style={{ fontSize: ".7rem", color: "#9ca3af", fontFamily: "monospace", wordBreak: "break-all" }}>
-                /team/{slug}/athlete/{athlete.id}
+                {profilePath}
               </div>
             </div>
             <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>

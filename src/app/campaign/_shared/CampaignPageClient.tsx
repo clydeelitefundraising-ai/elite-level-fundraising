@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
@@ -13,11 +14,11 @@ const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
 const FALLBACK_ATHLETES = [
-  { rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
-  { rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
-  { rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
-  { rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
-  { rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
+  { id: "demo-1", rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
+  { id: "demo-2", rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
+  { id: "demo-3", rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
+  { id: "demo-4", rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
+  { id: "demo-5", rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
 ];
 
 const initialDonations = [
@@ -52,10 +53,15 @@ function hexToRgb(hex: string): string {
 }
 
 export default function CampaignPageClient({ slug }: { slug: string }) {
+  const searchParams = useSearchParams();
   const [selectedAmount,  setSelectedAmount]  = useState("$50");
   const [customAmount,    setCustomAmount]    = useState("");
-  const [donorName,       setDonorName]       = useState("");
-  const [selectedAthlete, setSelectedAthlete] = useState("");
+  const [donorName,         setDonorName]         = useState("");
+  // Canonical athlete id (Phase 3A-1 share-path fix) — the <select> below is
+  // keyed by id, not name, so attribution is exact even when two athletes
+  // share a name. Display name is derived from `athletes` (the very list
+  // the id came from), never re-guessed from free text.
+  const [selectedAthleteId, setSelectedAthleteId] = useState("");
   const [donationMessage, setDonationMessage] = useState("");
   const [donating,        setDonating]        = useState(false);
   const [donateError,     setDonateError]     = useState("");
@@ -68,7 +74,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState<{ rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
+  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
   const [recentDonations, setRecentDonations] = useState(initialDonations);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
@@ -149,13 +155,13 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
-        const base: { name: string; event: string | null; class_year?: string | null }[] =
+        const base: { id: string; name: string; event: string | null; class_year?: string | null }[] =
           Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
             ? fetchedAthletes
             : FALLBACK_ATHLETES;
         setAthletes(
           base
-            .map((a) => ({ name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
+            .map((a) => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
             .sort((a, b) => b.raised - a.raised)
             .map((a, i) => ({ ...a, rank: i + 1 })),
         );
@@ -181,6 +187,24 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       .catch(() => {/* keep fallback data */});
   }, [slug]);
 
+  // Shared-athlete-link prefill (Phase 3A-1 share-path fix): ?athlete=<id>
+  // preselects that athlete in the donate form once the real, campaign-
+  // scoped athlete list has loaded. Only ever matches against `athletes`
+  // (the fresh fetch result for THIS campaign) — a stale/tampered/
+  // cross-campaign id in the URL simply never matches and the form quietly
+  // falls back to the general fund, exactly like no param was supplied.
+  // /api/checkout re-validates independently regardless.
+  useEffect(() => {
+    const athleteParam = searchParams.get("athlete");
+    if (athleteParam && athletes.some((a) => a.id === athleteParam)) {
+      // Syncing local selection state to an external source (the URL) once
+      // the campaign-scoped athlete list is available — the correct use of
+      // an effect here, not a derived-during-render value.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedAthleteId(athleteParam);
+    }
+  }, [athletes, searchParams]);
+
   // Page chrome (hero, buttons, accents, progress bar, headings, cards) is
   // driven entirely by the CAMPAIGN theme colors, not the team colors —
   // that's the whole point of separating them.
@@ -204,9 +228,13 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       ? customAmount ? `$${customAmount}` : "Custom Amount"
       : selectedAmount;
 
+  // Display name is looked up from the current campaign's own athlete list
+  // by exact id match — never guessed/matched from free text.
+  const selectedAthleteName = athletes.find((a) => a.id === selectedAthleteId)?.name ?? "";
+
   const donateLabel =
-    selectedAthlete
-      ? `Donate ${displayAmount} for ${selectedAthlete} →`
+    selectedAthleteId
+      ? `Donate ${displayAmount} for ${selectedAthleteName || "this athlete"} →`
       : `Donate ${displayAmount} to the ${mascot} →`;
 
   const filteredAthletes = (
@@ -230,9 +258,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amountCents:     Math.round(parsed * 100),
-          athleteName:     selectedAthlete  || null,
-          donorName:       donorName        || null,
-          donationMessage: donationMessage  || null,
+          athleteId:       selectedAthleteId   || null,
+          athleteName:     selectedAthleteName || null,
+          donorName:       donorName           || null,
+          donationMessage: donationMessage     || null,
           campaignSlug:    slug,
         }),
       });
@@ -291,7 +320,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     showLeaderboard, showProgramIdentity, showShareSection,
     showFundUses,    showRecentDonations, showSponsors, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
-    donorName,    setDonorName, selectedAthlete, setSelectedAthlete,
+    donorName,    setDonorName, selectedAthleteId, setSelectedAthleteId,
     donationMessage, setDonationMessage,
     donating, donateError, donateLabel, handleDonate,
     copyConfirm, shareNote, handleCopyLink, handleText, handleEmail, handleSocial,
@@ -615,10 +644,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
 
                   <div className="cl-form-field">
                     <label>Support a specific athlete <span className="cl-optional">(optional)</span></label>
-                    <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)}>
+                    <select value={selectedAthleteId} onChange={(e) => setSelectedAthleteId(e.target.value)}>
                       <option value="">— Team General Fund —</option>
                       {athletes.map((a) => (
-                        <option key={a.name} value={a.name}>{a.name}</option>
+                        <option key={a.id} value={a.id}>{a.name}</option>
                       ))}
                     </select>
                   </div>
