@@ -29,8 +29,8 @@ export type PremiumLayoutProps = {
   goal: number;
   daysLeft: number;
   percent: number;
-  athletes: { rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
-  filteredAthletes: { rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
+  athletes: { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
+  filteredAthletes: { id: string; rank: number; displayRank: number; name: string; event: string | null; class_year: string | null; raised: number }[];
   filters: string[];
   activeFilter: string;
   setActiveFilter: (v: string) => void;
@@ -55,8 +55,8 @@ export type PremiumLayoutProps = {
   setCustomAmount: (v: string) => void;
   donorName: string;
   setDonorName: (v: string) => void;
-  selectedAthlete: string;
-  setSelectedAthlete: (v: string) => void;
+  selectedAthleteId: string;
+  setSelectedAthleteId: (v: string) => void;
   donationMessage: string;
   setDonationMessage: (v: string) => void;
   donating: boolean;
@@ -84,7 +84,7 @@ export default function PremiumLayout({
   showLeaderboard, showProgramIdentity, showShareSection,
   showFundUses, showRecentDonations, showSponsors, showDonationCard,
   selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
-  donorName, setDonorName, selectedAthlete, setSelectedAthlete,
+  donorName, setDonorName, selectedAthleteId, setSelectedAthleteId,
   donationMessage, setDonationMessage,
   donating, donateError, donateLabel, handleDonate,
   copyConfirm, shareNote, handleCopyLink, handleText, handleEmail, handleSocial,
@@ -198,10 +198,10 @@ export default function PremiumLayout({
                 </div>
                 <div className="cl-form-field">
                   <label>Support a specific athlete <span className="cl-optional">(optional)</span></label>
-                  <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)}>
+                  <select value={selectedAthleteId} onChange={(e) => setSelectedAthleteId(e.target.value)}>
                     <option value="">— Team General Fund —</option>
                     {athletes.map((a) => (
-                      <option key={a.name} value={a.name}>{a.name}</option>
+                      <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
                 </div>

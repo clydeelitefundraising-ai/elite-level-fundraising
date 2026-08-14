@@ -508,7 +508,13 @@ function AthleteView({
   const bg        = avatarColor(athlete.name);
   const firstName = athlete.name.split(" ")[0];
   const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
-  const profilePath = `/team/${slug}/athlete/${athlete.id}`;
+  // Canonical donor-facing share URL (Phase 3A-1 share-path fix): the
+  // public campaign page with this athlete preselected via ?athlete=<id>
+  // — NOT the internal Team App /team/[slug]/athlete/[id] page, which
+  // donors should never land on. athleteId is the stable canonical
+  // attribution key; /api/checkout re-validates it server-side against
+  // this exact campaign before it's ever trusted (see checkout route).
+  const profilePath = `/campaign/${slug}?athlete=${athlete.id}`;
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const profileUrl = `${siteOrigin}${profilePath}`;
@@ -740,7 +746,7 @@ function AthleteView({
                 Scan to donate to {firstName}
               </div>
               <div style={{ fontSize: ".7rem", color: "#9ca3af", fontFamily: "monospace", wordBreak: "break-all" }}>
-                /team/{slug}/athlete/{athlete.id}
+                {profilePath}
               </div>
             </div>
             <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>

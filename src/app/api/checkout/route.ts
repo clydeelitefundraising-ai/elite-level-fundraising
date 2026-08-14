@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateAthleteForCampaign } from "@/lib/platform/athletes";
 
 export async function POST(req: NextRequest) {
   const { amountCents, athleteName, athleteId, donorName, donationMessage, campaignSlug } =
@@ -17,11 +18,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "campaignSlug is required." }, { status: 400 });
   }
 
+  // Phase 3A-1 share-path fix: a client-supplied athleteId (from a shared
+  // athlete link's ?athlete=<id>) is never trusted blindly — re-validate it
+  // belongs to THIS campaign using the same Phase 1A validator already
+  // used by members/me and the join endpoints, and derive the canonical
+  // name from that row rather than trusting client-supplied free text. An
+  // invalid/cross-campaign/nonexistent id is silently dropped (falls back
+  // to a general/name-only donation) rather than failing checkout — a
+  // stale or tampered link should never block someone from donating.
+  let finalAthleteId: string | null = null;
+  let finalAthleteName: string | null = typeof athleteName === "string" && athleteName ? athleteName : null;
+  if (athleteId) {
+    const athlete = await validateAthleteForCampaign(athleteId, campaignSlug);
+    if (athlete) {
+      finalAthleteId = athlete.id;
+      finalAthleteName = athlete.name;
+    }
+  }
+
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
   const campaignUrl = `${origin}/campaign/${campaignSlug}`;
 
-  const productName = athleteName
-    ? `Donation for ${athleteName}`
+  const productName = finalAthleteName
+    ? `Donation for ${finalAthleteName}`
     : "Team Fundraiser Donation";
 
   const params = new URLSearchParams({
@@ -35,10 +54,10 @@ export async function POST(req: NextRequest) {
     cancel_url: campaignUrl,
   });
 
-  if (donorName)        params.set("metadata[donor_name]",        donorName);
-  if (athleteName)      params.set("metadata[athlete_name]",      athleteName);
-  if (athleteId)        params.set("metadata[athlete_id]",        athleteId);
-  if (donationMessage)  params.set("metadata[donation_message]",  donationMessage);
+  if (donorName)         params.set("metadata[donor_name]",        donorName);
+  if (finalAthleteName)  params.set("metadata[athlete_name]",      finalAthleteName);
+  if (finalAthleteId)    params.set("metadata[athlete_id]",        finalAthleteId);
+  if (donationMessage)   params.set("metadata[donation_message]",  donationMessage);
   params.set("metadata[campaign_slug]", campaignSlug);
 
   const stripeRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {

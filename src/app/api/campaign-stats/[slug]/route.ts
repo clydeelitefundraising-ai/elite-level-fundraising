@@ -47,7 +47,7 @@ export async function GET(
     let archived: boolean | undefined;
     let layoutVariant: "classic" | "premium" | undefined;
     let visibility: Record<string, boolean> | undefined;
-    let athletes: { name: string; event: string | null; class_year: string | null }[] | undefined;
+    let athletes: { id: string; name: string; event: string | null; class_year: string | null }[] | undefined;
     let sponsors: { name: string; url: string; tier: string; logo_url: string | null; description: string | null }[] | undefined;
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
 
@@ -87,7 +87,10 @@ export async function GET(
 
     try {
       const rows = await getAthletes(slug);
-      if (rows.length > 0) athletes = rows.map(a => ({ name: a.name, event: a.event, class_year: a.class_year ?? null }));
+      // id is exposed (Phase 3A-1 share-path fix) so the public campaign
+      // page's athlete selector can be preselected via a stable id, not a
+      // free-text name — /api/checkout independently re-validates it.
+      if (rows.length > 0) athletes = rows.map(a => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null }));
     } catch { /* keep undefined */ }
 
     try {
