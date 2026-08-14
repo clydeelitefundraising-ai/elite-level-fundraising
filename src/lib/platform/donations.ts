@@ -72,6 +72,36 @@ export function getCampaignProgress(donations: RawDonation[], goalCents: number)
   return { raisedCents, donationCount: donations.length, pctToGoal };
 }
 
+// Phase 3D: dynamic DISPLAY goal for fundraising-facing UI only. Pure,
+// deterministic function of the admin-set base goal and current raised
+// total — never persisted, never written back to campaign_settings.
+//
+// Rule (buffer = 10% of base, step = 20% of base): once raised comes
+// within `buffer` of the current display goal, the display goal advances
+// by one `step`, repeated until raised is safely below the new display
+// goal minus buffer. This keeps the publicly-shown target always ahead
+// of what's been raised, so a campaign never visually appears "finished"
+// while donations are still coming in.
+//
+// Internal/admin/reporting math (Team Health, Operations, Executive
+// Dashboard, calculateDonationPace, admin Campaign Control Center, admin
+// analytics) must keep using the raw baseGoalCents — never this value.
+export function getDisplayGoalCents(baseGoalCents: number, raisedCents: number): number {
+  if (!Number.isFinite(baseGoalCents) || baseGoalCents <= 0) return 0;
+  const raised = Number.isFinite(raisedCents) && raisedCents > 0 ? raisedCents : 0;
+
+  const buffer = Math.round(baseGoalCents * 0.10);
+  // Floor of 1 cent guarantees forward progress every iteration — without
+  // it, a baseGoalCents below 5 cents would round step to 0 and loop
+  // forever.
+  const step    = Math.max(1, Math.round(baseGoalCents * 0.20));
+
+  let displayGoal = baseGoalCents;
+  while (raised >= displayGoal - buffer) displayGoal += step;
+
+  return displayGoal;
+}
+
 // Linear pace model: expected progress = time elapsed / total window.
 // Shared by Team Health scoring and Operations' "below pace" attention check
 // so both apply the exact same math instead of two slightly different copies.
