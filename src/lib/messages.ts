@@ -50,6 +50,16 @@ export type MessageThread = {
   created_by_type: "coach" | "member";
   created_by_coach_id: string | null;
   created_by_member_id: string | null;
+  // Durable snapshot (Phase 3C) — captured once at thread creation from
+  // the resolved session, never re-derived from the live
+  // created_by_coach_id/created_by_member_id join. Not currently
+  // displayed anywhere in the UI (thread identity is participant-based,
+  // not creator-based), but kept authoritative and non-null so it's
+  // available if that ever changes, and so dropping
+  // threads_creator_check doesn't leave this table without ANY durable
+  // record of who started a conversation.
+  creator_name: string;
+  creator_role: string;
   last_message_at: string;
   last_message_preview: string | null;
   created_at: string;
@@ -118,6 +128,8 @@ type RawMessage = {
   sender_type: string;
   sender_coach_id: string | null;
   sender_member_id: string | null;
+  sender_name: string;
+  sender_role: string;
   body: string;
   created_at: string;
   team_coaches: RawCoachInfo | null;
@@ -280,7 +292,7 @@ export async function getMessagesForThread(
   const res = await fetch(
     `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
     `&order=created_at.asc&limit=${limit}` +
-    `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,body,created_at,` +
+    `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_name,sender_role,body,created_at,` +
     `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT})`,
     { headers: h(), cache: "no-store" },
   );
@@ -308,8 +320,14 @@ export async function getMessagesForThread(
     sender_member_id: r.sender_member_id,
     body: r.body,
     created_at: r.created_at,
-    sender_name: r.team_coaches?.name ?? r.team_members?.name ?? "Unknown",
-    sender_role: r.team_coaches?.role ?? r.team_members?.role ?? "",
+    // Durable snapshot (Phase 3C) — the authoritative historical display
+    // identity, immune to what later happens to the live
+    // team_coaches/team_members relationship. The live join above is used
+    // ONLY for sender_photo_url, which is allowed to gracefully
+    // disappear (Avatar falls back to initials) once that relationship
+    // is gone.
+    sender_name: r.sender_name,
+    sender_role: r.sender_role,
     sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
     read_at: readMap.get(r.id) ?? null,
   }));
@@ -619,7 +637,7 @@ export async function findCanonicalExistingThread(
     fetch(
       `${BASE}/rest/v1/message_threads?id=in.${inClause}` +
       `&campaign_slug=eq.${encodeURIComponent(slug)}` +
-      `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,last_message_at,last_message_preview,created_at` +
+      `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,creator_name,creator_role,last_message_at,last_message_preview,created_at` +
       `&order=last_message_at.desc`,
       { headers: h(), cache: "no-store" },
     ),
@@ -681,10 +699,17 @@ export async function ensureHeadCoachOversight(
   );
 }
 
+// senderName/senderRole (Phase 3C) — the durable snapshot, always
+// resolved by the caller from the authenticated server-side session
+// (actor.session.name/role) and never trusted from client input. This is
+// the same pattern already used by createComment()'s authorName/
+// authorRole (Phase 3B-2).
 export async function insertMessage(
   threadId: string,
   actor: ActorKey,
   body: string,
+  senderName: string,
+  senderRole: string,
 ): Promise<{ id: string; created_at: string } | null> {
   const res = await fetch(`${BASE}/rest/v1/messages`, {
     method:  "POST",
@@ -694,6 +719,8 @@ export async function insertMessage(
       sender_type:      actor.kind,
       sender_coach_id:  actor.kind === "coach"  ? actor.id : null,
       sender_member_id: actor.kind === "member" ? actor.id : null,
+      sender_name:      senderName,
+      sender_role:      senderRole,
       body,
     }),
   });
