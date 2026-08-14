@@ -84,3 +84,12 @@ export async function restUpdate<T>(path: string, body: unknown): Promise<T[]> {
   if (!res.ok) throw await toRestError(res);
   return res.json();
 }
+
+export async function restDelete<T>(path: string): Promise<T[]> {
+  const res = await fetch(restUrl(path), {
+    method:  "DELETE",
+    headers: restHeaders({ Prefer: "return=representation" }),
+  });
+  if (!res.ok) throw await toRestError(res);
+  return res.json();
+}
