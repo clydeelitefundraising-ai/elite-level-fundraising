@@ -47,11 +47,16 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     : { kind: "member", id: actor.session.id };
   const headCoach = isHeadCoach(actor);
 
+  // author_name/author_role are the durable snapshot identity (see the
+  // migration's header comment for why) — always resolved server-side
+  // from the session, never from the request body.
   const result = await createComment({
     campaignSlug:      slug,
     announcementId:    id,
     actor:             actorKey,
     isHeadCoachAuthor: headCoach,
+    authorName:        actor.session.name,
+    authorRole:        actor.session.role,
     body:              body.body,
   });
 

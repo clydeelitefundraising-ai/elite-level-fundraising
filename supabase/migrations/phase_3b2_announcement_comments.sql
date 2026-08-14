@@ -13,14 +13,37 @@
 -- precedent exactly (including the same claim-before-mutate conditional
 -- UPDATE ... WHERE status = 'pending' race-safety pattern used there).
 --
--- Author identity uses the same canonical actor_type/coach_id/member_id
--- shape already established by message_thread_participants/messages
--- (see lib/messages.ts) — NOT a denormalized name/email string — so
--- display name, role, and profile photo can always be resolved fresh via
--- the same embedded-select pattern already used there (zero N+1). This is
--- deliberately NOT modeled after announcements.coach_id, which only
--- supports staff authors (only staff can create announcements today) —
--- comments must support athlete/parent (team_members) authors too.
+-- Author identity — CORRECTED (see audit): author_name/author_role are
+-- captured ONCE at comment creation time (the same denormalized-snapshot
+-- pattern already used by announcements.author_name/author_role) — this
+-- is the durable, authoritative source for display, and it survives
+-- indefinitely even if the author later leaves the team. author_coach_id/
+-- author_member_id are kept as best-effort, nullable LIVE references
+-- (ON DELETE SET NULL) used only for "is this my comment" ownership
+-- checks and live profile-photo lookup — if the author's team_coaches/
+-- team_members row is later deleted (roster/staff removal, demo reset,
+-- etc.), these columns simply become NULL and the comment's text/
+-- author_name/author_role are entirely unaffected.
+--
+-- Deliberately NOT enforced by a CHECK constraint requiring one of these
+-- two to stay non-null. An earlier draft of this migration had exactly
+-- such a constraint (announcement_comments_author_ref_chk) paired with
+-- ON DELETE SET NULL — audited and found to be a real, reproducible bug:
+-- SET NULL fires as an UPDATE on this table, which is itself subject to
+-- the table's own CHECK constraints, so removing a staff member or member
+-- who had ever commented would abort with a constraint violation and
+-- block the removal entirely. Confirmed reachable via
+-- removeStaffRelationship() (single-row staff removal) and
+-- /api/admin/demo/reset (bulk team_members wipe, which doesn't clear
+-- announcements/comments first). The identical CHECK+SET NULL pattern
+-- already exists live in production on message_threads.threads_creator_check
+-- and messages.messages_sender_check (Phase 28) — a real, separate,
+-- out-of-scope bug recorded as technical debt for a future isolated fix,
+-- NOT addressed here. Application code (createComment()) is the sole
+-- writer of author_coach_id/author_member_id and always sets exactly one
+-- of the two correctly at insert time — the same trust-the-service-layer
+-- convention already used for announcements.coach_id, which has no CHECK
+-- either.
 --
 -- Additive only; safe for existing teams. No existing table is modified.
 -- Existing announcements with zero comments are entirely unaffected —
@@ -33,16 +56,14 @@ CREATE TABLE IF NOT EXISTS announcement_comments (
   author_type          text NOT NULL CHECK (author_type IN ('coach', 'member')),
   author_coach_id      uuid REFERENCES team_coaches(id) ON DELETE SET NULL,
   author_member_id     uuid REFERENCES team_members(id) ON DELETE SET NULL,
+  author_name          text NOT NULL,
+  author_role          text NOT NULL,
   body                 text NOT NULL,
   status               text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined')),
   decided_by_coach_id  uuid REFERENCES team_coaches(id) ON DELETE SET NULL,
   decided_at           timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now(),
-  updated_at           timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT announcement_comments_author_ref_chk CHECK (
-    (author_type = 'coach'  AND author_coach_id  IS NOT NULL AND author_member_id IS NULL) OR
-    (author_type = 'member' AND author_member_id IS NOT NULL AND author_coach_id  IS NULL)
-  )
+  updated_at           timestamptz NOT NULL DEFAULT now()
 );
 
 -- Feed rendering: "every comment on this announcement" (application code

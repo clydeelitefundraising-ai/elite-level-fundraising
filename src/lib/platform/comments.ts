@@ -3,10 +3,23 @@
 // Single-row-with-status-column design (pending/approved/declined),
 // mirroring pending_athlete_requests (Phase 1B) — see the migration
 // comment (phase_3b2_announcement_comments.sql) for the full rationale.
-// Author identity/display reuses lib/messages.ts's canonical
-// resolvePhotoUrl/RawCoachInfo/RawMemberInfo — the same embedded-select
-// pattern already used for DM participants/messages and already reused
-// once before (Phase 2B's directory/route.ts) — not a new photo resolver.
+//
+// Author display identity is a SNAPSHOT (author_name/author_role, written
+// once at creation — audited correction, see the migration file's header
+// comment for the full incident writeup). author_coach_id/author_member_id
+// are best-effort LIVE references only, used for (a) "is this my comment"
+// ownership checks and (b) profile-photo enrichment via
+// lib/messages.ts's resolvePhotoUrl/RawCoachInfo/RawMemberInfo — the same
+// embedded-select pattern already used for DM participants and already
+// reused once before (Phase 2B's directory/route.ts). Neither of those
+// live references is required to stay non-null — if the author's
+// team_coaches/team_members row is later deleted (roster/staff removal,
+// demo reset), the comment, its stored author_name/author_role, and its
+// approval status are entirely unaffected. Only the live photo lookup and
+// "is this mine" ownership check degrade (photo falls back to initials;
+// ownership simply reads false, which is correct — someone whose
+// membership row is gone can no longer authenticate as that actor at all,
+// so this is not a permission loophole, just an inert column).
 
 import { restList, restInsert, restUpdate, restDelete } from "./_client";
 import {
@@ -23,6 +36,8 @@ export type AnnouncementCommentRow = {
   author_type:         "coach" | "member";
   author_coach_id:     string | null;
   author_member_id:    string | null;
+  author_name:         string;
+  author_role:         string;
   body:                string;
   status:              CommentStatus;
   decided_by_coach_id: string | null;
@@ -55,9 +70,14 @@ export type PendingCommentApproval = Omit<ResolvedComment, "is_own"> & {
 const COACH_INFO_SELECT  = "name,role,elf_accounts!account_id(profile_photo_url)";
 const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
 const COMMENT_SELECT =
-  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,body,status,decided_by_coach_id,decided_at,created_at,updated_at," +
+  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,author_name,author_role,body,status,decided_by_coach_id,decided_at,created_at,updated_at," +
   `team_coaches!author_coach_id(${COACH_INFO_SELECT}),team_members!author_member_id(${MEMBER_INFO_SELECT})`;
 
+// author_name/author_role come from the stored snapshot — the durable,
+// authoritative display identity — NEVER from the live team_coaches/
+// team_members join, which may be null if that membership has since been
+// removed. The live join is used ONLY for author_photo_url, which is
+// allowed to gracefully disappear (Avatar falls back to initials).
 function resolveDisplay(raw: RawComment): Omit<ResolvedComment, "is_own"> {
   return {
     id:               raw.id,
@@ -65,8 +85,8 @@ function resolveDisplay(raw: RawComment): Omit<ResolvedComment, "is_own"> {
     body:             raw.body,
     status:           raw.status,
     created_at:       raw.created_at,
-    author_name:      raw.team_coaches?.name ?? raw.team_members?.name ?? "Unknown",
-    author_role:      raw.team_coaches?.role ?? raw.team_members?.role ?? "",
+    author_name:      raw.author_name,
+    author_role:      raw.author_role,
     author_photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members),
   };
 }
@@ -98,15 +118,20 @@ export type CreateCommentResult =
   | { ok: false; reason: "validation"; message: string }
   | { ok: false; reason: "announcement_not_found" };
 
-// isHeadCoachAuthor is passed in (computed by the caller via
-// isHeadCoach(actor)) rather than re-derived here — this service layer
-// has no session/role-table knowledge of its own, matching every other
-// platform/*.ts service.
+// isHeadCoachAuthor/authorName/authorRole are all passed in (computed by
+// the caller from the resolved session — actor.session.name/role, the
+// same values announcements/route.ts already uses for its own
+// author_name/author_role) rather than re-derived here — this service
+// layer has no session/role-table knowledge of its own, matching every
+// other platform/*.ts service. Never trust these from the client request
+// body; the route resolves them server-side before calling this.
 export async function createComment(input: {
   campaignSlug:       string;
   announcementId:     string;
   actor:              ActorKey;
   isHeadCoachAuthor:  boolean;
+  authorName:         string;
+  authorRole:         string;
   body:               string;
 }): Promise<CreateCommentResult> {
   const body = input.body?.trim();
@@ -133,6 +158,8 @@ export async function createComment(input: {
     author_type:         input.actor.kind,
     author_coach_id:     input.actor.kind === "coach"  ? input.actor.id : null,
     author_member_id:    input.actor.kind === "member" ? input.actor.id : null,
+    author_name:         input.authorName,
+    author_role:         input.authorRole,
     body,
     status:              input.isHeadCoachAuthor ? "approved" : "pending",
     decided_by_coach_id: input.isHeadCoachAuthor ? input.actor.id : null,
