@@ -1,4 +1,5 @@
 import type { AthleteRow, SponsorRow } from "@/lib/supabase";
+import { arizonaTodayISO, type EventType } from "@/lib/calendarShared";
 export type { SponsorRow };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -68,8 +69,17 @@ export type CalendarEventRow = {
   title: string;
   event_date: string;
   event_time: string;
+  // Phase 4A: structured, optional time — nullable, unpopulated on every
+  // event created before this phase. start_time is the confirmed correct
+  // signal for whether an event has a structured time at all; end_time
+  // may or may not accompany it.
+  start_time: string | null;
+  end_time: string | null;
   location: string;
-  type: "practice" | "meet" | "fundraiser" | "team";
+  // Phase 4A: pre-existing column, previously written by an out-of-band
+  // process but never read/written by the app. Now surfaced.
+  description: string | null;
+  type: EventType;
   created_at: string;
 };
 
@@ -137,7 +147,8 @@ export async function getCalendarEvents(
   slug: string,
   upcomingOnly = false,
 ): Promise<CalendarEventRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
+  // Phase 4A: Arizona-canonical "today", not UTC-slice — see calendarShared.ts.
+  const today = arizonaTodayISO();
   const dateFilter = upcomingOnly ? `&event_date=gte.${today}` : "";
   const res = await fetch(
     `${BASE}/rest/v1/calendar_events?campaign_slug=eq.${encodeURIComponent(slug)}${dateFilter}&order=event_date.asc,event_time.asc`,
@@ -252,7 +263,8 @@ export async function getDonationStats(slug: string): Promise<DonationStats> {
 }
 
 export async function getNextCalendarEvent(slug: string): Promise<CalendarEventRow | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  // Phase 4A: Arizona-canonical "today", not UTC-slice — see calendarShared.ts.
+  const today = arizonaTodayISO();
   const res = await fetch(
     `${BASE}/rest/v1/calendar_events?campaign_slug=eq.${encodeURIComponent(slug)}&event_date=gte.${today}&order=event_date.asc,event_time.asc&limit=1`,
     { headers: h(), cache: "no-store" },
