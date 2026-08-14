@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import AthleteRequestsPanel from "./AthleteRequestsPanel";
+import CommentApprovalsPanel from "./CommentApprovalsPanel";
 
 // ── Section wrapper (Phase 3B-1) ────────────────────────────────────────────
 //
@@ -56,6 +57,7 @@ export default function RequestsView({
   rosterAthletes: TeamAthleteRow[];
 }) {
   const [athleteRequestCount, setAthleteRequestCount] = useState(0);
+  const [commentApprovalCount, setCommentApprovalCount] = useState(0);
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -81,9 +83,14 @@ export default function RequestsView({
         />
       </RequestSection>
 
-      {/* Phase 3B-2 will add a second <RequestSection title="Comment
-          Approvals" count={...}> here — no placeholder rendered now, per
-          instruction not to show fake "coming soon" content. */}
+      <RequestSection title="Comment Approvals" count={commentApprovalCount}>
+        <CommentApprovalsPanel
+          slug={slug}
+          onCountChange={setCommentApprovalCount}
+          emptyState={<EmptyRow message="No pending comment approvals." />}
+          hideHeader
+        />
+      </RequestSection>
     </div>
   );
 }
