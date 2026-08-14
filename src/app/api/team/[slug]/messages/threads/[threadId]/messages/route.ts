@@ -63,7 +63,7 @@ export async function POST(
     throw err;
   }
 
-  const msg = await insertMessage(threadId, actorKey, msgBody.trim());
+  const msg = await insertMessage(threadId, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
   if (!msg) {
     return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
   }

@@ -187,7 +187,7 @@ export async function POST(
       return NextResponse.json({ error: "Unable to send message right now. Please try again." }, { status: 500 });
     }
 
-    const msg = await insertMessage(existingThread.id, actorKey, msgBody.trim());
+    const msg = await insertMessage(existingThread.id, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
     if (!msg) {
       return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
     }
@@ -221,6 +221,10 @@ export async function POST(
       created_by_type:      actorKey.kind,
       created_by_coach_id:  actorKey.kind === "coach"  ? actorKey.id : null,
       created_by_member_id: actorKey.kind === "member" ? actorKey.id : null,
+      // Durable snapshot (Phase 3C) — resolved server-side from the
+      // session, never from client input.
+      creator_name:         actor.session.name,
+      creator_role:         actor.session.role,
       last_message_preview: msgBody.trim().slice(0, 80),
     }),
   });
@@ -248,7 +252,7 @@ export async function POST(
   }
 
   // Insert first message
-  const msg = await insertMessage(thread.id, actorKey, msgBody.trim());
+  const msg = await insertMessage(thread.id, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
   if (!msg) {
     return NextResponse.json({ error: "Thread created but message failed." }, { status: 500 });
   }
