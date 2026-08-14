@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDonations, getCampaignSettings, getAthletes, getSponsors, getFundUses } from "@/lib/supabase";
+import { getDisplayGoalCents } from "@/lib/platform/donations";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,8 @@ export async function GET(
   try {
     const donations = await getDonations(slug);
 
-    const raised = donations.reduce((sum, d) => sum + d.amount_cents, 0) / 100;
+    const raisedCents = donations.reduce((sum, d) => sum + d.amount_cents, 0);
+    const raised = raisedCents / 100;
     const donors = donations.length;
 
     const athleteTotals: Record<string, number> = {};
@@ -31,6 +33,7 @@ export async function GET(
     }));
 
     let goal: number | undefined;
+    let displayGoal: number | undefined;
     let daysLeft: number | undefined;
     let schoolName: string | undefined;
     let sportName: string | undefined;
@@ -55,6 +58,9 @@ export async function GET(
       const settings = await getCampaignSettings(slug);
       if (settings) {
         goal = settings.goal_cents / 100;
+        // Phase 3D: additive, fundraising-facing-only field — derived
+        // from the same base goal_cents, never written back to it.
+        displayGoal = getDisplayGoalCents(settings.goal_cents, raisedCents) / 100;
         const deadline = new Date(settings.deadline);
         daysLeft = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 86400000));
         if (settings.school_name)     schoolName     = settings.school_name;
@@ -112,6 +118,7 @@ export async function GET(
     return NextResponse.json({
       raised, donors, athleteTotals, recentDonations,
       ...(goal           !== undefined && { goal }),
+      ...(displayGoal    !== undefined && { displayGoal }),
       ...(daysLeft       !== undefined && { daysLeft }),
       ...(schoolName     !== undefined && { school_name:     schoolName }),
       ...(sportName      !== undefined && { sport_name:      sportName }),

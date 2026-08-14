@@ -4,6 +4,7 @@ import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap } from "@/lib/teamData";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { getDisplayGoalCents } from "@/lib/platform/donations";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
@@ -110,15 +111,21 @@ function TeamCampaignView({
   donorCount,
   leaderboard,
   teamFeed,
+  displayGoalCents,
 }: {
   settings:    CampaignSettings;
   raisedCents: number;
   donorCount:  number;
   leaderboard: LeaderboardEntry[];
   teamFeed:    FeedDonation[];
+  // Phase 3D: dynamic display goal for this fundraising-facing team
+  // progress card — always base goal_cents until raised approaches it,
+  // then steps ahead of it. Never used for the nested AnalyticsView
+  // (pace/forecast), which keeps reading settings.goal_cents directly.
+  displayGoalCents: number;
 }) {
-  const pct        = settings.goal_cents > 0
-    ? Math.min(100, Math.round((raisedCents / settings.goal_cents) * 100))
+  const pct        = displayGoalCents > 0
+    ? Math.min(100, Math.round((raisedCents / displayGoalCents) * 100))
     : 0;
   const remaining  = settings.deadline ? daysLeft(settings.deadline) : null;
   const avgDonation = donorCount > 0 ? Math.round(raisedCents / donorCount) : null;
@@ -157,14 +164,14 @@ function TeamCampaignView({
             <span style={{ fontSize: "2rem", fontWeight: 800, color: "#111827" }}>
               {fmt(raisedCents)}
             </span>
-            {settings.goal_cents > 0 && (
+            {displayGoalCents > 0 && (
               <span style={{ fontSize: ".9rem", color: "#6b7280", marginLeft: ".35rem" }}>
-                of {fmt(settings.goal_cents)} goal
+                of {fmt(displayGoalCents)} goal
               </span>
             )}
           </div>
 
-          {settings.goal_cents > 0 && (
+          {displayGoalCents > 0 && (
             <div style={{ marginBottom: "1rem" }}>
               <div style={{ height: 12, background: "#f3f4f6", borderRadius: 100, overflow: "hidden" }}>
                 <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${settings.primary_color}, ${settings.primary_color}cc)`, borderRadius: 100, transition: "width .4s ease" }} />
@@ -186,9 +193,9 @@ function TeamCampaignView({
                 <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>avg donation</div>
               </div>
             )}
-            {settings.goal_cents > 0 && avgDonation === null && (
+            {displayGoalCents > 0 && avgDonation === null && (
               <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(Math.max(0, settings.goal_cents - raisedCents))}</div>
+                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(Math.max(0, displayGoalCents - raisedCents))}</div>
                 <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>still needed</div>
               </div>
             )}
@@ -393,6 +400,7 @@ export default async function FundraiserPage({
         donorCount={donations.length}
         leaderboard={leaderboard}
         teamFeed={teamFeed}
+        displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
       />
     );
   }
@@ -519,6 +527,7 @@ export default async function FundraiserPage({
           donorCount={donorCount}
           leaderboard={leaderboard}
           teamFeed={teamFeed}
+          displayGoalCents={getDisplayGoalCents(teamGoalCents, raisedCents)}
         />
         <AnalyticsView
           slug={slug}

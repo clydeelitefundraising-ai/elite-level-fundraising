@@ -119,7 +119,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (!data || typeof data.raised !== "number") return;
         const {
           raised: r, donors: d, athleteTotals, recentDonations: rd,
-          goal: g, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
+          goal: g, displayGoal: dg, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
           school_name: fetchedSchoolName, sport_name: fetchedSportName,
           mascot: fetchedMascot,
           primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
@@ -141,7 +141,14 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         else setLayoutVariant("classic");
         setRaised(r);
         setDonors(d);
-        if (typeof g === "number") setGoal(g);
+        // Phase 3D: this page is entirely public/fundraising-facing, so its
+        // one `goal` state drives every displayed number (hero stat,
+        // progress bar, "still needed") — sourcing it from the dynamic
+        // displayGoal keeps all of them consistent with each other. Falls
+        // back to the base goal if displayGoal wasn't computed (e.g. no
+        // campaign_settings row yet), matching pre-3D behavior exactly.
+        if (typeof dg === "number") setGoal(dg);
+        else if (typeof g === "number") setGoal(g);
         if (typeof dl === "number") setDaysLeft(dl);
         if (typeof fetchedSchoolName === "string" && fetchedSchoolName) setSchoolName(fetchedSchoolName);
         if (typeof fetchedSportName  === "string" && fetchedSportName)  setSportName(fetchedSportName);
