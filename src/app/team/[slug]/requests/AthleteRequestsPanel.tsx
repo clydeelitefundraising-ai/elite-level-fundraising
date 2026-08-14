@@ -213,42 +213,72 @@ function RequestCard({
   );
 }
 
-// Head-Coach-only — parent (TeamView.tsx) only renders this when
-// isHeadCoach(actor) is true, and the underlying API independently
-// enforces the same check server-side regardless of what renders here.
+// Head-Coach-only — the parent page only renders this when isHeadCoach(actor)
+// is true, and the underlying API independently enforces the same check
+// server-side regardless of what renders here (see athlete-requests/route.ts).
 //
-// rosterAthletes reuses the same roster data TeamView.tsx already fetched
-// for the page (getTeamAthletes) — deliberately not a separate athlete
+// rosterAthletes reuses the same roster data the parent page already
+// fetched (getTeamAthletes) — deliberately not a separate athlete
 // directory fetch/endpoint, per instruction.
+//
+// onCountChange/emptyState (Phase 3B-1): this panel now lives inside the
+// Requests Center, which needs a live section-level count and an explicit
+// "nothing pending" message rather than rendering nothing — both optional
+// so this component's own default behavior (render nothing when
+// requests.length === 0, no count reporting) is unchanged for any other
+// caller. onCountChange mirrors the existing onUnreadChange lifted-callback
+// pattern already used by MessagesView/CommunicationsView — no new
+// event/global-state architecture introduced.
 export default function AthleteRequestsPanel({
-  slug, rosterAthletes,
+  slug, rosterAthletes, onCountChange, emptyState, hideHeader,
 }: {
   slug: string;
   rosterAthletes: RosterAthlete[];
+  onCountChange?: (count: number) => void;
+  emptyState?: React.ReactNode;
+  // The Requests Center's <RequestSection> already renders a category
+  // header (title + count) around this panel — hideHeader avoids a
+  // duplicate "Pending Athlete Requests N" row when used there. Defaults
+  // to false so this component stays fully self-contained for any other
+  // caller.
+  hideHeader?: boolean;
 }) {
   const [requests, setRequests] = useState<PendingRequest[] | null>(null);
 
   const load = () => {
     fetch(`/api/team/${slug}/athlete-requests`)
       .then(r => r.ok ? r.json() : { requests: [] })
-      .then(d => setRequests(d.requests ?? []))
+      .then(d => {
+        const list: PendingRequest[] = d.requests ?? [];
+        setRequests(list);
+        onCountChange?.(list.length);
+      })
       .catch(() => setRequests([]));
   };
 
+  // onCountChange is excluded from deps deliberately: every current caller
+  // passes a useState setter (RequestsView's setAthleteRequestCount), whose
+  // identity React guarantees is stable across renders, so this can never
+  // cause a stale closure here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [slug]);
 
-  if (!requests || requests.length === 0) return null;
+  if (!requests || requests.length === 0) {
+    return requests !== null && emptyState !== undefined ? <>{emptyState}</> : null;
+  }
 
   return (
     <div style={{ marginBottom: "1rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".55rem" }}>
-        <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
-          Pending Athlete Requests
-        </h3>
-        <span style={{ background: "#fee2e2", color: "#b91c1c", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".12rem .48rem" }}>
-          {requests.length}
-        </span>
-      </div>
+      {!hideHeader && (
+        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".55rem" }}>
+          <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
+            Pending Athlete Requests
+          </h3>
+          <span style={{ background: "#fee2e2", color: "#b91c1c", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".12rem .48rem" }}>
+            {requests.length}
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
         {requests.map(r => (
           <RequestCard key={r.id} slug={slug} request={r} rosterAthletes={rosterAthletes} onActionComplete={() => load()} />

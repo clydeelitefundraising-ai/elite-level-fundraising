@@ -8,7 +8,6 @@ import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
-import AthleteRequestsPanel from "./AthleteRequestsPanel";
 
 // This page is intentionally athlete-focused for now. Future phases will
 // expand "Team" to include coaches, assistant coaches, managers, volunteers,
@@ -213,10 +212,16 @@ export default function TeamView({
   slug,
   initialAthletes,
   actor,
+  pendingRequestCount = 0,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
   actor: TeamActor;
+  // Phase 3B-1: the Requests Center (/team/[slug]/requests) is now the
+  // canonical place to review/approve pending athlete requests — this is
+  // only a small contextual pointer, not the approval workflow itself
+  // (moved there in full, not duplicated).
+  pendingRequestCount?: number;
 }) {
   const staffMode = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -344,10 +349,33 @@ export default function TeamView({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      {/* Head-Coach-only — canDelete is already isHeadCoach(actor), the
-          narrowest check available (excludes assistant coaches, boosters,
-          and any coach not resolved against THIS campaign). */}
-      {canDelete && <AthleteRequestsPanel slug={slug} rosterAthletes={athletes} />}
+      {/* Phase 3B-1: full approve/decline workflow moved to the Requests
+          Center — this is a small contextual pointer only, shown to the
+          Head Coach (canDelete === isHeadCoach(actor)) exactly when there's
+          something to review, not a duplicate of the approval UI. */}
+      {canDelete && pendingRequestCount > 0 && (
+        <a
+          href={`/team/${slug}/requests`}
+          style={{
+            display: "flex", alignItems: "center", gap: ".5rem",
+            background: "#fff", borderRadius: 12, padding: ".7rem .9rem",
+            marginBottom: "1rem", textDecoration: "none",
+            boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+            borderLeft: "3px solid #dc2626",
+          }}
+        >
+          <span style={{
+            background: "#fee2e2", color: "#b91c1c", borderRadius: 100,
+            fontSize: ".68rem", fontWeight: 700, padding: ".15rem .5rem", flexShrink: 0,
+          }}>
+            {pendingRequestCount}
+          </span>
+          <span style={{ flex: 1, fontSize: ".82rem", fontWeight: 700, color: "#0b1e3d" }}>
+            Pending athlete request{pendingRequestCount !== 1 ? "s" : ""} — review in Requests
+          </span>
+          <span style={{ fontSize: ".85rem", color: "#c1c7d0" }}>→</span>
+        </a>
+      )}
 
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
