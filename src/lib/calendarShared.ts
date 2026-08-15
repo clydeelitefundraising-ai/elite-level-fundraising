@@ -133,6 +133,114 @@ export function displayEventTime(ev: { event_time: string; start_time?: string |
   return ev.event_time;
 }
 
+// ── Month grid (Phase 4B) ──────────────────────────────────────────────────
+//
+// Pure, timezone-free calendar-grid math. A "month" here is always a plain
+// {year, month} pair where month is 1-12 (matching parseIsoDateParts/ISO
+// convention, NOT JS's native 0-11 Date month index) — every function in
+// this section takes/returns that convention so call sites never need to
+// remember to offset by one. Internally we still use the JS Date
+// constructor's (year, monthIndex, day) rollover behavior to compute
+// days-in-month and weekday-of-first-day, which is safe here because we
+// only ever read back calendar fields (getDay/getDate), never an instant —
+// same self-consistent construct+read pattern as localDateFromISO above.
+
+export type MonthKey = { year: number; month: number }; // month: 1-12
+
+export function addMonths({ year, month }: MonthKey, delta: number): MonthKey {
+  const zeroBased = (month - 1) + delta;
+  const y = year + Math.floor(zeroBased / 12);
+  const m = ((zeroBased % 12) + 12) % 12; // handles negative delta correctly
+  return { year: y, month: m + 1 };
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+export function isoFromParts(year: number, month: number, day: number): string {
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+export function daysInMonth(year: number, month: number): number {
+  // Day 0 of the *next* month rolls back to the last day of this one.
+  return new Date(year, month, 0).getDate();
+}
+
+// 0 = Sunday .. 6 = Saturday, for the 1st of the given month.
+function firstWeekday(year: number, month: number): number {
+  return new Date(year, month - 1, 1).getDay();
+}
+
+export type MonthGridCell = { iso: string; day: number; inCurrentMonth: boolean };
+
+// Always returns complete weeks (multiples of 7 cells: 28, 35, or 42) —
+// enough leading days from the previous month and trailing days from the
+// next month to fill full Sunday-Saturday rows, so the grid never has a
+// ragged final row.
+export function buildMonthGrid({ year, month }: MonthKey): MonthGridCell[] {
+  const leading = firstWeekday(year, month);
+  const thisMonthDays = daysInMonth(year, month);
+  const totalCells = Math.ceil((leading + thisMonthDays) / 7) * 7;
+  const trailing = totalCells - leading - thisMonthDays;
+
+  const prev = addMonths({ year, month }, -1);
+  const prevDays = daysInMonth(prev.year, prev.month);
+  const next = addMonths({ year, month }, 1);
+
+  const cells: MonthGridCell[] = [];
+
+  for (let i = leading - 1; i >= 0; i--) {
+    const day = prevDays - i;
+    cells.push({ iso: isoFromParts(prev.year, prev.month, day), day, inCurrentMonth: false });
+  }
+  for (let day = 1; day <= thisMonthDays; day++) {
+    cells.push({ iso: isoFromParts(year, month, day), day, inCurrentMonth: true });
+  }
+  for (let day = 1; day <= trailing; day++) {
+    cells.push({ iso: isoFromParts(next.year, next.month, day), day, inCurrentMonth: false });
+  }
+
+  return cells;
+}
+
+export function monthKeyFromISO(d: string): MonthKey {
+  const { year, month } = parseIsoDateParts(d);
+  return { year, month };
+}
+
+export function formatMonthYear({ year, month }: MonthKey): string {
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" })
+    .format(new Date(year, month - 1, 1));
+}
+
+export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Filters event-like rows down to those whose event_date falls within the
+// given {year, month} — used by Month view's default (no day selected)
+// section to list "every event this month" chronologically. Assumes the
+// input is already date-sorted (true of getCalendarEvents' query order),
+// so this preserves chronological order without re-sorting.
+export function eventsInMonth<T extends { event_date: string }>(events: T[], key: MonthKey): T[] {
+  return events.filter(ev => {
+    const evKey = monthKeyFromISO(ev.event_date);
+    return evKey.year === key.year && evKey.month === key.month;
+  });
+}
+
+// Groups any event-like rows by their event_date, preserving input order
+// within each date group. Shared by Agenda's DateGroupCard grouping and
+// Month view's per-cell/per-selected-day lookup so both views can never
+// disagree about which events fall on which day.
+export function groupEventsByDate<T extends { event_date: string }>(events: T[]): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const ev of events) {
+    if (!groups.has(ev.event_date)) groups.set(ev.event_date, []);
+    groups.get(ev.event_date)!.push(ev);
+  }
+  return groups;
+}
+
 // ── Get Directions ─────────────────────────────────────────────────────────
 //
 // No geocoding, no Maps API/key — a plain Google Maps search URL works as
