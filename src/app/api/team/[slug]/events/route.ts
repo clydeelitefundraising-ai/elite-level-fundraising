@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
+import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -14,8 +15,6 @@ function h(extra?: Record<string, string>) {
   };
 }
 
-const VALID_TYPES = new Set(["practice", "meet", "fundraiser", "team"]);
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
@@ -24,12 +23,12 @@ export async function POST(
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, event_date, event_time, location, type } = await req.json();
+  const { title, event_date, event_time, location, type, description, start_time, end_time } = await req.json();
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: "title and event_date are required" }, { status: 400 });
   }
 
-  const safeType = VALID_TYPES.has(type) ? type : "team";
+  const safeType = VALID_EVENT_TYPES.has(type) ? type : "team";
 
   const res = await fetch(`${BASE}/rest/v1/calendar_events`, {
     method: "POST",
@@ -38,9 +37,15 @@ export async function POST(
       campaign_slug: slug,
       title:      title.trim(),
       event_date,
+      // Legacy free-text field — the create form no longer exposes it, so
+      // this only ever writes "" for events created after Phase 4A. Kept
+      // accepted here defensively; no caller sends it anymore.
       event_time: event_time?.trim() ?? "",
       location:   location?.trim() ?? "",
       type:       safeType,
+      description: description?.trim() ? description.trim() : null,
+      start_time:  start_time?.trim() ? start_time.trim() : null,
+      end_time:    end_time?.trim()   ? end_time.trim()   : null,
     }),
   });
 

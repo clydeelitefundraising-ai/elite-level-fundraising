@@ -3,8 +3,17 @@
 import { useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { isStaff, type TeamActor } from "@/lib/permissions";
+import {
+  type EventType,
+  eventTypeStyle,
+  arizonaTodayISO,
+  arizonaTomorrowISO,
+  formatDateHeader,
+  displayEventTime,
+} from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import EventDetailsModal from "../_components/EventDetailsModal";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -30,30 +39,6 @@ const lbl: React.CSSProperties = {
   letterSpacing: ".05em",
 };
 
-// ── Event type styles ─────────────────────────────────────────────────────────
-
-const EVENT_TYPE_STYLE: Record<string, { bg: string; color: string; accent: string }> = {
-  practice:   { bg: "#dbeafe", color: "#1d4ed8", accent: "#3b82f6" },
-  meet:       { bg: "#ede9fe", color: "#6d28d9", accent: "#8b5cf6" },
-  fundraiser: { bg: "#fef3c7", color: "#b45309", accent: "#f59e0b" },
-  team:       { bg: "#f3f4f6", color: "#374151", accent: "#9ca3af" },
-};
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function todayISO():    string { return new Date().toISOString().slice(0, 10); }
-function tomorrowISO(): string { return new Date(Date.now() + 86_400_000).toISOString().slice(0, 10); }
-
-function parseDateHeader(d: string): { dayNum: string; weekday: string; monthYear: string } {
-  const [y, m, day] = d.split("-").map(Number);
-  const dt = new Date(y, m - 1, day);
-  return {
-    dayNum:    String(day),
-    weekday:   new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(dt),
-    monthYear: new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(dt),
-  };
-}
-
 // ── Date group card ───────────────────────────────────────────────────────────
 
 function DateGroupCard({
@@ -61,20 +46,16 @@ function DateGroupCard({
   evs,
   isToday,
   isTomorrow,
-  canManage,
-  onEdit,
-  onDelete,
+  onOpen,
 }: {
   date: string;
   evs: CalendarEventRow[];
   isToday: boolean;
   isTomorrow: boolean;
-  canManage: boolean;
-  onEdit: (ev: CalendarEventRow) => void;
-  onDelete: (id: string) => void;
+  onOpen: (ev: CalendarEventRow) => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const { dayNum, weekday, monthYear } = parseDateHeader(date);
+  const { dayNum, weekday, monthYear } = formatDateHeader(date);
 
   return (
     <div
@@ -133,22 +114,35 @@ function DateGroupCard({
 
       {/* Event rows */}
       {evs.map((ev, i) => {
-        const s = EVENT_TYPE_STYLE[ev.type] ?? EVENT_TYPE_STYLE["team"];
+        const s = eventTypeStyle(ev.type);
+        const time = displayEventTime(ev);
         return (
-          <div key={ev.id} style={{
-            display: "flex",
-            alignItems: "stretch",
-            borderBottom: i < evs.length - 1 ? "1px solid #f6f6f8" : "none",
-          }}>
+          <button
+            key={ev.id}
+            onClick={() => onOpen(ev)}
+            style={{
+              display: "flex",
+              alignItems: "stretch",
+              width: "100%",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              padding: 0,
+              font: "inherit",
+              color: "inherit",
+              borderBottom: i < evs.length - 1 ? "1px solid #f6f6f8" : "none",
+            }}
+          >
             {/* Left accent bar */}
             <div style={{ width: 3, background: s.accent, flexShrink: 0 }} />
 
             {/* Content */}
             <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: ".7rem", padding: ".65rem .9rem .65rem .75rem" }}>
               {/* Time column */}
-              <div style={{ flexShrink: 0, width: 52, paddingTop: ".14rem", textAlign: "right" }}>
-                <span style={{ fontSize: ".72rem", fontWeight: 600, color: ev.event_time ? "#374151" : "#d1d5db" }}>
-                  {ev.event_time || "—"}
+              <div style={{ flexShrink: 0, width: 60, paddingTop: ".14rem", textAlign: "right" }}>
+                <span style={{ fontSize: ".72rem", fontWeight: 600, color: time ? "#374151" : "#d1d5db" }}>
+                  {time || "—"}
                 </span>
               </div>
 
@@ -167,25 +161,11 @@ function DateGroupCard({
                 {ev.location && (
                   <div style={{ fontSize: ".74rem", color: "#6b7280" }}>📍 {ev.location}</div>
                 )}
-                {canManage && (
-                  <div style={{ display: "flex", gap: ".1rem", marginTop: ".28rem" }}>
-                    <button
-                      onClick={() => onEdit(ev)}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => onDelete(ev.id)}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
               </div>
+
+              <span style={{ fontSize: ".85rem", color: "#c1c7d0", flexShrink: 0, paddingTop: ".2rem" }}>›</span>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
@@ -197,15 +177,28 @@ function DateGroupCard({
 type EvForm = {
   title: string;
   event_date: string;
-  event_time: string;
+  start_time: string;
+  end_time: string;
   location: string;
-  type: "practice" | "meet" | "fundraiser" | "team";
+  description: string;
+  type: EventType;
 };
 
-const BLANK: EvForm = { title: "", event_date: todayISO(), event_time: "", location: "", type: "practice" };
+const BLANK: EvForm = {
+  title: "", event_date: arizonaTodayISO(), start_time: "", end_time: "",
+  location: "", description: "", type: "practice",
+};
 
 function fromRow(e: CalendarEventRow): EvForm {
-  return { title: e.title, event_date: e.event_date, event_time: e.event_time, location: e.location, type: e.type };
+  return {
+    title: e.title,
+    event_date: e.event_date,
+    start_time: e.start_time ?? "",
+    end_time: e.end_time ?? "",
+    location: e.location,
+    description: e.description ?? "",
+    type: e.type,
+  };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -229,9 +222,10 @@ export default function CalendarView({
   const [showAdd, setShowAdd] = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [viewing, setViewing] = useState<CalendarEventRow | null>(null);
 
-  const openAdd  = () => { setForm({ ...BLANK, event_date: todayISO() }); setError(""); setShowAdd(true); };
-  const openEdit = (ev: CalendarEventRow) => { setForm(fromRow(ev)); setError(""); setEditing(ev); };
+  const openAdd  = () => { setForm({ ...BLANK, event_date: arizonaTodayISO() }); setError(""); setShowAdd(true); };
+  const openEdit = (ev: CalendarEventRow) => { setViewing(null); setForm(fromRow(ev)); setError(""); setEditing(ev); };
   const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
 
   const handleAdd = async () => {
@@ -247,7 +241,7 @@ export default function CalendarView({
     if (!res.ok) { setError(data.error ?? "Failed to add event."); return; }
     setEvents(prev => [...prev, data].sort((a, b) =>
       a.event_date === b.event_date
-        ? (a.event_time ?? "").localeCompare(b.event_time ?? "")
+        ? (a.start_time ?? a.event_time ?? "").localeCompare(b.start_time ?? b.event_time ?? "")
         : a.event_date.localeCompare(b.event_date)
     ));
     closeModal();
@@ -256,6 +250,9 @@ export default function CalendarView({
   const handleEdit = async () => {
     if (!editing || !form.title.trim() || !form.event_date) { setError("Title and date are required."); return; }
     setSaving(true); setError("");
+    // Deliberately no event_time key here — the edit form never collects
+    // it, so the legacy free-text value on this row (if any) is left
+    // completely untouched by this request. See events/[id]/route.ts.
     const res = await fetch(`/api/team/${slug}/events/${editing.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -268,7 +265,7 @@ export default function CalendarView({
       prev.map(e => e.id === editing.id ? { ...e, ...form } : e)
           .sort((a, b) =>
             a.event_date === b.event_date
-              ? (a.event_time ?? "").localeCompare(b.event_time ?? "")
+              ? (a.start_time ?? a.event_time ?? "").localeCompare(b.start_time ?? b.event_time ?? "")
               : a.event_date.localeCompare(b.event_date)
           )
     );
@@ -278,7 +275,7 @@ export default function CalendarView({
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this event?")) return;
     const res = await fetch(`/api/team/${slug}/events/${id}`, { method: "DELETE" });
-    if (res.ok) setEvents(prev => prev.filter(e => e.id !== id));
+    if (res.ok) { setEvents(prev => prev.filter(e => e.id !== id)); setViewing(null); }
   };
 
   const groups = new Map<string, CalendarEventRow[]>();
@@ -287,10 +284,14 @@ export default function CalendarView({
     groups.get(ev.event_date)!.push(ev);
   }
 
-  const today    = todayISO();
-  const tomorrow = tomorrowISO();
+  const today    = arizonaTodayISO();
+  const tomorrow = arizonaTomorrowISO();
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
+  // A legacy event has free-text event_time but no structured start_time —
+  // used to show a read-only hint in the edit form instead of silently
+  // discarding that historical text.
+  const editingLegacyTime = isEditing && !editing!.start_time && editing!.event_time;
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -335,11 +336,20 @@ export default function CalendarView({
             evs={evs}
             isToday={date === today}
             isTomorrow={date === tomorrow}
-            canManage={canManage}
-            onEdit={openEdit}
-            onDelete={handleDelete}
+            onOpen={setViewing}
           />
         ))
+      )}
+
+      {/* ── Event Details ── */}
+      {viewing && (
+        <EventDetailsModal
+          ev={viewing}
+          canManage={canManage}
+          onClose={() => setViewing(null)}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+        />
       )}
 
       {/* ── Add / Edit Modal ── */}
@@ -350,23 +360,36 @@ export default function CalendarView({
               Title *
               <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Practice" autoFocus />
             </label>
+            <label style={lbl}>
+              Date *
+              <input type="date" style={inp} value={form.event_date} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
+            </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>
               <label style={lbl}>
-                Date *
-                <input type="date" style={inp} value={form.event_date} onChange={e => setForm(f => ({ ...f, event_date: e.target.value }))} />
+                Start Time
+                <input type="time" style={inp} value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
               </label>
               <label style={lbl}>
-                Time
-                <input style={inp} value={form.event_time} onChange={e => setForm(f => ({ ...f, event_time: e.target.value }))} placeholder="e.g. 3:30 PM" />
+                End Time
+                <input type="time" style={inp} value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
               </label>
             </div>
+            {editingLegacyTime && (
+              <p style={{ margin: 0, fontSize: ".75rem", color: "#9ca3af" }}>
+                This event&apos;s current time is &ldquo;{editing!.event_time}&rdquo;. Set a start time above to switch it to a structured time.
+              </p>
+            )}
             <label style={lbl}>
               Location
               <input style={inp} value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Field House" />
             </label>
             <label style={lbl}>
+              Description
+              <textarea style={{ ...inp, minHeight: 80, resize: "vertical" }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional details… e.g. Bring spikes." />
+            </label>
+            <label style={lbl}>
               Type
-              <select style={inp} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as EvForm["type"] }))}>
+              <select style={inp} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as EventType }))}>
                 <option value="practice">Practice</option>
                 <option value="meet">Meet</option>
                 <option value="fundraiser">Fundraiser</option>

@@ -1,0 +1,44 @@
+-- Phase 4A: additive start_time/end_time columns on calendar_events.
+--
+-- SCHEMA-HISTORY GAP (documented, not fixed here): calendar_events exists
+-- in production but no migration in this repo's history creates it —
+-- confirmed via exhaustive grep across every tracked migration file, it
+-- predates the migration history entirely. An earlier draft of this
+-- migration attempted to paper over that gap with a best-effort
+-- CREATE TABLE IF NOT EXISTS baseline reconstructed from live data and
+-- application code. That was deliberately removed: the real column
+-- types, defaults, constraints, foreign keys, indexes, RLS policies, and
+-- grants on the live table cannot currently be verified (Supabase's
+-- PostgREST layer does not expose information_schema/pg_constraint to
+-- this app's tooling), so a guessed CREATE TABLE risked silently
+-- becoming the authoritative definition for any future fresh database —
+-- possibly wrong in ways we can't detect until it matters. A missing
+-- baseline, explicitly documented, is safer than an inaccurate one.
+--
+-- TODO (tracked as tech debt, not part of Phase 4A): write a real
+-- baseline migration for calendar_events once the complete live
+-- definition can be retrieved and verified directly (e.g. via
+-- `supabase db pull`, the Supabase dashboard's schema view, or direct
+-- database access — not PostgREST), capturing:
+--   - exact event_date PostgreSQL type (date vs text vs other)
+--   - all column defaults
+--   - all constraints (NOT NULL, CHECK, etc.)
+--   - all foreign keys (e.g. coach_id -> team_coaches?)
+--   - all indexes
+--   - RLS state/policies, if any
+--   - grants/permissions, if any
+-- Until that exists, this repo's migration history has no record of how
+-- calendar_events itself came to exist — only of changes made to it from
+-- this point forward, starting with the two columns below.
+--
+-- This migration is additive only. On the current production database:
+-- both columns are new, so this adds them as nullable, touching zero
+-- existing rows/values (all 40 current rows get NULL in both, which the
+-- app treats as "no structured time set, fall back to the legacy
+-- event_time text" — see displayEventTime() in src/lib/calendarShared.ts).
+-- event_date, event_time, description, coach_id, and every existing row
+-- are completely untouched — no CREATE TABLE, no UPDATE, no DELETE, no
+-- DROP, no RENAME, no backfill or automated conversion of any kind.
+ALTER TABLE calendar_events
+  ADD COLUMN IF NOT EXISTS start_time time,
+  ADD COLUMN IF NOT EXISTS end_time   time;
