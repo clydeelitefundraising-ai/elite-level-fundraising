@@ -10,10 +10,26 @@ import {
   arizonaTomorrowISO,
   formatDateHeader,
   displayEventTime,
+  monthKeyFromISO,
+  groupEventsByDate,
+  type MonthKey,
 } from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
+import MonthView from "./MonthView";
+
+// Phase 4B: Month/Agenda selection remembered for the current client
+// session only (sessionStorage) — deliberately not persisted server-side
+// or per-user, per task scope (no new preference infrastructure).
+type CalendarViewMode = "month" | "agenda";
+const VIEW_MODE_KEY = "elf-calendar-view-mode";
+
+function readStoredViewMode(): CalendarViewMode {
+  if (typeof window === "undefined") return "month";
+  const v = window.sessionStorage.getItem(VIEW_MODE_KEY);
+  return v === "agenda" ? "agenda" : "month";
+}
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -224,7 +240,21 @@ export default function CalendarView({
   const [error,   setError]   = useState("");
   const [viewing, setViewing] = useState<CalendarEventRow | null>(null);
 
-  const openAdd  = () => { setForm({ ...BLANK, event_date: arizonaTodayISO() }); setError(""); setShowAdd(true); };
+  // Phase 4B: Month is the default/primary view; Agenda is preserved as
+  // the alternate. Initialized lazily from sessionStorage so a returning
+  // visitor within the same session lands back where they left off.
+  const [viewMode, setViewMode] = useState<CalendarViewMode>(readStoredViewMode);
+  const [visibleMonth, setVisibleMonth] = useState<MonthKey>(() => monthKeyFromISO(arizonaTodayISO()));
+  const [selectedDate, setSelectedDate] = useState<string>(arizonaTodayISO());
+
+  const changeViewMode = (mode: CalendarViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== "undefined") window.sessionStorage.setItem(VIEW_MODE_KEY, mode);
+  };
+
+  // Defaults to the currently selected day in Month view (so "Add Event"
+  // from a specific day feels contextual) and to today otherwise/in Agenda.
+  const openAdd  = () => { setForm({ ...BLANK, event_date: viewMode === "month" ? selectedDate : arizonaTodayISO() }); setError(""); setShowAdd(true); };
   const openEdit = (ev: CalendarEventRow) => { setViewing(null); setForm(fromRow(ev)); setError(""); setEditing(ev); };
   const closeModal = () => { setShowAdd(false); setEditing(null); setError(""); };
 
@@ -278,11 +308,7 @@ export default function CalendarView({
     if (res.ok) { setEvents(prev => prev.filter(e => e.id !== id)); setViewing(null); }
   };
 
-  const groups = new Map<string, CalendarEventRow[]>();
-  for (const ev of events) {
-    if (!groups.has(ev.event_date)) groups.set(ev.event_date, []);
-    groups.get(ev.event_date)!.push(ev);
-  }
+  const groups = groupEventsByDate(events);
 
   const today    = arizonaTodayISO();
   const tomorrow = arizonaTomorrowISO();
@@ -314,31 +340,78 @@ export default function CalendarView({
         </div>
       </div>
 
-      {/* ── Feed ── */}
-      {events.length === 0 ? (
-        <div style={{
-          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
-          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        }}>
-          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📅</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            No events scheduled
+      {/* ── Month / Agenda toggle ── */}
+      <div
+        role="tablist"
+        aria-label="Calendar view"
+        style={{
+          display: "inline-flex", background: "#f3f4f6", borderRadius: 10, padding: 3,
+          marginBottom: ".85rem", gap: 2,
+        }}
+      >
+        {(["month", "agenda"] as const).map(mode => (
+          <button
+            key={mode}
+            role="tab"
+            aria-selected={viewMode === mode}
+            onClick={() => changeViewMode(mode)}
+            style={{
+              padding: ".4rem .95rem",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              fontSize: ".8rem",
+              fontWeight: 700,
+              background: viewMode === mode ? "#fff" : "transparent",
+              color: viewMode === mode ? "#0b1e3d" : "#6b7280",
+              boxShadow: viewMode === mode ? "0 1px 3px rgba(0,0,0,.1)" : "none",
+              textTransform: "capitalize",
+            }}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Month view ── */}
+      {viewMode === "month" && (
+        <MonthView
+          events={events}
+          visibleMonth={visibleMonth}
+          onChangeMonth={setVisibleMonth}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+          onOpenEvent={setViewing}
+        />
+      )}
+
+      {/* ── Agenda view (Phase 4A feed, preserved) ── */}
+      {viewMode === "agenda" && (
+        events.length === 0 ? (
+          <div style={{
+            background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
+            textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          }}>
+            <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📅</div>
+            <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+              No events scheduled
+            </div>
+            <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+              {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
+            </div>
           </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
-          </div>
-        </div>
-      ) : (
-        Array.from(groups.entries()).map(([date, evs]) => (
-          <DateGroupCard
-            key={date}
-            date={date}
-            evs={evs}
-            isToday={date === today}
-            isTomorrow={date === tomorrow}
-            onOpen={setViewing}
-          />
-        ))
+        ) : (
+          Array.from(groups.entries()).map(([date, evs]) => (
+            <DateGroupCard
+              key={date}
+              date={date}
+              evs={evs}
+              isToday={date === today}
+              isTomorrow={date === tomorrow}
+              onOpen={setViewing}
+            />
+          ))
+        )
       )}
 
       {/* ── Event Details ── */}
