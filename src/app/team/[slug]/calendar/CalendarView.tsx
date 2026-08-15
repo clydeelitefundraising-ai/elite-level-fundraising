@@ -16,6 +16,8 @@ import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import MonthView from "./MonthView";
 import DateGroupCard from "./DateGroupCard";
+import PrintMonthView from "./PrintMonthView";
+import ExportMenu from "./ExportMenu";
 
 // Phase 4B: Month/Agenda selection remembered for the current client
 // session only (sessionStorage) — deliberately not persisted server-side
@@ -88,10 +90,12 @@ export default function CalendarView({
   slug,
   initialEvents,
   actor,
+  teamName,
 }: {
   slug: string;
   initialEvents: CalendarEventRow[];
   actor: TeamActor;
+  teamName: string;
 }) {
   // Calendar CRUD is staff-level (head coach, assistant coach, AND booster —
   // whether the booster row lives in team_coaches or team_members), per the
@@ -206,7 +210,28 @@ export default function CalendarView({
   const editingLegacyTime = isEditing && !editing!.start_time && editing!.event_time;
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <>
+      {/* Phase 4C: same-page print architecture — .elf-calendar-noprint
+          (all normal screen UI, including any open modal since it's a
+          DOM descendant) is hidden at print time; .elf-calendar-print
+          (hidden on screen) becomes visible. Print always renders
+          visibleMonth's events regardless of selectedDate. */}
+      <style>{`
+        @media print {
+          #elf-team-header, [role="navigation"] { display: none !important; }
+          .elf-calendar-noprint { display: none !important; }
+          .elf-calendar-print { display: block !important; }
+        }
+        @media screen {
+          .elf-calendar-print { display: none; }
+        }
+      `}</style>
+
+      <div className="elf-calendar-print">
+        <PrintMonthView teamName={teamName || "Team Calendar"} events={events} visibleMonth={visibleMonth} />
+      </div>
+
+    <div className="elf-calendar-noprint" style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
@@ -222,6 +247,7 @@ export default function CalendarView({
             </span>
           )}
           <div style={{ flex: 1 }} />
+          <ExportMenu slug={slug} />
           <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
         </div>
       </div>
@@ -374,5 +400,6 @@ export default function CalendarView({
         </Modal>
       )}
     </div>
+    </>
   );
 }

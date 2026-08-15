@@ -30,7 +30,10 @@ export default function TeamHeader({
   const season = settings.season ?? "";
 
   return (
-    <div style={{ background: settings.primary_color, color: "#fff" }}>
+    // Phase 4C: id exists solely so Calendar's print stylesheet can hide
+    // app chrome (`@media print`) without duplicating this component into
+    // a separate print route. No behavior/visual change on screen.
+    <div id="elf-team-header" style={{ background: settings.primary_color, color: "#fff" }}>
       <div style={{ padding: "1rem 1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
         {/* Team avatar */}
         {(settings.team_photo || settings.logo_url) ? (
