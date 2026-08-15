@@ -247,7 +247,7 @@ export default function CalendarView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <ExportMenu slug={slug} />
+          <ExportMenu slug={slug} canManage={canManage} />
           <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
         </div>
       </div>
