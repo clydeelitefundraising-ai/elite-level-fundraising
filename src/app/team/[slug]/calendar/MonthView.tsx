@@ -2,53 +2,55 @@
 
 import type { CalendarEventRow } from "@/lib/teamData";
 import {
-  eventTypeStyle,
-  EVENT_TYPE_LABELS,
   arizonaTodayISO,
-  displayEventTime,
+  arizonaTomorrowISO,
   formatFullDate,
   buildMonthGrid,
-  monthKeyFromISO,
   addMonths,
   formatMonthYear,
   groupEventsByDate,
+  eventsInMonth,
   WEEKDAY_LABELS,
   type MonthKey,
 } from "@/lib/calendarShared";
+import DateGroupCard from "./DateGroupCard";
 
-// Small, dot-based type differentiation — clean at both grid-cell scale
-// (dots) and list scale (colored left bar, reused from Agenda's existing
-// pattern) rather than a full color-coded cell background, per the "not a
-// rainbow scheduling app" instruction.
-const MAX_VISIBLE_LABELS_DESKTOP = 3;
-const MAX_VISIBLE_DOTS_MOBILE = 4;
+// Phase 4B refinement: cells are dot-only and uniform — no title
+// pills/labels at any viewport, so event count/title length can never
+// change a cell's height or width. Max two dots regardless of how many
+// events actually fall on a day; the real count still reaches assistive
+// tech via aria-label, and the full list lives in the section below.
+const CELL_HEIGHT = 44;
 
 export default function MonthView({
   events,
   visibleMonth,
   onChangeMonth,
+  onToday,
   selectedDate,
   onSelectDate,
+  onClearSelectedDate,
   onOpenEvent,
 }: {
   events: CalendarEventRow[];
   visibleMonth: MonthKey;
   onChangeMonth: (m: MonthKey) => void;
-  selectedDate: string;
+  onToday: () => void;
+  selectedDate: string | null;
   onSelectDate: (iso: string) => void;
+  onClearSelectedDate: () => void;
   onOpenEvent: (ev: CalendarEventRow) => void;
 }) {
   const today = arizonaTodayISO();
+  const tomorrow = arizonaTomorrowISO();
   const cells = buildMonthGrid(visibleMonth);
-
   const byDate = groupEventsByDate(events);
 
-  const goToToday = () => {
-    onChangeMonth(monthKeyFromISO(today));
-    onSelectDate(today);
-  };
+  const monthEvents = eventsInMonth(events, visibleMonth);
+  const monthGroups = groupEventsByDate(monthEvents);
+  const monthLabel = formatMonthYear(visibleMonth).split(" ")[0]; // "August"
 
-  const selectedEvents = byDate.get(selectedDate) ?? [];
+  const selectedEvents = selectedDate ? (byDate.get(selectedDate) ?? []) : [];
 
   return (
     <div>
@@ -76,7 +78,7 @@ export default function MonthView({
             ›
           </button>
         </div>
-        <button onClick={goToToday} style={todayBtnStyle} aria-label="Go to today">
+        <button onClick={onToday} style={todayBtnStyle} aria-label="Go to today">
           Today
         </button>
       </div>
@@ -93,13 +95,14 @@ export default function MonthView({
         ))}
       </div>
 
-      {/* ── Grid ── */}
+      {/* ── Grid: every cell is exactly CELL_HEIGHT, content never changes that ── */}
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2,
         background: "#f3f4f6", borderRadius: 12, padding: 2, overflow: "hidden",
       }}>
         {cells.map(cell => {
           const evs = byDate.get(cell.iso) ?? [];
+          const dotCount = Math.min(evs.length, 2);
           const isToday = cell.iso === today;
           const isSelected = cell.iso === selectedDate;
           return (
@@ -111,19 +114,20 @@ export default function MonthView({
               aria-pressed={isSelected}
               style={{
                 position: "relative",
-                minHeight: 52,
+                height: CELL_HEIGHT,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "flex-start",
+                justifyContent: "center",
                 gap: ".2rem",
-                padding: ".3rem .15rem .35rem",
+                padding: 0,
                 border: "none",
                 cursor: "pointer",
                 background: isSelected ? "#0b1e3d" : "#fff",
                 opacity: cell.inCurrentMonth ? 1 : 0.45,
                 borderRadius: 8,
                 font: "inherit",
+                boxSizing: "border-box",
               }}
             >
               <span style={{
@@ -133,117 +137,87 @@ export default function MonthView({
                 width: 22, height: 22, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: isToday && !isSelected ? "#f0f4ff" : "transparent",
+                flexShrink: 0,
               }}>
                 {cell.day}
               </span>
 
-              {/* Desktop/tablet: compact text labels where space allows */}
-              <div className="elf-month-labels" style={{ width: "100%", display: "none" }}>
-                {evs.slice(0, MAX_VISIBLE_LABELS_DESKTOP).map(ev => {
-                  const s = eventTypeStyle(ev.type);
-                  return (
-                    <div key={ev.id} style={{
-                      fontSize: ".56rem", fontWeight: 700, borderRadius: 4, padding: "1px 4px",
-                      background: isSelected ? "rgba(255,255,255,.18)" : s.bg,
-                      color: isSelected ? "#fff" : s.color,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      marginTop: 2, textAlign: "left",
-                    }}>
-                      {ev.title}
-                    </div>
-                  );
-                })}
-                {evs.length > MAX_VISIBLE_LABELS_DESKTOP && (
-                  <div style={{ fontSize: ".54rem", color: isSelected ? "rgba(255,255,255,.7)" : "#9ca3af", marginTop: 2, textAlign: "left" }}>
-                    +{evs.length - MAX_VISIBLE_LABELS_DESKTOP} more
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile: dot indicators only, doesn't rely on color alone
-                  (count text accompanies dots for 3+ events) */}
-              <div className="elf-month-dots" style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap", justifyContent: "center", minHeight: 6 }}>
-                {evs.slice(0, MAX_VISIBLE_DOTS_MOBILE).map(ev => {
-                  const s = eventTypeStyle(ev.type);
-                  return (
-                    <span key={ev.id} style={{
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: isSelected ? "#fff" : s.accent,
-                    }} />
-                  );
-                })}
-                {evs.length > MAX_VISIBLE_DOTS_MOBILE && (
-                  <span style={{ fontSize: ".5rem", fontWeight: 700, color: isSelected ? "#fff" : "#9ca3af" }}>
-                    +{evs.length - MAX_VISIBLE_DOTS_MOBILE}
-                  </span>
-                )}
+              {/* Fixed-height dot row: 0/1/2 dots occupy the same space
+                  either way, so cell height never depends on content. */}
+              <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center", height: 5, flexShrink: 0 }}>
+                {Array.from({ length: dotCount }).map((_, i) => (
+                  <span key={i} style={{
+                    width: 5, height: 5, borderRadius: "50%",
+                    background: isSelected ? "#fff" : "#9ca3af",
+                  }} />
+                ))}
               </div>
             </button>
           );
         })}
       </div>
 
-      <style>{`
-        @media (min-width: 640px) {
-          .elf-month-labels { display: flex !important; flex-direction: column; }
-          .elf-month-dots { display: none !important; }
-        }
-      `}</style>
-
-      {/* ── Selected day section ── */}
+      {/* ── Section below the grid: full-month list, or a selected-day override ── */}
       <div style={{ marginTop: "1rem" }}>
-        <h3 style={{ margin: "0 0 .6rem", fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
-          {formatFullDate(selectedDate)}
-        </h3>
+        {selectedDate ? (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: ".5rem", marginBottom: ".6rem", flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
+                {formatFullDate(selectedDate)}
+              </h3>
+              <button
+                onClick={onClearSelectedDate}
+                style={{ border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: ".76rem", fontWeight: 700, color: "#1d4ed8" }}
+              >
+                View all {monthLabel} events
+              </button>
+            </div>
 
-        {selectedEvents.length === 0 ? (
-          <div style={{
-            background: "#fff", borderRadius: 14, padding: "1.5rem 1.25rem",
-            textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-            fontSize: ".82rem", color: "#9ca3af",
-          }}>
-            No events scheduled for this day.
-          </div>
+            {selectedEvents.length === 0 ? (
+              <div style={{
+                background: "#fff", borderRadius: 14, padding: "1.5rem 1.25rem",
+                textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+                fontSize: ".82rem", color: "#9ca3af",
+              }}>
+                No events scheduled for this day.
+              </div>
+            ) : (
+              <DateGroupCard
+                date={selectedDate}
+                evs={selectedEvents}
+                isToday={selectedDate === today}
+                isTomorrow={selectedDate === tomorrow}
+                onOpen={onOpenEvent}
+              />
+            )}
+          </>
         ) : (
-          <div style={{
-            background: "#fff", borderRadius: 14, overflow: "hidden",
-            boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          }}>
-            {selectedEvents.map((ev, i) => {
-              const s = eventTypeStyle(ev.type);
-              const time = displayEventTime(ev);
-              return (
-                <button
-                  key={ev.id}
-                  onClick={() => onOpenEvent(ev)}
-                  style={{
-                    display: "flex", alignItems: "stretch", width: "100%",
-                    border: "none", background: "none", cursor: "pointer", textAlign: "left",
-                    padding: 0, font: "inherit", color: "inherit",
-                    borderBottom: i < selectedEvents.length - 1 ? "1px solid #f6f6f8" : "none",
-                  }}
-                >
-                  <div style={{ width: 3, background: s.accent, flexShrink: 0 }} />
-                  <div style={{ flex: 1, padding: ".75rem .9rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".2rem" }}>
-                      <span style={{
-                        padding: ".07rem .42rem", borderRadius: 100,
-                        fontSize: ".55rem", fontWeight: 700, textTransform: "uppercase",
-                        letterSpacing: ".04em", background: s.bg, color: s.color,
-                      }}>
-                        {EVENT_TYPE_LABELS[ev.type] ?? ev.type}
-                      </span>
-                      {time && <span style={{ fontSize: ".76rem", fontWeight: 600, color: "#6b7280" }}>{time}</span>}
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{ev.title}</div>
-                    {ev.location && (
-                      <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".15rem" }}>📍 {ev.location}</div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <>
+            <h3 style={{ margin: "0 0 .6rem", fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
+              {monthLabel} Events
+            </h3>
+
+            {monthEvents.length === 0 ? (
+              <div style={{
+                background: "#fff", borderRadius: 14, padding: "1.5rem 1.25rem",
+                textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+                fontSize: ".82rem", color: "#9ca3af",
+              }}>
+                No events scheduled in {formatMonthYear(visibleMonth)}.
+              </div>
+            ) : (
+              Array.from(monthGroups.entries()).map(([date, evs]) => (
+                <DateGroupCard
+                  key={date}
+                  date={date}
+                  evs={evs}
+                  isToday={date === today}
+                  isTomorrow={date === tomorrow}
+                  onOpen={onOpenEvent}
+                />
+              ))
+            )}
+          </>
         )}
       </div>
     </div>

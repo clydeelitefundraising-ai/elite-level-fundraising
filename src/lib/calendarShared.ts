@@ -216,6 +216,18 @@ export function formatMonthYear({ year, month }: MonthKey): string {
 
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// Filters event-like rows down to those whose event_date falls within the
+// given {year, month} — used by Month view's default (no day selected)
+// section to list "every event this month" chronologically. Assumes the
+// input is already date-sorted (true of getCalendarEvents' query order),
+// so this preserves chronological order without re-sorting.
+export function eventsInMonth<T extends { event_date: string }>(events: T[], key: MonthKey): T[] {
+  return events.filter(ev => {
+    const evKey = monthKeyFromISO(ev.event_date);
+    return evKey.year === key.year && evKey.month === key.month;
+  });
+}
+
 // Groups any event-like rows by their event_date, preserving input order
 // within each date group. Shared by Agenda's DateGroupCard grouping and
 // Month view's per-cell/per-selected-day lookup so both views can never

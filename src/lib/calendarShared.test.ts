@@ -15,6 +15,7 @@ import {
   displayEventTime,
   formatTimeOfDay,
   groupEventsByDate,
+  eventsInMonth,
 } from "./calendarShared.ts";
 
 // ── daysInMonth: 28/29/30/31-day months, leap years ────────────────────────
@@ -172,4 +173,54 @@ test("groupEventsByDate: a date with zero events is simply absent from the map",
   const groups = groupEventsByDate([{ event_date: "2026-08-23", title: "Practice" }]);
   assert.equal(groups.get("2026-08-24"), undefined);
   assert.deepEqual(groups.get("2026-08-24") ?? [], []);
+});
+
+// ── eventsInMonth: default Month-view list (no day selected) ────────────────
+
+test("eventsInMonth: keeps only events whose date falls within the given month, preserving order", () => {
+  const events = [
+    { event_date: "2026-07-31", title: "End of July" },
+    { event_date: "2026-08-01", title: "Aug 1" },
+    { event_date: "2026-08-15", title: "Aug 15" },
+    { event_date: "2026-08-31", title: "Aug 31" },
+    { event_date: "2026-09-01", title: "Sept 1" },
+  ];
+  const result = eventsInMonth(events, { year: 2026, month: 8 });
+  assert.deepEqual(result.map(e => e.title), ["Aug 1", "Aug 15", "Aug 31"]);
+});
+
+test("eventsInMonth: a month with zero events returns an empty array", () => {
+  const events = [{ event_date: "2026-08-01", title: "Aug 1" }];
+  assert.deepEqual(eventsInMonth(events, { year: 2026, month: 9 }), []);
+});
+
+test("eventsInMonth: does not cross year boundaries (December vs next January)", () => {
+  const events = [
+    { event_date: "2026-12-31", title: "NYE" },
+    { event_date: "2027-01-01", title: "NYD" },
+  ];
+  assert.deepEqual(eventsInMonth(events, { year: 2026, month: 12 }).map(e => e.title), ["NYE"]);
+  assert.deepEqual(eventsInMonth(events, { year: 2027, month: 1 }).map(e => e.title), ["NYD"]);
+});
+
+// ── Selected-day override: narrows the same grouped data to one date ────────
+
+test("selected-day override: groupEventsByDate lookup for the selected date matches only that date's events", () => {
+  const events = [
+    { event_date: "2026-08-14", title: "Day Before" },
+    { event_date: "2026-08-15", title: "Selected A" },
+    { event_date: "2026-08-15", title: "Selected B" },
+    { event_date: "2026-08-16", title: "Day After" },
+  ];
+  const groups = groupEventsByDate(events);
+  assert.deepEqual((groups.get("2026-08-15") ?? []).map(e => e.title), ["Selected A", "Selected B"]);
+});
+
+test("selected-day override: a selected date with zero events resolves to an empty list, not the whole month", () => {
+  const events = eventsInMonth(
+    [{ event_date: "2026-08-01", title: "Aug 1" }],
+    { year: 2026, month: 8 },
+  );
+  const groups = groupEventsByDate(events);
+  assert.deepEqual(groups.get("2026-08-02") ?? [], []);
 });
