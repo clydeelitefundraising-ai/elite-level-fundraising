@@ -120,7 +120,20 @@ export default function ExportMenu({ slug, canManage }: { slug: string; canManag
               ) : status.enabled ? (
                 <>
                   <SyncButton label={copied ? "Copied!" : "Copy Subscription Link"} onClick={copyLink} />
-                  <a href={status.webcalUrl} style={linkButton}>Add to Apple Calendar</a>
+                  {/* target="_blank" is required in the iOS app, not just
+                      cosmetic: without it, this same-window webcal:// link
+                      goes through Capacitor's decidePolicyFor navigation
+                      delegate, which only checks the URL's HOST against
+                      allowNavigation (not the scheme) — since this URL's
+                      host is our own domain, it gets allowed, WKWebView
+                      then fails to actually load a webcal:// page, and
+                      that failure lands on the app's offline screen.
+                      target="_blank" instead routes through
+                      createWebViewWith, which unconditionally hands the
+                      URL to UIApplication.shared.open() — the correct
+                      native "subscribe to calendar" handoff. Same pattern
+                      already used one line below for Google Calendar. */}
+                  <a href={status.webcalUrl} target="_blank" rel="noopener noreferrer" style={linkButton}>Add to Apple Calendar</a>
                   <a href={status.googleUrl} target="_blank" rel="noopener noreferrer" style={linkButton}>Add to Google Calendar</a>
                   {canManage && (
                     <>
