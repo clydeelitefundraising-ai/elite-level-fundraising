@@ -205,6 +205,57 @@ export async function getJoinCode(code: string): Promise<JoinCodeRow | null> {
   return row;
 }
 
+export type JoinTeamSettings = {
+  campaign_slug: string;
+  school_name:   string;
+  mascot:        string;
+  sport_name:    string;
+  primary_color: string;
+};
+
+export type ResolvedJoinCode =
+  | { status: "invalid" }
+  | { status: "archived" }
+  | { status: "valid"; campaignSlug: string; settings: JoinTeamSettings };
+
+// Phase 5: single canonical join-code resolution, used by BOTH the
+// /join/[code] QR-landing route and /api/auth/validate-code (manual
+// entry) — so "is this code usable right now" (unknown/expired/revoked,
+// AND archived) is decided in exactly one place instead of two routes
+// independently re-implementing the same check and risking drift. A
+// code for an archived campaign is treated the same as any other
+// unusable code from the joiner's point of view (distinct "archived"
+// status only so callers can show a more specific, still-friendly
+// message) — existing members of that campaign are completely
+// unaffected, this only gates NEW joins.
+export async function resolveJoinCode(code: string): Promise<ResolvedJoinCode> {
+  const joinCode = await getJoinCode(code);
+  if (!joinCode) return { status: "invalid" };
+
+  const res = await fetch(
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(joinCode.campaign_slug)}` +
+      `&select=campaign_slug,school_name,mascot,sport_name,primary_color,archived&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return { status: "invalid" };
+  const rows = await res.json();
+  const settings = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  if (!settings) return { status: "invalid" };
+  if (settings.archived) return { status: "archived" };
+
+  return {
+    status: "valid",
+    campaignSlug: joinCode.campaign_slug,
+    settings: {
+      campaign_slug: settings.campaign_slug,
+      school_name:   settings.school_name,
+      mascot:        settings.mascot,
+      sport_name:    settings.sport_name,
+      primary_color: settings.primary_color,
+    },
+  };
+}
+
 export async function getTeamSponsors(slug: string): Promise<SponsorRow[]> {
   const res = await fetch(
     `${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&order=display_order.asc,created_at.asc`,
