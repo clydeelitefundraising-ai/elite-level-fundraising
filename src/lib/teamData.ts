@@ -46,6 +46,25 @@ export async function getOutreachMap(slug: string): Promise<Record<string, Outre
   return Object.fromEntries(rows.map(r => [r.athlete_id, r]));
 }
 
+// Phase 6: per-athlete fundraising_contacts count, keyed by athlete_id.
+// Same underlying table/counting logic as
+// /api/team/[slug]/contacts/coach/summary (which additionally computes
+// phone/email breakdowns and goal completion — not needed here), kept
+// deliberately smaller rather than importing that route's full response
+// shape. Missing athletes simply aren't keys in the returned object —
+// callers must default to 0 themselves (see followUps.ts).
+export async function getContactCountsByAthlete(slug: string): Promise<Record<string, number>> {
+  const res = await fetch(
+    `${BASE}/rest/v1/fundraising_contacts?campaign_slug=eq.${encodeURIComponent(slug)}&select=athlete_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return {};
+  const rows: { athlete_id: string }[] = await res.json();
+  const counts: Record<string, number> = {};
+  for (const r of rows) counts[r.athlete_id] = (counts[r.athlete_id] ?? 0) + 1;
+  return counts;
+}
+
 export type AnnouncementRow = {
   id: string;
   campaign_slug: string;

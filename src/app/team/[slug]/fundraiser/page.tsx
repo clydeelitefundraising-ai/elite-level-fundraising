@@ -1,14 +1,19 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
-import { getAthleteById, getTeamAthletes, getOutreachMap } from "@/lib/teamData";
+import { getAthleteById, getTeamAthletes, getOutreachMap, getContactCountsByAthlete } from "@/lib/teamData";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { isStaff } from "@/lib/permissions";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
+import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
+import { buildFollowUpRows } from "@/lib/followUps";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
+import FundraiserTabs from "./FundraiserTabs";
+import FollowUpsView from "./FollowUpsView";
 
 export const dynamic = "force-dynamic";
 
@@ -49,24 +54,11 @@ function buildLeaderboard(
   athletes: TeamAthleteRow[],
   donations: DonationRow[],
 ): LeaderboardEntry[] {
-  const nameToId: Record<string, string> = {};
-  for (const a of athletes) nameToId[a.name] = a.id;
-
-  const totals:      Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
-  const donorCounts: Record<string, number> = Object.fromEntries(athletes.map(a => [a.id, 0]));
-
-  for (const d of donations) {
-    if (d.athlete_id && totals[d.athlete_id] !== undefined) {
-      totals[d.athlete_id]      += d.amount_cents;
-      donorCounts[d.athlete_id] += 1;
-    } else if (!d.athlete_id && d.athlete_name) {
-      const aid = nameToId[d.athlete_name];
-      if (aid) {
-        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
-        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
-      }
-    }
-  }
+  // Phase 6: delegates to the single authoritative attribution
+  // implementation (src/lib/donationAttribution.ts) instead of an inline
+  // copy — behavior (id-first match, legacy name fallback, zero-seeded
+  // for every roster athlete) is unchanged from the prior inline version.
+  const { totalsCents, donorCounts } = attributeDonationsToAthletes(athletes, donations);
 
   return athletes
     .map(a => ({
@@ -75,7 +67,7 @@ function buildLeaderboard(
       profile_photo: a.profile_photo,
       event:         a.event,
       class_year:    a.class_year ?? null,
-      raisedCents:   totals[a.id]      ?? 0,
+      raisedCents:   totalsCents[a.id] ?? 0,
       goalCents:     a.goal_cents      ?? null,
       donorCount:    donorCounts[a.id] ?? 0,
       rank:          0,
@@ -407,10 +399,11 @@ export default async function FundraiserPage({
 
   // ── Coach / staff ──
   if (actor.kind === "coach") {
-    const [athletes, donations, outreachMap] = await Promise.all([
+    const [athletes, donations, outreachMap, contactCounts] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),
       getOutreachMap(slug),
+      getContactCountsByAthlete(slug),
     ]);
 
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
@@ -453,24 +446,13 @@ export default async function FundraiserPage({
       };
     }
 
-    const nameToId: Record<string, string> = {};
     const idToName: Record<string, string> = {};
-    for (const a of athletes) { nameToId[a.name] = a.id; idToName[a.id] = a.name; }
+    for (const a of athletes) idToName[a.id] = a.name;
 
-    const totals:      Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
-    const donorCounts: Record<string, number>        = Object.fromEntries(athletes.map(a => [a.id, 0]));
-    const lastDon:     Record<string, string | null> = Object.fromEntries(athletes.map(a => [a.id, null]));
-
-    for (const d of donations) {
-      let aid: string | undefined;
-      if (d.athlete_id && totals[d.athlete_id] !== undefined)       aid = d.athlete_id;
-      else if (!d.athlete_id && d.athlete_name)                     aid = nameToId[d.athlete_name];
-      if (aid) {
-        totals[aid]      = (totals[aid]      ?? 0) + d.amount_cents;
-        donorCounts[aid] = (donorCounts[aid] ?? 0) + 1;
-        if (!lastDon[aid]) lastDon[aid] = d.created_at;
-      }
-    }
+    // Phase 6: same authoritative attribution as buildLeaderboard() above
+    // — was previously a second independent inline copy of this exact
+    // logic, now delegated to the one shared implementation.
+    const { totalsCents: totals, donorCounts, lastDonationAt: lastDon } = attributeDonationsToAthletes(athletes, donations);
 
     const athleteProgress: AthleteProgress[] = athletes
       .map(a => {
@@ -519,27 +501,76 @@ export default async function FundraiserPage({
       .sort((a, b) => b.totalCents - a.totalCents)
       .slice(0, 10);
 
+    // Phase 6: roster-first Follow-Ups rows — starts from `athletes`
+    // (every roster row), enriched by athlete id from contactCounts/
+    // donations/outreachMap. Never derived from those three datasets.
+    const followUpRows = buildFollowUpRows(athletes, donations, contactCounts, outreachMap);
+
     return (
-      <>
-        <TeamCampaignView
-          settings={settings}
-          raisedCents={raisedCents}
-          donorCount={donorCount}
-          leaderboard={leaderboard}
-          teamFeed={teamFeed}
-          displayGoalCents={getDisplayGoalCents(teamGoalCents, raisedCents)}
-        />
-        <AnalyticsView
-          slug={slug}
-          settings={settings}
-          teamStats={teamStats}
-          pace={pace}
-          athleteProgress={athleteProgress}
-          needsAttention={needsAttention}
-          topDonors={topDonors}
-          outreachMap={outreachMap}
-        />
-      </>
+      <FundraiserTabs
+        overview={
+          <>
+            <TeamCampaignView
+              settings={settings}
+              raisedCents={raisedCents}
+              donorCount={donorCount}
+              leaderboard={leaderboard}
+              teamFeed={teamFeed}
+              displayGoalCents={getDisplayGoalCents(teamGoalCents, raisedCents)}
+            />
+            <AnalyticsView
+              slug={slug}
+              settings={settings}
+              teamStats={teamStats}
+              pace={pace}
+              athleteProgress={athleteProgress}
+              needsAttention={needsAttention}
+              topDonors={topDonors}
+              outreachMap={outreachMap}
+            />
+          </>
+        }
+        followUps={
+          <FollowUpsView slug={slug} settings={settings} initialRows={followUpRows} />
+        }
+      />
+    );
+  }
+
+  // ── Booster (staff member, not a team_coaches row) — Follow-Ups access
+  // only. Deliberately narrower than the coach branch above: gives the
+  // same public-safe TeamCampaignView as Overview, but NOT AnalyticsView
+  // (which contains coach-only donor/pace/needs-attention tooling) —
+  // isStaff() alone must never widen access to that existing surface.
+  if (actor.kind === "member" && isStaff(actor)) {
+    const [athletes, donations, outreachMap, contactCounts] = await Promise.all([
+      getTeamAthletes(slug),
+      getDonations(slug),
+      getOutreachMap(slug),
+      getContactCountsByAthlete(slug),
+    ]);
+
+    const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
+    const leaderboard = buildLeaderboard(athletes, donations);
+    const teamFeed    = buildTeamFeed(athletes, donations);
+    const followUpRows = buildFollowUpRows(athletes, donations, contactCounts, outreachMap);
+
+    return (
+      <FundraiserTabs
+        overview={
+          <TeamCampaignView
+            settings={settings}
+            raisedCents={raisedCents}
+            donorCount={donations.length}
+            leaderboard={leaderboard}
+            teamFeed={teamFeed}
+            displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
+          />
+        }
+        followUps={
+          <FollowUpsView slug={slug} settings={settings} initialRows={followUpRows} />
+        }
+      />
     );
   }
 
