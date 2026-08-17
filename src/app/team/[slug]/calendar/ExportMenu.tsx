@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { AppLauncher } from "@capacitor/app-launcher";
 
 type Status =
   | { enabled: false }
@@ -81,6 +83,24 @@ export default function ExportMenu({ slug, canManage }: { slug: string; canManag
     }
   };
 
+  // In the installed iOS/Android app, a same-window (or even
+  // target="_blank") click on a webcal:// link is unreliable — Capacitor's
+  // WKWebView navigation delegate can end up trying to load the custom
+  // scheme itself (it can't) instead of always handing it to the OS,
+  // landing on ELF's offline screen instead of the native "Subscribe to
+  // Calendar" flow. AppLauncher.openUrl() calls UIApplication.shared.open()
+  // (iOS) / an equivalent Intent (Android) directly through the native
+  // bridge — a deterministic API call, not dependent on WebKit's
+  // click/new-window heuristics — so it's used explicitly whenever running
+  // inside the native app. Plain browsers are untouched: they never enter
+  // this branch, and keep the ordinary <a href="webcal://..."> behavior.
+  const openAppleCalendar = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!Capacitor.isNativePlatform() || !status?.enabled) return;
+    e.preventDefault();
+    setOpen(false);
+    void AppLauncher.openUrl({ url: status.webcalUrl });
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <button
@@ -120,20 +140,13 @@ export default function ExportMenu({ slug, canManage }: { slug: string; canManag
               ) : status.enabled ? (
                 <>
                   <SyncButton label={copied ? "Copied!" : "Copy Subscription Link"} onClick={copyLink} />
-                  {/* target="_blank" is required in the iOS app, not just
-                      cosmetic: without it, this same-window webcal:// link
-                      goes through Capacitor's decidePolicyFor navigation
-                      delegate, which only checks the URL's HOST against
-                      allowNavigation (not the scheme) — since this URL's
-                      host is our own domain, it gets allowed, WKWebView
-                      then fails to actually load a webcal:// page, and
-                      that failure lands on the app's offline screen.
-                      target="_blank" instead routes through
-                      createWebViewWith, which unconditionally hands the
-                      URL to UIApplication.shared.open() — the correct
-                      native "subscribe to calendar" handoff. Same pattern
-                      already used one line below for Google Calendar. */}
-                  <a href={status.webcalUrl} target="_blank" rel="noopener noreferrer" style={linkButton}>Add to Apple Calendar</a>
+                  {/* target="_blank"/rel stay as a plain-browser fallback
+                      (harmless, matches the Google Calendar link below);
+                      onClick={openAppleCalendar} is what actually matters
+                      inside the native app — see that handler above for
+                      why a plain webcal:// link can't be trusted to reach
+                      the OS reliably from inside Capacitor's WebView. */}
+                  <a href={status.webcalUrl} target="_blank" rel="noopener noreferrer" onClick={openAppleCalendar} style={linkButton}>Add to Apple Calendar</a>
                   <a href={status.googleUrl} target="_blank" rel="noopener noreferrer" style={linkButton}>Add to Google Calendar</a>
                   {canManage && (
                     <>
