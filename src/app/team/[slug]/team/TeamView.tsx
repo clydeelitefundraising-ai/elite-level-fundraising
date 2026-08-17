@@ -8,6 +8,9 @@ import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import TeamQrModal from "./TeamQrModal";
+import PrintSignupSheet from "./PrintSignupSheet";
+import { useTeamJoinCode, type JoinCodeSettings } from "./useTeamJoinCode";
 
 // This page is intentionally athlete-focused for now. Future phases will
 // expand "Team" to include coaches, assistant coaches, managers, volunteers,
@@ -213,6 +216,7 @@ export default function TeamView({
   initialAthletes,
   actor,
   pendingRequestCount = 0,
+  joinCodeSettings,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
@@ -222,9 +226,14 @@ export default function TeamView({
   // only a small contextual pointer, not the approval workflow itself
   // (moved there in full, not duplicated).
   pendingRequestCount?: number;
+  // Phase 5: team branding needed for the QR/join-code modal + printable
+  // signup sheet.
+  joinCodeSettings: JoinCodeSettings;
 }) {
   const staffMode = isStaff(actor);
   const canDelete = isHeadCoach(actor);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const joinCodeState = useTeamJoinCode(slug, joinCodeSettings, qrModalOpen);
   const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,           setForm]           = useState<AthForm>(BLANK);
   const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
@@ -348,7 +357,33 @@ export default function TeamView({
   const modalOpen = showAdd || isEditing;
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <>
+      {/* Phase 5: same-page print architecture as Calendar's Phase 4C
+          (CalendarView.tsx/PrintMonthView.tsx) — the printable signup
+          sheet must be a SIBLING of the normal page content, not nested
+          inside it, since a display:none ancestor would hide it too. */}
+      <style>{`
+        @media print {
+          #elf-team-header, [role="navigation"] { display: none !important; }
+          .elf-team-noprint { display: none !important; }
+          .elf-team-print { display: block !important; }
+        }
+        @media screen {
+          .elf-team-print { display: none; }
+        }
+      `}</style>
+
+      {joinCodeState.signupData && (
+        <div className="elf-team-print">
+          <PrintSignupSheet
+            data={joinCodeState.signupData}
+            qrDataUrl={joinCodeState.qrDataUrl}
+            primaryColor={joinCodeSettings.primary_color}
+          />
+        </div>
+      )}
+
+    <div className="elf-team-noprint" style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* Phase 3B-1: full approve/decline workflow moved to the Requests
           Center — this is a small contextual pointer only, shown to the
           Head Coach (canDelete === isHeadCoach(actor)) exactly when there's
@@ -392,6 +427,18 @@ export default function TeamView({
             </span>
           )}
           <div style={{ flex: 1 }} />
+          {staffMode && (
+            <button
+              onClick={() => setQrModalOpen(true)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: ".35rem",
+                padding: ".45rem .8rem", background: "#f3f4f6", color: "#374151",
+                border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              Invite Athletes &amp; Parents
+            </button>
+          )}
           <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
         </div>
       </div>
@@ -547,6 +594,23 @@ export default function TeamView({
           </div>
         </Modal>
       )}
+
+      {qrModalOpen && (
+        <TeamQrModal
+          settings={joinCodeSettings}
+          joinCode={joinCodeState.joinCode}
+          loading={joinCodeState.loading}
+          qrDataUrl={joinCodeState.qrDataUrl}
+          error={joinCodeState.error}
+          setError={joinCodeState.setError}
+          busy={joinCodeState.busy}
+          joinUrl={joinCodeState.joinUrl}
+          qrFilename={joinCodeState.qrFilename}
+          generateOrRegenerate={joinCodeState.generateOrRegenerate}
+          onClose={() => setQrModalOpen(false)}
+        />
+      )}
     </div>
+    </>
   );
 }
