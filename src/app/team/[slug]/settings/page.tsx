@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTeamActor } from "@/lib/permissions.server";
 import { getActiveJoinCode } from "@/lib/teamData";
+import { getCampaignSettings } from "@/lib/supabase";
 import SettingsView from "./SettingsView";
 
 export default async function SettingsPage({
@@ -19,8 +20,24 @@ export default async function SettingsPage({
     return <CoachOnlyGate slug={slug} />;
   }
 
-  const activeCode = await getActiveJoinCode(slug);
-  return <SettingsView slug={slug} coach={actor.session} initialCode={activeCode} />;
+  const [activeCode, settings] = await Promise.all([
+    getActiveJoinCode(slug),
+    getCampaignSettings(slug),
+  ]);
+  return (
+    <SettingsView
+      slug={slug}
+      coach={actor.session}
+      initialCode={activeCode}
+      joinCodeSettings={{
+        school_name:   settings?.school_name ?? "",
+        sport_name:    settings?.sport_name ?? "",
+        mascot:        settings?.mascot ?? null,
+        season:        settings?.season ?? null,
+        primary_color: settings?.primary_color ?? "#0b1e3d",
+      }}
+    />
+  );
 }
 
 function CoachOnlyGate({ slug }: { slug: string }) {

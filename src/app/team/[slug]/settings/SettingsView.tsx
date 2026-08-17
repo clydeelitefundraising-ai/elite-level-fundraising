@@ -5,19 +5,40 @@ import { useRouter } from "next/navigation";
 import type { CoachSession } from "@/lib/teamSession";
 import type { ActiveJoinCode } from "@/lib/teamData";
 import { staffRoleLabel } from "@/lib/permissions";
+import TeamQrModal from "../_components/TeamQrModal";
+import PrintSignupSheet from "../_components/PrintSignupSheet";
+import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJoinCode";
 
 type Props = {
   slug: string;
   coach: CoachSession;
   initialCode: ActiveJoinCode | null;
+  // Phase 5: team branding needed for the QR/join-code modal + printable
+  // signup sheet, relocated here from the Team page per product decision.
+  joinCodeSettings: JoinCodeSettings;
 };
 
-export default function SettingsView({ slug, coach, initialCode }: Props) {
+export default function SettingsView({ slug, coach, initialCode, joinCodeSettings }: Props) {
   const router = useRouter();
   const [code, setCode]       = useState<ActiveJoinCode | null>(initialCode);
   const [working, setWorking] = useState(false);
   const [copied, setCopied]   = useState(false);
   const [error, setError]     = useState("");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+
+  // Phase 5: shares the *same* code with the existing New Code/Revoke UI
+  // below (seeded from it, and pushes its own regenerate result back into
+  // `code` via onChange) — so the top-of-card code display, the QR modal,
+  // and the print sheet can never disagree about what the active code is.
+  // The existing generate/revoke handlers (handleGenerate/handleRevoke
+  // below) are completely untouched.
+  const joinCodeState = useTeamJoinCode(
+    slug,
+    joinCodeSettings,
+    qrModalOpen,
+    code,
+    (c) => setCode(c as ActiveJoinCode | null),
+  );
 
   const handleSignOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -61,7 +82,33 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
   };
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <>
+      {/* Phase 5: same-page print architecture (see Calendar's Phase 4C
+          and the original Team-page implementation this was relocated
+          from) — the printable signup sheet must be a sibling of the
+          normal page content, not nested inside it. */}
+      <style>{`
+        @media print {
+          #elf-team-header, [role="navigation"] { display: none !important; }
+          .elf-settings-noprint { display: none !important; }
+          .elf-settings-print { display: block !important; }
+        }
+        @media screen {
+          .elf-settings-print { display: none; }
+        }
+      `}</style>
+
+      {joinCodeState.signupData && (
+        <div className="elf-settings-print">
+          <PrintSignupSheet
+            data={joinCodeState.signupData}
+            qrDataUrl={joinCodeState.qrDataUrl}
+            primaryColor={joinCodeSettings.primary_color}
+          />
+        </div>
+      )}
+
+    <div className="elf-settings-noprint" style={{ animation: "elf-fadeUp .22s ease both" }}>
 
       {/* ── Coach badge ── */}
       <div style={{
@@ -228,6 +275,27 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
                 Revoke
               </button>
             </div>
+
+            {/* Phase 5: QR/printable-signup tools — relocated here from
+                the Team page so Team Code + QR/signup live together as
+                one access-management feature. */}
+            <button
+              onClick={() => setQrModalOpen(true)}
+              style={{
+                width: "100%",
+                marginTop: ".5rem",
+                padding: ".55rem .75rem",
+                background: "#f0f4ff",
+                color: "#1d4ed8",
+                border: "1.5px solid #dbeafe",
+                borderRadius: 9,
+                fontSize: ".82rem",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Team QR &amp; Signup Sheet
+            </button>
           </>
         ) : (
           <div style={{ textAlign: "center", padding: "1.25rem 0 .5rem" }}>
@@ -326,6 +394,23 @@ export default function SettingsView({ slug, coach, initialCode }: Props) {
           </button>
         </div>
       </div>
+
+      {qrModalOpen && (
+        <TeamQrModal
+          settings={joinCodeSettings}
+          joinCode={joinCodeState.joinCode}
+          loading={joinCodeState.loading}
+          qrDataUrl={joinCodeState.qrDataUrl}
+          error={joinCodeState.error}
+          setError={joinCodeState.setError}
+          busy={joinCodeState.busy}
+          joinUrl={joinCodeState.joinUrl}
+          qrFilename={joinCodeState.qrFilename}
+          generateOrRegenerate={joinCodeState.generateOrRegenerate}
+          onClose={() => setQrModalOpen(false)}
+        />
+      )}
     </div>
+    </>
   );
 }

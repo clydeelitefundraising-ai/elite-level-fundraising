@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Modal from "../_components/Modal";
+import Modal from "./Modal";
 import type { JoinCode, JoinCodeSettings } from "./useTeamJoinCode";
 
 // Phase 5: purely presentational — all fetching/QR-generation state lives
