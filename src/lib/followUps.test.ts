@@ -5,6 +5,9 @@ import {
   sortFollowUpRows,
   filterFollowUpRows,
   buildFollowUpsReportTitle,
+  buildFollowUpsCsv,
+  buildFollowUpsCsvFilename,
+  followUpStatusLabel,
   DEFAULT_FOLLOW_UP_SORT,
 } from "./followUps.ts";
 
@@ -166,4 +169,106 @@ test("filter then sort composition preserves order for a downstream print consum
   // Print consumes `filtered` directly — its order must be exactly the
   // sorted order with non-matching rows removed, nothing re-sorted.
   assert.deepEqual(filtered.map(r => r.id), ["b", "a"]);
+});
+
+// ── followUpStatusLabel ───────────────────────────────────────────────────
+
+test("followUpStatusLabel: maps known statuses to human labels, null to an em dash", () => {
+  assert.equal(followUpStatusLabel("contacted"), "Contacted");
+  assert.equal(followUpStatusLabel("needs_follow_up"), "Needs Follow Up");
+  assert.equal(followUpStatusLabel("resolved"), "Resolved");
+  assert.equal(followUpStatusLabel(null), "—");
+});
+
+// ── CSV export ────────────────────────────────────────────────────────────
+
+const CSV_HEADER_LINE = "Athlete Name,Contacts Entered,Amount Raised,Follow-Up Status,Last Follow-Up Date";
+
+test("buildFollowUpsCsv: starts with a UTF-8 BOM (required for Excel to detect UTF-8 correctly)", () => {
+  const csv = buildFollowUpsCsv([]);
+  assert.equal(csv.charCodeAt(0), 0xFEFF);
+});
+
+test("buildFollowUpsCsv: header row matches the required columns exactly", () => {
+  const csv = buildFollowUpsCsv([]);
+  const withoutBom = csv.slice(1);
+  assert.equal(withoutBom.split("\r\n")[0], CSV_HEADER_LINE);
+});
+
+test("buildFollowUpsCsv: uses CRLF line endings", () => {
+  const rows = [
+    { id: "a", name: "A", contacts: 1, raisedCents: 100, outreachStatus: null, outreachNote: null, outreachAt: null },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  assert.ok(csv.includes("\r\n"));
+});
+
+test("buildFollowUpsCsv: a zero-contact, zero-raised, no-status roster athlete exports as 0 / 0.00 / em dash / blank date", () => {
+  const rows = [
+    { id: "a1", name: "Mason Brooks", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const dataLine = csv.slice(1).split("\r\n")[1];
+  assert.equal(dataLine, "Mason Brooks,0,0.00,—,");
+});
+
+test("buildFollowUpsCsv: formats raised cents as a plain two-decimal number (no currency symbol)", () => {
+  const rows = [
+    { id: "a1", name: "Abby Cooper", contacts: 4, raisedCents: 12550, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: "2026-08-10T14:30:00Z" },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const dataLine = csv.slice(1).split("\r\n")[1];
+  assert.equal(dataLine, "Abby Cooper,4,125.50,Needs Follow Up,2026-08-10");
+});
+
+test("buildFollowUpsCsv: escapes a comma in an athlete name", () => {
+  const rows = [
+    { id: "a1", name: "Cooper, Abby", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const dataLine = csv.slice(1).split("\r\n")[1];
+  assert.equal(dataLine, '"Cooper, Abby",0,0.00,—,');
+});
+
+test("buildFollowUpsCsv: escapes an internal double quote by doubling it", () => {
+  const rows = [
+    { id: "a1", name: 'Liam "The Rocket" Foster', contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const dataLine = csv.slice(1).split("\r\n")[1];
+  assert.equal(dataLine, '"Liam ""The Rocket"" Foster",0,0.00,—,');
+});
+
+test("buildFollowUpsCsv: row order exactly matches the input array order (no independent re-sort)", () => {
+  const rows = [
+    { id: "c", name: "Charlie", contacts: 1, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+    { id: "a", name: "Alice",   contacts: 9, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+    { id: "b", name: "Bob",     contacts: 5, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const names = csv.slice(1).split("\r\n").slice(1).filter(Boolean).map(l => l.split(",")[0]);
+  assert.deepEqual(names, ["Charlie", "Alice", "Bob"]);
+});
+
+test("buildFollowUpsCsv: exported rows match a sorted+filtered pipeline exactly, same as print", () => {
+  const rows = [
+    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
+    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
+    { id: "c", name: "C", contacts: 5,  raisedCents: 0, outreachStatus: "resolved" as const, outreachNote: null, outreachAt: null },
+  ];
+  const sorted = sortFollowUpRows(rows, "contacts_asc");
+  const filtered = filterFollowUpRows(sorted, "needs_follow_up");
+  const csv = buildFollowUpsCsv(filtered);
+  const names = csv.slice(1).split("\r\n").slice(1).filter(Boolean).map(l => l.split(",")[0]);
+  assert.deepEqual(names, ["B", "A"]);
+});
+
+// ── CSV filename ──────────────────────────────────────────────────────────
+
+test("buildFollowUpsCsvFilename: combines school + sport, sanitized, into a .csv filename", () => {
+  assert.equal(buildFollowUpsCsvFilename("Monroe Valley", "Track & Field"), "monroe-valley-track-field-fundraiser-followups.csv");
+});
+
+test("buildFollowUpsCsvFilename: falls back to a generic name if both inputs sanitize to empty", () => {
+  assert.equal(buildFollowUpsCsvFilename("!!!", "###"), "team-fundraiser-followups.csv");
 });

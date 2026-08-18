@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
 import type { FollowUpRow, FollowUpSort, FollowUpFilter } from "@/lib/followUps";
-import { sortFollowUpRows, filterFollowUpRows, buildFollowUpsReportTitle, DEFAULT_FOLLOW_UP_SORT } from "@/lib/followUps";
+import {
+  sortFollowUpRows,
+  filterFollowUpRows,
+  buildFollowUpsReportTitle,
+  buildFollowUpsCsv,
+  buildFollowUpsCsvFilename,
+  FOLLOW_UP_STATUS_LABEL,
+  DEFAULT_FOLLOW_UP_SORT,
+} from "@/lib/followUps";
 import type { OutreachRow } from "@/lib/teamData";
 import Modal from "../_components/Modal";
 import PrintFollowUpsReport from "./PrintFollowUpsReport";
@@ -15,12 +23,6 @@ function fmtCents(cents: number): string {
 function fmtDate(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(iso));
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  contacted:       "Contacted",
-  needs_follow_up: "Needs Follow Up",
-  resolved:        "Resolved",
-};
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   contacted:       { bg: "#f0f4ff", color: "#1d4ed8" },
@@ -67,6 +69,19 @@ export default function FollowUpsView({
     ));
   };
 
+  // Same visibleRows the on-screen list and Print render — exported file
+  // always matches the coach's current sort/filter, never a separate query.
+  const handleExport = () => {
+    const csv = buildFollowUpsCsv(visibleRows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = buildFollowUpsCsvFilename(settings.school_name, settings.sport_name);
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <style>{`
@@ -101,7 +116,10 @@ export default function FollowUpsView({
             {rows.length} athlete{rows.length !== 1 ? "s" : ""}
           </span>
           <div style={{ flex: 1 }} />
-          <button onClick={() => window.print()} style={printBtn}>
+          <button onClick={handleExport} style={printBtn}>
+            Export Athlete Report
+          </button>
+          <button onClick={() => window.print()} style={printBtnGhost}>
             Print Athlete Report
           </button>
         </div>
@@ -162,7 +180,7 @@ export default function FollowUpsView({
                     </span>
                     {badge ? (
                       <span style={{ background: badge.bg, color: badge.color, borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".15rem .55rem", textTransform: "uppercase", letterSpacing: ".03em" }}>
-                        {STATUS_LABEL[r.outreachStatus!]}
+                        {FOLLOW_UP_STATUS_LABEL[r.outreachStatus!]}
                       </span>
                     ) : (
                       <span style={{ color: "#c1c7d0", fontSize: ".78rem" }}>—</span>
@@ -294,7 +312,7 @@ function FollowUpHistoryModal({ slug, athlete, onClose }: { slug: string; athlet
               <div key={h.id} style={{ borderLeft: `3px solid ${badge.color}`, paddingLeft: ".7rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".15rem" }}>
                   <span style={{ background: badge.bg, color: badge.color, borderRadius: 100, fontSize: ".6rem", fontWeight: 700, padding: ".12rem .5rem", textTransform: "uppercase" }}>
-                    {STATUS_LABEL[h.status]}
+                    {FOLLOW_UP_STATUS_LABEL[h.status]}
                   </span>
                   <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>{fmtDate(h.created_at)}{h.contacted_by ? ` · ${h.contacted_by}` : ""}</span>
                 </div>
@@ -312,6 +330,11 @@ function FollowUpHistoryModal({ slug, athlete, onClose }: { slug: string; athlet
 
 const printBtn: React.CSSProperties = {
   padding: ".45rem .8rem", background: "#0b1e3d", color: "#fff", border: "none",
+  borderRadius: 8, fontSize: ".8rem", fontWeight: 700, cursor: "pointer",
+};
+
+const printBtnGhost: React.CSSProperties = {
+  padding: ".45rem .8rem", background: "#f3f4f6", color: "#374151", border: "none",
   borderRadius: 8, fontSize: ".8rem", fontWeight: 700, cursor: "pointer",
 };
 

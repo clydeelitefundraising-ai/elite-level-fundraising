@@ -477,10 +477,6 @@ export default async function FundraiserPage({
       .sort((a, b) => b.raisedCents - a.raisedCents)
       .map((a, i) => ({ ...a, rank: i + 1 }));
 
-    const needsAttention = athleteProgress.filter(a =>
-      a.raisedCents === 0 || a.donorCount <= 1 || (a.pct !== null && a.pct < 10),
-    );
-
     const donorMap = new Map<string, { totalCents: number; count: number; athletes: Set<string> }>();
     for (const d of donations) {
       const key = d.donor_name ?? "Anonymous";
@@ -524,9 +520,7 @@ export default async function FundraiserPage({
               teamStats={teamStats}
               pace={pace}
               athleteProgress={athleteProgress}
-              needsAttention={needsAttention}
               topDonors={topDonors}
-              outreachMap={outreachMap}
             />
           </>
         }
