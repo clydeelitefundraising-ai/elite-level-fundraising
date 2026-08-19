@@ -55,12 +55,11 @@ export default function TeamStaffRosterView({ slug }: { slug: string }) {
   const [error, setError] = useState("");
 
   const load = async () => {
-    setLoading(true);
-    setError("");
     try {
       const res = await fetch(`/api/team/${slug}/staff-roster`);
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to load staff."); return; }
+      setError("");
       setStaff(data.staff ?? []);
       setCanManageBoosterVisibility(!!data.canManageBoosterVisibility);
       setShowBooster(data.showBoosterInStaffRoster !== false);
