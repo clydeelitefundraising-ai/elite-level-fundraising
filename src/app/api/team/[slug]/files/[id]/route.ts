@@ -89,18 +89,38 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const rows: { storage_path: string }[] = await rowRes.json();
   if (!rows.length) return NextResponse.json({ error: "File not found." }, { status: 404 });
 
-  // Delete from storage (best-effort)
+  // Delete DB row FIRST. Phase 7: attachment_id on clearance_resources uses
+  // ON DELETE RESTRICT (see supabase/migrations/phase_7_team_hub.sql) — a
+  // file still referenced by a Clearance resource cannot be deleted here.
+  // Must run before the storage delete below: this row-delete is the only
+  // thing that can fail-safe (RESTRICT blocks it, storage is untouched);
+  // deleting storage first would orphan a live Clearance attachment's
+  // underlying file if the DB delete were then blocked.
+  const dbRes = await fetch(
+    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
+    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+  );
+  if (!dbRes.ok) {
+    // PostgREST surfaces a RESTRICT violation as 409 with Postgres error
+    // code 23503 (foreign_key_violation) in the body. Give a clear,
+    // actionable message instead of the generic 500 this route used to
+    // return for any failure.
+    const msg = await dbRes.text();
+    if (dbRes.status === 409 || msg.includes("23503")) {
+      return NextResponse.json(
+        { error: "This file is used by a Clearance resource — remove or replace it there first." },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: "Failed to delete file record." }, { status: 500 });
+  }
+
+  // Delete from storage (best-effort) — only after the DB row is confirmed gone.
   await fetch(`${BASE}/storage/v1/object/${BUCKET}`, {
     method: "DELETE",
     headers: h(),
     body: JSON.stringify({ prefixes: [rows[0].storage_path] }),
   });
 
-  // Delete DB row
-  const dbRes = await fetch(
-    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
-    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
-  );
-  if (!dbRes.ok) return NextResponse.json({ error: "Failed to delete file record." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
