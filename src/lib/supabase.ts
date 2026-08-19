@@ -82,6 +82,9 @@ export type CampaignSettings = {
   external_store_url?:          string | null;
   store_provider?:              string | null;
   default_athlete_goal_cents?:  number | null;
+  // Phase 7: display-only — never referenced by any permission/auth check.
+  // Only gates whether Booster appears in Team -> Roster -> Staff.
+  show_booster_in_staff_roster?: boolean;
 };
 
 // Class levels shown as the primary athlete attribute in the UI. `event`
