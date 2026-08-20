@@ -3,6 +3,8 @@
 // components (CalendarView, HomeView) — no "use client" directive needed
 // since everything here is plain JS/Intl, safe in both environments.
 
+import { sanitizeFilenameSegment } from "./teamJoinQr.ts";
+
 // ── Event types ────────────────────────────────────────────────────────────
 
 export type EventType = "practice" | "meet" | "fundraiser" | "team";
@@ -212,6 +214,18 @@ export function monthKeyFromISO(d: string): MonthKey {
 export function formatMonthYear({ year, month }: MonthKey): string {
   return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" })
     .format(new Date(year, month - 1, 1));
+}
+
+// Phase 8c: filename for the shared/downloaded calendar image (iOS share
+// fallback for Print Calendar — see ExportMenu.tsx). Reuses the same
+// sanitizer already established by teamJoinQr.ts's buildQrFilename/
+// buildSignupSheetFilename rather than duplicating filename-sanitization
+// logic a third time.
+export function buildCalendarPrintFilename(teamName: string, key: MonthKey): string {
+  const monthSlug = sanitizeFilenameSegment(formatMonthYear(key));
+  const teamSlug = sanitizeFilenameSegment(teamName);
+  const base = [teamSlug, monthSlug].filter(Boolean).join("-") || "team-calendar";
+  return `${base}-calendar.png`;
 }
 
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

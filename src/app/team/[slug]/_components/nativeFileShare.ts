@@ -163,6 +163,81 @@ export async function renderSignupSheetImage(
   });
 }
 
+/**
+ * Rasterizes an existing DOM element into a high-resolution PNG File —
+ * generic, DOM-region-oriented, not tied to any one feature. Used by
+ * Calendar's Print Calendar (Phase 8c) to share the browser's own
+ * .elf-calendar-print node (see ExportMenu.tsx/CalendarView.tsx) without
+ * re-implementing its month-grid/event-list rendering a second time.
+ *
+ * `sourceEl` is commonly `display:none` in the live DOM (that's exactly
+ * how this app's existing @media print / @media screen architecture keeps
+ * a printable node always mounted but invisible on screen — see
+ * CalendarView.tsx's .elf-calendar-print). That doesn't matter here: this
+ * clones the node into a temporary, off-screen-but-laid-out container
+ * (position:fixed, far off-canvas, not display:none) purely to measure
+ * its natural height at the given width, reads its rendered HTML, then
+ * removes the clone — the original element/DOM tree is never touched, so
+ * the existing print CSS mechanism is completely unaffected.
+ *
+ * Rendering itself uses the standard dependency-free "HTML in an SVG
+ * foreignObject, decoded as an Image, drawn to canvas" technique — no
+ * html2canvas/jsPDF. Works cleanly here because the cloned content is
+ * fully inline-styled with no external images (true of PrintMonthView.tsx
+ * and PrintSignupSheet.tsx alike), so nothing needed for the foreignObject
+ * to resolve is missing or cross-origin.
+ */
+export async function renderElementToImage(
+  sourceEl: HTMLElement,
+  options: { width: number; filename: string; scale?: number; backgroundColor?: string },
+): Promise<File> {
+  const { width, filename, scale = 2, backgroundColor = "#ffffff" } = options;
+
+  // 1. Clone into an off-screen-but-laid-out container to get a real
+  //    scrollHeight — the source element commonly has zero layout size
+  //    (display:none) at the moment this runs.
+  const clone = sourceEl.cloneNode(true) as HTMLElement;
+  clone.style.display = "block";
+  const measureHost = document.createElement("div");
+  measureHost.style.cssText = `position:fixed; top:0; left:-99999px; width:${width}px; background:${backgroundColor};`;
+  measureHost.appendChild(clone);
+  document.body.appendChild(measureHost);
+  const height = Math.max(1, Math.ceil(measureHost.scrollHeight));
+  const html = measureHost.innerHTML;
+  document.body.removeChild(measureHost);
+
+  // 2. Wrap that HTML in an SVG foreignObject and decode it as an Image —
+  //    a zero-dependency way to rasterize arbitrary inline-styled HTML.
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<foreignObject width="100%" height="100%">` +
+    `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;box-sizing:border-box;background:${backgroundColor};">${html}</div>` +
+    `</foreignObject></svg>`;
+  const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  const img = await loadImage(svgUrl);
+
+  // 3. Draw onto a canvas at `scale`x resolution, filling an opaque
+  //    background first — PNG supports transparency, and some share
+  //    targets (e.g. certain print/preview flows) render a transparent
+  //    background as black, which would make this unusable for printing.
+  const canvas = document.createElement("canvas");
+  canvas.width  = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.scale(scale, scale);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) { reject(new Error("Failed to render image")); return; }
+      resolve(new File([blob], filename, { type: "image/png" }));
+    }, "image/png");
+  });
+}
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
   const words = text.split(" ");
   let line = "";

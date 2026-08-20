@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { isStaff, type TeamActor } from "@/lib/permissions";
 import {
@@ -9,6 +9,7 @@ import {
   arizonaTomorrowISO,
   monthKeyFromISO,
   groupEventsByDate,
+  buildCalendarPrintFilename,
   type MonthKey,
 } from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
@@ -122,6 +123,13 @@ export default function CalendarView({
   // the whole current month, not just today.
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Phase 8c: ref onto the always-mounted, screen-hidden .elf-calendar-print
+  // node below — ExportMenu rasterizes THIS exact node (built from
+  // visibleMonth, never selectedDate) for the iOS share fallback, so there
+  // is no second render path to keep in sync with desktop print.
+  const printRef = useRef<HTMLDivElement>(null);
+  const printFilename = buildCalendarPrintFilename(teamName || "Team Calendar", visibleMonth);
+
   const changeViewMode = (mode: CalendarViewMode) => {
     setViewMode(mode);
     if (typeof window !== "undefined") window.sessionStorage.setItem(VIEW_MODE_KEY, mode);
@@ -229,7 +237,7 @@ export default function CalendarView({
         }
       `}</style>
 
-      <div className="elf-calendar-print">
+      <div className="elf-calendar-print" ref={printRef}>
         <PrintMonthView teamName={teamName || "Team Calendar"} events={events} visibleMonth={visibleMonth} />
       </div>
 
@@ -249,7 +257,7 @@ export default function CalendarView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          <ExportMenu slug={slug} canManage={canManage} />
+          <ExportMenu slug={slug} canManage={canManage} printRef={printRef} printFilename={printFilename} />
           <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
         </div>
       </div>

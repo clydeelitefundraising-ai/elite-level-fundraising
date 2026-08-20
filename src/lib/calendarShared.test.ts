@@ -16,6 +16,7 @@ import {
   formatTimeOfDay,
   groupEventsByDate,
   eventsInMonth,
+  buildCalendarPrintFilename,
 } from "./calendarShared.ts";
 
 // ── daysInMonth: 28/29/30/31-day months, leap years ────────────────────────
@@ -114,6 +115,19 @@ test("formatMonthYear renders a human label", () => {
 
 test("isoFromParts pads single-digit month/day", () => {
   assert.equal(isoFromParts(2026, 3, 5), "2026-03-05");
+});
+
+// ── buildCalendarPrintFilename ──────────────────────────────────────────────
+
+test("buildCalendarPrintFilename: combines team name + month/year into a sensible filename", () => {
+  assert.equal(
+    buildCalendarPrintFilename("Monroe Valley Track & Field", { year: 2026, month: 11 }),
+    "monroe-valley-track-field-november-2026-calendar.png",
+  );
+});
+
+test("buildCalendarPrintFilename: falls back to a generic name if the team name sanitizes to empty", () => {
+  assert.equal(buildCalendarPrintFilename("!!!", { year: 2026, month: 1 }), "january-2026-calendar.png");
 });
 
 // ── Arizona "today" / UTC rollover boundary (re-verifies Phase 4A guarantee) ─
