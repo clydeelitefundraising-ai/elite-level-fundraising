@@ -10,6 +10,7 @@ import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
 import CommentsSection from "./CommentsSection";
 import Avatar from "../messages/_shared/Avatar";
+import { useSeenTracker } from "../_components/useSeenTracker";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -167,7 +168,7 @@ function ReadReceiptPanel({ slug, announcementId }: { slug: string; announcement
         }}
       >
         <span style={{ fontSize: ".7rem" }}>👁</span>
-        {loading ? "Loading…" : data ? `${readCount} / ${total} read` : "Check reads"}
+        {loading ? "Loading…" : data ? `${readCount} / ${total} Seen` : "Check Seen"}
         <span style={{ fontSize: ".6rem", opacity: .6 }}>{open ? "▲" : "▼"}</span>
       </button>
 
@@ -178,11 +179,11 @@ function ReadReceiptPanel({ slug, announcementId }: { slug: string; announcement
           border: "1px solid #e5e7eb",
         }}>
           {data.reads.length === 0 ? (
-            <p style={{ margin: 0, fontSize: ".72rem", color: "#9ca3af" }}>No reads yet.</p>
+            <p style={{ margin: 0, fontSize: ".72rem", color: "#9ca3af" }}>No one has seen this yet.</p>
           ) : (
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: ".2rem" }}>
               {data.reads.map(r => (
-                <li key={r.member_id} style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
+                <li key={`${r.kind}:${r.id}`} style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
                   <span style={{
                     width: 22, height: 22, borderRadius: "50%",
                     background: avatarColor(r.name),
@@ -232,8 +233,17 @@ function UpdateCard({
   const attStyle    = att ? (FILE_STYLE[att.file_type] ?? FILE_STYLE["other"]) : null;
   const scope       = a.recipient_scope ?? "everyone";
 
+  // Phase 9: marks this announcement Seen automatically once it's been
+  // genuinely visible on screen for a dwell threshold — no tap required.
+  // Same hook/module-level dedupe as HomeView.tsx's AnnouncementCard, so
+  // the same announcement showing on both surfaces still produces only
+  // one persisted receipt.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useSeenTracker(cardRef, slug, a.id);
+
   return (
     <div
+      ref={cardRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{

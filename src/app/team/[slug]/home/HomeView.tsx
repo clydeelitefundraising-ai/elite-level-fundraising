@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calendarShared";
@@ -8,6 +8,7 @@ import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
+import { useSeenTracker } from "../_components/useSeenTracker";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -88,8 +89,14 @@ function AnnouncementCard({
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
 
+  // Phase 9: marks this announcement Seen automatically once it's been
+  // genuinely visible on screen for a dwell threshold — no tap required.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useSeenTracker(cardRef, a.campaign_slug, a.id);
+
   return (
     <div
+      ref={cardRef}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
