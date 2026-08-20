@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AppLauncher } from "@capacitor/app-launcher";
+import { renderElementToImage, shareFileOrFallback } from "../_components/nativeFileShare";
 
 type Status =
   | { enabled: false }
@@ -18,13 +19,24 @@ type Status =
 // calendarSubscription.ts) — nothing is ever cached client-side as
 // authoritative, so reopening this menu after a staff regenerate/disable
 // always reflects the current state, never a stale link.
-export default function ExportMenu({ slug, canManage }: { slug: string; canManage: boolean }) {
+export default function ExportMenu({
+  slug,
+  canManage,
+  printRef,
+  printFilename,
+}: {
+  slug: string;
+  canManage: boolean;
+  printRef: RefObject<HTMLDivElement | null>;
+  printFilename: string;
+}) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [preparingPrint, setPreparingPrint] = useState(false);
 
   const refreshStatus = () => {
     setLoadingStatus(true);
@@ -42,11 +54,28 @@ export default function ExportMenu({ slug, canManage }: { slug: string; canManag
     void refreshStatus();
   };
 
-  const handlePrint = () => {
+  // Phase 8c: window.print() is a silent no-op inside the installed iOS
+  // app (WKWebView implements no print pipeline) — same root cause as
+  // Phase 8b's Team QR fix. Rasterizes the exact .elf-calendar-print DOM
+  // node CalendarView already keeps mounted (built from visibleMonth,
+  // never selectedDate — see printRef's origin in CalendarView.tsx) and
+  // offers it via the Web Share API. Desktop/browser is unaffected: when
+  // file sharing isn't available, this falls straight through to the
+  // original window.print() call, unchanged.
+  const handlePrint = async () => {
     setOpen(false);
-    // Print always reflects whatever month CalendarView currently has
-    // visible — see PrintMonthView, which reads visibleMonth directly.
-    window.print();
+    const fallback = () => window.print();
+    const node = printRef.current;
+    if (!node) { fallback(); return; }
+    setPreparingPrint(true);
+    try {
+      const file = await renderElementToImage(node, { width: 850, filename: printFilename });
+      await shareFileOrFallback(file, fallback);
+    } catch {
+      fallback();
+    } finally {
+      setPreparingPrint(false);
+    }
   };
 
   const handleDownload = () => {
@@ -130,7 +159,7 @@ export default function ExportMenu({ slug, canManage }: { slug: string; canManag
             }}
           >
             <SectionLabel>Export</SectionLabel>
-            <MenuItem label="Print Calendar" onClick={handlePrint} />
+            <MenuItem label={preparingPrint ? "Preparing…" : "Print Calendar"} onClick={handlePrint} disabled={preparingPrint} />
             <MenuItem label="Download Calendar (.ics)" onClick={handleDownload} />
 
             <SectionLabel>Calendar Sync</SectionLabel>
@@ -181,15 +210,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
+function MenuItem({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       role="menuitem"
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: "block", width: "100%", textAlign: "left",
         padding: ".65rem .9rem", border: "none", background: "none",
-        fontSize: ".84rem", fontWeight: 600, color: "#111827", cursor: "pointer",
+        fontSize: ".84rem", fontWeight: 600, color: "#111827",
+        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .6 : 1,
       }}
     >
       {label}
