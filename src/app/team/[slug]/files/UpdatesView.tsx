@@ -9,6 +9,7 @@ import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
 import CommentsSection from "./CommentsSection";
+import Avatar from "../messages/_shared/Avatar";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -221,7 +222,6 @@ function UpdateCard({
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
   const isHigh      = a.priority === "high";
-  const avBg        = avatarColor(a.author_name);
   const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
   const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
   const role        = staffRoleLabel(a.author_role ?? "");
@@ -249,13 +249,7 @@ function UpdateCard({
     >
       {/* Row 1: avatar + name + role badge + timestamp */}
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".35rem" }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: "50%", background: avBg,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 800, fontSize: ".62rem", color: "#fff", flexShrink: 0, letterSpacing: ".02em",
-        }}>
-          {initials(a.author_name)}
-        </div>
+        <Avatar name={a.author_name} photoUrl={a.author_photo_url} size={30} />
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: ".3rem" }}>
           <span style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {a.author_name}
