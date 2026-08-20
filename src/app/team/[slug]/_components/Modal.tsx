@@ -1,6 +1,61 @@
 "use client";
 
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+
+// iOS-safe body scroll lock. Plain `overflow:hidden` on body still allows
+// rubber-band scroll-through on iOS Safari/WKWebView, so this pins body in
+// place with position:fixed instead and restores the exact scroll offset
+// on close. Modal is only ever rendered by its callers while open (every
+// call site conditionally renders it from state, e.g. `{showAdd && <Modal
+// .../>}`), so this component's mount/unmount cycle IS the open/close
+// lifecycle — no separate `open` prop is needed, and the cleanup function
+// below covers every close path (Cancel, backdrop tap, Escape, and a
+// successful submit, since every call site closes via the same state
+// update that unmounts this component).
+function useBodyScrollLock() {
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const prev = {
+      position: body.style.position,
+      top:      body.style.top,
+      left:     body.style.left,
+      right:    body.style.right,
+      width:    body.style.width,
+    };
+
+    body.style.position = "fixed";
+    body.style.top      = `-${scrollY}px`;
+    body.style.left     = "0";
+    body.style.right    = "0";
+    body.style.width    = "100%";
+
+    return () => {
+      body.style.position = prev.position;
+      body.style.top      = prev.top;
+      body.style.left     = prev.left;
+      body.style.right    = prev.right;
+      body.style.width    = prev.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+}
+
+// Blurs whatever input/textarea/select still has focus when the modal
+// unmounts. A focused element yanked out of the DOM with no blur first is
+// a known way to leave an iOS WKWebView's visual viewport stuck zoomed in
+// after the on-screen keyboard's auto-zoom. Deliberately centralized here
+// (not added to every feature's submit/cancel handler) since this effect's
+// cleanup fires on every close path uniformly.
+function useBlurOnUnmount() {
+  useEffect(() => {
+    return () => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    };
+  }, []);
+}
 
 export default function Modal({
   title,
@@ -13,7 +68,26 @@ export default function Modal({
   children: ReactNode;
   footer?:  ReactNode;
 }) {
-  return (
+  useBodyScrollLock();
+  useBlurOnUnmount();
+
+  // Desktop affordance — mirrors the existing backdrop-tap-to-close and X
+  // button, which already call the same onClose. No focus trap here (out
+  // of scope for this phase); this only adds a keyboard escape hatch.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  // Modal is only ever rendered client-side (every call site conditionally
+  // renders it from state that starts closed), so document is always
+  // available here — this guard is defensive only, not an SSR mount gate.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -102,6 +176,7 @@ export default function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

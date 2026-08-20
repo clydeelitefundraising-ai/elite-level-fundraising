@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { AthleteSummary, CoachSummaryResponse } from "@/app/api/team/[slug]/contacts/coach/summary/route";
+import Modal from "../../_components/Modal";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -113,24 +114,7 @@ function GoalModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 300,
-        background: "rgba(0,0,0,.45)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background: "#fff", borderRadius: 16,
-        padding: "1.25rem", width: "min(360px, 100%)",
-        maxHeight: "min(90vh, 90dvh)", overflowY: "auto",
-        boxShadow: "0 8px 32px rgba(0,0,0,.18)",
-      }}>
-        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".25rem" }}>
-          {isTeamDefault ? "Set Team Default Goal" : `Set Goal: ${athleteName}`}
-        </div>
+    <Modal title={isTeamDefault ? "Set Team Default Goal" : `Set Goal: ${athleteName}`} onClose={onClose}>
         <p style={{ margin: "0 0 .85rem", fontSize: ".78rem", color: "#6b7280" }}>
           {isTeamDefault
             ? "Applies to all athletes without a custom goal."
@@ -161,8 +145,7 @@ function GoalModal({
             {saving ? "Saving…" : "Save Goal"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

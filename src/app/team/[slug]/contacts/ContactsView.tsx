@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Modal from "../_components/Modal";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,9 @@ const INP: React.CSSProperties = {
   padding: ".5rem .75rem",
   border: "1.5px solid #e5e7eb",
   borderRadius: 9,
-  fontSize: ".9rem",
+  // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
+  // control smaller than this (Phase 8).
+  fontSize: "1rem",
   width: "100%",
   boxSizing: "border-box",
   color: "#111827",
@@ -395,41 +398,7 @@ export default function ContactsView({
 
       {/* Modal */}
       {showModal && (
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(0,0,0,.45)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
-          }}
-          onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
-        >
-          <div style={{
-            background: "#fff",
-            borderRadius: 18,
-            width: "min(430px, 100%)",
-            maxHeight: "min(90vh, 90dvh)",
-            overflowY: "auto",
-            padding: "1.25rem 1.1rem",
-          }}>
-            {/* Modal header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d" }}>
-                {isEditing ? "Edit Contact" : "Add Contact"}
-              </div>
-              <button
-                onClick={closeModal}
-                style={{
-                  background: "#f3f4f6", border: "none", borderRadius: "50%",
-                  width: 30, height: 30, cursor: "pointer",
-                  fontSize: "1rem", color: "#6b7280",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
+        <Modal title={isEditing ? "Edit Contact" : "Add Contact"} onClose={closeModal}>
             {/* Inject phoneRef onto the phone field */}
             <div style={{ display: "flex", flexDirection: "column", gap: ".85rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".65rem" }}>
@@ -559,8 +528,7 @@ export default function ContactsView({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
