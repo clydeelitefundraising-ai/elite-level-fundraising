@@ -4,6 +4,7 @@ import {
   buildJoinUrl,
   sanitizeFilenameSegment,
   buildQrFilename,
+  buildSignupSheetFilename,
   buildSignupSheetData,
 } from "./teamJoinQr.ts";
 
@@ -41,6 +42,14 @@ test("buildQrFilename: combines school + sport into a sensible filename", () => 
 
 test("buildQrFilename: falls back to a generic name if both inputs sanitize to empty", () => {
   assert.equal(buildQrFilename("!!!", "###"), "team-join-qr.png");
+});
+
+test("buildSignupSheetFilename: combines school + sport into a sensible filename", () => {
+  assert.equal(buildSignupSheetFilename("Monroe Valley", "Track & Field"), "monroe-valley-track-field-signup-sheet.png");
+});
+
+test("buildSignupSheetFilename: falls back to a generic name if both inputs sanitize to empty", () => {
+  assert.equal(buildSignupSheetFilename("!!!", "###"), "team-signup-sheet.png");
 });
 
 // ── Signup sheet data mapping ───────────────────────────────────────────

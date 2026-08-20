@@ -406,6 +406,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           busy={joinCodeState.busy}
           joinUrl={joinCodeState.joinUrl}
           qrFilename={joinCodeState.qrFilename}
+          signupData={joinCodeState.signupData}
           generateOrRegenerate={joinCodeState.generateOrRegenerate}
           onClose={() => setQrModalOpen(false)}
         />
