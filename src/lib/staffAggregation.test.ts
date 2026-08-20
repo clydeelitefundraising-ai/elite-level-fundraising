@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { aggregateTeamStaff, type CoachSourceRow, type MemberBoosterRow } from "./staffAggregation.ts";
 
-function coach(id: string, name: string, role: "head_coach" | "assistant_coach" | "booster", account_id: string | null = null): CoachSourceRow {
-  return { id, name, role, account_id };
+function coach(id: string, name: string, role: "head_coach" | "assistant_coach" | "booster", account_id: string | null = null, photo_url: string | null = null): CoachSourceRow {
+  return { id, name, role, account_id, photo_url };
 }
 
-function memberBooster(id: string, name: string, account_id: string | null = null): MemberBoosterRow {
-  return { id, name, account_id };
+function memberBooster(id: string, name: string, account_id: string | null = null, photo_url: string | null = null): MemberBoosterRow {
+  return { id, name, account_id, photo_url };
 }
 
 test("includes Head Coach and Assistant Coaches regardless of booster visibility", () => {
@@ -79,12 +79,46 @@ test("multiple distinct boosters from both sources, no overlap, all included", (
   assert.deepEqual(result.filter(r => r.role === "booster").map(r => r.name).sort(), ["Booster One", "Booster Three", "Booster Two"]);
 });
 
-// ── Field safety: only name + role are ever exposed ────────────────────────
+// ── Field safety: only name + role (+ public photo_url) are ever exposed ───
 
-test("returned entries expose only key/name/role — no email, phone, account_id, or other metadata", () => {
+test("returned entries expose only key/name/role/photo_url — no email, phone, account_id, or other metadata", () => {
   const coachRows = [coach("c1", "Jane Smith", "head_coach", "acct-1")];
   const result = aggregateTeamStaff(coachRows, [], true);
-  assert.deepEqual(Object.keys(result[0]).sort(), ["key", "name", "role"]);
+  assert.deepEqual(Object.keys(result[0]).sort(), ["key", "name", "photo_url", "role"]);
+});
+
+// ── Photo resolution ────────────────────────────────────────────────────────
+
+test("photo_url passes through for Head Coach, Assistant Coach, and an unmatched Booster", () => {
+  const coachRows = [
+    coach("c1", "Jane Smith", "head_coach", null, "https://example.com/jane.jpg"),
+    coach("c2", "Sarah Jones", "assistant_coach", null, "https://example.com/sarah.jpg"),
+  ];
+  const memberRows = [memberBooster("m1", "Parent Booster", null, "https://example.com/booster.jpg")];
+  const result = aggregateTeamStaff(coachRows, memberRows, true);
+  assert.equal(result.find(r => r.name === "Jane Smith")?.photo_url, "https://example.com/jane.jpg");
+  assert.equal(result.find(r => r.name === "Sarah Jones")?.photo_url, "https://example.com/sarah.jpg");
+  assert.equal(result.find(r => r.name === "Parent Booster")?.photo_url, "https://example.com/booster.jpg");
+});
+
+test("photo_url is null when no photo exists (initials fallback is a display-layer concern, not this module's)", () => {
+  const coachRows = [coach("c1", "Jane Smith", "head_coach")];
+  const result = aggregateTeamStaff(coachRows, [], true);
+  assert.equal(result[0].photo_url, null);
+});
+
+test("dedup: merged booster prefers the coach-side photo when both sides have one", () => {
+  const coachRows = [coach("c1", "Coach Side", "booster", "acct-shared", "https://example.com/coach-photo.jpg")];
+  const memberRows = [memberBooster("m1", "Member Side", "acct-shared", "https://example.com/member-photo.jpg")];
+  const result = aggregateTeamStaff(coachRows, memberRows, true);
+  assert.equal(result.find(r => r.role === "booster")?.photo_url, "https://example.com/coach-photo.jpg");
+});
+
+test("dedup: merged booster falls back to the member-side photo when the coach side has none", () => {
+  const coachRows = [coach("c1", "Coach Side", "booster", "acct-shared", null)];
+  const memberRows = [memberBooster("m1", "Member Side", "acct-shared", "https://example.com/member-photo.jpg")];
+  const result = aggregateTeamStaff(coachRows, memberRows, true);
+  assert.equal(result.find(r => r.role === "booster")?.photo_url, "https://example.com/member-photo.jpg");
 });
 
 // ── Ordering ─────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import type { AthleteRow, SponsorRow } from "@/lib/supabase";
 import { arizonaTodayISO, type EventType } from "@/lib/calendarShared";
+import { resolvePhotoUrl, type RawCoachInfo } from "@/lib/messages";
 export type { SponsorRow };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -80,6 +81,15 @@ export type AnnouncementRow = {
   updated_at: string;
   attachment_id: string | null;
   attachment?: TeamFileRow | null;
+  // Phase 7 polish: resolved the same way as everywhere else in the app
+  // (resolvePhotoUrl / elf_accounts.profile_photo_url — see getAnnouncements
+  // below). Public-safe only — no account_id or other identity metadata is
+  // ever included. announcements only has a live coach_id reference (no
+  // member_id column), so this resolves for coach-kind authors — Head
+  // Coach, Assistant Coach, and any Booster who is a team_coaches row; a
+  // member-kind author (e.g. a team_members-sourced Booster) has no live
+  // photo source here and correctly falls back to initials, same as today.
+  author_photo_url: string | null;
 };
 
 export type CalendarEventRow = {
@@ -155,11 +165,17 @@ export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
 
 export async function getAnnouncements(slug: string): Promise<AnnouncementRow[]> {
   const res = await fetch(
-    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}&select=*,attachment:team_files!attachment_id(*)&order=created_at.desc`,
+    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}` +
+      `&select=*,attachment:team_files!attachment_id(*),author_coach:team_coaches!coach_id(name,role,elf_accounts!account_id(profile_photo_url))` +
+      `&order=created_at.desc`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];
-  return res.json();
+  const rows: (AnnouncementRow & { author_coach: RawCoachInfo | null })[] = await res.json();
+  return rows.map(({ author_coach, ...row }) => ({
+    ...row,
+    author_photo_url: resolvePhotoUrl(author_coach, null),
+  }));
 }
 
 export async function getCalendarEvents(

@@ -7,6 +7,7 @@ import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calenda
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
+import Avatar from "../messages/_shared/Avatar";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -51,17 +52,6 @@ function fmtMoney(cents: number): string {
   return dollars.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
-}
-
-function avatarColor(name: string): string {
-  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return palette[hash % palette.length];
-}
-
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (sec < 60)     return "just now";
@@ -90,7 +80,6 @@ function AnnouncementCard({
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
   const isHigh      = a.priority === "high";
-  const avBg        = avatarColor(a.author_name);
   const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
   const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
   const role        = staffRoleLabel(a.author_role ?? "");
@@ -115,13 +104,7 @@ function AnnouncementCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".35rem" }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: "50%", background: avBg,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 800, fontSize: ".62rem", color: "#fff", flexShrink: 0, letterSpacing: ".02em",
-        }}>
-          {initials(a.author_name)}
-        </div>
+        <Avatar name={a.author_name} photoUrl={a.author_photo_url} size={30} />
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: ".3rem" }}>
           <span style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {a.author_name}
