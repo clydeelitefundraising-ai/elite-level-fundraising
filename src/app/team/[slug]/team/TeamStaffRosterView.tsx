@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { StaffDisplayEntry, StaffDisplayRole } from "@/lib/staffAggregation";
+import Avatar from "../messages/_shared/Avatar";
 
 function roleLabel(role: StaffDisplayRole): string {
   if (role === "head_coach") return "Head Coach";
@@ -9,19 +10,11 @@ function roleLabel(role: StaffDisplayRole): string {
   return "Booster";
 }
 
-function Avatar({ name }: { name: string }) {
-  const initial = name.trim()[0]?.toUpperCase() ?? "?";
-  return (
-    <div style={{
-      width: 40, height: 40, borderRadius: "50%", background: "#0b1e3d",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontWeight: 800, fontSize: ".9rem", color: "#fff", flexShrink: 0,
-    }}>
-      {initial}
-    </div>
-  );
-}
-
+// Reuses the same Avatar component the messaging surfaces already use —
+// photo when entry.photo_url is set (resolved server-side from
+// elf_accounts.profile_photo_url via either source table, see
+// src/lib/staffAggregation.ts), initials fallback otherwise. No second
+// photo/avatar system.
 function StaffCard({ entry }: { entry: StaffDisplayEntry }) {
   return (
     <div style={{
@@ -29,7 +22,7 @@ function StaffCard({ entry }: { entry: StaffDisplayEntry }) {
       background: "#fff", borderRadius: 12, padding: ".75rem .9rem",
       boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
     }}>
-      <Avatar name={entry.name} />
+      <Avatar name={entry.name} photoUrl={entry.photo_url} size={40} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{entry.name}</div>
         <div style={{ fontSize: ".74rem", color: "#9ca3af" }}>{roleLabel(entry.role)}</div>
