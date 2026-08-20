@@ -27,6 +27,15 @@ export function buildQrFilename(schoolName: string, sportName: string): string {
   return `${base}-join-qr.png`;
 }
 
+// Phase 8b: filename for the shared/downloaded signup-sheet image (used
+// by the iOS share-sheet fallback for Print Signup Sheet — see
+// TeamQrModal.tsx). Mirrors buildQrFilename's convention exactly.
+export function buildSignupSheetFilename(schoolName: string, sportName: string): string {
+  const parts = [schoolName, sportName].map(sanitizeFilenameSegment).filter(Boolean);
+  const base = parts.join("-") || "team";
+  return `${base}-signup-sheet.png`;
+}
+
 export type SignupSheetData = {
   heading:      string; // "Join <School> <Sport> on ELF"
   teamLine:     string; // "<School> <Sport>" — mascot appended if present

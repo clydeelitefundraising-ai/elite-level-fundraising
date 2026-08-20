@@ -1,0 +1,181 @@
+// Phase 8b: web-only iOS share fallback for Team QR's Download QR / Print
+// Signup Sheet buttons. Root cause (see Phase 8 follow-up audit): inside
+// the installed Capacitor iOS app, `<a download>` and `window.print()` are
+// both silent no-ops — WKWebView has no download-manager UI by default and
+// does not implement window.print(). Neither is a Capacitor bridge
+// limitation, so the fix stays entirely web-side: the Web Share API
+// (Level 2, file sharing) is a standard WebKit feature already proven
+// working in this exact app for the text/url variant (see
+// CampaignPageClient.tsx, AthleteProfileView.tsx, FundraiserView.tsx) —
+// this reuses the same `navigator.share` entrypoint, just with `files`.
+//
+// Desktop/browser environments (where `navigator.canShare({files})` isn't
+// available) are completely unaffected — callers always keep their
+// original <a download> / window.print() as the `fallback` argument below.
+
+type ShareNavigator = Navigator & {
+  canShare?: (data: { files: File[] }) => boolean;
+  share?:    (data: { files: File[] }) => Promise<void>;
+};
+
+/**
+ * Convert a data: URL (e.g. the QR code's `qrDataUrl`) into a File, so it
+ * can be handed to `navigator.share({ files: [...] })`. `fetch()` on a
+ * data: URL is a same-process, effectively-synchronous resolve — this
+ * does not introduce a real delay between the user's click and the
+ * `share()` call, which the Web Share API requires to stay within the
+ * same user-activation window.
+ */
+export async function dataUrlToFile(dataUrl: string, filename: string, mimeType: string): Promise<File> {
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  return new File([blob], filename, { type: mimeType });
+}
+
+/**
+ * Try to share `file` via the Web Share API; if unsupported, unavailable,
+ * or it fails for a reason other than the user cancelling, run `fallback`
+ * instead — a share attempt should never leave the button looking like a
+ * silent no-op. A user dismissing the native share sheet (AbortError) is
+ * expected, normal behavior, not a failure, so it does NOT trigger the
+ * fallback.
+ */
+export async function shareFileOrFallback(file: File, fallback: () => void): Promise<void> {
+  const nav = navigator as ShareNavigator;
+  const canShareFiles =
+    typeof nav.canShare === "function" &&
+    typeof nav.share === "function" &&
+    nav.canShare({ files: [file] });
+
+  if (!canShareFiles) {
+    fallback();
+    return;
+  }
+
+  try {
+    await nav.share!({ files: [file] });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return; // user cancelled — not an error
+    fallback();
+  }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload  = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = src;
+  });
+}
+
+/**
+ * Renders the same signup-sheet content PrintSignupSheet.tsx shows for
+ * browser printing onto an offscreen canvas, at a high-res 2x scale so it
+ * reads cleanly whether the recipient eventually prints, AirDrops, or
+ * saves it. No PDF library — a canvas-rendered PNG is the "shareable
+ * document" the iOS share sheet's own Print action can already print
+ * directly, without adding a new dependency.
+ */
+export async function renderSignupSheetImage(
+  data: { heading: string; seasonLine: string | null; code: string },
+  qrDataUrl: string | null,
+  primaryColor: string,
+  filename: string,
+): Promise<File> {
+  const scale = 2;
+  const width = 850;
+  const height = 1100;
+
+  const canvas = document.createElement("canvas");
+  canvas.width  = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.scale(scale, scale);
+
+  const accent = primaryColor || "#0b1e3d";
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#6b7280";
+  ctx.font = "700 15px Georgia, 'Times New Roman', serif";
+  ctx.fillText("ELITE LEVEL FUNDRAISING", width / 2, 90);
+
+  ctx.fillStyle = accent;
+  ctx.font = "800 40px Georgia, 'Times New Roman', serif";
+  wrapText(ctx, data.heading, width / 2, 140, 680, 46);
+
+  let y = 210;
+  if (data.seasonLine) {
+    ctx.fillStyle = "#374151";
+    ctx.font = "24px Georgia, 'Times New Roman', serif";
+    ctx.fillText(data.seasonLine, width / 2, y);
+    y += 50;
+  } else {
+    y += 10;
+  }
+
+  if (qrDataUrl) {
+    const qrSize = 320;
+    const qrX = (width - qrSize) / 2;
+    const border = 6;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = border;
+    ctx.strokeRect(qrX - border / 2, y - border / 2, qrSize + border, qrSize + border);
+    const img = await loadImage(qrDataUrl);
+    ctx.drawImage(img, qrX, y, qrSize, qrSize);
+    y += qrSize + 50;
+  }
+
+  ctx.fillStyle = "#6b7280";
+  ctx.font = "20px Georgia, 'Times New Roman', serif";
+  ctx.fillText("Or enter team code:", width / 2, y);
+  y += 46;
+
+  ctx.fillStyle = accent;
+  ctx.font = "800 38px Georgia, 'Times New Roman', serif";
+  ctx.fillText(data.code, width / 2, y);
+  y += 70;
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#374151";
+  ctx.font = "22px Georgia, 'Times New Roman', serif";
+  const steps = [
+    "1. Scan the QR code.",
+    "2. Choose Athlete or Parent.",
+    "3. Select your athlete/name from the roster.",
+    "4. Complete your ELF account setup.",
+  ];
+  const stepsX = (width - 460) / 2;
+  for (const step of steps) {
+    ctx.fillText(step, stepsX, y);
+    y += 38;
+  }
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) { reject(new Error("Failed to render signup sheet image")); return; }
+      resolve(new File([blob], filename, { type: "image/png" }));
+    }, "image/png");
+  });
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
+  const words = text.split(" ");
+  let line = "";
+  let lineY = y;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, lineY);
+      line = word;
+      lineY += lineHeight;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, lineY);
+}

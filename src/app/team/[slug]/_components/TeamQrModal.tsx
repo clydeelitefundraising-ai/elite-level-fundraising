@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Modal from "./Modal";
 import type { JoinCode, JoinCodeSettings } from "./useTeamJoinCode";
+import type { SignupSheetData } from "@/lib/teamJoinQr";
+import { buildSignupSheetFilename } from "@/lib/teamJoinQr";
+import { dataUrlToFile, shareFileOrFallback, renderSignupSheetImage } from "./nativeFileShare";
 
 // Phase 5: purely presentational — all fetching/QR-generation state lives
 // in useTeamJoinCode.ts (shared with the print sheet). Staff-only,
@@ -17,6 +20,7 @@ export default function TeamQrModal({
   busy,
   joinUrl,
   qrFilename,
+  signupData,
   generateOrRegenerate,
   onClose,
 }: {
@@ -29,11 +33,14 @@ export default function TeamQrModal({
   busy: boolean;
   joinUrl: string;
   qrFilename: string;
+  signupData: SignupSheetData | null;
   generateOrRegenerate: () => Promise<boolean>;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [preparingDownload, setPreparingDownload] = useState(false);
+  const [preparingPrint, setPreparingPrint] = useState(false);
 
   const copy = async (text: string, which: "link" | "code") => {
     try {
@@ -45,12 +52,50 @@ export default function TeamQrModal({
     }
   };
 
-  const downloadQr = () => {
+  // Phase 8b: inside the installed iOS app, a plain <a download> is a
+  // silent no-op — WKWebView has no download-manager UI by default (see
+  // nativeFileShare.ts's header comment for the full root-cause writeup).
+  // Try the Web Share API (file variant) first; it falls straight through
+  // to the exact original <a download> behavior wherever share isn't
+  // available (desktop/browser), so nothing changes there.
+  const downloadQr = async () => {
     if (!qrDataUrl) return;
-    const a = document.createElement("a");
-    a.href = qrDataUrl;
-    a.download = qrFilename;
-    a.click();
+    const fallback = () => {
+      const a = document.createElement("a");
+      a.href = qrDataUrl;
+      a.download = qrFilename;
+      a.click();
+    };
+    setPreparingDownload(true);
+    try {
+      const file = await dataUrlToFile(qrDataUrl, qrFilename, "image/png");
+      await shareFileOrFallback(file, fallback);
+    } catch {
+      fallback();
+    } finally {
+      setPreparingDownload(false);
+    }
+  };
+
+  // Same root cause as above, different WKWebView gap: window.print() is
+  // a silent no-op there (no native print delegate configured). Renders a
+  // shareable image of the same signup sheet PrintSignupSheet.tsx prints
+  // and offers it via the share sheet (which includes iOS's own Print
+  // action) — falls straight through to the original window.print() call
+  // wherever share isn't available.
+  const printSignupSheet = async () => {
+    const fallback = () => window.print();
+    if (!signupData) { fallback(); return; }
+    setPreparingPrint(true);
+    try {
+      const filename = buildSignupSheetFilename(settings.school_name, settings.sport_name);
+      const file = await renderSignupSheetImage(signupData, qrDataUrl, settings.primary_color, filename);
+      await shareFileOrFallback(file, fallback);
+    } catch {
+      fallback();
+    } finally {
+      setPreparingPrint(false);
+    }
   };
 
   const handleRegenerateClick = async () => {
@@ -102,8 +147,12 @@ export default function TeamQrModal({
             <button onClick={() => copy(joinCode.code, "code")} style={secondaryBtn}>
               {copied === "code" ? "Copied!" : "Copy Team Code"}
             </button>
-            <button onClick={downloadQr} style={secondaryBtn}>Download QR</button>
-            <button onClick={() => window.print()} style={secondaryBtn}>Print Signup Sheet</button>
+            <button onClick={downloadQr} disabled={preparingDownload} style={secondaryBtn}>
+              {preparingDownload ? "Preparing…" : "Download QR"}
+            </button>
+            <button onClick={printSignupSheet} disabled={preparingPrint} style={secondaryBtn}>
+              {preparingPrint ? "Preparing…" : "Print Signup Sheet"}
+            </button>
           </div>
 
           <div style={{ width: "100%", borderTop: "1px solid #f3f4f6", paddingTop: ".75rem" }}>
