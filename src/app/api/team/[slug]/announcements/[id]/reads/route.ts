@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
-import { getTeamIdBySlug, getReadReceipts } from "@/lib/notifications";
+import { getTeamIdBySlug, getNotificationIdForAnnouncement, getReadReceipts } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -19,22 +19,26 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Find the notification that was created for this announcement
-  const notifRes = await fetch(
-    `${BASE}/rest/v1/notifications?reference_id=eq.${encodeURIComponent(id)}&select=id,recipient_scope,recipient_athlete_id&limit=1`,
-    { headers: h(), cache: "no-store" },
-  );
-  const notifRows: { id: string; recipient_scope: string; recipient_athlete_id: string | null }[] =
-    notifRes.ok ? await notifRes.json() : [];
+  const teamId = await getTeamIdBySlug(slug);
+  if (!teamId) return NextResponse.json({ error: "team not found" }, { status: 404 });
 
-  if (!notifRows.length) {
+  // Phase 9: team-scoped lookup (previously matched on reference_id alone,
+  // with no check the notification belonged to this team — a staff member
+  // with a guessed cross-team announcement id could read another team's
+  // reader names). getNotificationIdForAnnouncement only ever resolves an
+  // id when it belongs to `teamId`.
+  const notifId = await getNotificationIdForAnnouncement(id, teamId);
+  if (!notifId) {
     return NextResponse.json({ scope: "everyone", reads: [], total_targeted: 0 });
   }
 
-  const { id: notifId, recipient_scope, recipient_athlete_id } = notifRows[0];
-
-  const teamId = await getTeamIdBySlug(slug);
-  if (!teamId) return NextResponse.json({ error: "team not found" }, { status: 404 });
+  const notifRes = await fetch(
+    `${BASE}/rest/v1/notifications?id=eq.${encodeURIComponent(notifId)}&select=recipient_scope,recipient_athlete_id&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const notifRows: { recipient_scope: string; recipient_athlete_id: string | null }[] =
+    notifRes.ok ? await notifRes.json() : [];
+  const { recipient_scope, recipient_athlete_id } = notifRows[0] ?? { recipient_scope: "everyone", recipient_athlete_id: null };
 
   const result = await getReadReceipts(
     notifId,

@@ -216,6 +216,82 @@ export async function markNotificationRead(
   return { ok: true };
 }
 
+// ── Phase 9: team-scoped notification lookups + canonical Seen write ──────────
+//
+// Two pre-existing routes (announcements/[id]/reads, notifications/read)
+// accepted a client-supplied notification/announcement id and acted on it
+// with no check that it actually belonged to the caller's own team. Actor
+// identity was always server-derived (via getTeamActor), so this couldn't
+// leak identity, but it DID let a Team A actor write a junk read-receipt
+// against a guessed Team B notification id, or a Team A staff member read
+// Team B's reader names via a guessed Team B announcement id. Every
+// lookup/write below is team-scoped before it touches the DB.
+
+/** Pure, unit-testable: does a notification's actual team_id match the
+ *  caller's authenticated team? Kept separate from the fetch that produces
+ *  `actualTeamId` so this specific check can be tested without a live DB. */
+export function notificationBelongsToTeam(actualTeamId: string | null, expectedTeamId: string): boolean {
+  return actualTeamId !== null && actualTeamId === expectedTeamId;
+}
+
+async function getNotificationTeamId(notificationId: string): Promise<string | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/notifications?id=eq.${encodeURIComponent(notificationId)}&select=team_id&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: { team_id: string }[] = await res.json();
+  return rows[0]?.team_id ?? null;
+}
+
+/** Team-scoped: resolves an announcement's linked notification id, but ONLY
+ *  if that notification belongs to `teamId` — the single place both
+ *  announcements/[id]/reads and announcements/[id]/seen resolve this, so
+ *  the team check can't be forgotten in one of the two call sites. */
+export async function getNotificationIdForAnnouncement(
+  announcementId: string,
+  teamId: string,
+): Promise<string | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/notifications?reference_id=eq.${encodeURIComponent(announcementId)}&team_id=eq.${encodeURIComponent(teamId)}&select=id&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: { id: string }[] = await res.json();
+  return rows[0]?.id ?? null;
+}
+
+/** Canonical Seen/read write — the ONE function that ever writes to
+ *  notification_reads/notification_coach_reads for a given (actor,
+ *  notification) pair. Both the viewport-triggered auto-Seen path
+ *  (announcements/[id]/seen) and the existing tap-to-read path
+ *  (notifications/read) call this, so there is exactly one write
+ *  mechanism, not two competing ones. Verifies team ownership before
+ *  writing — the client only ever supplies a notification id, never a
+ *  viewer/team identity (that's always `actor`, resolved server-side by
+ *  the caller via getTeamActor). Relies on the existing DB UNIQUE
+ *  constraints (notification_id, member_id) / (notification_id, coach_id)
+ *  for idempotency — repeated calls are always safe no-ops after the
+ *  first successful write. */
+export async function markNotificationSeen(
+  actor: ActorFilter,
+  notificationId: string,
+  expectedTeamId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!actor) return { ok: false, error: "Unauthorized" };
+
+  const actualTeamId = await getNotificationTeamId(notificationId);
+  if (!notificationBelongsToTeam(actualTeamId, expectedTeamId)) {
+    return { ok: false, error: "Not found" };
+  }
+
+  if (actor.kind === "coach") {
+    await markNotificationReadCoach(notificationId, actor.id);
+    return { ok: true };
+  }
+  return markNotificationRead(notificationId, actor.id);
+}
+
 export async function markNotificationReadCoach(
   notificationId: string,
   coachId: string,
@@ -279,8 +355,15 @@ export async function dismissNotification(
 
 // ── Read receipts ─────────────────────────────────────────────────────────────
 
+// Phase 9: `id`/`kind` (not `member_id`) so a receipt entry can represent
+// either a member or a coach recipient — coach recipients were previously
+// silently excluded from this entire panel (getReadReceipts only ever
+// queried notification_reads, never notification_coach_reads), even
+// though coaches are legitimate notification recipients (see
+// getNotificationsForMember's coach branch, which already reads them).
 export type ReadReceiptEntry = {
-  member_id: string;
+  id: string;
+  kind: "member" | "coach";
   name: string;
   role: string;
   read_at: string;
@@ -292,40 +375,73 @@ export type ReadReceiptsResult = {
   total_targeted: number;
 };
 
+export type RawMemberRead = { member_id: string; read_at: string };
+export type RawCoachRead  = { coach_id: string; read_at: string };
+export type NameLookup    = { id: string; name: string; role: string };
+
+/**
+ * Pure merge/aggregation step, split out from getReadReceipts specifically
+ * so member+coach receipt aggregation is unit-testable without a live DB
+ * (see notifications.test.ts). Drops any read row whose member/coach
+ * couldn't be resolved (e.g. removed from the team since reading) rather
+ * than showing a broken entry. Sorted chronologically by when each
+ * recipient was seen, oldest first — matches the previous member-only
+ * behavior's `order=read_at.asc`.
+ */
+export function mergeReadReceipts(
+  rawMemberReads: RawMemberRead[],
+  rawCoachReads: RawCoachRead[],
+  members: NameLookup[],
+  coaches: NameLookup[],
+): ReadReceiptEntry[] {
+  const memberMap = new Map(members.map(m => [m.id, m]));
+  const coachMap  = new Map(coaches.map(c => [c.id, c]));
+
+  const memberEntries: ReadReceiptEntry[] = rawMemberReads.flatMap(r => {
+    const m = memberMap.get(r.member_id);
+    if (!m) return [];
+    return [{ id: r.member_id, kind: "member" as const, name: m.name, role: m.role, read_at: r.read_at }];
+  });
+  const coachEntries: ReadReceiptEntry[] = rawCoachReads.flatMap(r => {
+    const c = coachMap.get(r.coach_id);
+    if (!c) return [];
+    return [{ id: r.coach_id, kind: "coach" as const, name: c.name, role: c.role, read_at: r.read_at }];
+  });
+
+  return [...memberEntries, ...coachEntries].sort((a, b) => a.read_at.localeCompare(b.read_at));
+}
+
 export async function getReadReceipts(
   notificationId: string,
   slug: string,
   scope: RecipientScope,
   recipientAthleteId: string | null,
 ): Promise<ReadReceiptsResult> {
-  // Fetch raw reads
-  const readsRes = await fetch(
-    `${BASE}/rest/v1/notification_reads?notification_id=eq.${encodeURIComponent(notificationId)}&select=member_id,read_at&order=read_at.asc`,
-    { headers: h(), cache: "no-store" },
-  );
-  const rawReads: { member_id: string; read_at: string }[] =
-    readsRes.ok ? await readsRes.json() : [];
-
-  // Batch-fetch member names
-  let reads: ReadReceiptEntry[] = [];
-  if (rawReads.length > 0) {
-    const ids = rawReads.map(r => r.member_id).join(",");
-    const membersRes = await fetch(
-      `${BASE}/rest/v1/team_members?id=in.(${ids})&select=id,name,role`,
+  const [memberReadsRes, coachReadsRes] = await Promise.all([
+    fetch(
+      `${BASE}/rest/v1/notification_reads?notification_id=eq.${encodeURIComponent(notificationId)}&select=member_id,read_at&order=read_at.asc`,
       { headers: h(), cache: "no-store" },
-    );
-    const members: { id: string; name: string; role: string }[] =
-      membersRes.ok ? await membersRes.json() : [];
-    const memberMap = new Map(members.map(m => [m.id, m]));
+    ),
+    fetch(
+      `${BASE}/rest/v1/notification_coach_reads?notification_id=eq.${encodeURIComponent(notificationId)}&select=coach_id,read_at&order=read_at.asc`,
+      { headers: h(), cache: "no-store" },
+    ),
+  ]);
+  const rawMemberReads: RawMemberRead[] = memberReadsRes.ok ? await memberReadsRes.json() : [];
+  const rawCoachReads:  RawCoachRead[]  = coachReadsRes.ok  ? await coachReadsRes.json()  : [];
 
-    reads = rawReads.flatMap(r => {
-      const m = memberMap.get(r.member_id);
-      if (!m) return [];
-      return [{ member_id: r.member_id, name: m.name, role: m.role, read_at: r.read_at }];
-    });
-  }
+  const members: NameLookup[] = rawMemberReads.length
+    ? await fetch(`${BASE}/rest/v1/team_members?id=in.(${rawMemberReads.map(r => r.member_id).join(",")})&select=id,name,role`, { headers: h(), cache: "no-store" })
+        .then(r => r.ok ? r.json() : [])
+    : [];
+  const coaches: NameLookup[] = rawCoachReads.length
+    ? await fetch(`${BASE}/rest/v1/team_coaches?id=in.(${rawCoachReads.map(r => r.coach_id).join(",")})&select=id,name,role`, { headers: h(), cache: "no-store" })
+        .then(r => r.ok ? r.json() : [])
+    : [];
 
-  // Count targeted members
+  const reads = mergeReadReceipts(rawMemberReads, rawCoachReads, members, coaches);
+
+  // Count targeted members — unchanged scope-filter logic.
   let countFilter = `campaign_slug=eq.${encodeURIComponent(slug)}`;
   if (scope === "athletes")  countFilter += `&role=eq.athlete`;
   if (scope === "parents")   countFilter += `&role=eq.parent`;
@@ -334,12 +450,16 @@ export async function getReadReceipts(
     countFilter += `&athlete_id=eq.${encodeURIComponent(recipientAthleteId)}`;
   }
 
-  const countRes = await fetch(
-    `${BASE}/rest/v1/team_members?${countFilter}&select=id`,
-    { headers: h({ Prefer: "count=exact" }), cache: "no-store" },
-  );
-  const contentRange = countRes.headers.get("content-range") ?? "";
-  const totalTargeted = parseInt(contentRange.split("/")[1] ?? "0", 10) || 0;
+  // Coaches are never scope-filtered (see getNotificationsForMember's coach
+  // branch — every coach sees every notification regardless of
+  // recipient_scope, existing behavior preserved here) — so every coach on
+  // the team counts toward the denominator for every announcement.
+  const [memberCountRes, coachCountRes] = await Promise.all([
+    fetch(`${BASE}/rest/v1/team_members?${countFilter}&select=id`, { headers: h({ Prefer: "count=exact" }), cache: "no-store" }),
+    fetch(`${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id`, { headers: h({ Prefer: "count=exact" }), cache: "no-store" }),
+  ]);
+  const memberTotal = parseInt((memberCountRes.headers.get("content-range") ?? "").split("/")[1] ?? "0", 10) || 0;
+  const coachTotal  = parseInt((coachCountRes.headers.get("content-range")  ?? "").split("/")[1] ?? "0", 10) || 0;
 
-  return { scope, reads, total_targeted: totalTargeted };
+  return { scope, reads, total_targeted: memberTotal + coachTotal };
 }
