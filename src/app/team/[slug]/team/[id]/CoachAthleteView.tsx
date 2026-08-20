@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
+import Modal from "../../_components/Modal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,9 @@ const inp: React.CSSProperties = {
   padding: ".45rem .65rem",
   border: "1.5px solid #e5e7eb",
   borderRadius: 8,
-  fontSize: ".82rem",
+  // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
+  // control smaller than this (Phase 8).
+  fontSize: "1rem",
   width: "100%",
   boxSizing: "border-box" as const,
   color: "#111827",
@@ -202,28 +205,7 @@ function ContactModal({
   };
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 200,
-        background: "rgba(0,0,0,.45)", display: "flex",
-        alignItems: "center", justifyContent: "center",
-        padding: "max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left))",
-      }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background: "#fff", borderRadius: 18,
-        padding: "1.25rem 1.1rem", width: "100%", maxWidth: 480,
-        boxShadow: "0 8px 32px rgba(0,0,0,.18)",
-        maxHeight: "min(90vh, 90dvh)", overflowY: "auto",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>
-          <span style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>
-            {editing ? "Edit Contact" : "Add Contact"}
-          </span>
-          <button onClick={onClose} style={{ marginLeft: "auto", background: "none", border: "none", fontSize: "1.3rem", color: "#9ca3af", cursor: "pointer", lineHeight: 1 }}>×</button>
-        </div>
-
+    <Modal title={editing ? "Edit Contact" : "Add Contact"} onClose={onClose}>
         <div style={{ display: "flex", flexDirection: "column", gap: ".75rem" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".6rem" }}>
             <label style={lbl}>
@@ -281,8 +263,7 @@ function ContactModal({
             {saving ? "Saving…" : editing ? "Save Changes" : "Add Contact"}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

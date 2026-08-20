@@ -20,7 +20,9 @@ const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
   border: "1.5px solid #e5e7eb",
   borderRadius: 9,
-  fontSize: ".875rem",
+  // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
+  // control smaller than this (Phase 8).
+  fontSize: "1rem",
   width: "100%",
   boxSizing: "border-box",
   color: "#111827",
