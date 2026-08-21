@@ -18,6 +18,17 @@
  *
  *   Result: exactly-once semantics regardless of which path fires first.
  *
+ *   Donor receipt email — mirrors the same belt-and-suspenders shape:
+ *     Both this webhook and the /success fallback always attempt
+ *     sendReceiptForSession() (src/lib/donorReceipt.ts), regardless of
+ *     which one performed the donation insert. Idempotency lives at the
+ *     provider: every attempt carries the same Resend Idempotency-Key
+ *     (`donor-receipt:<stripe_session_id>`), so Resend collapses any
+ *     repeat within its 24h dedupe window to a single delivered email —
+ *     no DB column/state needed. This also means a transient Resend
+ *     failure on whichever path ran first still gets a real second
+ *     attempt from the other path, instead of being silently dropped.
+ *
  * Required env vars:
  *   STRIPE_SECRET_KEY        — used by /api/checkout (not here)
  *   STRIPE_WEBHOOK_SECRET    — whsec_... from Stripe Dashboard → Webhooks
@@ -25,8 +36,8 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { insertDonation, donationExists, getCampaignSettings } from "@/lib/supabase";
-import { sendDonorReceipt } from "@/lib/email";
+import { insertDonation, donationExists } from "@/lib/supabase";
+import { sendReceiptForSession } from "@/lib/donorReceipt";
 
 // Force Node.js runtime — required for Node crypto (createHmac, timingSafeEqual)
 // and to ensure req.text() returns the unmodified raw body Stripe signed.
@@ -152,65 +163,56 @@ export async function POST(req: NextRequest) {
 
   // ── 7. Idempotency — layer 1: application-level pre-check.
   //       Avoids a DB write (and log noise) when the /success fallback already saved it.
+  //       Only skips the INSERT below — the receipt attempt still runs
+  //       either way (see step 9), so a transient Resend failure on
+  //       whichever path ran first still gets a second, safe-to-repeat
+  //       attempt here rather than being silently dropped forever.
+  let alreadySaved = false;
   try {
-    const alreadySaved = await donationExists(session.id);
-    if (alreadySaved) {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
+    alreadySaved = await donationExists(session.id);
   } catch (err) {
     // donationExists failure is non-fatal — proceed to insert.
     // The DB-level constraint (layer 2) will handle any race.
     console.error("[stripe-webhook] donationExists check failed:", err);
   }
 
-  // ── 8. Insert donation.
-  //       Idempotency layer 2: Supabase on_conflict + resolution=ignore-duplicates
-  //       makes this safe if webhook and fallback reach insertDonation concurrently.
-  //
-  //       Return 500 on failure → Stripe will retry with exponential backoff
-  //       (up to 72 hours), giving the DB time to recover.
-  try {
-    await insertDonation({
-      stripe_session_id: session.id,
-      donor_name:        session.metadata?.donor_name       ?? null,
-      amount_cents:      session.amount_total,
-      athlete_name:      session.metadata?.athlete_name     ?? null,
-      athlete_id:        session.metadata?.athlete_id       ?? null,
-      donation_message:  session.metadata?.donation_message ?? null,
-      campaign_slug:     session.metadata?.campaign_slug    ?? null,
-    });
-  } catch (err) {
-    console.error("[stripe-webhook] insertDonation failed:", err);
-    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  if (!alreadySaved) {
+    // ── 8. Insert donation.
+    //       Idempotency layer 2: Supabase on_conflict + resolution=ignore-duplicates
+    //       makes this safe if webhook and fallback reach insertDonation concurrently.
+    //
+    //       Return 500 on failure → Stripe will retry with exponential backoff
+    //       (up to 72 hours), giving the DB time to recover.
+    try {
+      await insertDonation({
+        stripe_session_id: session.id,
+        donor_name:        session.metadata?.donor_name       ?? null,
+        amount_cents:      session.amount_total,
+        athlete_name:      session.metadata?.athlete_name     ?? null,
+        athlete_id:        session.metadata?.athlete_id       ?? null,
+        donation_message:  session.metadata?.donation_message ?? null,
+        campaign_slug:     session.metadata?.campaign_slug    ?? null,
+      });
+      console.log("[stripe-webhook] donation saved, session:", session.id, "amount:", session.amount_total);
+    } catch (err) {
+      console.error("[stripe-webhook] insertDonation failed:", err);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
   }
-
-  console.log("[stripe-webhook] donation saved, session:", session.id, "amount:", session.amount_total);
 
   // ── 9. Donor receipt email — fire-and-forget, never blocks Stripe's 200.
-  const donorEmail = session.customer_details?.email;
-  if (donorEmail) {
-    void (async () => {
-      try {
-        const slug     = session.metadata?.campaign_slug ?? "";
-        const settings = slug ? await getCampaignSettings(slug).catch(() => null) : null;
-        const teamName = settings
-          ? `${settings.school_name} ${settings.mascot} ${settings.sport_name}`.trim()
-          : "the team";
-        const appBase    = process.env.NEXT_PUBLIC_APP_URL ?? "";
-        const campaignUrl = slug ? `${appBase}/campaign/${slug}` : appBase;
-        await sendDonorReceipt({
-          to:          donorEmail,
-          donorName:   session.metadata?.donor_name   ?? null,
-          amountCents: session.amount_total,
-          teamName,
-          athleteName: session.metadata?.athlete_name ?? null,
-          campaignUrl,
-        });
-      } catch (err) {
-        console.error("[stripe-webhook] sendDonorReceipt failed:", err);
-      }
-    })();
-  }
+  //       Idempotency-keyed on stripe_session_id (see donorReceipt.ts), so
+  //       this always runs — whether or not THIS request performed the
+  //       insert above — safe to attempt even if the /success fallback
+  //       already sent (or is concurrently sending) the same receipt.
+  void sendReceiptForSession({
+    stripeSessionId: session.id,
+    donorEmail:      session.customer_details?.email,
+    donorName:       session.metadata?.donor_name,
+    amountCents:     session.amount_total,
+    athleteName:     session.metadata?.athlete_name,
+    campaignSlug:    session.metadata?.campaign_slug,
+  });
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ received: true, duplicate: alreadySaved });
 }
