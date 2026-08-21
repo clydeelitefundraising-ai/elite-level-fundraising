@@ -32,7 +32,16 @@ export async function POST(
   const memberId = actor.kind === "member" ? actor.session.id : null;
   const coachId  = actor.kind === "coach"  ? actor.session.id : null;
 
-  const res = await fetch(`${BASE}/rest/v1/push_subscriptions`, {
+  // Phase 24.4: explicit on_conflict target. Without it, PostgREST's
+  // upsert falls back to the primary key (`id`, server-generated fresh on
+  // every insert) — so resubscribing the same browser endpoint was always
+  // a plain insert, never an update, silently accumulating duplicate rows.
+  // `endpoint` is the real identity of a web-push subscription (each
+  // browser/service-worker registration gets a unique push endpoint URL
+  // from the browser vendor), so it's the correct conflict target — see
+  // supabase/migrations/phase_24_4_push_subscriptions_endpoint_unique.sql
+  // for the backing UNIQUE index this depends on.
+  const res = await fetch(`${BASE}/rest/v1/push_subscriptions?on_conflict=endpoint`, {
     method: "POST",
     headers: {
       apikey: KEY,
