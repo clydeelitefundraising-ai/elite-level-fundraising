@@ -6,6 +6,7 @@ import {
   parseSenderKeyFromReferenceUrl,
   buildMessageReferenceUrl,
   filterMessageNotifications,
+  isTypeVisibleToMember,
 } from "./notifications.ts";
 
 // ── notificationBelongsToTeam — cross-team protection ───────────────────────
@@ -151,4 +152,17 @@ test("filterMessageNotifications: cross-team tampering — a notification belong
   // belongs to team-B.
   const result = filterMessageNotifications([notif], "team-A", participants, "member:viewer");
   assert.deepEqual(result, []);
+});
+
+// ── Phase 10: request-type notifications are never shown to members ────────
+
+test("isTypeVisibleToMember: request is never visible to a member (Head Coach action queue only)", () => {
+  assert.equal(isTypeVisibleToMember("request"), false);
+});
+
+test("isTypeVisibleToMember: every other existing type stays visible to members", () => {
+  assert.equal(isTypeVisibleToMember("announcement"), true);
+  assert.equal(isTypeVisibleToMember("file_upload"), true);
+  assert.equal(isTypeVisibleToMember("calendar_event"), true);
+  assert.equal(isTypeVisibleToMember("fundraiser"), true);
 });

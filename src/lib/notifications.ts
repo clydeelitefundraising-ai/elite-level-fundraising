@@ -15,7 +15,8 @@ export type NotificationType =
   | "file_upload"
   | "calendar_event"
   | "fundraiser"
-  | "message";
+  | "message"
+  | "request";
 
 export type RecipientScope =
   | "everyone"
@@ -107,6 +108,15 @@ function isVisibleToMember(
              member.athlete_id === notif.recipient_athlete_id;
     default: return true;
   }
+}
+
+// Phase 10: request-type rows are a Head Coach action queue (Requests
+// Center) — never shown in a member's own notification inbox at all,
+// regardless of recipient_scope (there's no scope value meaning "staff
+// only", and these rows are created with the default "everyone" scope).
+// Pure/exported so this rule is directly testable without a live DB.
+export function isTypeVisibleToMember(type: NotificationType): boolean {
+  return type !== "request";
 }
 
 // ── Phase 10: message-type visibility — thread participants only ────────────
@@ -227,10 +237,11 @@ export async function getNotificationsForMember(
   let notifs: RawNotifRow[] = await res.json();
   if (!notifs.length) return [];
 
-  // No actor → return all as unread (message-type rows excluded — there's
-  // no viewer identity to check thread participancy against).
+  // No actor → return all as unread, minus types that need a real viewer
+  // identity to filter correctly (message: thread participancy; request:
+  // staff-only, see below).
   if (!actor) {
-    return notifs.filter(n => n.type !== "message").map(n => ({ ...n, read_at: null, dismissed: false }));
+    return notifs.filter(n => n.type !== "message" && isTypeVisibleToMember(n.type)).map(n => ({ ...n, read_at: null, dismissed: false }));
   }
 
   // Phase 10: message-type rows never go through the broadcast recipient_scope
@@ -244,9 +255,15 @@ export async function getNotificationsForMember(
   const participantsByThread = await fetchParticipantsByThread(threadIds);
   const visibleMessageNotifs = filterMessageNotifications(messageNotifs, teamId, participantsByThread, viewerKey);
 
-  // Members: filter by recipient scope
+  // Members: filter by recipient scope. request-type rows are a Head Coach
+  // action queue (Requests Center) — never shown in a member's own
+  // notification inbox at all, regardless of recipient_scope (which stays
+  // at its default "everyone" for these rows since there's no scope value
+  // meaning "staff only"). Coaches below are unaffected — they already see
+  // every non-message type with no scope filter, which is exactly the
+  // existing, preserved "coach inbox sees requests" behavior.
   if (actor.kind === "member") {
-    notifs = [...otherNotifs.filter(n => isVisibleToMember(n, actor)), ...visibleMessageNotifs];
+    notifs = [...otherNotifs.filter(n => isTypeVisibleToMember(n.type) && isVisibleToMember(n, actor)), ...visibleMessageNotifs];
     if (!notifs.length) return [];
 
     const ids = notifs.map(n => n.id).join(",");
