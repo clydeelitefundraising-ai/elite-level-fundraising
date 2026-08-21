@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateAthleteForCampaign } from "@/lib/platform/athletes";
+import { consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
+import { getDonationAmountError } from "@/lib/checkoutLimits";
 
 export async function POST(req: NextRequest) {
+  const rl = await consumeRateLimit(rateLimitKey("checkout", req), {
+    limit: 10,
+    windowSeconds: 600, // 10 requests / 10 minutes per IP
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again in a few minutes." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const { amountCents, athleteName, athleteId, donorName, donationMessage, campaignSlug } =
     await req.json();
 
-  if (!amountCents || amountCents < 100) {
-    return NextResponse.json({ error: "Minimum donation is $1." }, { status: 400 });
+  const amountError = getDonationAmountError(amountCents);
+  if (amountError) {
+    return NextResponse.json({ error: amountError }, { status: 400 });
   }
 
   const secretKey = process.env.STRIPE_SECRET_KEY;
