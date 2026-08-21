@@ -1,0 +1,79 @@
+-- APPLIED AND VERIFIED IN PRODUCTION 2026-08-21. Run manually by the user
+-- via Supabase Dashboard → SQL Editor (see "Why this wasn't applied
+-- automatically" below for why the assistant couldn't run it directly).
+-- The tracked migration record is
+-- supabase/migrations/phase_24_5_remove_public_donations_read_policy.sql
+-- (identical DROP POLICY statement, no rollback SQL inside per repo
+-- convention — this file remains the rollback/documentation copy).
+--
+-- POST-APPLY VERIFICATION (2026-08-21):
+--   - pg_policies for public.donations: 0 rows (policy gone)
+--   - relrowsecurity for donations: still true (RLS still enabled)
+--   - anon-key request to donations?select=id&limit=1: HTTP 200, empty
+--     array (0 rows) — was 1 row before the fix
+--   - production /api/campaign-stats/[slug] (service-role path, the
+--     app's real donation-read path): HTTP 200, donations data present
+--     and unaffected, confirming service_role's RLS-bypass access was
+--     never dependent on this policy either way
+--
+-- Why this wasn't applied automatically: the CLI session established via
+-- `supabase link` mints a short-lived, narrowly-scoped Postgres role
+-- (`cli_login_postgres`) for read-only operations like `db dump`. It does
+-- NOT have ownership on application tables — attempting the DROP POLICY
+-- through that session failed with: "ERROR: must be owner of relation
+-- donations". This is Postgres's/Supabase's permission model working
+-- correctly, not a bug. Verified before AND after the failed attempt that
+-- the policy is unchanged (still present, still exactly one row in
+-- pg_policies for donations) — no partial state, nothing broken.
+--
+-- REQUIRED MANUAL STEP: run the statement below yourself via Supabase
+-- Dashboard → SQL Editor (connected as an owner-equivalent role there),
+-- exactly the same way every other migration in this repo's history has
+-- been applied (per the project's established "write migration file, run
+-- manually" workflow — see project memory / SCHEMA_BASELINE_STATUS.md).
+--
+-- FINDING: public.donations has RLS enabled but one unrestricted policy —
+--   CREATE POLICY "public read donations" ON "public"."donations" FOR SELECT USING (true);
+-- — with no `TO` clause, so it applies to every role including `anon`.
+-- Supabase also grants `anon` full table privileges on public-schema
+-- tables by default (GRANT ALL ON TABLE "public"."donations" TO "anon";),
+-- so this policy is the only thing standing between the public internet
+-- and an unscoped read of every donation row (donor_name, amount, message,
+-- stripe_session_id, athlete attribution) across every team on the
+-- platform, via the public anon key (which is intentionally public,
+-- embedded in the client bundle — the exposure is that RLS doesn't
+-- restrict what that key can read).
+--
+-- VERIFIED LIVE 2026-08-21: an unauthenticated request using only the
+-- public anon key against `donations?select=id&limit=1` returned HTTP 200
+-- with 1 row. No donor data was retrieved beyond a single id, and none is
+-- reproduced here.
+--
+-- VERIFIED SAFE TO REMOVE: grepped the entire src/ tree — the only
+-- client-side Supabase usage anywhere in the app is
+-- src/app/team/[slug]/_components/TeamRealtimeSync.tsx, which subscribes
+-- only to announcements/calendar_events/notifications, never donations.
+-- All donation reads (leaderboard, totals, recent-donations feed,
+-- coach/admin reporting) go through server-side API routes using the
+-- service-role key, which bypasses RLS entirely and is unaffected by this
+-- change either way. The Stripe webhook's donation INSERT also uses the
+-- service-role key server-side — also unaffected.
+
+-- === FIX ===
+DROP POLICY IF EXISTS "public read donations" ON "public"."donations";
+
+-- === ROLLBACK (if something unexpected breaks) ===
+-- CREATE POLICY "public read donations" ON "public"."donations" FOR SELECT USING (true);
+
+-- === REGRESSION CHECKLIST BEFORE/AFTER APPLYING ===
+-- [ ] Load a live campaign page (/campaign/[slug]) — leaderboard, totals,
+--     recent-donations feed all still populate (server-side route, should
+--     be unaffected)
+-- [ ] /api/campaign-stats/[slug] still returns donation data
+-- [ ] Coach/admin Analytics, Reports, Executive dashboards still show
+--     donation figures
+-- [ ] Make one real test-mode Stripe donation end-to-end, confirm it still
+--     inserts and appears everywhere above (service-role INSERT was never
+--     dependent on this SELECT policy, but worth confirming end-to-end)
+-- [ ] Re-run the anon-key verification request from this file's audit —
+--     confirm it now returns an empty array / 401, not a row
