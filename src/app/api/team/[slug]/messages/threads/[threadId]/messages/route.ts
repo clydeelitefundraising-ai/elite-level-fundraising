@@ -11,6 +11,9 @@ import {
   type ActorKey,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
+import { getTeamIdBySlug, createNotification, buildMessageReferenceUrl } from "@/lib/notifications";
+import { getAccountIdsForThreadParticipants } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 type RouteCtx = { params: Promise<{ slug: string; threadId: string }> };
 
@@ -81,6 +84,34 @@ export async function POST(
         url:   `/team/${slug}/messages/${threadId}`,
       });
     } catch {}
+  })();
+
+  // Phase 10: canonical notification row + native push, mirroring
+  // threads/route.ts's notifyNewMessage exactly (kept inline here since
+  // this route has no other shared-helper precedent to extend).
+  void (async () => {
+    try {
+      const senderKey = `${actorKey.kind}:${actorKey.id}`;
+      const teamId = await getTeamIdBySlug(slug);
+      if (!teamId) return;
+      await createNotification(teamId, {
+        type: "message",
+        title: "New Message",
+        body: `${actor.session.name} sent you a message`,
+        reference_id: threadId,
+        reference_url: buildMessageReferenceUrl(slug, threadId, senderKey),
+      });
+      const accountIds = await getAccountIdsForThreadParticipants(threadId, senderKey);
+      await dispatchApnsPush({
+        accountIds,
+        category: "messages",
+        kind: "message",
+        ctx: { actorName: actor.session.name },
+        url: `/team/${slug}/messages/${threadId}`,
+      });
+    } catch (err) {
+      console.error("[messages] notification/push failed:", err);
+    }
   })();
 
   return NextResponse.json(msg, { status: 201 });

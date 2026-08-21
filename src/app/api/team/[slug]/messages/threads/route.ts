@@ -18,6 +18,41 @@ import {
   type ActorKey,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
+import { getTeamIdBySlug, createNotification, buildMessageReferenceUrl } from "@/lib/notifications";
+import { getAccountIdsForThreadParticipants } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
+
+// Phase 10: canonical notification row + native push for a new message —
+// shared by both the reused-thread and brand-new-thread paths below, so
+// the exact same logic (and its non-blocking guarantee) never drifts
+// between the two. reference_url smuggles the sender's actor key (see
+// notifications.ts's filterMessageNotifications) since `notifications` has
+// no dedicated sender column and this phase adds no migration.
+function notifyNewMessage(slug: string, threadId: string, senderKey: string, senderName: string) {
+  void (async () => {
+    try {
+      const teamId = await getTeamIdBySlug(slug);
+      if (!teamId) return;
+      await createNotification(teamId, {
+        type: "message",
+        title: "New Message",
+        body: `${senderName} sent you a message`,
+        reference_id: threadId,
+        reference_url: buildMessageReferenceUrl(slug, threadId, senderKey),
+      });
+      const accountIds = await getAccountIdsForThreadParticipants(threadId, senderKey);
+      await dispatchApnsPush({
+        accountIds,
+        category: "messages",
+        kind: "message",
+        ctx: { actorName: senderName },
+        url: `/team/${slug}/messages/${threadId}`,
+      });
+    } catch (err) {
+      console.error("[messages] notification/push failed:", err);
+    }
+  })();
+}
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -204,6 +239,7 @@ export async function POST(
         });
       } catch {}
     })();
+    notifyNewMessage(slug, existingThread.id, `${actorKey.kind}:${actorKey.id}`, actor.session.name);
 
     return NextResponse.json({ thread_id: existingThread.id, ...existingThread, reused: true }, { status: 200 });
   }
@@ -268,6 +304,7 @@ export async function POST(
       });
     } catch {}
   })();
+  notifyNewMessage(slug, thread.id, senderKey, actor.session.name);
 
   return NextResponse.json({ thread_id: thread.id, ...thread }, { status: 201 });
 }

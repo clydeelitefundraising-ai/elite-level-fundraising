@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { createPendingRequest } from "@/lib/platform/athleteRequests";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -87,6 +90,42 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ error: result.message }, { status: 400 });
   }
+
+  // Phase 10: canonical notification row + native push for a new pending
+  // athlete/parent request — Head Coach's actionable queue. Fire-and-forget,
+  // after the request itself has already been successfully created above;
+  // a failure here must never fail (or roll back) the request that already
+  // exists. Comment-moderation's pending-approval queue is a completely
+  // separate system (platform/comments.ts) and deliberately gets neither a
+  // notification row nor push here — out of scope for V1 per product
+  // decision.
+  void (async () => {
+    try {
+      const teamId = await getTeamIdBySlug(campaign_slug);
+      if (!teamId) return;
+      await createNotification(teamId, {
+        type: "request",
+        title: "New Team Request",
+        body: "A new team request needs review",
+        reference_id: result.request.id,
+        reference_url: `/team/${campaign_slug}/requests`,
+      });
+      // Head-Coach-only at the push layer — the inbox row above stays
+      // visible to all staff (existing, preserved coach-inbox behavior,
+      // same as every other type), this filter applies only to who
+      // actually gets a native push.
+      const accountIds = await getHeadCoachAccountIds(campaign_slug);
+      await dispatchApnsPush({
+        accountIds,
+        category: "requests",
+        kind: "request",
+        ctx: {},
+        url: `/team/${campaign_slug}/requests`,
+      });
+    } catch (err) {
+      console.error("[join-request] notification/push failed:", err);
+    }
+  })();
 
   const response = NextResponse.json({ ok: true, campaign_slug, request: result.request });
   if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);

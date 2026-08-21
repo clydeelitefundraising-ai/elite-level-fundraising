@@ -4,6 +4,8 @@ import { staffRoleLabel } from "@/lib/permissions";
 import { sendPushToScope } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
+import { getAccountIdsForScope } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -92,7 +94,18 @@ export async function POST(
       const teamId = await getTeamIdBySlug(slug);
       if (teamId) {
         await createNotification(teamId, {
-          type:                 "message",
+          // Phase 10: was "message" — a pre-existing mislabel (this route
+          // predates the "message" type's real meaning, added later for
+          // DM notifications). Corrected here because it's now load-bearing:
+          // Phase 10's message-type notifications are restricted to actual
+          // thread participants (see notifications.ts's
+          // filterMessageNotifications), which would have made every
+          // announcement invisible to everyone if this stayed "message".
+          // Harmless to correct — nothing reads `type` for announcement
+          // resolution (getNotificationIdForAnnouncement matches on
+          // reference_id only), so this doesn't change any existing
+          // announcement/Seen-tracking behavior.
+          type:                 "announcement",
           title:                title.trim(),
           body:                 (msgBody?.trim() ?? "").slice(0, 140),
           reference_id:         newAnnouncement.id,
@@ -114,6 +127,19 @@ export async function POST(
         });
       } catch (err) {
         console.error("[announcements] sendPushToScope failed:", err);
+      }
+
+      try {
+        const accountIds = await getAccountIdsForScope(slug, safeScope, recipientAthleteId);
+        await dispatchApnsPush({
+          accountIds,
+          category: "team_updates",
+          kind: "announcement",
+          ctx: { actorName: authorName },
+          url: `/team/${slug}/notifications`,
+        });
+      } catch (err) {
+        console.error("[announcements] dispatchApnsPush failed:", err);
       }
     }
   })();

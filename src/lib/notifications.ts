@@ -15,7 +15,8 @@ export type NotificationType =
   | "file_upload"
   | "calendar_event"
   | "fundraiser"
-  | "message";
+  | "message"
+  | "request";
 
 export type RecipientScope =
   | "everyone"
@@ -109,6 +110,106 @@ function isVisibleToMember(
   }
 }
 
+// Phase 10: request-type rows are a Head Coach action queue (Requests
+// Center) — never shown in a member's own notification inbox at all,
+// regardless of recipient_scope (there's no scope value meaning "staff
+// only", and these rows are created with the default "everyone" scope).
+// Pure/exported so this rule is directly testable without a live DB.
+export function isTypeVisibleToMember(type: NotificationType): boolean {
+  return type !== "request";
+}
+
+// ── Phase 10: message-type visibility — thread participants only ────────────
+//
+// Every other notification type uses the broadcast-category recipient_scope
+// above. A message-type notification represents one DM thread's message
+// event — its real "recipients" are that thread's actual participants, a
+// concept recipient_scope has no way to express. Rather than inventing a
+// second visibility system, this is a targeted branch: message-type rows
+// are excluded from the scope check entirely and instead filtered by real
+// thread participancy (message_thread_participants), with the sender
+// excluded from their own notification. message_reads and the Messages
+// UI's own unread count are completely untouched by any of this — this
+// only governs the general notification inbox/push, independent
+// bookkeeping via notification_reads/notification_coach_reads.
+//
+// Sender identity has no dedicated column on `notifications` (unchanged
+// schema, no migration this phase) — encoded instead as a `?sender=` query
+// param on reference_url, which already needs to be the real
+// /team/{slug}/messages/{threadId} deep link. Harmless to any consumer
+// that just does router.push(reference_url) (confirmed: NotificationsView
+// does exactly that; unknown query params are simply ignored on
+// navigation).
+
+/** Pure — extracts the "coach:<id>" / "member:<id>" sender key smuggled
+ *  onto a message notification's reference_url, if present. */
+export function parseSenderKeyFromReferenceUrl(url: string | null): string | null {
+  if (!url) return null;
+  const qIndex = url.indexOf("?");
+  if (qIndex === -1) return null;
+  return new URLSearchParams(url.slice(qIndex + 1)).get("sender");
+}
+
+/** Pure — builds the deep-link + encoded-sender reference_url for a new
+ *  message notification. senderKey matches the exact "coach:<id>" /
+ *  "member:<id>" convention push.ts's sendPushToParticipants already
+ *  uses, so nothing new is invented. */
+export function buildMessageReferenceUrl(slug: string, threadId: string, senderKey: string): string {
+  return `/team/${slug}/messages/${threadId}?sender=${encodeURIComponent(senderKey)}`;
+}
+
+type MessageVisibilityNotif = {
+  id: string;
+  team_id: string;
+  type: string;
+  reference_id: string | null;
+  reference_url: string | null;
+};
+
+/**
+ * Pure — the complete message-type visibility rule in one testable
+ * function: team isolation, sender exclusion, and real thread-participancy
+ * all in one pass. `participantsByThread` maps thread_id -> the set of
+ * "coach:<id>"/"member:<id>" keys who actually belong to that thread (so a
+ * participant of a DIFFERENT thread is naturally excluded — they're simply
+ * absent from that thread's set). `expectedTeamId` guards against a
+ * cross-team notification id somehow reaching this function at all.
+ */
+export function filterMessageNotifications<T extends MessageVisibilityNotif>(
+  notifs: T[],
+  expectedTeamId: string,
+  participantsByThread: Map<string, Set<string>>,
+  viewerKey: string,
+): T[] {
+  return notifs.filter(n => {
+    if (n.team_id !== expectedTeamId) return false;
+    if (!n.reference_id) return false;
+    const senderKey = parseSenderKeyFromReferenceUrl(n.reference_url);
+    if (senderKey !== null && senderKey === viewerKey) return false;
+    const participants = participantsByThread.get(n.reference_id);
+    return participants ? participants.has(viewerKey) : false;
+  });
+}
+
+async function fetchParticipantsByThread(threadIds: string[]): Promise<Map<string, Set<string>>> {
+  const map = new Map<string, Set<string>>();
+  if (!threadIds.length) return map;
+  const res = await fetch(
+    `${BASE}/rest/v1/message_thread_participants?thread_id=in.(${threadIds.join(",")})&select=thread_id,actor_type,coach_id,member_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return map;
+  const rows: { thread_id: string; actor_type: "coach" | "member"; coach_id: string | null; member_id: string | null }[] = await res.json();
+  for (const r of rows) {
+    const id = r.actor_type === "coach" ? r.coach_id : r.member_id;
+    if (!id) continue;
+    const key = `${r.actor_type}:${id}`;
+    if (!map.has(r.thread_id)) map.set(r.thread_id, new Set());
+    map.get(r.thread_id)!.add(key);
+  }
+  return map;
+}
+
 // ── Read ──────────────────────────────────────────────────────────────────────
 
 type RawNotifRow = Omit<NotificationRow, "read_at" | "dismissed">;
@@ -136,14 +237,33 @@ export async function getNotificationsForMember(
   let notifs: RawNotifRow[] = await res.json();
   if (!notifs.length) return [];
 
-  // No actor → return all as unread
+  // No actor → return all as unread, minus types that need a real viewer
+  // identity to filter correctly (message: thread participancy; request:
+  // staff-only, see below).
   if (!actor) {
-    return notifs.map(n => ({ ...n, read_at: null, dismissed: false }));
+    return notifs.filter(n => n.type !== "message" && isTypeVisibleToMember(n.type)).map(n => ({ ...n, read_at: null, dismissed: false }));
   }
 
-  // Members: filter by recipient scope
+  // Phase 10: message-type rows never go through the broadcast recipient_scope
+  // check (below) — they're filtered separately by real thread participancy,
+  // for BOTH member and coach actors (coaches get no scope filter for every
+  // other type, but DO need this filter for messages).
+  const viewerKey = `${actor.kind}:${actor.id}`;
+  const messageNotifs = notifs.filter(n => n.type === "message");
+  const otherNotifs   = notifs.filter(n => n.type !== "message");
+  const threadIds = [...new Set(messageNotifs.map(n => n.reference_id).filter((id): id is string => Boolean(id)))];
+  const participantsByThread = await fetchParticipantsByThread(threadIds);
+  const visibleMessageNotifs = filterMessageNotifications(messageNotifs, teamId, participantsByThread, viewerKey);
+
+  // Members: filter by recipient scope. request-type rows are a Head Coach
+  // action queue (Requests Center) — never shown in a member's own
+  // notification inbox at all, regardless of recipient_scope (which stays
+  // at its default "everyone" for these rows since there's no scope value
+  // meaning "staff only"). Coaches below are unaffected — they already see
+  // every non-message type with no scope filter, which is exactly the
+  // existing, preserved "coach inbox sees requests" behavior.
   if (actor.kind === "member") {
-    notifs = notifs.filter(n => isVisibleToMember(n, actor));
+    notifs = [...otherNotifs.filter(n => isTypeVisibleToMember(n.type) && isVisibleToMember(n, actor)), ...visibleMessageNotifs];
     if (!notifs.length) return [];
 
     const ids = notifs.map(n => n.id).join(",");
@@ -162,7 +282,11 @@ export async function getNotificationsForMember(
       .filter(n => !n.dismissed);
   }
 
-  // Coaches: no scope filter, merge with notification_coach_reads
+  // Coaches: no scope filter for non-message types (existing, preserved
+  // behavior) — but message-type rows are still restricted to actual
+  // thread participants, same as members.
+  notifs = [...otherNotifs, ...visibleMessageNotifs];
+  if (!notifs.length) return [];
   const ids = notifs.map(n => n.id).join(",");
   const readRes = await fetch(
     `${BASE}/rest/v1/notification_coach_reads?coach_id=eq.${encodeURIComponent(actor.id)}&notification_id=in.(${ids})&select=notification_id,read_at`,

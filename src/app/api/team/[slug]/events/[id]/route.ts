@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getAccountIdsForScope } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
+
+// Phase 10: shared by both edit and cancel below — a failure here must
+// never fail the event mutation that already succeeded.
+function notifyCalendarChange(slug: string, eventId: string, eventTitle: string | undefined, changeLabel: string) {
+  void (async () => {
+    try {
+      const teamId = await getTeamIdBySlug(slug);
+      if (!teamId) return;
+      await createNotification(teamId, {
+        type: "calendar_event",
+        title: "Calendar Updated",
+        body: `${eventTitle ?? "An event"} ${changeLabel}`.slice(0, 140),
+        reference_id: eventId,
+        reference_url: `/team/${slug}/calendar`,
+        recipient_scope: "everyone",
+      });
+      const accountIds = await getAccountIdsForScope(slug, "everyone", null);
+      await dispatchApnsPush({
+        accountIds,
+        category: "calendar",
+        kind: "calendar_event",
+        ctx: {},
+        url: `/team/${slug}/calendar`,
+      });
+    } catch (err) {
+      console.error("[events] notification/push failed:", err);
+    }
+  })();
+}
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -48,6 +80,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   );
 
   if (!res.ok) return NextResponse.json({ error: "Failed to update event" }, { status: 500 });
+  notifyCalendarChange(slug, id, title?.trim(), "schedule updated");
   return NextResponse.json({ ok: true });
 }
 
@@ -62,5 +95,6 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   );
 
   if (!res.ok) return NextResponse.json({ error: "Failed to delete event" }, { status: 500 });
+  notifyCalendarChange(slug, id, undefined, "was cancelled");
   return NextResponse.json({ ok: true });
 }
