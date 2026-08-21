@@ -319,21 +319,25 @@ export default function PremiumLayout({
           <div className="cl-card" id="donations" style={{ marginBottom: "1.5rem" }}>
             <h2 className="cl-card-title">RECENT DONATIONS</h2>
             <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
-            <div className="cl-donations-list">
-              {recentDonations.map((d, i) => (
-                <div className="cl-donation-item" key={i}>
-                  <div className="cl-avatar">{d.name[0]}</div>
-                  <div className="cl-donation-body">
-                    <div className="cl-donation-top">
-                      <span className="cl-donation-name">{d.name}</span>
-                      <span className="cl-donation-amount">${d.amount}</span>
+            {recentDonations.length > 0 ? (
+              <div className="cl-donations-list">
+                {recentDonations.map((d, i) => (
+                  <div className="cl-donation-item" key={i}>
+                    <div className="cl-avatar">{d.name[0]}</div>
+                    <div className="cl-donation-body">
+                      <div className="cl-donation-top">
+                        <span className="cl-donation-name">{d.name}</span>
+                        <span className="cl-donation-amount">${d.amount}</span>
+                      </div>
+                      {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
+                      <span className="cl-donation-time">{d.time}</span>
                     </div>
-                    {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
-                    <span className="cl-donation-time">{d.time}</span>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="cl-filter-empty">No donations yet. Be the first to support this program.</div>
+            )}
           </div>
         )}
 
