@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./design-system.css";
-import { AppStoreProvider } from "./_store/AppStore";
 import { NativeBootstrap } from "./_components/NativeBootstrap";
 
 // Same build-time switch as page.tsx: NEXT_PUBLIC_APP_URL is set only in the
@@ -55,7 +54,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body><NativeBootstrap /><AppStoreProvider>{children}</AppStoreProvider></body>
+      <body><NativeBootstrap />{children}</body>
     </html>
   );
 }
