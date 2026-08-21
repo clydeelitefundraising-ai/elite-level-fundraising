@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import "./campaign.css";
+import { currentCopyrightYear } from "@/lib/copyrightYear";
 
 const rankIcon = (r: number) =>
   r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;
@@ -413,7 +414,7 @@ export default function PremiumLayout({
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-          <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+          <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
         </div>
       </footer>
 

@@ -6,6 +6,8 @@ import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
 import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campaignPublicDisplay";
+import { defaultSeasonLabel } from "@/lib/campaignSeason";
+import { currentCopyrightYear } from "@/lib/copyrightYear";
 
 // Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
 // since this is a client component and that module is server-only.
@@ -89,7 +91,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [themeAccentColor,    setThemeAccentColor]    = useState("#C4A35A");
   const [themeButtonColor,    setThemeButtonColor]    = useState("#1B4FA8");
   const [location,        setLocation]        = useState("");
-  const [season,          setSeason]          = useState("2025 Season");
+  const [season,          setSeason]          = useState(defaultSeasonLabel);
   const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
   const [archived,        setArchived]        = useState(false);
   const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
@@ -353,7 +355,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <span className="cl-footer-logo-text">Elite Level Fundraising</span>
             </div>
             <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-            <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+            <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
           </div>
         </footer>
       </>
@@ -433,7 +435,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                 <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
                 <div className="cl-img-divider" />
                 <div className="cl-img-sport">{sportName.toUpperCase()}</div>
-                <div className="cl-img-year">2025 SEASON</div>
+                <div className="cl-img-year">{season.toUpperCase()}</div>
               </div>
               <div className="cl-img-grass-bar" />
             </div>
@@ -725,7 +727,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-          <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+          <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
         </div>
       </footer>
     </>

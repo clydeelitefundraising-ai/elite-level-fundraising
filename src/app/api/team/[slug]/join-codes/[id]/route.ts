@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeamActor, isStaff } from "@/lib/permissions.server";
+import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -13,14 +13,15 @@ function h(extra?: Record<string, string>) {
   };
 }
 
-// PATCH — revoke a join code by id (coach-only)
+// PATCH — revoke a join code by id (Head-Coach-only — see join-codes/route.ts's
+// POST for why this is narrower than isStaff)
 export async function PATCH(
   _req: NextRequest,
   { params }: { params: Promise<{ slug: string; id: string }> },
 ) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
-  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isHeadCoach(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Verify the code belongs to this campaign before revoking
   const res = await fetch(

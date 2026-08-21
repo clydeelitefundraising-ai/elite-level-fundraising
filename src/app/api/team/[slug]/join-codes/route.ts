@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { getTeamActor, isStaff } from "@/lib/permissions.server";
+import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -50,14 +50,18 @@ export async function GET(
   return NextResponse.json({ code: active });
 }
 
-// POST — generate (or replace) the team join code (coach-only)
+// POST — generate (or replace) the team join code (Head-Coach-only — an
+// Assistant Coach or Booster could otherwise revoke/regenerate the link
+// that the whole team's onboarding depends on; canonical helper below is
+// the single source of truth, also enforced in join-codes/[id]/route.ts's
+// PATCH revoke and mirrored in the Settings/TeamQrModal UI).
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
-  if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isHeadCoach(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const newCode = generateCode();
 
