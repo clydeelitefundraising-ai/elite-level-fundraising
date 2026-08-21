@@ -3,6 +3,8 @@ import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { uploadTeamFile } from "@/lib/teamFileUpload";
+import { getAccountIdsForScope } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -57,6 +59,21 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       });
     } catch (err) {
       console.error("[files/upload] sendPushToTeam failed:", err);
+    }
+
+    // Step 3: native APNs push — same category as announcements (both
+    // live under Communications / Team Updates).
+    try {
+      const accountIds = await getAccountIdsForScope(slug, "everyone", null);
+      await dispatchApnsPush({
+        accountIds,
+        category: "team_updates",
+        kind: "file_upload",
+        ctx: { actorName: actor.session.name },
+        url: `/team/${slug}/communications?tab=updates`,
+      });
+    } catch (err) {
+      console.error("[files/upload] dispatchApnsPush failed:", err);
     }
   })();
 

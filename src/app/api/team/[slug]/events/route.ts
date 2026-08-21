@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getAccountIdsForScope } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -55,10 +58,39 @@ export async function POST(
   }
 
   const rows = await res.json();
+
   void sendPushToTeam(slug, {
     title: `Event Added: ${title.trim()}`,
     body:  [event_date, location?.trim()].filter(Boolean).join(" · "),
     url:   `/team/${slug}/calendar`,
   });
+
+  // Phase 10: canonical notification row + native push, fire-and-forget —
+  // a failure here must never fail event creation (already succeeded above).
+  void (async () => {
+    try {
+      const teamId = await getTeamIdBySlug(slug);
+      if (!teamId) return;
+      await createNotification(teamId, {
+        type: "calendar_event",
+        title: "Calendar Updated",
+        body: `${title.trim()} added to the calendar`.slice(0, 140),
+        reference_id: rows[0]?.id ?? null,
+        reference_url: `/team/${slug}/calendar`,
+        recipient_scope: "everyone",
+      });
+      const accountIds = await getAccountIdsForScope(slug, "everyone", null);
+      await dispatchApnsPush({
+        accountIds,
+        category: "calendar",
+        kind: "calendar_event",
+        ctx: { eventTitle: title.trim() },
+        url: `/team/${slug}/calendar`,
+      });
+    } catch (err) {
+      console.error("[events] notification/push failed:", err);
+    }
+  })();
+
   return NextResponse.json(rows[0]);
 }
