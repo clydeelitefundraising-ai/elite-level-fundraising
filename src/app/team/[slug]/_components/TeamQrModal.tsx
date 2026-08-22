@@ -22,6 +22,7 @@ export default function TeamQrModal({
   qrFilename,
   signupData,
   generateOrRegenerate,
+  canManageJoinCode,
   onClose,
 }: {
   settings: JoinCodeSettings;
@@ -35,6 +36,10 @@ export default function TeamQrModal({
   qrFilename: string;
   signupData: SignupSheetData | null;
   generateOrRegenerate: () => Promise<boolean>;
+  // Head-Coach-only, same rule as Settings' New Code/Revoke buttons — the
+  // server (/api/team/[slug]/join-codes) enforces this independently, this
+  // just keeps a non-head-coach from seeing a control that would 401.
+  canManageJoinCode: boolean;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState<"link" | "code" | null>(null);
@@ -112,9 +117,13 @@ export default function TeamQrModal({
           <p style={{ fontSize: ".85rem", color: "#6b7280", marginBottom: "1rem" }}>
             No join code yet for this team.
           </p>
-          <button onClick={generateOrRegenerate} disabled={busy} style={primaryBtn}>
-            {busy ? "Generating…" : "Generate Join Code"}
-          </button>
+          {canManageJoinCode ? (
+            <button onClick={generateOrRegenerate} disabled={busy} style={primaryBtn}>
+              {busy ? "Generating…" : "Generate Join Code"}
+            </button>
+          ) : (
+            <p style={{ fontSize: ".8rem", color: "#9ca3af" }}>Ask your Head Coach to generate one.</p>
+          )}
           {error && <p style={errText}>{error}</p>}
         </div>
       ) : (
@@ -155,6 +164,7 @@ export default function TeamQrModal({
             </button>
           </div>
 
+          {canManageJoinCode && (
           <div style={{ width: "100%", borderTop: "1px solid #f3f4f6", paddingTop: ".75rem" }}>
             {!confirmRegenerate ? (
               <button onClick={() => setConfirmRegenerate(true)} style={dangerLinkBtn}>
@@ -178,6 +188,7 @@ export default function TeamQrModal({
               </div>
             )}
           </div>
+          )}
 
           {error && <p style={errText}>{error}</p>}
         </div>

@@ -12,7 +12,11 @@ type TabConfig = {
 
 const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "home",           label: "Home",           icon: "🏠" },
-  { href: "communications", label: "Communications", icon: "💬" },
+  // "Communications" (14 chars) doesn't fit this tab's flex width at
+  // 320-390px without CSS ellipsis truncating it to "Communi…" — the page
+  // itself is still titled "Communications" (see communications/page.tsx);
+  // this is only the short nav-tab label.
+  { href: "communications", label: "Comms",          icon: "💬" },
   { href: "calendar",       label: "Calendar",       icon: "📅" },
   { href: "fundraiser",     label: "Fundraising",    icon: "💰" },
   { href: "shop",           label: "Shop",           icon: "🛍️" },

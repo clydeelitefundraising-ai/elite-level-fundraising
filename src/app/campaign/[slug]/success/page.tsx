@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { insertDonation, donationExists, getCampaignSettings } from "@/lib/supabase";
+import { sendReceiptForSession } from "@/lib/donorReceipt";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,8 @@ export default async function DonationSuccessPage({
           </p>
           <div style={styles.divider} />
           <p style={styles.note}>
-            A confirmation will be sent to your email shortly. If you have any questions,
-            contact us at{" "}
+            A receipt for your donation will be emailed to you. If you don&rsquo;t see it
+            within a few minutes, please check your spam folder or contact us at{" "}
             <a href="mailto:billing@elitelevelfundraising.com" style={styles.link}>
               billing@elitelevelfundraising.com
             </a>.
@@ -72,16 +73,33 @@ async function saveDonation(sessionId: string, campaignSlug: string) {
     if (session.payment_status !== "paid") return;
 
     const alreadySaved = await donationExists(sessionId);
-    if (alreadySaved) return;
+    if (!alreadySaved) {
+      await insertDonation({
+        stripe_session_id: sessionId,
+        donor_name:        session.metadata?.donor_name       ?? null,
+        amount_cents:      session.amount_total,
+        athlete_name:      session.metadata?.athlete_name     ?? null,
+        athlete_id:        session.metadata?.athlete_id       ?? null,
+        donation_message:  session.metadata?.donation_message ?? null,
+        campaign_slug:     campaignSlug,
+      });
+    }
 
-    await insertDonation({
-      stripe_session_id: sessionId,
-      donor_name:        session.metadata?.donor_name       ?? null,
-      amount_cents:      session.amount_total,
-      athlete_name:      session.metadata?.athlete_name     ?? null,
-      athlete_id:        session.metadata?.athlete_id       ?? null,
-      donation_message:  session.metadata?.donation_message ?? null,
-      campaign_slug:     campaignSlug,
+    // Always attempt the receipt here too — this is the only path that
+    // will ever try if the Stripe webhook is misconfigured or never
+    // fires. Safe to attempt even when the webhook already sent it (or
+    // will): sendReceiptForSession is idempotency-keyed on this same
+    // sessionId, so Resend collapses any duplicate to a single delivered
+    // email regardless of which path (or both) attempted it. Never
+    // throws — a receipt failure here must not affect this page's render
+    // or the donation record already saved above.
+    await sendReceiptForSession({
+      stripeSessionId: sessionId,
+      donorEmail:      session.customer_details?.email,
+      donorName:       session.metadata?.donor_name,
+      amountCents:     session.amount_total,
+      athleteName:     session.metadata?.athlete_name,
+      campaignSlug,
     });
   } catch (err) {
     console.error("[success] saveDonation error:", err);
