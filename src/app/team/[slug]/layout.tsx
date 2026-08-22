@@ -11,6 +11,7 @@ import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
 import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
+import NativePushRegistrar from "./_components/NativePushRegistrar";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,7 @@ export default async function TeamLayout({
           isAuthenticated={isAuthenticated}
         />
         <ServiceWorkerRegistrar />
+        <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
         <TeamPullRefresh />
         <TeamRealtimeSync slug={slug} />
         <main style={{ flex: 1, padding: "1rem .875rem 5.5rem" }}>

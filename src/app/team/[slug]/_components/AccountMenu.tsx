@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
+import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 declare global {
   interface Window {
@@ -184,8 +185,20 @@ export default function AccountMenu({
               <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Settings</span>
             </a>
 
-            {/* Sign Out */}
-            <form method="POST" action="/api/auth/logout">
+            {/* Sign Out — plain browser/PWA form POST is left completely
+                unchanged; on the installed iOS app only, this is
+                intercepted to route through the native-aware logout
+                helper so this device's own APNs token gets deactivated
+                too (see nativePushDevice.ts). */}
+            <form
+              method="POST"
+              action="/api/auth/logout"
+              onSubmit={e => {
+                if (!isNativeIosApp()) return;
+                e.preventDefault();
+                void performNativeAwareLogout(router);
+              }}
+            >
               <button
                 type="submit"
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}

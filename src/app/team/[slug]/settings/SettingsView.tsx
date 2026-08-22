@@ -8,6 +8,7 @@ import { staffRoleLabel } from "@/lib/permissions";
 import TeamQrModal from "../_components/TeamQrModal";
 import PrintSignupSheet from "../_components/PrintSignupSheet";
 import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJoinCode";
+import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 type Props = {
   slug: string;
@@ -40,10 +41,11 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
     (c) => setCode(c as ActiveJoinCode | null),
   );
 
-  const handleSignOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-  };
+  // Phase 10: routes through the shared logout helper so a native iOS
+  // device's own APNs token (if any) is deactivated server-side alongside
+  // the existing cookie-clearing logout — see nativePushDevice.ts. On
+  // web/PWA this behaves identically to before (no token exists to send).
+  const handleSignOut = () => performNativeAwareLogout(router);
 
   const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const joinUrl = code ? `${appBase}/join/${code.code}` : null;

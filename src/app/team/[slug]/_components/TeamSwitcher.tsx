@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamSummary } from "@/lib/accountSession";
+import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 export default function TeamSwitcher({
   currentSlug,
@@ -126,7 +127,16 @@ export default function TeamSwitcher({
             >
               All Teams
             </a>
-            <form method="POST" action="/api/auth/logout" style={{ borderTop: "1px solid #f0f0f0" }}>
+            <form
+              method="POST"
+              action="/api/auth/logout"
+              style={{ borderTop: "1px solid #f0f0f0" }}
+              onSubmit={e => {
+                if (!isNativeIosApp()) return;
+                e.preventDefault();
+                void performNativeAwareLogout(router);
+              }}
+            >
               <button
                 type="submit"
                 style={{ width: "100%", padding: ".75rem 1rem", background: "none", border: "none", fontSize: ".82rem", color: "#9ca3af", cursor: "pointer", textAlign: "center" }}
