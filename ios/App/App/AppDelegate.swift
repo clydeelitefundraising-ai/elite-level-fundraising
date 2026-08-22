@@ -46,4 +46,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    // Phase 10: required by @capacitor/push-notifications (confirmed via its
+    // Swift source, PushNotificationsPlugin.swift — it registers as a
+    // NotificationCenter observer for these two notification names and does
+    // not swizzle/auto-post them itself, so the standard UIApplicationDelegate
+    // callbacks must forward into it manually). Without these, the plugin's
+    // JS-side 'registration'/'registrationError' events never fire.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
 }

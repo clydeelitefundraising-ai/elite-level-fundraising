@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
+import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 export type PendingTeamCard = {
   campaign_slug:  string;
@@ -37,6 +39,7 @@ const ROLE_ICON: Record<string, string> = {
 
 function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firstTeamSlug: string | null }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const initial = accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
 
   return (
@@ -81,7 +84,16 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
               <span style={{ fontSize: ".9rem" }}>❓</span> Help
             </a>
 
-            <form method="POST" action="/api/auth/logout" style={{ borderTop: "1px solid #f0f0f0" }}>
+            <form
+              method="POST"
+              action="/api/auth/logout"
+              style={{ borderTop: "1px solid #f0f0f0" }}
+              onSubmit={e => {
+                if (!isNativeIosApp()) return;
+                e.preventDefault();
+                void performNativeAwareLogout(router);
+              }}
+            >
               <button type="submit" style={{ ...menuItemStyle, width: "100%", border: "none", background: "none", cursor: "pointer", textAlign: "left", color: "#9ca3af" }}>
                 <span style={{ fontSize: ".9rem" }}>↩</span> Sign Out
               </button>
