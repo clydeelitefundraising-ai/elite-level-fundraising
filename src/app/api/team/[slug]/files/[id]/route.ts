@@ -11,12 +11,17 @@ function h(extra?: Record<string, string>) {
 
 type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
-// ── Download — no auth required; viewers can download.
-// Proxied through the server so the team-files bucket stays private and
-// no Supabase signed-URL token round-trip is needed (avoids JWT path
+// ── Download — requires a valid team actor (coach or member) for this
+// slug. Proxied through the server so the team-files bucket stays private
+// and no Supabase signed-URL token round-trip is needed (avoids JWT path
 // mismatch errors that occur with some Supabase storage versions).
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+
+  const actor = await getTeamActor(slug);
+  if (actor.kind === "public") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   // 1. Look up the file record — scoped to slug for isolation
   const rowRes = await fetch(

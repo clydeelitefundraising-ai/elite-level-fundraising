@@ -38,6 +38,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "This invite link has expired. Ask your administrator for a new one." }, { status: 400 });
   }
 
+  // Atomically claim the token BEFORE doing any account work: PATCH with
+  // `used_at=is.null` in the WHERE clause means only one concurrent
+  // request can ever match this row and get it back in the response. A
+  // double-submit (or two people racing the same link) now resolves to
+  // exactly one winner here — the loser gets a clean "already used" error
+  // instead of racing through account creation/linking too. Tradeoff: if
+  // account creation fails *after* this point, the token stays consumed
+  // (no retry) — acceptable per-token, since an admin can issue a fresh
+  // invite via the existing "Send Invite" flow; strictly better than the
+  // previous mark-used-last ordering, which left the race open for the
+  // link-existing-account path (no unique constraint there to catch it).
+  const claimRes = await fetch(
+    `${BASE}/rest/v1/coach_invite_tokens?id=eq.${encodeURIComponent(tokenRow.id)}&used_at=is.null`,
+    {
+      method:  "PATCH",
+      headers: h({ Prefer: "return=representation" }),
+      body:    JSON.stringify({ used_at: new Date().toISOString() }),
+    },
+  );
+  if (!claimRes.ok) return NextResponse.json({ error: "Validation failed." }, { status: 500 });
+  const claimedRows = await claimRes.json();
+  if (!Array.isArray(claimedRows) || claimedRows.length === 0) {
+    return NextResponse.json({ error: "This invite link has already been used." }, { status: 400 });
+  }
+
   // Fetch the coach
   const coachRes = await fetch(
     `${BASE}/rest/v1/team_coaches?id=eq.${encodeURIComponent(tokenRow.coach_id)}&select=id,name,email,campaign_slug&limit=1`,
@@ -103,16 +128,6 @@ export async function POST(req: NextRequest) {
       method:  "PATCH",
       headers: h({ Prefer: "return=minimal" }),
       body:    JSON.stringify({ account_id: accountId }),
-    },
-  );
-
-  // Mark the token as used
-  await fetch(
-    `${BASE}/rest/v1/coach_invite_tokens?id=eq.${encodeURIComponent(tokenRow.id)}`,
-    {
-      method:  "PATCH",
-      headers: h({ Prefer: "return=minimal" }),
-      body:    JSON.stringify({ used_at: new Date().toISOString() }),
     },
   );
 

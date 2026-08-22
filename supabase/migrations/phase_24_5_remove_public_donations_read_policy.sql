@@ -1,0 +1,29 @@
+-- Phase 24.5: remove unrestricted public-read RLS policy on donations
+--
+-- Discovered during the pilot-readiness schema-baseline capture (2026-08-21):
+-- public.donations has RLS enabled with exactly one policy —
+--   CREATE POLICY "public read donations" ON public.donations FOR SELECT USING (true);
+-- — with no `TO` clause, so it applies to every role, including `anon`.
+-- Supabase's default schema grants also give `anon` full table privileges
+-- on public-schema tables. Net effect: the public anon key (which is
+-- intentionally public, embedded in the client bundle for realtime use)
+-- could read every donation row across every team unscoped — donor_name,
+-- amount, message, stripe_session_id, athlete attribution — bypassing all
+-- app-level campaign scoping entirely.
+--
+-- Verified live 2026-08-21: an anon-key-only request to
+-- `donations?select=id&limit=1` returned HTTP 200 with 1 row.
+--
+-- Verified safe to remove: the only client-side Supabase usage anywhere in
+-- the app is src/app/team/[slug]/_components/TeamRealtimeSync.tsx, which
+-- subscribes only to announcements/calendar_events/notifications — never
+-- donations. All donation reads (leaderboard, totals, recent-donations
+-- feed, coach/admin reporting) go through server-side API routes using the
+-- service-role key, which bypasses RLS entirely and is unaffected by this
+-- change. The Stripe webhook's donation INSERT also uses the service-role
+-- key server-side — also unaffected.
+--
+-- Rollback guidance is documentation-only, not included here — see
+-- supabase/SECURITY_FIX_donations_public_read_policy.sql.
+
+DROP POLICY IF EXISTS "public read donations" ON public.donations;

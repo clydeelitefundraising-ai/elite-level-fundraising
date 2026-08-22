@@ -591,10 +591,17 @@ export default function UpdatesView({
         </div>
       </div>
 
-      {/* ── Filter chips ── */}
+      {/* ── Filter chips ──
+          Horizontally scrollable by design once chips overtake the
+          viewport width (narrow phones can't fit all 6+ without either
+          shrinking text illegibly or wrapping to a second row) — the
+          right-edge fade signals "more chips this way, scroll/swipe" so it
+          reads as an intentional scroll strip instead of a clipped list. */}
       <div style={{
         display: "flex", gap: ".35rem", overflowX: "auto",
         marginBottom: ".65rem", paddingBottom: ".2rem", scrollbarWidth: "none",
+        WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 20px), transparent 100%)",
+        maskImage: "linear-gradient(to right, #000 calc(100% - 20px), transparent 100%)",
       } as React.CSSProperties}>
         {FILTER_CHIPS.map(chip => {
           const active = filterCat === chip.id;

@@ -241,41 +241,51 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               >
                 {copied ? "✓ Copied!" : "Copy Join Link"}
               </button>
-              <button
-                onClick={handleGenerate}
-                disabled={working}
-                title="Generate a new code (old code stops working)"
-                style={{
-                  padding: ".55rem .75rem",
-                  background: "#fff",
-                  color: "#374151",
-                  border: "1.5px solid #e5e7eb",
-                  borderRadius: 9,
-                  fontSize: ".82rem",
-                  fontWeight: 600,
-                  cursor: working ? "not-allowed" : "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                New Code
-              </button>
-              <button
-                onClick={handleRevoke}
-                disabled={working}
-                style={{
-                  padding: ".55rem .75rem",
-                  background: "#fff",
-                  color: "#dc2626",
-                  border: "1.5px solid #fecaca",
-                  borderRadius: 9,
-                  fontSize: ".82rem",
-                  fontWeight: 600,
-                  cursor: working ? "not-allowed" : "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Revoke
-              </button>
+              {/* Regenerating/revoking is Head-Coach-only (an Assistant
+                  Coach or Booster could otherwise break the team's join
+                  link for everyone) — enforced server-side in
+                  /api/team/[slug]/join-codes; hidden here too so a
+                  non-head-coach never sees a control that would just 401.
+                  Copy Join Link stays available to all staff above. */}
+              {coach.role === "head_coach" && (
+                <>
+                  <button
+                    onClick={handleGenerate}
+                    disabled={working}
+                    title="Generate a new code (old code stops working)"
+                    style={{
+                      padding: ".55rem .75rem",
+                      background: "#fff",
+                      color: "#374151",
+                      border: "1.5px solid #e5e7eb",
+                      borderRadius: 9,
+                      fontSize: ".82rem",
+                      fontWeight: 600,
+                      cursor: working ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    New Code
+                  </button>
+                  <button
+                    onClick={handleRevoke}
+                    disabled={working}
+                    style={{
+                      padding: ".55rem .75rem",
+                      background: "#fff",
+                      color: "#dc2626",
+                      border: "1.5px solid #fecaca",
+                      borderRadius: 9,
+                      fontSize: ".82rem",
+                      fontWeight: 600,
+                      cursor: working ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Revoke
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Phase 5: QR/printable-signup tools — relocated here from
@@ -410,6 +420,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           qrFilename={joinCodeState.qrFilename}
           signupData={joinCodeState.signupData}
           generateOrRegenerate={joinCodeState.generateOrRegenerate}
+          canManageJoinCode={coach.role === "head_coach"}
           onClose={() => setQrModalOpen(false)}
         />
       )}

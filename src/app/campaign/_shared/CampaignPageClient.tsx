@@ -5,6 +5,9 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
+import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campaignPublicDisplay";
+import { defaultSeasonLabel } from "@/lib/campaignSeason";
+import { currentCopyrightYear } from "@/lib/copyrightYear";
 
 // Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
 // since this is a client component and that module is server-only.
@@ -13,21 +16,11 @@ const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as c
 const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
 
-const FALLBACK_ATHLETES = [
-  { id: "demo-1", rank: 1, name: "Marcus Johnson",  event: "Sprints",  class_year: "Junior",    raised: 2340 },
-  { id: "demo-2", rank: 2, name: "Aaliyah Rivera",  event: "Distance", class_year: "Senior",    raised: 1980 },
-  { id: "demo-3", rank: 3, name: "Tyler Chen",      event: "Jumps",    class_year: "Sophomore", raised: 1620 },
-  { id: "demo-4", rank: 4, name: "Sofia Martinez",  event: "Throws",   class_year: "Senior",    raised: 1410 },
-  { id: "demo-5", rank: 5, name: "Devon Williams",  event: "Hurdles",  class_year: "Freshman",  raised: 1200 },
-];
-
-const initialDonations = [
-  { name: "Robert T.",       amount: 100, message: "Go team! Proud to support this program!",  time: "2 hours ago" },
-  { name: "Sarah K.",        amount: 50,  message: "Best of luck this season!",                time: "4 hours ago" },
-  { name: "Anonymous",       amount: 250, message: "Keep running strong!",                     time: "6 hours ago" },
-  { name: "Mike & Janet L.", amount: 75,  message: "Our daughter loves this team!",            time: "1 day ago"   },
-  { name: "Coach R.",        amount: 25,  message: "Proud of this program!",                   time: "1 day ago"   },
-];
+// No fabricated athletes or donations here (there used to be — "Marcus
+// Johnson", "Robert T.", etc.) — a live campaign with zero real athletes or
+// zero real donations must render an honest empty state, never invented
+// people/amounts. See the empty-state renders below (cl-filter-empty /
+// cl-donations-empty) for what a viewer actually sees in that case.
 
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 
@@ -74,8 +67,8 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donors,          setDonors]          = useState(0);
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
-  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>(FALLBACK_ATHLETES);
-  const [recentDonations, setRecentDonations] = useState(initialDonations);
+  const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>([]);
+  const [recentDonations, setRecentDonations] = useState<{ name: string; amount: number; message: string; time: string }[]>([]);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
   const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>([]);
@@ -98,7 +91,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [themeAccentColor,    setThemeAccentColor]    = useState("#C4A35A");
   const [themeButtonColor,    setThemeButtonColor]    = useState("#1B4FA8");
   const [location,        setLocation]        = useState("");
-  const [season,          setSeason]          = useState("2025 Season");
+  const [season,          setSeason]          = useState(defaultSeasonLabel);
   const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
   const [archived,        setArchived]        = useState(false);
   const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
@@ -162,17 +155,19 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
-        const base: { id: string; name: string; event: string | null; class_year?: string | null }[] =
-          Array.isArray(fetchedAthletes) && fetchedAthletes.length > 0
-            ? fetchedAthletes
-            : FALLBACK_ATHLETES;
+        // Real roster only — an empty roster renders the honest "no
+        // athletes yet" empty state below, never invented names.
+        const base = resolveLeaderboardAthletes(fetchedAthletes);
         setAthletes(
           base
             .map((a) => ({ id: a.id, name: a.name, event: a.event, class_year: a.class_year ?? null, raised: (athleteTotals[a.name] ?? 0) as number, rank: 0 }))
             .sort((a, b) => b.raised - a.raised)
             .map((a, i) => ({ ...a, rank: i + 1 })),
         );
-        if (Array.isArray(rd) && rd.length > 0) setRecentDonations(rd);
+        // Always sync to the real value, including an empty array — a
+        // zero-donation campaign must show zero donations, not linger on
+        // whatever recentDonations already held.
+        setRecentDonations(resolveRecentDonations(rd));
         if (Array.isArray(data.fund_uses) && data.fund_uses.length > 0) {
           setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
         }
@@ -360,7 +355,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <span className="cl-footer-logo-text">Elite Level Fundraising</span>
             </div>
             <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-            <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+            <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
           </div>
         </footer>
       </>
@@ -440,7 +435,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
                 <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
                 <div className="cl-img-divider" />
                 <div className="cl-img-sport">{sportName.toUpperCase()}</div>
-                <div className="cl-img-year">2025 SEASON</div>
+                <div className="cl-img-year">{season.toUpperCase()}</div>
               </div>
               <div className="cl-img-grass-bar" />
             </div>
@@ -596,21 +591,25 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <div className="cl-card" id="donations">
                 <h2 className="cl-card-title">RECENT DONATIONS</h2>
                 <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
-                <div className="cl-donations-list">
-                  {recentDonations.map((d, i) => (
-                    <div className="cl-donation-item" key={i}>
-                      <div className="cl-avatar">{d.name[0]}</div>
-                      <div className="cl-donation-body">
-                        <div className="cl-donation-top">
-                          <span className="cl-donation-name">{d.name}</span>
-                          <span className="cl-donation-amount">${d.amount}</span>
+                {recentDonations.length > 0 ? (
+                  <div className="cl-donations-list">
+                    {recentDonations.map((d, i) => (
+                      <div className="cl-donation-item" key={i}>
+                        <div className="cl-avatar">{d.name[0]}</div>
+                        <div className="cl-donation-body">
+                          <div className="cl-donation-top">
+                            <span className="cl-donation-name">{d.name}</span>
+                            <span className="cl-donation-amount">${d.amount}</span>
+                          </div>
+                          {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
+                          <span className="cl-donation-time">{d.time}</span>
                         </div>
-                        {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
-                        <span className="cl-donation-time">{d.time}</span>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="cl-filter-empty">No donations yet. Be the first to support this program.</div>
+                )}
               </div>
             )}
           </div>
@@ -728,7 +727,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-          <p className="cl-footer-copy">© 2025 Elite Level Fundraising · All rights reserved</p>
+          <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
         </div>
       </footer>
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { defaultSeasonLabel } from "@/lib/campaignSeason";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
@@ -481,7 +482,7 @@ export function AdminDashboard() {
               <label style={C.label}>School Name   <input style={C.input} value={settings.school_name}  onChange={e => setSettings(s => ({ ...s, school_name: e.target.value }))} /></label>
               <label style={C.label}>Sport Name    <input style={C.input} value={settings.sport_name}   onChange={e => setSettings(s => ({ ...s, sport_name: e.target.value }))} /></label>
               <label style={C.label}>Mascot        <input style={C.input} value={settings.mascot}       onChange={e => setSettings(s => ({ ...s, mascot: e.target.value }))} placeholder="e.g. Pumas" /></label>
-              <label style={C.label}>Season        <input style={C.input} value={settings.season}       onChange={e => setSettings(s => ({ ...s, season: e.target.value }))} placeholder="e.g. 2025 Season" /></label>
+              <label style={C.label}>Season        <input style={C.input} value={settings.season}       onChange={e => setSettings(s => ({ ...s, season: e.target.value }))} placeholder={`e.g. ${defaultSeasonLabel()}`} /></label>
               <label style={C.label}>Location      <input style={C.input} value={settings.location}     onChange={e => setSettings(s => ({ ...s, location: e.target.value }))} placeholder="e.g. Paradise Valley, AZ" /></label>
               <label style={C.label}>
                 Logo URL
@@ -1170,7 +1171,7 @@ function OnboardWizard({
                 <label style={L}>School Name * <input style={I} value={d.school_name} onChange={e => upd({ school_name: e.target.value })} placeholder="Mesa High School" /></label>
                 <label style={L}>Sport * <input style={I} value={d.sport_name} onChange={e => upd({ sport_name: e.target.value })} placeholder="Soccer" /></label>
                 <label style={L}>Mascot <input style={I} value={d.mascot} onChange={e => upd({ mascot: e.target.value })} placeholder="Jaguars" /></label>
-                <label style={L}>Season <input style={I} value={d.season} onChange={e => upd({ season: e.target.value })} placeholder="2026 Season" /></label>
+                <label style={L}>Season <input style={I} value={d.season} onChange={e => upd({ season: e.target.value })} placeholder={defaultSeasonLabel()} /></label>
                 <label style={{ ...L, gridColumn: "1 / -1" }}>Location <input style={I} value={d.location} onChange={e => upd({ location: e.target.value })} placeholder="Mesa, Arizona" /></label>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem" }}>

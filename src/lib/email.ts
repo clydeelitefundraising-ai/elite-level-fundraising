@@ -21,13 +21,19 @@ function getFromEmail(): string {
   return process.env.FROM_EMAIL ?? "ELF Fundraising <noreply@elitelevelfundraising.com>";
 }
 
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+async function sendEmail(to: string, subject: string, html: string, idempotencyKey?: string): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${getResendKey()}`,
+    "Content-Type": "application/json",
+  };
+  // Resend dedupes requests carrying the same Idempotency-Key for 24h —
+  // used by sendDonorReceipt so the webhook and /success fallback can both
+  // attempt delivery without ever producing two emails for one donation.
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+
   const res = await fetch(RESEND_API, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${getResendKey()}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ from: getFromEmail(), to, subject, html }),
   });
   if (!res.ok) {
@@ -39,12 +45,15 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
 // ── Donor receipt ─────────────────────────────────────────────────────────────
 
 export interface DonorReceiptParams {
-  to:           string;
-  donorName:    string | null;
-  amountCents:  number;
-  teamName:     string;
-  athleteName:  string | null;
-  campaignUrl:  string;
+  to:              string;
+  donorName:       string | null;
+  amountCents:     number;
+  teamName:        string;
+  athleteName:     string | null;
+  campaignUrl:     string;
+  /** Passed through to Resend's Idempotency-Key header, if provided —
+   *  see sendEmail() above. Optional so other callers/tests are unaffected. */
+  idempotencyKey?: string;
 }
 
 export async function sendDonorReceipt(p: DonorReceiptParams): Promise<void> {
@@ -105,7 +114,7 @@ export async function sendDonorReceipt(p: DonorReceiptParams): Promise<void> {
 </body>
 </html>`;
 
-  await sendEmail(p.to, `Donation Receipt — ${p.teamName}`, html);
+  await sendEmail(p.to, `Donation Receipt — ${p.teamName}`, html, p.idempotencyKey);
 }
 
 // ── Coach welcome ─────────────────────────────────────────────────────────────

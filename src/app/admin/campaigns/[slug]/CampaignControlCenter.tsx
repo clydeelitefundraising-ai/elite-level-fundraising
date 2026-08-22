@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { defaultSeasonLabel } from "@/lib/campaignSeason";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -471,7 +472,7 @@ export default function CampaignControlCenter({ detail }: Props) {
                   <input style={T.input} value={identity.mascot} onChange={e => setIdentity(p => ({ ...p, mascot: e.target.value }))} placeholder="e.g. Pumas" />
                 </Field>
                 <Field label="Season">
-                  <input style={T.input} value={identity.season} onChange={e => setIdentity(p => ({ ...p, season: e.target.value }))} placeholder="e.g. 2026 Season" />
+                  <input style={T.input} value={identity.season} onChange={e => setIdentity(p => ({ ...p, season: e.target.value }))} placeholder={`e.g. ${defaultSeasonLabel()}`} />
                 </Field>
                 <Field label="Location" note="City, State">
                   <input style={T.input} value={identity.location} onChange={e => setIdentity(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Scottsdale, AZ" />
