@@ -5,22 +5,24 @@ import { approveComment, declineComment } from "@/lib/platform/comments";
 
 type RouteCtx = { params: Promise<{ slug: string; id: string }> };
 
-// Approve or decline a pending comment. Head-Coach-only for THIS campaign
-// — see route.ts (GET) for why isHeadCoach() is the correct check.
-// decided_by_coach_id is always actor.session.id (the team_coaches row —
-// only a "coach" actor can ever be a Head Coach), never trusted from the
+// Approve or decline a pending comment. Head-Coach-equivalent-only for
+// THIS campaign — see route.ts (GET) for why isHeadCoach() is the correct
+// check (true for the real Head Coach AND a platform admin acting under
+// their own identity). decided_by_coach_id / decided_by_platform_admin_id
+// is always derived from the resolved actor, never trusted from the
 // request body. The campaign is taken from the URL, never the body, so a
-// Head Coach of a different campaign cannot act on this comment even if
-// they somehow learn its id.
+// Head-Coach-equivalent of a different campaign cannot act on this
+// comment even if they somehow learn its id.
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // isHeadCoach narrows actor.kind to "coach" already, but TypeScript
-  // can't infer that through the function boundary.
-  if (actor.kind !== "coach") {
+  // isHeadCoach is true only for "coach" (role=head_coach) or
+  // "platform_admin" — TypeScript can't infer that through the function
+  // boundary, so this narrows explicitly for the decidedBy id below.
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -29,9 +31,13 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "action must be 'approve' or 'decline'." }, { status: 400 });
   }
 
+  const decidedBy = actor.kind === "coach"
+    ? { kind: "coach" as const, id: actor.session.id }
+    : { kind: "platform_admin" as const, id: actor.session.platformAdminId };
+
   const result = body.action === "approve"
-    ? await approveComment(id, slug, actor.session.id)
-    : await declineComment(id, slug, actor.session.id);
+    ? await approveComment(id, slug, decidedBy)
+    : await declineComment(id, slug, decidedBy);
 
   if (!result.ok) {
     if (result.reason === "not_found")       return NextResponse.json({ error: "Comment not found." }, { status: 404 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
-import { staffRoleLabel } from "@/lib/permissions";
+import { staffRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { sendPushToScope } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
@@ -56,9 +57,12 @@ export async function POST(
       : null;
   const shouldPush  = push_enabled !== false; // default true
   const authorName  = actor.session.name;
-  const authorRole  = staffRoleLabel(actor.session.role);
-  // coach_id references team_coaches.id — only set for coach-kind actors
-  const coachId     = actor.kind === "coach" ? actor.session.id : null;
+  const authorRole  = actor.kind === "platform_admin" ? platformAdminRoleLabel() : staffRoleLabel(actor.session.role);
+  // coach_id/author_platform_admin_id reference team_coaches.id /
+  // platform_admins.id respectively — only one is ever set (phase_a30
+  // dropped coach_id's NOT NULL for exactly this reason).
+  const coachId             = actor.kind === "coach" ? actor.session.id : null;
+  const authorPlatformAdminId = actor.kind === "platform_admin" ? actor.session.platformAdminId : null;
 
   const payload: Record<string, unknown> = {
     campaign_slug:        slug,
@@ -68,6 +72,7 @@ export async function POST(
     priority:             safePriority,
     author_name:          authorName,
     author_role:          authorRole,
+    author_platform_admin_id: authorPlatformAdminId,
     coach_id:             coachId,
     recipient_scope:      safeScope,
     recipient_athlete_id: recipientAthleteId,
@@ -87,6 +92,25 @@ export async function POST(
 
   const rows = await res.json();
   const newAnnouncement = rows[0];
+
+  // Boosters (member-kind staff) can also author announcements — that's
+  // isStaff()'s broader gate, unchanged here. Audit attribution only
+  // covers coach/platform_admin (the three kinds Phase 3 scoped); a
+  // booster-authored announcement has no audit row, same as before this
+  // change — not a regression, just not widened beyond scope.
+  if (actor.kind === "coach" || actor.kind === "platform_admin") {
+    logAuditEvent({
+      actor: toAuditActor(actor),
+      action: "announcement.created",
+      entity_type: "announcement",
+      entity_id: newAnnouncement.id,
+      campaign_slug: slug,
+      summary: `Posted announcement "${title.trim()}" on ${slug}`,
+      new_value: { category: safeCategory, priority: safePriority, recipient_scope: safeScope },
+      ip_address: ipOf(req),
+      user_agent: req.headers.get("user-agent"),
+    });
+  }
 
   // Fire-and-forget: in-app notification + scoped push.
   void (async () => {

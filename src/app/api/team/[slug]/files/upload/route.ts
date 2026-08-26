@@ -24,7 +24,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   if (!file) return NextResponse.json({ error: "No file provided." }, { status: 400 });
 
-  const result = await uploadTeamFile(slug, file, actor.session.name, actor.kind === "coach" ? actor.session.id : null);
+  const result = await uploadTeamFile(
+    slug,
+    file,
+    actor.session.name,
+    actor.kind === "coach" ? actor.session.id : null,
+    actor.kind === "platform_admin" ? actor.session.platformAdminId : null,
+  );
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   const newFile = result.file;
 

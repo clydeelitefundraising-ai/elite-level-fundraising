@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { updateFundUse, deleteFundUse } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,7 @@ export async function PUT(
   const { title, description, icon, sort_order } = await req.json();
   await updateFundUse(id, { title, description, icon, sort_order });
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "fund_use.updated",
     entity_type: "fund_use",
     entity_id:   id,
@@ -39,6 +40,7 @@ export async function DELETE(
   const { id } = await params;
   await deleteFundUse(id);
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "fund_use.deleted",
     entity_type: "fund_use",
     entity_id:   id,

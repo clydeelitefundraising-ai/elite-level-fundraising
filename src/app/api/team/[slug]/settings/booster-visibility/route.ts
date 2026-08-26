@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { updateCampaignSettings } from "@/lib/supabase";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -14,6 +15,9 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can change this setting." }, { status: 403 });
   }
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Only this team's Head Coach can change this setting." }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body.show_booster_in_staff_roster !== "boolean") {
@@ -25,6 +29,18 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   } catch {
     return NextResponse.json({ error: "Failed to update setting." }, { status: 500 });
   }
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "team_settings.booster_visibility_changed",
+    entity_type: "campaign_settings",
+    entity_id: slug,
+    campaign_slug: slug,
+    summary: `Set show_booster_in_staff_roster=${body.show_booster_in_staff_roster} on ${slug}`,
+    new_value: { show_booster_in_staff_roster: body.show_booster_in_staff_roster },
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({ ok: true, show_booster_in_staff_roster: body.show_booster_in_staff_roster });
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isCoachOnly } from "@/lib/permissions.server";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const VALID_TIERS = ["title", "platinum", "gold", "silver", "bronze", "community_partner"];
@@ -20,6 +21,9 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
   if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const {
     name, url, tier, description, logo_url, visible, display_order,
@@ -49,13 +53,29 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   );
 
   if (!res.ok) return NextResponse.json({ error: "Failed to update sponsor" }, { status: 500 });
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "sponsor.updated",
+    entity_type: "sponsor",
+    entity_id: id,
+    campaign_slug: slug,
+    summary: `Updated sponsor ${id} on ${slug}`,
+    new_value: patch,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
   if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const res = await fetch(
     `${BASE}/rest/v1/sponsors?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
@@ -63,5 +83,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   );
 
   if (!res.ok) return NextResponse.json({ error: "Failed to delete sponsor" }, { status: 500 });
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "sponsor.deleted",
+    entity_type: "sponsor",
+    entity_id: id,
+    campaign_slug: slug,
+    summary: `Deleted sponsor ${id} from ${slug}`,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ ok: true });
 }

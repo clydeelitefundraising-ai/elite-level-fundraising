@@ -27,9 +27,9 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
   if (!notificationId) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const actorFilter: ActorFilter =
-    actor.kind === "coach"
-      ? { kind: "coach", id: actor.session.id }
-      : { kind: "member", id: actor.session.id, role: actor.session.role, athlete_id: actor.session.athlete_id };
+    actor.kind === "coach"          ? { kind: "coach", id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id, role: actor.session.role, athlete_id: actor.session.athlete_id };
 
   const result = await markNotificationSeen(actorFilter, notificationId, teamId);
   if (!result.ok) {

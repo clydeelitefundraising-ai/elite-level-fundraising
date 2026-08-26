@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canManageStaff } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { checkRateLimit, consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import { sendStaffInvite } from "@/lib/email";
 import { resendStaffInvitation } from "@/lib/staffInvite";
@@ -15,7 +15,7 @@ export async function POST(
 ) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
-  if (!canManageStaff(actor) || actor.kind !== "coach" || actor.session.campaign_slug !== slug) {
+  if (!canManageStaff(actor) || (actor.kind !== "coach" && actor.kind !== "platform_admin") || actor.session.campaign_slug !== slug) {
     return NextResponse.json({ error: "Only this team's Head Coach can resend invitations." }, { status: 403 });
   }
 
@@ -54,12 +54,13 @@ export async function POST(
   }
 
   logAuditEvent({
+    actor: toAuditActor(actor),
     action: "staff.invitation_resent",
     entity_type: "team_staff_invitation",
     entity_id: id,
     campaign_slug: slug,
     summary: `Resent invitation to ${result.invitation.email} on ${slug}`,
-    new_value: { acting_head_coach_id: actor.session.id, email_sent: emailSent },
+    new_value: { email_sent: emailSent },
     ip_address: ipOf(req),
     user_agent: req.headers.get("user-agent"),
   });

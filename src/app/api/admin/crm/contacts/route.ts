@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { getContacts, createContact, CRM_STATUSES } from "@/lib/platform/crm";
 import type { CrmStatus } from "@/lib/platform/crm";
 
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "crm.contact_created",
     entity_type: "coach_crm_contact",
     entity_id:   contact.id,

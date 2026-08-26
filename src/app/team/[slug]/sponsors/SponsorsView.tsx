@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import type { SponsorRow } from "@/lib/teamData";
-import type { CoachSession } from "@/lib/teamSession";
-import { coachSession, isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
+import { isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -299,14 +298,17 @@ export default function SponsorsView({
   initialSponsors: SponsorRow[];
   actor: TeamActor;
 }) {
-  const coach = coachSession(actor);
-  // Sponsors CRUD is coach-only (head coach / assistant coach) — boosters,
-  // parents, and athletes get view access but not the management UI, per
-  // the RC-1 permission audit. `staff` still governs "can see the full
-  // list including hidden sponsors + internal contact fields", matching
-  // the API's broader isStaff() gate on GET.
+  // Sponsors CRUD is coach-only (head coach / assistant coach) or a
+  // platform admin acting under their own identity — boosters, parents,
+  // and athletes get view access but not the management UI, per the RC-1
+  // permission audit. `staff` still governs "can see the full list
+  // including hidden sponsors + internal contact fields", matching the
+  // API's broader isStaff() gate on GET. Boolean, not a CoachSession —
+  // coachSession(actor) is null for a platform admin (deliberately, see
+  // permissions.ts), so deriving canManage from it would have hidden this
+  // UI from platform admins despite isCoachOnly(actor) being true for them.
   const staff = isStaff(actor);
-  const canManage = isCoachOnly(actor) ? coach : null;
+  const canManage = isCoachOnly(actor);
   const [sponsors,       setSponsors]       = useState<SponsorRow[]>(initialSponsors);
   const [form,           setForm]           = useState<SponForm>(BLANK);
   const [editing,        setEditing]        = useState<SponsorRow | null>(null);

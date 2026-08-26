@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     : "";
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "export.contacts",
     entity_type:   "export",
     campaign_slug: campaign !== "all" ? campaign : null,

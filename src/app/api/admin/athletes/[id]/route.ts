@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { updateAthlete, deleteAthlete } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update athlete." }, { status: 500 });
   }
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "athlete.updated",
     entity_type: "athlete",
     entity_id:   id,
@@ -39,6 +40,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   await deleteAthlete(id);
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "athlete.deleted",
     entity_type: "athlete",
     entity_id:   id,

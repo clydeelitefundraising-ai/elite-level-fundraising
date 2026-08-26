@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isCoachOnly } from "@/lib/permissions.server";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const VALID_TIERS = ["title", "platinum", "gold", "silver", "bronze", "community_partner"];
@@ -55,6 +56,9 @@ export async function POST(
   const { slug } = await params;
   const actor = await getTeamActor(slug);
   if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const {
     name, url, tier, description, logo_url, visible, display_order,
@@ -92,5 +96,17 @@ export async function POST(
   }
 
   const rows = await res.json();
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "sponsor.created",
+    entity_type: "sponsor",
+    entity_id: rows[0]?.id,
+    campaign_slug: slug,
+    summary: `Added sponsor "${name.trim()}" (${tier}) on ${slug}`,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json(rows[0]);
 }

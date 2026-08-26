@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
+import { platformAdminRoleLabel } from "@/lib/permissions";
 import {
   isParticipant,
   getThreadById,
@@ -28,9 +29,11 @@ export async function POST(
   }
 
   const actorKey: ActorKey =
-    actor.kind === "coach"
-      ? { kind: "coach",  id: actor.session.id }
-      : { kind: "member", id: actor.session.id };
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
+  const actorName = actor.session.name;
+  const actorRole = actor.kind === "platform_admin" ? platformAdminRoleLabel() : actor.session.role;
 
   const [thread, ok] = await Promise.all([
     getThreadById(threadId, slug),
@@ -66,7 +69,7 @@ export async function POST(
     throw err;
   }
 
-  const msg = await insertMessage(threadId, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
+  const msg = await insertMessage(threadId, actorKey, msgBody.trim(), actorName, actorRole);
   if (!msg) {
     return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
   }
@@ -79,7 +82,7 @@ export async function POST(
       const participants = await getThreadParticipants(threadId);
       const senderKey = `${actorKey.kind}:${actorKey.id}`;
       await sendPushToParticipants(slug, participants, senderKey, {
-        title: `New message from ${actor.session.name}`,
+        title: `New message from ${actorName}`,
         body:  msgBody.trim().slice(0, 100),
         url:   `/team/${slug}/messages/${threadId}`,
       });
@@ -97,7 +100,7 @@ export async function POST(
       await createNotification(teamId, {
         type: "message",
         title: "New Message",
-        body: `${actor.session.name} sent you a message`,
+        body: `${actorName} sent you a message`,
         reference_id: threadId,
         reference_url: buildMessageReferenceUrl(slug, threadId, senderKey),
       });
@@ -106,7 +109,7 @@ export async function POST(
         accountIds,
         category: "messages",
         kind: "message",
-        ctx: { actorName: actor.session.name },
+        ctx: { actorName },
         url: `/team/${slug}/messages/${threadId}`,
       });
     } catch (err) {

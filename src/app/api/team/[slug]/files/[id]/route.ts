@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET = "team-files";
@@ -78,20 +79,23 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 }
 
 // ── Delete — head coach only
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only head coaches can delete files." }, { status: 403 });
   }
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Only head coaches can delete files." }, { status: 403 });
+  }
 
   // Fetch storage path
   const rowRes = await fetch(
-    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path`,
+    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,name`,
     { headers: h() },
   );
   if (!rowRes.ok) return NextResponse.json({ error: "File not found." }, { status: 404 });
-  const rows: { storage_path: string }[] = await rowRes.json();
+  const rows: { storage_path: string; name: string }[] = await rowRes.json();
   if (!rows.length) return NextResponse.json({ error: "File not found." }, { status: 404 });
 
   // Delete DB row FIRST. Phase 7: attachment_id on clearance_resources uses
@@ -125,6 +129,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     method: "DELETE",
     headers: h(),
     body: JSON.stringify({ prefixes: [rows[0].storage_path] }),
+  });
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "file.deleted",
+    entity_type: "team_file",
+    entity_id: id,
+    campaign_slug: slug,
+    summary: `Deleted file "${rows[0].name}" from ${slug}`,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
   });
 
   return NextResponse.json({ ok: true });

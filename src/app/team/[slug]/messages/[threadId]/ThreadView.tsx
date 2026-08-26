@@ -103,7 +103,7 @@ export default function ThreadView({
   thread: MessageThread;
   participants: ResolvedParticipant[];
   initialMessages: ResolvedMessage[];
-  actorKind: "coach" | "member";
+  actorKind: "coach" | "member" | "platform_admin";
   actorId: string;
   actorName: string;
   primaryColor: string;
@@ -131,10 +131,14 @@ export default function ThreadView({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  const others = otherParticipants(participants, actorKind, actorId);
+  // otherParticipants/conversationDisplayName only know "coach"|"member" —
+  // same cast pattern already used at MessagesView.tsx:37-38 for the same
+  // reason. A platform admin isn't a participant in any existing thread,
+  // so this is display-only and changes nothing observable.
+  const others = otherParticipants(participants, actorKind as "coach" | "member", actorId);
   const observers = observerParticipants(participants);
   const family = isFamilyThread(participants);
-  const displayName = conversationDisplayName(participants, actorKind, actorId);
+  const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
 
   const handleSend = useCallback(async () => {
@@ -142,13 +146,14 @@ export default function ThreadView({
     setSending(true);
     setError("");
 
-    // Optimistic
+    // Optimistic — replaced by the real row once the POST resolves.
     const optimistic: ResolvedMessage = {
       id:               `opt-${Date.now()}`,
       thread_id:        thread.id,
       sender_type:      actorKind,
-      sender_coach_id:  actorKind === "coach"  ? actorId : null,
-      sender_member_id: actorKind === "member" ? actorId : null,
+      sender_coach_id:          actorKind === "coach"          ? actorId : null,
+      sender_member_id:         actorKind === "member"         ? actorId : null,
+      sender_platform_admin_id: actorKind === "platform_admin" ? actorId : null,
       body:             replyBody.trim(),
       created_at:       new Date().toISOString(),
       sender_name:      actorName,

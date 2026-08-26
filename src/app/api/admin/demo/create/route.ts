@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 import { DEMO_TEMPLATES, DemoTemplate } from "@/lib/demoTemplates";
 
 export const dynamic = "force-dynamic";
@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
   await seedDemoData(slug, template);
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:       "demo.created",
     entity_type:  "campaign",
     entity_id:    slug,

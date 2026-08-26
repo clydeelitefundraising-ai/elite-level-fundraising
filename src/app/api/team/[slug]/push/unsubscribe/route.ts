@@ -27,9 +27,12 @@ export async function DELETE(
   // subscribe/route.ts's insert, which links every row to either the
   // subscribing member or coach. Without this, any authenticated user on
   // the team could unsubscribe any other user's device by endpoint alone.
+  // WHERE-filter only, not an insert — no FK/CHECK risk. A platform admin
+  // has no push_subscriptions row under either column, so falling into the
+  // coach_id branch with their platformAdminId is a harmless no-op delete.
   const ownerFilter = actor.kind === "member"
     ? `member_id=eq.${encodeURIComponent(actor.session.id)}`
-    : `coach_id=eq.${encodeURIComponent(actor.session.id)}`;
+    : `coach_id=eq.${encodeURIComponent(actor.kind === "coach" ? actor.session.id : actor.session.platformAdminId)}`;
 
   await fetch(
     `${BASE}/rest/v1/push_subscriptions?campaign_slug=eq.${encodeURIComponent(slug)}&endpoint=eq.${encodeURIComponent(endpoint)}&${ownerFilter}`,

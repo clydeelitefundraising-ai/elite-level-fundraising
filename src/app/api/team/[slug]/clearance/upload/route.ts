@@ -12,7 +12,13 @@ type RouteContext = { params: Promise<{ slug: string }> };
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
-  if (actor.kind !== "coach" || !isHeadCoach(actor)) {
+  if (!isHeadCoach(actor)) {
+    return NextResponse.json({ error: "Only this team's Head Coach can upload Clearance attachments." }, { status: 403 });
+  }
+  // isHeadCoach is true only for "coach" (role=head_coach) or
+  // "platform_admin" — TypeScript can't infer that through the function
+  // boundary.
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
     return NextResponse.json({ error: "Only this team's Head Coach can upload Clearance attachments." }, { status: 403 });
   }
 
@@ -26,7 +32,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
   if (!file) return NextResponse.json({ error: "No file provided." }, { status: 400 });
 
-  const result = await uploadTeamFile(slug, file, actor.session.name, actor.session.id);
+  const result = await uploadTeamFile(
+    slug,
+    file,
+    actor.session.name,
+    actor.kind === "coach" ? actor.session.id : null,
+    actor.kind === "platform_admin" ? actor.session.platformAdminId : null,
+  );
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ ok: true, file: result.file });
 }

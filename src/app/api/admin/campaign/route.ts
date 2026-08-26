@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { getCampaignSettings, updateCampaignSettings } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -41,6 +41,7 @@ export async function PUT(req: NextRequest) {
       ? (archived ? "campaign.archived" : "campaign.restored")
       : "campaign.updated";
     logAuditEvent({
+      actor: ADMIN_TOOL_ACTOR,
       action:        auditAction,
       entity_type:   "campaign",
       entity_id:     slug,

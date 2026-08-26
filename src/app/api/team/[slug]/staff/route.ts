@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff, canManageStaff } from "@/lib/permissions";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { checkRateLimit, consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import {
   listTeamCoaches,
@@ -44,7 +44,7 @@ export async function POST(
 ) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
-  if (!canManageStaff(actor) || actor.kind !== "coach" || actor.session.campaign_slug !== slug) {
+  if (!canManageStaff(actor) || (actor.kind !== "coach" && actor.kind !== "platform_admin") || actor.session.campaign_slug !== slug) {
     return NextResponse.json({ error: "Only this team's Head Coach can manage staff." }, { status: 403 });
   }
 
@@ -72,12 +72,13 @@ export async function POST(
 
     if (!result.alreadyAssigned) {
       logAuditEvent({
+        actor: toAuditActor(actor),
         action: "staff.existing_account_assigned",
         entity_type: "team_coach",
         entity_id: result.staff.id,
         campaign_slug: slug,
         summary: `Added existing account as ${role} on ${slug}`,
-        new_value: { role, method: "existing_account", target_account_id: account_id.trim(), acting_head_coach_id: actor.session.id },
+        new_value: { role, method: "existing_account", target_account_id: account_id.trim() },
         ip_address: ipOf(req),
         user_agent: req.headers.get("user-agent"),
       });
@@ -98,12 +99,13 @@ export async function POST(
     await consumeRateLimit(key, CREATE_LIMIT);
 
     logAuditEvent({
+      actor: toAuditActor(actor),
       action: "staff.account_created",
       entity_type: "team_coach",
       entity_id: result.staff.id,
       campaign_slug: slug,
       summary: `Created ${role} account for ${normalizeEmail(email)} on ${slug}`,
-      new_value: { role, method: "temporary_password", email: normalizeEmail(email), acting_head_coach_id: actor.session.id },
+      new_value: { role, method: "temporary_password", email: normalizeEmail(email) },
       ip_address: ipOf(req),
       user_agent: req.headers.get("user-agent"),
     });

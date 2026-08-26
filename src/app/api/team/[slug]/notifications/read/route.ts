@@ -21,19 +21,23 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   const teamId = await getTeamIdBySlug(slug);
   if (!teamId) return NextResponse.json({ error: "team not found" }, { status: 404 });
 
-  // ── Coach path ────────────────────────────────────────────────────────────
-  if (actor.kind === "coach") {
+  // ── Coach / platform admin path ─────────────────────────────────────────────
+  // Platform admin mirrors the coach path exactly: single-id mark-seen only,
+  // no "mark all" — same MVP rationale (no bell UI drives that action for
+  // either), writing to its own notification_platform_admin_reads table
+  // (phase_a30) rather than a shared one.
+  if (actor.kind === "coach" || actor.kind === "platform_admin") {
     if (typeof body.id === "string" && body.id) {
       // Phase 9: routed through the canonical markNotificationSeen, which
       // verifies the notification actually belongs to this team before
       // writing (previously this trusted body.id with no team check — a
       // Team A coach could write a junk read against a guessed Team B
       // notification id).
-      const actorFilter: ActorFilter = { kind: "coach", id: actor.session.id };
+      const actorFilter: ActorFilter = actor.kind === "coach"
+        ? { kind: "coach", id: actor.session.id }
+        : { kind: "platform_admin", id: actor.session.platformAdminId };
       await markNotificationSeen(actorFilter, body.id, teamId);
     }
-    // markAll for coaches: mark each visible notification — skip for MVP
-    // (coaches don't have a bell so "mark all" is low priority)
     return NextResponse.json({ ok: true });
   }
 

@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
   const result = await processQueue();
 
   logAudit({
+    actor:   { type: "system", note: "scheduled_notification_queue_job" },
     action:  "notifications.process_queue",
     summary: `Notification queue processed: ${result.processed} processed, ${result.sent} sent, ${result.failed} failed (${result.durationMs}ms)`,
     new_value:  result,

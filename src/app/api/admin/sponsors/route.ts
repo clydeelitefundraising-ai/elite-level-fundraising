@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { getSponsors, addSponsor } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 const DEFAULT_SLUG = "paradise-valley-track-field-live";
 
@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   }
   const sponsor = await addSponsor({ campaign_slug: slug, name: name.trim(), url: url.trim(), tier });
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "sponsor.added",
     entity_type:   "sponsor",
     entity_id:     sponsor?.id ?? undefined,

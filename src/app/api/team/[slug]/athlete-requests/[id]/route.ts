@@ -3,7 +3,7 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession } from "@/lib/accountSession";
 import { approveRequest, declineRequest } from "@/lib/platform/athleteRequests";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 type RouteCtx = { params: Promise<{ slug: string; id: string }> };
 
@@ -25,6 +25,12 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (!isHeadCoach(actor) || !account) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // isHeadCoach is true only for "coach" (role=head_coach) or
+  // "platform_admin" — TypeScript can't infer that through the function
+  // boundary; narrows explicitly for toAuditActor() below.
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body || (body.action !== "approve" && body.action !== "decline")) {
@@ -43,6 +49,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
       return NextResponse.json({ error: "Failed to decline this request. Please try again." }, { status: 500 });
     }
     logAuditEvent({
+      actor:         toAuditActor(actor),
       action:        "athlete_request.declined",
       entity_type:   "pending_athlete_request",
       entity_id:     id,
@@ -94,6 +101,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   }
 
   logAuditEvent({
+    actor:         toAuditActor(actor),
     action:        "athlete_request.approved",
     entity_type:   "pending_athlete_request",
     entity_id:     id,

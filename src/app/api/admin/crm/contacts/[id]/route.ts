@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { getContact, updateContact, CRM_STATUSES } from "@/lib/platform/crm";
 import type { UpdateContactInput } from "@/lib/platform/crm";
 
@@ -55,6 +55,7 @@ export async function PATCH(
   }
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "crm.contact_updated",
     entity_type:   "coach_crm_contact",
     entity_id:     id,

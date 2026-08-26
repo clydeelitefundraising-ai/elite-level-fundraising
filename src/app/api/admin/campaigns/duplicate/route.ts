@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +228,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "campaign.duplicated",
     entity_type:   "campaign",
     entity_id:     slug,

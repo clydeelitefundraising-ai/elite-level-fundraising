@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -108,6 +108,7 @@ export async function DELETE(
   }
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "coach.removed",
     entity_type:   "coach",
     entity_id:     id,

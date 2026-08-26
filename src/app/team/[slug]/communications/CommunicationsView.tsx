@@ -34,7 +34,7 @@ export default function CommunicationsView({
   actor: TeamActor;
   athletes: { id: string; name: string }[];
   initialThreads: ThreadWithDetails[];
-  actorKind: "coach" | "member" | null;
+  actorKind: "coach" | "member" | "platform_admin" | null;
   actorId: string | null;
   actorName: string | null;
   isStaff: boolean;
@@ -142,7 +142,11 @@ export default function CommunicationsView({
           <MessagesView
             slug={slug}
             initialThreads={initialThreads}
-            actorKind={actorKind}
+            // MessagesView's self-participant filtering only knows
+            // "coach"|"member" — a platform admin isn't a participant in
+            // any existing thread, so this coercion is display-only and
+            // changes nothing observable (no threads to mis-filter yet).
+            actorKind={actorKind === "platform_admin" ? "coach" : actorKind}
             actorId={actorId!}
             actorName={actorName!}
             isStaff={isStaff}

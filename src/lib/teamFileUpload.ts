@@ -26,6 +26,7 @@ export type TeamFileRow = {
   size_bytes: number;
   uploaded_by: string;
   coach_id: string | null;
+  uploaded_by_platform_admin_id: string | null;
   created_at: string;
 };
 
@@ -38,6 +39,7 @@ export async function uploadTeamFile(
   file: File,
   uploadedBy: string,
   coachId: string | null,
+  platformAdminId: string | null = null,
 ): Promise<UploadTeamFileResult> {
   if (!TEAM_FILES_ALLOWED_MIME[file.type]) {
     return { ok: false, error: "File type not allowed. Use PDF, PNG, JPG, DOC, or DOCX.", status: 400 };
@@ -72,6 +74,7 @@ export async function uploadTeamFile(
       size_bytes:    file.size,
       uploaded_by:   uploadedBy,
       coach_id:      coachId,
+      uploaded_by_platform_admin_id: platformAdminId,
     }),
   });
   if (!metaRes.ok) {

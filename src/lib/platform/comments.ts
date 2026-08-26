@@ -24,31 +24,34 @@
 import { restList, restInsert, restUpdate, restDelete } from "./_client";
 import {
   resolvePhotoUrl, fetchHeadCoaches,
-  type ActorKey, type RawCoachInfo, type RawMemberInfo,
+  type ActorKey, type RawCoachInfo, type RawMemberInfo, type RawPlatformAdminInfo,
 } from "@/lib/messages";
 
 export type CommentStatus = "pending" | "approved" | "declined";
 
 export type AnnouncementCommentRow = {
-  id:                  string;
-  campaign_slug:       string;
-  announcement_id:     string;
-  author_type:         "coach" | "member";
-  author_coach_id:     string | null;
-  author_member_id:    string | null;
-  author_name:         string;
-  author_role:         string;
-  body:                string;
-  status:              CommentStatus;
-  decided_by_coach_id: string | null;
-  decided_at:          string | null;
-  created_at:          string;
-  updated_at:          string;
+  id:                            string;
+  campaign_slug:                 string;
+  announcement_id:               string;
+  author_type:                   "coach" | "member" | "platform_admin";
+  author_coach_id:               string | null;
+  author_member_id:              string | null;
+  author_platform_admin_id:      string | null;
+  author_name:                   string;
+  author_role:                   string;
+  body:                          string;
+  status:                        CommentStatus;
+  decided_by_coach_id:           string | null;
+  decided_by_platform_admin_id:  string | null;
+  decided_at:                    string | null;
+  created_at:                    string;
+  updated_at:                    string;
 };
 
 type RawComment = AnnouncementCommentRow & {
-  team_coaches:  RawCoachInfo  | null;
-  team_members:  RawMemberInfo | null;
+  team_coaches:     RawCoachInfo         | null;
+  team_members:     RawMemberInfo        | null;
+  platform_admins:  RawPlatformAdminInfo | null;
 };
 
 export type ResolvedComment = {
@@ -69,9 +72,11 @@ export type PendingCommentApproval = Omit<ResolvedComment, "is_own"> & {
 
 const COACH_INFO_SELECT  = "name,role,elf_accounts!account_id(profile_photo_url)";
 const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
+const PLATFORM_ADMIN_INFO_SELECT = "elf_accounts!account_id(name,profile_photo_url)";
 const COMMENT_SELECT =
-  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,author_name,author_role,body,status,decided_by_coach_id,decided_at,created_at,updated_at," +
-  `team_coaches!author_coach_id(${COACH_INFO_SELECT}),team_members!author_member_id(${MEMBER_INFO_SELECT})`;
+  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,author_platform_admin_id,author_name,author_role,body,status,decided_by_coach_id,decided_by_platform_admin_id,decided_at,created_at,updated_at," +
+  `team_coaches!author_coach_id(${COACH_INFO_SELECT}),team_members!author_member_id(${MEMBER_INFO_SELECT}),` +
+  `platform_admins!author_platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`;
 
 // author_name/author_role come from the stored snapshot — the durable,
 // authoritative display identity — NEVER from the live team_coaches/
@@ -87,13 +92,18 @@ function resolveDisplay(raw: RawComment): Omit<ResolvedComment, "is_own"> {
     created_at:       raw.created_at,
     author_name:      raw.author_name,
     author_role:      raw.author_role,
-    author_photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members),
+    author_photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members, raw.platform_admins),
   };
 }
 
-function isOwnComment(raw: { author_type: "coach" | "member"; author_coach_id: string | null; author_member_id: string | null }, actor: ActorKey): boolean {
-  return raw.author_type === actor.kind &&
-    (actor.kind === "coach" ? raw.author_coach_id === actor.id : raw.author_member_id === actor.id);
+function isOwnComment(
+  raw: { author_type: "coach" | "member" | "platform_admin"; author_coach_id: string | null; author_member_id: string | null; author_platform_admin_id: string | null },
+  actor: ActorKey,
+): boolean {
+  if (raw.author_type !== actor.kind) return false;
+  if (actor.kind === "coach")  return raw.author_coach_id === actor.id;
+  if (actor.kind === "member") return raw.author_member_id === actor.id;
+  return raw.author_platform_admin_id === actor.id;
 }
 
 // Confirms an announcement exists AND belongs to the given campaign —
@@ -153,17 +163,19 @@ export async function createComment(input: {
   const now = input.isHeadCoachAuthor ? new Date().toISOString() : null;
 
   const payload: Record<string, unknown> = {
-    campaign_slug:       input.campaignSlug,
-    announcement_id:     input.announcementId,
-    author_type:         input.actor.kind,
-    author_coach_id:     input.actor.kind === "coach"  ? input.actor.id : null,
-    author_member_id:    input.actor.kind === "member" ? input.actor.id : null,
-    author_name:         input.authorName,
-    author_role:         input.authorRole,
+    campaign_slug:               input.campaignSlug,
+    announcement_id:             input.announcementId,
+    author_type:                 input.actor.kind,
+    author_coach_id:             input.actor.kind === "coach"          ? input.actor.id : null,
+    author_member_id:            input.actor.kind === "member"         ? input.actor.id : null,
+    author_platform_admin_id:    input.actor.kind === "platform_admin" ? input.actor.id : null,
+    author_name:                 input.authorName,
+    author_role:                 input.authorRole,
     body,
-    status:              input.isHeadCoachAuthor ? "approved" : "pending",
-    decided_by_coach_id: input.isHeadCoachAuthor ? input.actor.id : null,
-    decided_at:          now,
+    status:                      input.isHeadCoachAuthor ? "approved" : "pending",
+    decided_by_coach_id:          input.isHeadCoachAuthor && input.actor.kind === "coach"          ? input.actor.id : null,
+    decided_by_platform_admin_id: input.isHeadCoachAuthor && input.actor.kind === "platform_admin" ? input.actor.id : null,
+    decided_at:                  now,
   };
 
   const rows = await restInsert<RawComment>(`announcement_comments?select=${COMMENT_SELECT}`, payload);
@@ -223,18 +235,22 @@ export type DecideCommentResult =
 // concurrent approve/decline attempts on the same comment can ever match
 // this WHERE clause and return a row; the other affects 0 rows and is
 // reported as already_decided, never silently double-applied.
+// decidedBy is either a coach or platform admin — both are Head-Coach-
+// equivalent moderators for this campaign (route.ts enforces isHeadCoach()
+// before ever calling this); a member/booster can never reach here.
 async function decide(
-  commentId:         string,
-  campaignSlug:      string,
-  decidedByCoachId:  string,
-  status:            "approved" | "declined",
+  commentId:    string,
+  campaignSlug: string,
+  decidedBy:    Extract<ActorKey, { kind: "coach" | "platform_admin" }>,
+  status:       "approved" | "declined",
 ): Promise<DecideCommentResult> {
   const rows = await restUpdate<AnnouncementCommentRow>(
     `announcement_comments?id=eq.${encodeURIComponent(commentId)}` +
     `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&status=eq.pending`,
     {
       status,
-      decided_by_coach_id: decidedByCoachId,
+      decided_by_coach_id:          decidedBy.kind === "coach"          ? decidedBy.id : null,
+      decided_by_platform_admin_id: decidedBy.kind === "platform_admin" ? decidedBy.id : null,
       decided_at:          new Date().toISOString(),
       updated_at:          new Date().toISOString(),
     },
@@ -249,12 +265,16 @@ async function decide(
   return { ok: true, comment: { id: rows[0].id, status: rows[0].status } };
 }
 
-export function approveComment(commentId: string, campaignSlug: string, decidedByCoachId: string): Promise<DecideCommentResult> {
-  return decide(commentId, campaignSlug, decidedByCoachId, "approved");
+export function approveComment(
+  commentId: string, campaignSlug: string, decidedBy: Extract<ActorKey, { kind: "coach" | "platform_admin" }>,
+): Promise<DecideCommentResult> {
+  return decide(commentId, campaignSlug, decidedBy, "approved");
 }
 
-export function declineComment(commentId: string, campaignSlug: string, decidedByCoachId: string): Promise<DecideCommentResult> {
-  return decide(commentId, campaignSlug, decidedByCoachId, "declined");
+export function declineComment(
+  commentId: string, campaignSlug: string, decidedBy: Extract<ActorKey, { kind: "coach" | "platform_admin" }>,
+): Promise<DecideCommentResult> {
+  return decide(commentId, campaignSlug, decidedBy, "declined");
 }
 
 export type DeleteCommentResult =
@@ -299,7 +319,7 @@ export async function notifyHeadCoachesOfPendingComment(
   if (!headCoaches.length) return;
   await sendPushToParticipants(
     campaignSlug,
-    headCoaches.map(hc => ({ actor_type: "coach" as const, coach_id: hc.id, member_id: null })),
+    headCoaches.map(hc => ({ actor_type: "coach" as const, coach_id: hc.id, member_id: null, platform_admin_id: null })),
     "", // no sender to exclude — this isn't a reply-to-self case
     {
       title: "New comment awaiting approval",

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { updateSponsor, deleteSponsor } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 async function authed(): Promise<boolean> {
   const store = await cookies();
@@ -15,6 +15,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { name, url, tier } = await req.json();
   await updateSponsor(id, { name, url, tier });
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "sponsor.updated",
     entity_type: "sponsor",
     entity_id:   id,
@@ -31,6 +32,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
   await deleteSponsor(id);
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "sponsor.deleted",
     entity_type: "sponsor",
     entity_id:   id,

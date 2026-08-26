@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
-import { isHeadCoach } from "@/lib/permissions";
+import { isHeadCoach, platformAdminRoleLabel } from "@/lib/permissions";
 import type { ActorKey } from "@/lib/messages";
 import {
   createComment, getVisibleComments, notifyHeadCoachesOfPendingComment,
@@ -21,9 +21,10 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const actorKey: ActorKey = actor.kind === "coach"
-    ? { kind: "coach",  id: actor.session.id }
-    : { kind: "member", id: actor.session.id };
+  const actorKey: ActorKey =
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
   const headCoach = isHeadCoach(actor);
 
   const comments = await getVisibleComments(id, slug, actorKey, headCoach);
@@ -42,9 +43,10 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "body is required" }, { status: 400 });
   }
 
-  const actorKey: ActorKey = actor.kind === "coach"
-    ? { kind: "coach",  id: actor.session.id }
-    : { kind: "member", id: actor.session.id };
+  const actorKey: ActorKey =
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
   const headCoach = isHeadCoach(actor);
 
   // author_name/author_role are the durable snapshot identity (see the
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     actor:             actorKey,
     isHeadCoachAuthor: headCoach,
     authorName:        actor.session.name,
-    authorRole:        actor.session.role,
+    authorRole:        actor.kind === "platform_admin" ? platformAdminRoleLabel() : actor.session.role,
     body:              body.body,
   });
 

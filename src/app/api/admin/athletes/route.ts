@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { getAthletes } from "@/lib/supabase";
 import { createAthlete } from "@/lib/platform/athletes";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 const DEFAULT_SLUG = "paradise-valley-track-field-live";
 
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
   const athlete = result.athlete;
   const eventValue = event?.trim() || null;
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "athlete.added",
     entity_type:   "athlete",
     entity_id:     athlete?.id ?? undefined,

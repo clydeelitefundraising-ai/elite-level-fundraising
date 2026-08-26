@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
   const result = await runAutomationJob("scheduled", { source: "api_jobs_automation" });
 
   logAudit({
+    actor:   { type: "system", note: "scheduled_automation_job" },
     action:  "automation.run",
     summary: result.status === "succeeded"
       ? `Scheduled automation run: ${result.rulesEvaluated} rules evaluated, ${result.eventsCreated} created, ${result.eventsResolved} resolved (${result.durationMs}ms)`

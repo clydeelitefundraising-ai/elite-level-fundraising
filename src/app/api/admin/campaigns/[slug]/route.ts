@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -244,6 +244,7 @@ export async function DELETE(req: NextRequest, { params }: RouteCtx) {
   }
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "campaign.permanently_deleted",
     entity_type:   "campaign",
     entity_id:     slug,

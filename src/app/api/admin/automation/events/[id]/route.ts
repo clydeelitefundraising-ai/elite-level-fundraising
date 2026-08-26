@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { resolveEvent, acknowledgeEvent } from "@/lib/platform/automation";
 
 async function authed(): Promise<boolean> {
@@ -33,6 +33,7 @@ export async function PATCH(
   if (!event) return NextResponse.json({ error: "Event not found." }, { status: 404 });
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:        `automation.event_${status}`,
     entity_type:   "automation_event",
     entity_id:     id,

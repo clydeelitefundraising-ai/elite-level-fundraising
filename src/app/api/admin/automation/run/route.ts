@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { runAutomationJob } from "@/lib/platform/jobs";
 
 async function authed(): Promise<boolean> {
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   const result = await runAutomationJob("manual", { source: "admin_dashboard" });
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:  "automation.run",
     summary: result.status === "succeeded"
       ? `Automation run: ${result.rulesEvaluated} rules evaluated, ${result.eventsCreated} created, ${result.eventsResolved} resolved (${result.durationMs}ms)`

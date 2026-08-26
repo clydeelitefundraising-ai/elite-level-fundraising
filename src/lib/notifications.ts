@@ -48,7 +48,8 @@ export type MemberActorFilter = {
   athlete_id: string | null;
 };
 export type CoachActorFilter = { kind: "coach"; id: string };
-export type ActorFilter = MemberActorFilter | CoachActorFilter | null;
+export type PlatformAdminActorFilter = { kind: "platform_admin"; id: string };
+export type ActorFilter = MemberActorFilter | CoachActorFilter | PlatformAdminActorFilter | null;
 
 // ── Team identity lookup ───────────────────────────────────────────────────────
 
@@ -413,6 +414,10 @@ export async function markNotificationSeen(
     await markNotificationReadCoach(notificationId, actor.id);
     return { ok: true };
   }
+  if (actor.kind === "platform_admin") {
+    await markNotificationReadPlatformAdmin(notificationId, actor.id);
+    return { ok: true };
+  }
   return markNotificationRead(notificationId, actor.id);
 }
 
@@ -429,6 +434,28 @@ export async function markNotificationReadCoach(
         notification_id: notificationId,
         coach_id:        coachId,
         read_at:         new Date().toISOString(),
+      }),
+    },
+  );
+}
+
+// Own table (notification_platform_admin_reads, phase_a30) rather than a
+// third column on notification_coach_reads/notification_reads — mirrors
+// the existing coach/member split exactly and leaves those two tables
+// completely untouched.
+export async function markNotificationReadPlatformAdmin(
+  notificationId: string,
+  platformAdminId: string,
+): Promise<void> {
+  await fetch(
+    `${BASE}/rest/v1/notification_platform_admin_reads?on_conflict=notification_id,platform_admin_id`,
+    {
+      method:  "POST",
+      headers: h({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body:    JSON.stringify({
+        notification_id:   notificationId,
+        platform_admin_id: platformAdminId,
+        read_at:           new Date().toISOString(),
       }),
     },
   );

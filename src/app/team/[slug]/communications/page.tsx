@@ -24,9 +24,10 @@ export default async function CommunicationsPage({
     getTeamAthletes(slug),
   ]);
 
-  const actorKey: ActorKey = actor.kind === "coach"
-    ? { kind: "coach", id: actor.session.id }
-    : { kind: "member", id: actor.session.id };
+  const actorKey: ActorKey =
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
   const threads = await getThreadsForActor(slug, actorKey);
 
   return (

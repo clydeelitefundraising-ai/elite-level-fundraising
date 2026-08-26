@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 import { getCampaignSettings } from "@/lib/supabase";
 import { sendCoachWelcome } from "@/lib/email";
 
@@ -168,6 +168,7 @@ export async function POST(req: NextRequest) {
   })();
 
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "coach.added",
     entity_type:   "coach",
     entity_id:     coach.id as string,

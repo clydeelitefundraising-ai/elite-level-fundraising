@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { getDemoRequest } from "@/lib/platform/marketingDemoRequests";
 import { getContactByDemoRequestId, createContact, createActivity } from "@/lib/platform/crm";
 import { RestError } from "@/lib/platform/_client";
@@ -80,6 +80,7 @@ export async function POST(
   });
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:       "crm.contact_converted_from_demo_request",
     entity_type:  "coach_crm_contact",
     entity_id:    contact.id,

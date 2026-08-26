@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
+import { platformAdminRoleLabel } from "@/lib/permissions";
 import {
   getThreadsForActor,
   insertParticipants,
@@ -79,9 +80,9 @@ export async function GET(
   }
 
   const actorKey: ActorKey =
-    actor.kind === "coach"
-      ? { kind: "coach",  id: actor.session.id }
-      : { kind: "member", id: actor.session.id };
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
 
   const threads = await getThreadsForActor(slug, actorKey);
   return NextResponse.json(threads);
@@ -119,9 +120,11 @@ export async function POST(
   }
 
   const actorKey: ActorKey =
-    actor.kind === "coach"
-      ? { kind: "coach",  id: actor.session.id }
-      : { kind: "member", id: actor.session.id };
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
+  const actorName = actor.session.name;
+  const actorRole = actor.kind === "platform_admin" ? platformAdminRoleLabel() : actor.session.role;
 
   // Validate recipient exists in this campaign.
   const recipientCoach = recipient_actor_type === "coach"
@@ -139,7 +142,7 @@ export async function POST(
   const participants: Omit<ParticipantInsert, "thread_id">[] = [];
 
   function addParticipant(
-    actor_type: "coach" | "member",
+    actor_type: "coach" | "member" | "platform_admin",
     id: string,
     is_auto_included: boolean,
     is_observer: boolean,
@@ -149,8 +152,9 @@ export async function POST(
     seen.add(key);
     participants.push({
       actor_type,
-      coach_id:   actor_type === "coach"  ? id : null,
-      member_id:  actor_type === "member" ? id : null,
+      coach_id:          actor_type === "coach"          ? id : null,
+      member_id:         actor_type === "member"         ? id : null,
+      platform_admin_id: actor_type === "platform_admin" ? id : null,
       is_auto_included,
       is_observer,
     });
@@ -194,7 +198,12 @@ export async function POST(
       ? ["athlete", "parent"].includes(recipientMember?.role ?? "")
       : true;
   });
-  const actorIsHeadCoach = actor.kind === "coach" && actor.session.role === "head_coach";
+  // A platform admin carries head-coach-equivalent authority under their
+  // own identity — their threads don't need Head Coach oversight added any
+  // more than a real head coach's own threads do.
+  const actorIsHeadCoach =
+    (actor.kind === "coach" && actor.session.role === "head_coach") ||
+    actor.kind === "platform_admin";
   const needsOversight = hasAthleteOrParent || !actorIsHeadCoach;
   const headCoaches = needsOversight ? await fetchHeadCoaches(slug) : [];
 
@@ -203,7 +212,7 @@ export async function POST(
   // + resolved family) — oversight hasn't been added yet, so observers
   // are excluded from the identity check by construction, not by a filter.
   const desiredNonObserver: ParticipantRef[] = participants.map(p => ({
-    actor_type: p.actor_type, coach_id: p.coach_id, member_id: p.member_id,
+    actor_type: p.actor_type, coach_id: p.coach_id, member_id: p.member_id, platform_admin_id: p.platform_admin_id,
   }));
   const existingThread = await findCanonicalExistingThread(slug, actorKey, desiredNonObserver);
 
@@ -222,7 +231,7 @@ export async function POST(
       return NextResponse.json({ error: "Unable to send message right now. Please try again." }, { status: 500 });
     }
 
-    const msg = await insertMessage(existingThread.id, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
+    const msg = await insertMessage(existingThread.id, actorKey, msgBody.trim(), actorName, actorRole);
     if (!msg) {
       return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
     }
@@ -233,13 +242,13 @@ export async function POST(
         const currentParticipants = await getThreadParticipants(existingThread.id);
         const senderKey = `${actorKey.kind}:${actorKey.id}`;
         await sendPushToParticipants(slug, currentParticipants, senderKey, {
-          title: `New message from ${actor.session.name}`,
+          title: `New message from ${actorName}`,
           body:  msgBody.trim().slice(0, 100),
           url:   `/team/${slug}/messages/${existingThread.id}`,
         });
       } catch {}
     })();
-    notifyNewMessage(slug, existingThread.id, `${actorKey.kind}:${actorKey.id}`, actor.session.name);
+    notifyNewMessage(slug, existingThread.id, `${actorKey.kind}:${actorKey.id}`, actorName);
 
     return NextResponse.json({ thread_id: existingThread.id, ...existingThread, reused: true }, { status: 200 });
   }
@@ -252,15 +261,16 @@ export async function POST(
     method:  "POST",
     headers: h({ Prefer: "return=representation" }),
     body:    JSON.stringify({
-      campaign_slug:        slug,
-      subject:              null,
-      created_by_type:      actorKey.kind,
-      created_by_coach_id:  actorKey.kind === "coach"  ? actorKey.id : null,
-      created_by_member_id: actorKey.kind === "member" ? actorKey.id : null,
+      campaign_slug:                 slug,
+      subject:                       null,
+      created_by_type:               actorKey.kind,
+      created_by_coach_id:           actorKey.kind === "coach"          ? actorKey.id : null,
+      created_by_member_id:          actorKey.kind === "member"         ? actorKey.id : null,
+      created_by_platform_admin_id:  actorKey.kind === "platform_admin" ? actorKey.id : null,
       // Durable snapshot (Phase 3C) — resolved server-side from the
       // session, never from client input.
-      creator_name:         actor.session.name,
-      creator_role:         actor.session.role,
+      creator_name:         actorName,
+      creator_role:         actorRole,
       last_message_preview: msgBody.trim().slice(0, 80),
     }),
   });
@@ -288,7 +298,7 @@ export async function POST(
   }
 
   // Insert first message
-  const msg = await insertMessage(thread.id, actorKey, msgBody.trim(), actor.session.name, actor.session.role);
+  const msg = await insertMessage(thread.id, actorKey, msgBody.trim(), actorName, actorRole);
   if (!msg) {
     return NextResponse.json({ error: "Thread created but message failed." }, { status: 500 });
   }
@@ -298,13 +308,13 @@ export async function POST(
   void (async () => {
     try {
       await sendPushToParticipants(slug, ptInserts, senderKey, {
-        title: `New message from ${actor.session.name}`,
+        title: `New message from ${actorName}`,
         body:  msgBody.trim().slice(0, 100),
         url:   `/team/${slug}/messages/${thread.id}`,
       });
     } catch {}
   })();
-  notifyNewMessage(slug, thread.id, senderKey, actor.session.name);
+  notifyNewMessage(slug, thread.id, senderKey, actorName);
 
   return NextResponse.json({ thread_id: thread.id, ...thread }, { status: 201 });
 }

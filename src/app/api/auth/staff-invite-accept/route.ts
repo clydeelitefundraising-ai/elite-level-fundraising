@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAuditEvent({
+    actor: { type: "system", note: "staff_invite_self_accept" },
     action: "staff.invitation_accepted",
     entity_type: "team_staff_invitation",
     campaign_slug: result.campaignSlug,

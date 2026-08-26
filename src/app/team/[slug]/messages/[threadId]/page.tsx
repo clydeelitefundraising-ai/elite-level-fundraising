@@ -27,9 +27,9 @@ export default async function ThreadPage({
   if (actor.kind === "public") notFound();
 
   const actorKey: ActorKey =
-    actor.kind === "coach"
-      ? { kind: "coach",  id: actor.session.id }
-      : { kind: "member", id: actor.session.id };
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
 
   const [thread, participants, ok] = await Promise.all([
     getThreadById(threadId, slug),

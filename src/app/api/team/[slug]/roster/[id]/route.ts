@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -47,7 +48,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteContext) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,11 +56,36 @@ export async function DELETE(_req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Only head coaches can delete athletes." }, { status: 403 });
   }
 
+  // isHeadCoach is true only for "coach" (role=head_coach) or
+  // "platform_admin" — TypeScript can't infer that through the function
+  // boundary; narrowed explicitly for toAuditActor() below.
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Only head coaches can delete athletes." }, { status: 403 });
+  }
+
+  // return=representation (rather than minimal) so the deleted athlete's
+  // name is available for the audit summary without a second round trip —
+  // this is a destructive, low-frequency action, worth the one extra field.
   const res = await fetch(
     `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
-    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+    { method: "DELETE", headers: h({ Prefer: "return=representation" }) },
   );
 
   if (!res.ok) return NextResponse.json({ error: "Failed to delete athlete" }, { status: 500 });
+
+  const deleted = await res.json().catch(() => []);
+  const athleteName = Array.isArray(deleted) && deleted[0]?.name ? deleted[0].name : id;
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "athlete.deleted",
+    entity_type: "athlete",
+    entity_id: id,
+    campaign_slug: slug,
+    summary: `Deleted athlete "${athleteName}" from ${slug}`,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ ok: true });
 }

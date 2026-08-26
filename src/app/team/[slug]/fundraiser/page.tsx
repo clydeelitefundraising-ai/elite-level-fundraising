@@ -397,8 +397,10 @@ export default async function FundraiserPage({
     );
   }
 
-  // ── Coach / staff ──
-  if (actor.kind === "coach") {
+  // ── Coach / staff / platform admin ── (read-only analytics view; no
+  // actor-identity fields are used inside this branch, so a platform
+  // admin gets the exact same coach-equivalent view with no special-casing)
+  if (actor.kind === "coach" || actor.kind === "platform_admin") {
     const [athletes, donations, outreachMap, contactCounts] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),

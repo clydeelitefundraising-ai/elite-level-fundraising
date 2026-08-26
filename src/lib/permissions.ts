@@ -17,40 +17,73 @@ const HEAD_COACH_ROLES = new Set(["head_coach"]);
 
 // ── Actor type ────────────────────────────────────────────────────────────────
 
+/** Identity of an authorized ELF employee acting on a team, resolved from
+ *  the `platform_admins` table (see src/lib/platformAdminSession.ts) — never
+ *  from a team_coaches/team_members row. campaign_slug is the team currently
+ *  being managed, not a stored membership; a platform admin has no row in
+ *  team_coaches/team_members for any team. */
+export type PlatformAdminActorSession = {
+  platformAdminId: string;
+  accountId:        string;
+  name:             string;
+  email:            string;
+  campaign_slug:    string;
+};
+
 export type TeamActor =
-  | { kind: "coach";  session: CoachSession  }
-  | { kind: "member"; session: MemberSession }
+  | { kind: "coach";          session: CoachSession }
+  | { kind: "member";         session: MemberSession }
+  | { kind: "platform_admin"; session: PlatformAdminActorSession }
   | { kind: "public" };
 
 // ── Actor-level helpers ───────────────────────────────────────────────────────
 
-/** True for any team staff (head coach, assistant coach, booster…).
+/** True for any team staff (head coach, assistant coach, booster…) plus
+ *  platform admins, who get Head-Coach-equivalent access to every team
+ *  under their own ELF employee identity (see PlatformAdminActorSession).
  *  Boosters who join via team code are members with role="booster" and
  *  receive the same staff access as team_coaches with role="booster". */
 export function isStaff(actor: TeamActor): boolean {
+  if (actor.kind === "platform_admin") return true;
   if (actor.kind === "coach" && STAFF_ROLES.has(actor.session.role)) return true;
   if (actor.kind === "member" && actor.session.role === "booster") return true;
   return false;
 }
 
-/** True only for roles with destructive (delete) access. */
+/** True for roles with destructive (delete) access — the real Head Coach of
+ *  the team, or a platform admin acting under their own identity. */
 export function isHeadCoach(actor: TeamActor): boolean {
+  if (actor.kind === "platform_admin") return true;
   return actor.kind === "coach" && HEAD_COACH_ROLES.has(actor.session.role);
 }
 
-/** True only for coaching staff (head/assistant coach) — excludes boosters.
- *  Use for features where boosters are intentionally view-only, e.g. Sponsors. */
+/** True only for coaching staff (head/assistant coach) or a platform admin —
+ *  excludes boosters. Use for features where boosters are intentionally
+ *  view-only, e.g. Sponsors. */
 export function isCoachOnly(actor: TeamActor): boolean {
+  if (actor.kind === "platform_admin") return true;
   return actor.kind === "coach" && COACH_ONLY_ROLES.has(actor.session.role);
 }
 
-/** True for joined team members (athlete / parent). */
+/** True for joined team members (athlete / parent). Platform admins are
+ *  never members — they hold no team_members row. */
 export function isMember(actor: TeamActor): boolean {
   return actor.kind === "member";
 }
 
-/** Returns the CoachSession if the actor is staff, null otherwise.
- *  Use this to satisfy components typed against CoachSession | null. */
+/** True only for a platform admin (an authorized ELF employee acting on a
+ *  team under their own identity, not a team_coaches/team_members row). */
+export function isPlatformAdmin(actor: TeamActor): boolean {
+  return actor.kind === "platform_admin";
+}
+
+/** Returns the CoachSession if the actor is a real coach, null otherwise.
+ *  Deliberately does NOT synthesize a CoachSession for a platform admin —
+ *  doing so would fake a head_coach identity in session-shaped data, which
+ *  is explicitly disallowed. Call sites typed against CoachSession | null
+ *  must be updated to also check isPlatformAdmin()/isHeadCoach() rather
+ *  than assuming a non-null coachSession() whenever isHeadCoach() is true;
+ *  see the Phase 2 report for the enumerated call sites that need this. */
 export function coachSession(actor: TeamActor): CoachSession | null {
   return actor.kind === "coach" ? actor.session : null;
 }
@@ -75,6 +108,14 @@ export function canManageStaff(actor: TeamActor): boolean {
 /** True if a raw team_coaches role string carries destructive access. */
 export function isHeadCoachRole(role: string): boolean {
   return HEAD_COACH_ROLES.has(role);
+}
+
+/** Display label for a platform admin acting as author/sender/creator —
+ *  platform_admins has no team_coaches-shaped role string to label, so
+ *  this is the single place that decides what shows up in place of
+ *  "Head Coach"/"Asst. Coach" wherever a platform admin authors content. */
+export function platformAdminRoleLabel(): string {
+  return "ELF Admin";
 }
 
 /** Human-readable display label for any team_coaches role string.

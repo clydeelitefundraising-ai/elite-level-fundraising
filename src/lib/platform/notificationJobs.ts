@@ -52,6 +52,7 @@ export async function processPush(n: NotificationQueueRow): Promise<ChannelResul
         actor_type: n.recipient_type,
         coach_id:  n.recipient_type === "coach"  ? n.recipient_id : null,
         member_id: n.recipient_type === "member" ? n.recipient_id : null,
+        platform_admin_id: null,
       }],
       "__notification_job__", // never matches a real participant key — don't exclude anyone
       { title: n.title, body: n.body, url: typeof n.payload?.url === "string" ? n.payload.url : "/" },

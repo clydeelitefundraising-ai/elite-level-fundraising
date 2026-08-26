@@ -12,15 +12,33 @@ function h(extra?: Record<string, string>) {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
+// "platform_admin" is a real third actor kind here, not a read-only stub —
+// phase_a30_platform_admin_writes.sql widened message_threads/messages/
+// message_thread_participants/message_reads's CHECK constraints and added
+// a platform_admin_id/sender_platform_admin_id/created_by_platform_admin_id
+// column alongside the existing coach_id/member_id columns on each table
+// (see that migration for exact names). A platform admin still has no
+// team_coaches/team_members row — every insert below writes their
+// platform_admins.id into the new column, never into coach_id/member_id.
 export type ActorKey =
-  | { kind: "coach";  id: string }
-  | { kind: "member"; id: string };
+  | { kind: "coach";          id: string }
+  | { kind: "member";         id: string }
+  | { kind: "platform_admin"; id: string };
+
+/** The id-column name matching an ActorKey's kind, for building
+ *  PostgREST filters against coach_id/member_id/platform_admin_id. */
+function fkColumn(kind: ActorKey["kind"]): "coach_id" | "member_id" | "platform_admin_id" {
+  if (kind === "coach") return "coach_id";
+  if (kind === "member") return "member_id";
+  return "platform_admin_id";
+}
 
 export type ResolvedParticipant = {
   id: string;
-  actor_type: "coach" | "member";
+  actor_type: "coach" | "member" | "platform_admin";
   coach_id: string | null;
   member_id: string | null;
+  platform_admin_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
   name: string;
@@ -32,9 +50,10 @@ export type ResolvedParticipant = {
 export type ResolvedMessage = {
   id: string;
   thread_id: string;
-  sender_type: "coach" | "member";
+  sender_type: "coach" | "member" | "platform_admin";
   sender_coach_id: string | null;
   sender_member_id: string | null;
+  sender_platform_admin_id: string | null;
   body: string;
   created_at: string;
   sender_name: string;
@@ -47,9 +66,10 @@ export type MessageThread = {
   id: string;
   campaign_slug: string;
   subject: string | null;
-  created_by_type: "coach" | "member";
+  created_by_type: "coach" | "member" | "platform_admin";
   created_by_coach_id: string | null;
   created_by_member_id: string | null;
+  created_by_platform_admin_id: string | null;
   // Durable snapshot (Phase 3C) — captured once at thread creation from
   // the resolved session, never re-derived from the live
   // created_by_coach_id/created_by_member_id join. Not currently
@@ -72,17 +92,19 @@ export type ThreadWithDetails = MessageThread & {
 
 export type ParticipantInsert = {
   thread_id: string;
-  actor_type: "coach" | "member";
+  actor_type: "coach" | "member" | "platform_admin";
   coach_id: string | null;
   member_id: string | null;
+  platform_admin_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
 };
 
 export type ParticipantRef = {
-  actor_type: "coach" | "member";
+  actor_type: "coach" | "member" | "platform_admin";
   coach_id: string | null;
   member_id: string | null;
+  platform_admin_id: string | null;
 };
 
 // ─── Internal raw types ───────────────────────────────────────────────────────
@@ -104,10 +126,20 @@ export type RawMemberInfo  = {
   athletes: { profile_photo: string | null } | null;
   elf_accounts: { profile_photo_url: string | null } | null;
 };
+// A platform admin has no team_coaches/team_members row to carry
+// name/role/photo — those live on elf_accounts via platform_admins.account_id.
+export type RawPlatformAdminInfo = { elf_accounts: { name: string; profile_photo_url: string | null } | null };
 
-export function resolvePhotoUrl(coach: RawCoachInfo | null, member: RawMemberInfo | null): string | null {
+export function resolvePhotoUrl(
+  coach: RawCoachInfo | null,
+  member: RawMemberInfo | null,
+  platformAdmin?: RawPlatformAdminInfo | null,
+): string | null {
   if (member?.role === "athlete" && member.athletes?.profile_photo) return member.athletes.profile_photo;
-  return coach?.elf_accounts?.profile_photo_url ?? member?.elf_accounts?.profile_photo_url ?? null;
+  return coach?.elf_accounts?.profile_photo_url
+    ?? member?.elf_accounts?.profile_photo_url
+    ?? platformAdmin?.elf_accounts?.profile_photo_url
+    ?? null;
 }
 
 type RawParticipant = {
@@ -116,10 +148,12 @@ type RawParticipant = {
   actor_type: string;
   coach_id: string | null;
   member_id: string | null;
+  platform_admin_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
   team_coaches: RawCoachInfo | null;
   team_members: RawMemberInfo | null;
+  platform_admins: RawPlatformAdminInfo | null;
 };
 
 type RawMessage = {
@@ -128,6 +162,7 @@ type RawMessage = {
   sender_type: string;
   sender_coach_id: string | null;
   sender_member_id: string | null;
+  sender_platform_admin_id: string | null;
   sender_name: string;
   sender_role: string;
   body: string;
@@ -141,24 +176,27 @@ type RawMessage = {
 function resolveParticipant(raw: RawParticipant): ResolvedParticipant {
   return {
     id: raw.id,
-    actor_type: raw.actor_type as "coach" | "member",
+    actor_type: raw.actor_type as "coach" | "member" | "platform_admin",
     coach_id: raw.coach_id,
     member_id: raw.member_id,
+    platform_admin_id: raw.platform_admin_id,
     is_auto_included: raw.is_auto_included,
     is_observer: raw.is_observer,
-    name: raw.team_coaches?.name ?? raw.team_members?.name ?? "Unknown",
-    role: raw.team_coaches?.role ?? raw.team_members?.role ?? "",
+    name: raw.team_coaches?.name ?? raw.team_members?.name ?? raw.platform_admins?.elf_accounts?.name ?? "Unknown",
+    role: raw.team_coaches?.role ?? raw.team_members?.role ?? (raw.platform_admins ? "platform_admin" : ""),
     athlete_id: raw.team_members?.athlete_id ?? null,
-    photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members),
+    photo_url: resolvePhotoUrl(raw.team_coaches, raw.team_members, raw.platform_admins),
   };
 }
 
 const COACH_INFO_SELECT  = "name,role,elf_accounts!account_id(profile_photo_url)";
 const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
+const PLATFORM_ADMIN_INFO_SELECT = "elf_accounts!account_id(name,profile_photo_url)";
 
 const PARTICIPANT_SELECT =
-  "id,thread_id,actor_type,coach_id,member_id,is_auto_included,is_observer," +
-  `team_coaches!coach_id(${COACH_INFO_SELECT}),team_members!member_id(${MEMBER_INFO_SELECT})`;
+  "id,thread_id,actor_type,coach_id,member_id,platform_admin_id,is_auto_included,is_observer," +
+  `team_coaches!coach_id(${COACH_INFO_SELECT}),team_members!member_id(${MEMBER_INFO_SELECT}),` +
+  `platform_admins!platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`;
 
 // ─── Thread list ──────────────────────────────────────────────────────────────
 
@@ -166,7 +204,7 @@ export async function getThreadsForActor(
   slug: string,
   actor: ActorKey,
 ): Promise<ThreadWithDetails[]> {
-  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const fk = fkColumn(actor.kind);
 
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
@@ -189,7 +227,7 @@ export async function getThreadsForActor(
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/messages?thread_id=in.${inClause}&select=id,thread_id,sender_coach_id,sender_member_id`,
+      `${BASE}/rest/v1/messages?thread_id=in.${inClause}&select=id,thread_id,sender_coach_id,sender_member_id,sender_platform_admin_id`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
@@ -205,12 +243,14 @@ export async function getThreadsForActor(
     participantsByThread.set(raw.thread_id, list);
   }
 
-  type MsgStub = { id: string; thread_id: string; sender_coach_id: string | null; sender_member_id: string | null };
+  type MsgStub = { id: string; thread_id: string; sender_coach_id: string | null; sender_member_id: string | null; sender_platform_admin_id: string | null };
   const msgs: MsgStub[] = msgRes.ok ? await msgRes.json() : [];
 
-  const othersMessages = msgs.filter(m =>
-    actor.kind === "coach" ? m.sender_coach_id !== actor.id : m.sender_member_id !== actor.id,
-  );
+  const othersMessages = msgs.filter(m => {
+    if (actor.kind === "coach") return m.sender_coach_id !== actor.id;
+    if (actor.kind === "member") return m.sender_member_id !== actor.id;
+    return m.sender_platform_admin_id !== actor.id;
+  });
 
   let readSet = new Set<string>();
   if (othersMessages.length) {
@@ -271,7 +311,7 @@ export async function isParticipant(
   threadId: string,
   actor: ActorKey,
 ): Promise<boolean> {
-  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const fk = fkColumn(actor.kind);
   const res = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
     `?thread_id=eq.${encodeURIComponent(threadId)}` +
@@ -292,7 +332,7 @@ export async function getMessagesForThread(
   const res = await fetch(
     `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
     `&order=created_at.asc&limit=${limit}` +
-    `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_name,sender_role,body,created_at,` +
+    `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at,` +
     `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT})`,
     { headers: h(), cache: "no-store" },
   );
@@ -300,7 +340,7 @@ export async function getMessagesForThread(
   const rows: RawMessage[] = await res.json();
   if (!rows.length) return [];
 
-  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const fk = fkColumn(actor.kind);
   const msgIds = rows.map(r => r.id).join(",");
   const readsRes = await fetch(
     `${BASE}/rest/v1/message_reads?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}` +
@@ -315,9 +355,10 @@ export async function getMessagesForThread(
   return rows.map(r => ({
     id: r.id,
     thread_id: r.thread_id,
-    sender_type: r.sender_type as "coach" | "member",
+    sender_type: r.sender_type as "coach" | "member" | "platform_admin",
     sender_coach_id: r.sender_coach_id,
     sender_member_id: r.sender_member_id,
+    sender_platform_admin_id: r.sender_platform_admin_id,
     body: r.body,
     created_at: r.created_at,
     // Durable snapshot (Phase 3C) — the authoritative historical display
@@ -338,7 +379,7 @@ export async function getMessagesForThread(
 export async function getUnreadMessageCount(
   actor: ActorKey,
 ): Promise<number> {
-  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const fk = fkColumn(actor.kind);
 
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
@@ -351,16 +392,18 @@ export async function getUnreadMessageCount(
 
   const inClause = `(${ptRows.map(r => r.thread_id).join(",")})`;
   const msgRes = await fetch(
-    `${BASE}/rest/v1/messages?thread_id=in.${inClause}&select=id,sender_coach_id,sender_member_id`,
+    `${BASE}/rest/v1/messages?thread_id=in.${inClause}&select=id,sender_coach_id,sender_member_id,sender_platform_admin_id`,
     { headers: h(), cache: "no-store" },
   );
   if (!msgRes.ok) return 0;
-  const msgs: { id: string; sender_coach_id: string | null; sender_member_id: string | null }[] =
+  const msgs: { id: string; sender_coach_id: string | null; sender_member_id: string | null; sender_platform_admin_id: string | null }[] =
     await msgRes.json();
 
-  const others = msgs.filter(m =>
-    actor.kind === "coach" ? m.sender_coach_id !== actor.id : m.sender_member_id !== actor.id,
-  );
+  const others = msgs.filter(m => {
+    if (actor.kind === "coach") return m.sender_coach_id !== actor.id;
+    if (actor.kind === "member") return m.sender_member_id !== actor.id;
+    return m.sender_platform_admin_id !== actor.id;
+  });
   if (!others.length) return 0;
 
   const readsRes = await fetch(
@@ -474,7 +517,7 @@ export async function resolveRequiredFamilyParticipants(
   );
   const family: { id: string }[] = familyRes.ok ? await familyRes.json() : [];
 
-  return family.map(m => ({ actor_type: "member" as const, coach_id: null, member_id: m.id }));
+  return family.map(m => ({ actor_type: "member" as const, coach_id: null, member_id: m.id, platform_admin_id: null }));
 }
 
 // Ensures a thread's canonical family requirements are met — called at
@@ -504,11 +547,12 @@ export async function syncRequiredThreadParticipants(
 
   await insertParticipantsIgnoringDuplicates(
     missing.map(m => ({
-      thread_id:        threadId,
-      actor_type:       "member" as const,
-      coach_id:         null,
-      member_id:        m.member_id,
-      is_auto_included: true,
+      thread_id:         threadId,
+      actor_type:        "member" as const,
+      coach_id:          null,
+      member_id:         m.member_id,
+      platform_admin_id: null,
+      is_auto_included:  true,
       is_observer:       false,
     })),
   );
@@ -592,7 +636,7 @@ export async function syncParentIntoAthleteThreads(
 // was linked before or after — always converge on the same key.
 function canonicalParticipantKey(participants: ParticipantRef[]): string {
   return participants
-    .map(p => `${p.actor_type}:${p.actor_type === "coach" ? p.coach_id : p.member_id}`)
+    .map(p => `${p.actor_type}:${p.coach_id ?? p.member_id ?? p.platform_admin_id}`)
     .sort()
     .join("|");
 }
@@ -620,7 +664,7 @@ export async function findCanonicalExistingThread(
   const desiredKey = canonicalParticipantKey(desiredNonObserverParticipants);
   if (!desiredKey) return null;
 
-  const fk = actor.kind === "coach" ? "coach_id" : "member_id";
+  const fk = fkColumn(actor.kind);
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
     `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&select=thread_id`,
@@ -637,19 +681,19 @@ export async function findCanonicalExistingThread(
     fetch(
       `${BASE}/rest/v1/message_threads?id=in.${inClause}` +
       `&campaign_slug=eq.${encodeURIComponent(slug)}` +
-      `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,creator_name,creator_role,last_message_at,last_message_preview,created_at` +
+      `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,created_by_platform_admin_id,creator_name,creator_role,last_message_at,last_message_preview,created_at` +
       `&order=last_message_at.desc`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&select=thread_id,actor_type,coach_id,member_id,is_observer`,
+      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&select=thread_id,actor_type,coach_id,member_id,platform_admin_id,is_observer`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
   const threads: MessageThread[] = threadsRes.ok ? await threadsRes.json() : [];
   if (!threads.length) return null;
 
-  type PartStub = { thread_id: string; actor_type: string; coach_id: string | null; member_id: string | null; is_observer: boolean };
+  type PartStub = { thread_id: string; actor_type: string; coach_id: string | null; member_id: string | null; platform_admin_id: string | null; is_observer: boolean };
   const allParts: PartStub[] = partsRes.ok ? await partsRes.json() : [];
 
   const partsByThread = new Map<string, PartStub[]>();
@@ -663,7 +707,10 @@ export async function findCanonicalExistingThread(
     const parts = partsByThread.get(t.id) ?? [];
     const nonObserver: ParticipantRef[] = parts
       .filter(p => !p.is_observer)
-      .map(p => ({ actor_type: p.actor_type as "coach" | "member", coach_id: p.coach_id, member_id: p.member_id }));
+      .map(p => ({
+        actor_type: p.actor_type as "coach" | "member" | "platform_admin",
+        coach_id: p.coach_id, member_id: p.member_id, platform_admin_id: p.platform_admin_id,
+      }));
     if (canonicalParticipantKey(nonObserver) === desiredKey) {
       return t;
     }
@@ -689,11 +736,12 @@ export async function ensureHeadCoachOversight(
 
   await insertParticipantsIgnoringDuplicates(
     missing.map(id => ({
-      thread_id:        threadId,
-      actor_type:       "coach" as const,
-      coach_id:         id,
-      member_id:        null,
-      is_auto_included: true,
+      thread_id:         threadId,
+      actor_type:        "coach" as const,
+      coach_id:          id,
+      member_id:         null,
+      platform_admin_id: null,
+      is_auto_included:  true,
       is_observer:       true,
     })),
   );
@@ -715,10 +763,11 @@ export async function insertMessage(
     method:  "POST",
     headers: h({ Prefer: "return=representation" }),
     body:    JSON.stringify({
-      thread_id:        threadId,
-      sender_type:      actor.kind,
-      sender_coach_id:  actor.kind === "coach"  ? actor.id : null,
-      sender_member_id: actor.kind === "member" ? actor.id : null,
+      thread_id:                 threadId,
+      sender_type:               actor.kind,
+      sender_coach_id:           actor.kind === "coach"          ? actor.id : null,
+      sender_member_id:          actor.kind === "member"         ? actor.id : null,
+      sender_platform_admin_id:  actor.kind === "platform_admin" ? actor.id : null,
       sender_name:      senderName,
       sender_role:      senderRole,
       body,
@@ -759,11 +808,12 @@ export async function markMessagesReadForActor(
       headers: h({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
       body:    JSON.stringify(
         messageIds.map(id => ({
-          message_id: id,
-          actor_type: actor.kind,
-          coach_id:   actor.kind === "coach"  ? actor.id : null,
-          member_id:  actor.kind === "member" ? actor.id : null,
-          read_at:    now,
+          message_id:         id,
+          actor_type:         actor.kind,
+          coach_id:           actor.kind === "coach"          ? actor.id : null,
+          member_id:          actor.kind === "member"         ? actor.id : null,
+          platform_admin_id:  actor.kind === "platform_admin" ? actor.id : null,
+          read_at:            now,
         })),
       ),
     },
@@ -790,14 +840,16 @@ export async function markThreadReadForActor(
 ): Promise<void> {
   const res = await fetch(
     `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
-    `&select=id,sender_coach_id,sender_member_id`,
+    `&select=id,sender_coach_id,sender_member_id,sender_platform_admin_id`,
     { headers: h(), cache: "no-store" },
   );
-  const msgs: { id: string; sender_coach_id: string | null; sender_member_id: string | null }[] =
+  const msgs: { id: string; sender_coach_id: string | null; sender_member_id: string | null; sender_platform_admin_id: string | null }[] =
     res.ok ? await res.json() : [];
-  const others = msgs.filter(m =>
-    actor.kind === "coach" ? m.sender_coach_id !== actor.id : m.sender_member_id !== actor.id,
-  );
+  const others = msgs.filter(m => {
+    if (actor.kind === "coach") return m.sender_coach_id !== actor.id;
+    if (actor.kind === "member") return m.sender_member_id !== actor.id;
+    return m.sender_platform_admin_id !== actor.id;
+  });
   await markMessagesReadForActor(others.map(m => m.id), actor);
 }
 

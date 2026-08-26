@@ -19,9 +19,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const actorKey: ActorKey = actor.kind === "coach"
-    ? { kind: "coach",  id: actor.session.id }
-    : { kind: "member", id: actor.session.id };
+  const actorKey: ActorKey =
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    { kind: "member", id: actor.session.id };
 
   const result = await deleteComment(commentId, slug, actorKey, isHeadCoach(actor));
   if (!result.ok) {

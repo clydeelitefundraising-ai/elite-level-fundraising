@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { getSponsors, createSponsor, SPONSOR_STATUSES } from "@/lib/platform/sponsors";
 import type { SponsorStatus } from "@/lib/platform/sponsors";
 
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:      "sponsor_business.created",
     entity_type: "sponsor_business",
     entity_id:   sponsor.id,

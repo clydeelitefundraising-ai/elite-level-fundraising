@@ -3,7 +3,7 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { getAccountSession } from "@/lib/accountSession";
 import { canManageStaff } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { checkRateLimit, consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import { sendStaffInvite } from "@/lib/email";
 import { createStaffInvitation, isStaffAssignableRole } from "@/lib/staffInvite";
@@ -16,7 +16,7 @@ export async function POST(
 ) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
-  if (!canManageStaff(actor) || actor.kind !== "coach" || actor.session.campaign_slug !== slug) {
+  if (!canManageStaff(actor) || (actor.kind !== "coach" && actor.kind !== "platform_admin") || actor.session.campaign_slug !== slug) {
     return NextResponse.json({ error: "Only this team's Head Coach can invite staff." }, { status: 403 });
   }
 
@@ -79,12 +79,13 @@ export async function POST(
   }
 
   logAuditEvent({
+    actor: toAuditActor(actor),
     action: "staff.invited",
     entity_type: "team_staff_invitation",
     entity_id: result.invitation.id,
     campaign_slug: slug,
     summary: `Invited ${result.invitation.email} as ${role} on ${slug}`,
-    new_value: { role, email: result.invitation.email, acting_head_coach_id: actor.session.id, email_sent: emailSent },
+    new_value: { role, email: result.invitation.email, email_sent: emailSent },
     ip_address: ipOf(req),
     user_agent: req.headers.get("user-agent"),
   });

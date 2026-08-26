@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
+import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -56,12 +57,17 @@ export async function GET(
 // the single source of truth, also enforced in join-codes/[id]/route.ts's
 // PATCH revoke and mirrored in the Settings/TeamQrModal UI).
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // isHeadCoach is true only for "coach" (role=head_coach) or
+  // "platform_admin" — narrowed explicitly for toAuditActor() below.
+  if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const newCode = generateCode();
 
@@ -81,5 +87,17 @@ export async function POST(
   }
 
   const rows = await res.json();
+
+  logAuditEvent({
+    actor: toAuditActor(actor),
+    action: "join_code.generated",
+    entity_type: "team_join_code",
+    entity_id: rows[0]?.id,
+    campaign_slug: slug,
+    summary: `Generated/replaced the join code for ${slug}`,
+    ip_address: ipOf(req),
+    user_agent: req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ code: rows[0] });
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { getFundUses, addFundUse } from "@/lib/supabase";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   const { campaign_slug, title, description, icon, sort_order } = await req.json();
   const item = await addFundUse({ campaign_slug, title, description, icon: icon || "💰", sort_order: sort_order ?? 0 });
   logAuditEvent({
+    actor: ADMIN_TOOL_ACTOR,
     action:        "fund_use.added",
     entity_type:   "fund_use",
     entity_id:     item?.id ?? undefined,

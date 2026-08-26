@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ipOf } from "@/lib/platform/audit";
+import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
 import { getSponsor, updateSponsor, SPONSOR_STATUSES } from "@/lib/platform/sponsors";
 import type { UpdateSponsorInput } from "@/lib/platform/sponsors";
 
@@ -55,6 +55,7 @@ export async function PATCH(
   }
 
   logAudit({
+    actor: ADMIN_TOOL_ACTOR,
     action:         "sponsor_business.updated",
     entity_type:    "sponsor_business",
     entity_id:      id,
