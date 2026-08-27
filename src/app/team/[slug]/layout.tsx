@@ -6,7 +6,9 @@ import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
+import { isPlatformAdmin } from "@/lib/permissions";
 import TeamHeader from "./_components/TeamHeader";
+import PlatformAdminBanner from "./_components/PlatformAdminBanner";
 import TeamNavWithBadge from "./_components/TeamNavWithBadge";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
@@ -88,6 +90,9 @@ export default async function TeamLayout({
           profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
         />
+        {isPlatformAdmin(actor) && (
+          <PlatformAdminBanner teamLabel={`${settings.school_name} ${settings.sport_name}`.trim()} />
+        )}
         <ServiceWorkerRegistrar />
         <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
         <TeamPullRefresh />

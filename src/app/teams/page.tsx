@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
+import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { getVisiblePendingRequestsForAccount } from "@/lib/platform/athleteRequests";
 import { getCampaign } from "@/lib/platform/campaigns";
 import TeamsView, { type PendingTeamCard } from "./TeamsView";
@@ -9,6 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function TeamsPage() {
   const session = await getAccountSession();
   if (!session) redirect("/login");
+
+  // Platform-admin landing takes precedence over the normal Team Selector,
+  // even for an account that also happens to be a coach/parent/booster/
+  // athlete somewhere — matches the precedence rule enforced by
+  // resolveAuthenticatedLandingPath()/getTeamActor() elsewhere. A direct
+  // visit to /teams (bookmark, back button, etc.) must not show the
+  // selector to a platform admin.
+  const platformAdmin = await getPlatformAdminSession();
+  if (platformAdmin) redirect("/platform-admin/schools");
 
   const [teams, pendingRequests] = await Promise.all([
     getAccountTeams(session.id),

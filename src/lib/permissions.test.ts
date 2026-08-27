@@ -73,6 +73,24 @@ test("isPlatformAdmin: true only for platform_admin-kind actors", () => {
   assert.equal(isPlatformAdmin(publicActor), false);
 });
 
+// The Team Hub's "ELF Admin · Managing ..." banner (src/app/team/[slug]/
+// _components/PlatformAdminBanner.tsx) is gated in TeamLayout by exactly
+// `isPlatformAdmin(actor)` — this locks in that the same predicate stays
+// true only for a real platform admin, so the banner can never leak to a
+// coach, booster, athlete, or parent, and always renders for a platform
+// admin regardless of team role nuance (head_coach vs assistant_coach
+// doesn't apply to platform_admin at all).
+test("banner visibility (isPlatformAdmin): shown only for platform_admin — never coach/booster/athlete/parent/public", () => {
+  assert.equal(isPlatformAdmin(platformAdminActor()), true);
+  assert.equal(isPlatformAdmin(coachActor("head_coach")), false);
+  assert.equal(isPlatformAdmin(coachActor("assistant_coach")), false);
+  assert.equal(isPlatformAdmin(coachActor("booster")), false);
+  assert.equal(isPlatformAdmin(memberActor("athlete")), false);
+  assert.equal(isPlatformAdmin(memberActor("parent")), false);
+  assert.equal(isPlatformAdmin(memberActor("booster")), false);
+  assert.equal(isPlatformAdmin(publicActor), false);
+});
+
 test("coachSession: returns the session for a real coach, null for platform_admin — never fabricates a CoachSession", () => {
   const coach = coachActor("head_coach");
   assert.deepEqual(coachSession(coach), coach.kind === "coach" ? coach.session : null);

@@ -53,6 +53,30 @@ async function toRestError(res: Response): Promise<RestError> {
   return new RestError(message, raw, { code, constraint });
 }
 
+// Cheap aggregate count via PostgREST's Content-Range response header —
+// never fetches the matching rows themselves. Callers should append
+// `&select=id&limit=1` (or similar) to `path` to keep the response body
+// minimal; the count comes from Content-Range regardless of the limit.
+// Never throws — returns 0 on any failure, same fail-safe contract as
+// restList().
+export async function restCount(path: string): Promise<number> {
+  try {
+    const res = await fetch(restUrl(path), {
+      headers: restHeaders({ Prefer: "count=exact" }),
+      cache: "no-store",
+    });
+    if (!res.ok) return 0;
+    const range = res.headers.get("content-range"); // e.g. "0-0/42" or "*/0"
+    if (!range) return 0;
+    const total = range.split("/")[1];
+    if (!total || total === "*") return 0;
+    const n = parseInt(total, 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 // GET that never throws — returns [] on any failure (missing table, network error, bad response).
 export async function restList<T>(path: string): Promise<T[]> {
   try {

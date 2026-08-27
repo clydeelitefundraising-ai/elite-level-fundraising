@@ -37,6 +37,11 @@ export const getPlatformAdminSession = cache(async (): Promise<PlatformAdminIden
   return lookupPlatformAdmin(account);
 });
 
+// Pure redirect-decision helpers (resolveAuthenticatedLandingPath,
+// resolvePlatformAdminGateRedirect) live in @/lib/platformAdminLanding —
+// deliberately a zero-dependency module so they're directly unit-testable
+// without pulling in this file's next/headers-transitive session chain.
+
 async function lookupPlatformAdmin(account: AccountSession): Promise<PlatformAdminIdentity | null> {
   const res = await fetch(
     `${BASE}/rest/v1/platform_admins?account_id=eq.${encodeURIComponent(account.id)}&select=id,role&limit=1`,
