@@ -21,7 +21,12 @@ export default function PlatformAdminBanner({ teamLabel }: { teamLabel: string }
         fontWeight: 700,
       }}
     >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      {/* flex:1 + minWidth:0 is what actually makes the ellipsis/nowrap work
+          inside a flex row — without it, a long team name can force this
+          item to its intrinsic content width and push "Back to Schools"
+          off-screen (horizontal overflow) at narrow widths instead of
+          truncating. */}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "1 1 auto", minWidth: 0 }}>
         ELF Admin · Managing {teamLabel}
       </span>
       <Link

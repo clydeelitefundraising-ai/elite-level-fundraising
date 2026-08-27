@@ -23,6 +23,23 @@ export default async function PlatformAdminSchoolsPage({
 
   return (
     <div>
+      {/* 1 column by default (phone) -> 2 at tablet -> 3 at desktop, per the
+          Phase 4.1 responsive spec. Explicit breakpoints rather than
+          auto-fill/minmax — a fixed minmax() floor is exactly what caused
+          the cramped/overflowing phone layout this pass fixes. */}
+      <style>{`
+        .pa-schools-grid { display: grid; gap: .75rem; grid-template-columns: 1fr; }
+        @media (min-width: 640px)  { .pa-schools-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .pa-schools-grid { grid-template-columns: repeat(3, 1fr); } }
+
+        /* Full-width on phone; caps back to a reasonable input width on
+           desktop rather than stretching across the whole directory —
+           done in CSS (not an inline maxWidth) so mobile stays genuinely
+           fluid and only wider viewports get the cap. */
+        .pa-search-input { width: 100%; }
+        @media (min-width: 640px) { .pa-search-input { max-width: 420px; } }
+      `}</style>
+
       <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 1rem" }}>Schools</h1>
 
       <form method="GET" style={{ marginBottom: "1.25rem" }}>
@@ -31,8 +48,9 @@ export default async function PlatformAdminSchoolsPage({
           name="q"
           defaultValue={q ?? ""}
           placeholder="Search schools by name…"
+          className="pa-search-input"
           style={{
-            width: "100%", maxWidth: 420, padding: ".65rem .9rem",
+            padding: ".65rem .9rem",
             borderRadius: ".6rem", border: "1.5px solid #d1d5db", fontSize: ".95rem",
             boxSizing: "border-box",
           }}
@@ -44,17 +62,18 @@ export default async function PlatformAdminSchoolsPage({
           {q ? `No schools match "${q}".` : "No schools yet."}
         </div>
       ) : (
-        <div style={{ display: "grid", gap: ".75rem", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+        <div className="pa-schools-grid">
           {schools.map(school => (
             <Link key={school.id} href={`/platform-admin/schools/${school.id}`} style={cardStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: ".5rem" }}>
-                <div style={{ fontWeight: 700, fontSize: "1.02rem", color: "#0b1e3d" }}>{school.school_name}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: ".5rem", flexWrap: "wrap" }}>
+                <div style={{ fontWeight: 700, fontSize: "1.02rem", color: "#0b1e3d", flex: "1 1 160px", minWidth: 0, overflowWrap: "break-word" }}>{school.school_name}</div>
                 <span
                   style={{
                     fontSize: ".68rem", fontWeight: 700, padding: ".15rem .5rem", borderRadius: "999px",
                     background: school.status === "active" ? "#dcfce7" : "#f3f4f6",
                     color: school.status === "active" ? "#166534" : "#6b7280",
                     whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                 >
                   {school.status === "active" ? "Active" : "No active teams"}

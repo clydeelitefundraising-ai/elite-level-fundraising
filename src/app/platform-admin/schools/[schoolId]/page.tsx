@@ -19,11 +19,20 @@ export default async function PlatformAdminSchoolDetailPage({
 
   return (
     <div>
+      {/* Same 1 -> 2 -> 3 column progression as the Schools directory —
+          team cards stack fully on phone, never rely on a fixed minmax()
+          floor that could overflow a 320px viewport. */}
+      <style>{`
+        .pa-teams-grid { display: grid; gap: .75rem; grid-template-columns: 1fr; }
+        @media (min-width: 640px)  { .pa-teams-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .pa-teams-grid { grid-template-columns: repeat(3, 1fr); } }
+      `}</style>
+
       <Link href="/platform-admin/schools" style={{ fontSize: ".85rem", color: "#0b1e3d", textDecoration: "none", fontWeight: 600 }}>
         ← Back to Schools
       </Link>
 
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: ".6rem 0 .1rem" }}>{school.school_name}</h1>
+      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: ".6rem 0 .1rem", overflowWrap: "break-word" }}>{school.school_name}</h1>
       {(school.city || school.state || school.address) && (
         <div style={{ fontSize: ".85rem", color: "#6b7280", marginBottom: "1.25rem" }}>
           {[school.address, school.city, school.state].filter(Boolean).join(", ")}
@@ -35,7 +44,7 @@ export default async function PlatformAdminSchoolDetailPage({
           No teams linked to this school yet.
         </div>
       ) : (
-        <div style={{ display: "grid", gap: ".75rem", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+        <div className="pa-teams-grid">
           {school.teams.map(team => (
             <Link
               key={team.campaign_slug}
@@ -46,26 +55,38 @@ export default async function PlatformAdminSchoolDetailPage({
                 opacity: team.archived ? 0.65 : 1,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: ".5rem" }}>
-                <div style={{ fontWeight: 700, fontSize: "1rem", color: "#0b1e3d" }}>{team.sport_name}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: ".5rem", flexWrap: "wrap" }}>
+                <div style={{ fontWeight: 700, fontSize: "1rem", color: "#0b1e3d", flex: "1 1 140px", minWidth: 0, overflowWrap: "break-word" }}>{team.sport_name}</div>
                 <span
                   style={{
                     fontSize: ".68rem", fontWeight: 700, padding: ".15rem .5rem", borderRadius: "999px",
                     background: team.archived ? "#f3f4f6" : "#dbeafe",
                     color: team.archived ? "#6b7280" : "#1e40af",
                     whiteSpace: "nowrap",
+                    flexShrink: 0,
                   }}
                 >
                   {team.archived ? "Archived" : (team.status ?? "live")}
                 </span>
               </div>
               <div style={{ fontSize: ".82rem", color: "#6b7280", marginTop: ".2rem" }}>{team.season}</div>
-              <div style={{ fontSize: ".78rem", color: "#9ca3af", marginTop: ".15rem" }}>/team/{team.campaign_slug}</div>
+              <div style={{ fontSize: ".78rem", color: "#9ca3af", marginTop: ".15rem", overflowWrap: "break-word" }}>/team/{team.campaign_slug}</div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: ".9rem", marginTop: ".7rem", fontSize: ".82rem", color: "#374151" }}>
                 <span>Head Coach: {team.head_coach_name ?? "—"}</span>
                 <span>{team.athlete_count} athlete{team.athlete_count === 1 ? "" : "s"}</span>
                 <span>{formatCents(team.raised_cents)} raised</span>
+              </div>
+
+              <div
+                style={{
+                  marginTop: ".85rem", display: "inline-flex", alignItems: "center", gap: ".3rem",
+                  fontSize: ".8rem", fontWeight: 700, color: "#fff",
+                  background: team.archived ? "#9ca3af" : "#0b1e3d",
+                  padding: ".45rem .8rem", borderRadius: ".5rem",
+                }}
+              >
+                Enter Team →
               </div>
             </Link>
           ))}
