@@ -13,6 +13,7 @@ import AttachmentPickerButton from "../_shared/AttachmentPickerButton";
 import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
+import { reconcileMessages } from "../_shared/reconcileMessages";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -161,6 +162,126 @@ export default function ThreadView({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // ── Live-arrival polling (Phase 5, corrected) ──────────────────────────────
+  //
+  // A direct browser Supabase Realtime subscription (postgres_changes on
+  // messages) was tried first and rejected after an authorization audit:
+  // ELF's browser is ALWAYS the bare `anon` Postgres role (this codebase
+  // never establishes a Supabase Auth JWT anywhere — confirmed by
+  // repository-wide search), and `messages` has Row Level Security
+  // enabled with ZERO policies. Supabase's own documentation is explicit
+  // that postgres_changes strictly enforces RLS per-subscriber and never
+  // bypasses it — a bare table GRANT (which `messages` already has for
+  // anon) is not sufficient on its own. RLS-enabled-with-no-policy means
+  // anon has ZERO row visibility on `messages`, full stop — which cuts
+  // both ways: no legitimate user's browser could ever have received a
+  // live event either, and no unauthorized/guessing browser could have
+  // leaked anything — but it also means the realtime approach could not
+  // have functioned at all, safely or otherwise. Adding a permissive
+  // anon SELECT policy to make it work was explicitly out of bounds (that
+  // would expose every private thread to any anon caller with a guessed
+  // thread id). So: short-interval polling instead, through the SAME
+  // authenticated, already-authorized GET route every other read in this
+  // app uses — no anon-role data path is ever involved.
+  //
+  // Below this point, runRefresh/requestRefresh/reconcileMessages are
+  // unchanged from the realtime draft — they were always transport-
+  // agnostic ("something may have changed, go refetch safely"); only the
+  // trigger at the bottom of this block (a setInterval instead of a
+  // Supabase channel subscription) changed.
+  const sendingRef = useRef(sending);
+  useEffect(() => { sendingRef.current = sending; }, [sending]);
+
+  const refreshInFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
+  const refreshSeqRef = useRef(0);
+
+  // A do/while loop, not recursion: draining refreshQueuedRef in a loop
+  // (rather than this function tail-calling itself) avoids ever
+  // referencing this same useCallback-bound name from inside its own
+  // body, which React's hooks linter flags as an unsafe stale-closure
+  // pattern regardless of it working in plain JS.
+  const runRefresh = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    refreshInFlightRef.current = true;
+
+    do {
+      refreshQueuedRef.current = false;
+      const seq = ++refreshSeqRef.current;
+      try {
+        const res = await fetch(`/api/team/${slug}/messages/threads/${thread.id}`, { cache: "no-store" });
+        if (res.ok) {
+          const data: { messages: ResolvedMessage[] } = await res.json();
+          // Sequence-token guard: if a NEWER refresh started after this
+          // one (e.g. a slow response overlapping the next poll tick),
+          // discard this now-stale response rather than let it clobber
+          // more recent state with out-of-order data.
+          if (seq === refreshSeqRef.current) {
+            setMessages(prev => reconcileMessages(data.messages, prev));
+            // A new message arrived while this thread is visibly open —
+            // keep the existing "opened/visible thread == read" model
+            // consistent by re-asserting read state, exactly the same
+            // call already made once on mount. Idempotent; harmless to
+            // call even when the refresh was triggered by this actor's
+            // own message.
+            fetch(`/api/team/${slug}/messages/threads/${thread.id}/read`, { method: "POST" })
+              .then(() => window.dispatchEvent(new CustomEvent("elf:messages-changed")))
+              .catch(() => {});
+          }
+        }
+        // A failed refetch intentionally leaves already-rendered
+        // messages untouched — no error surfaced for a background sync
+        // failure.
+      } catch {
+        // Network error — same: leave existing messages as they are.
+      }
+    } while (refreshQueuedRef.current);
+
+    refreshInFlightRef.current = false;
+  }, [slug, thread.id]);
+
+  const requestRefresh = useCallback(() => {
+    // Defer while THIS client is itself mid-send: its own optimistic-
+    // append-then-replace-by-id path already reconciles the sender's own
+    // message once the POST resolves, and running a server refetch
+    // concurrently with that (before the POST response lands) is
+    // exactly the narrow race where a duplicate bubble could otherwise
+    // appear — see reconcileMessages' own tests for how the general case
+    // is handled regardless. Overlapping poll ticks (a slow response
+    // still in flight when the next tick fires) are coalesced inside
+    // runRefresh's own queue-drain loop above, not here.
+    if (sendingRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    void runRefresh();
+  }, [runRefresh]);
+
+  // Flush a queued refresh once this client's own send finishes, so an
+  // event that arrived mid-send (deferred above) is never dropped.
+  useEffect(() => {
+    if (!sending && refreshQueuedRef.current) {
+      refreshQueuedRef.current = false;
+      void runRefresh();
+    }
+  }, [sending, runRefresh]);
+
+  // Poll only while this ThreadView is mounted (the user has this thread
+  // open) — a plain setInterval, torn down on threadId change/unmount.
+  // No Supabase browser client, no channel, no anon-role data path at
+  // all. 5s is frequent enough to feel live for a chat-style UI without
+  // creating a meaningful request storm (one small authenticated GET per
+  // tick, itself coalesced/gated by requestRefresh exactly as before).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      requestRefresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [requestRefresh]);
 
   // otherParticipants/conversationDisplayName only know "coach"|"member" —
   // same cast pattern already used at MessagesView.tsx:37-38 for the same
