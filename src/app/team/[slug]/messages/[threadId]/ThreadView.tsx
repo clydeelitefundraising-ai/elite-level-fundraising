@@ -160,6 +160,7 @@ export default function ThreadView({
       sender_role:      "",
       sender_photo_url: null,
       read_at:          new Date().toISOString(),
+      attachments:      [],
     };
     setMessages(prev => [...prev, optimistic]);
     const body = replyBody.trim();

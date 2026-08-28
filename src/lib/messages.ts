@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 function h(extra?: Record<string, string>) {
@@ -60,6 +62,7 @@ export type ResolvedMessage = {
   sender_role: string;
   sender_photo_url: string | null;
   read_at: string | null;
+  attachments: MessageAttachmentPublic[];
 };
 
 export type MessageThread = {
@@ -106,6 +109,164 @@ export type ParticipantRef = {
   member_id: string | null;
   platform_admin_id: string | null;
 };
+
+// ─── Message attachments (Phase 2) ────────────────────────────────────────────
+//
+// Full raw row shape from message_attachments (supabase/migrations/
+// phase_a31_message_attachments.sql) — server-internal only. storage_path
+// is a private-bucket object key and must never reach client code (see
+// MessageAttachmentPublic below); nothing in this file returns this raw
+// type to a caller outside messages.ts itself.
+export type AttachmentStatus = "pending" | "attached";
+export type AttachmentKind = "image" | "video" | "file";
+
+export type MessageAttachment = {
+  id: string;
+  thread_id: string;
+  message_id: string | null;
+  status: AttachmentStatus;
+  uploader_actor_type: "coach" | "member" | "platform_admin";
+  uploader_coach_id: string | null;
+  uploader_member_id: string | null;
+  uploader_platform_admin_id: string | null;
+  storage_path: string;
+  original_filename: string;
+  mime_type: string;
+  byte_size: number;
+  attachment_kind: AttachmentKind;
+  created_at: string;
+};
+
+// Client/API-safe view of an attached (never pending) attachment — the
+// shape embedded on ResolvedMessage.attachments and the only attachment
+// shape this module ever hands back to a route/UI. Deliberately omits
+// storage_path (never needed client-side — downloads go through an
+// authenticated-by-thread-participation route keyed on attachment id, not
+// exposed here yet) and the uploader/thread/status/message_id bookkeeping
+// fields, which are write-path/verification concerns, not display ones —
+// the parent ResolvedMessage already carries sender identity.
+export type MessageAttachmentPublic = {
+  id: string;
+  original_filename: string;
+  mime_type: string;
+  byte_size: number;
+  attachment_kind: AttachmentKind;
+  created_at: string;
+};
+
+// ─── Attachment validation (locked limits) ────────────────────────────────────
+
+export const MAX_ATTACHMENTS_PER_MESSAGE = 6;
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_FILE_BYTES  = 25 * 1024 * 1024;
+
+export const MAX_BYTES_BY_KIND: Record<AttachmentKind, number> = {
+  image: MAX_IMAGE_BYTES,
+  video: MAX_VIDEO_BYTES,
+  file:  MAX_FILE_BYTES,
+};
+
+// MIME -> kind. Also doubles as the allow-list: any MIME type not present
+// here is rejected outright, regardless of size.
+const MIME_TO_KIND: Record<string, AttachmentKind> = {
+  "image/jpeg": "image",
+  "image/png":  "image",
+  "image/webp": "image",
+  "image/heic": "image",
+  "image/heif": "image",
+  "video/mp4":       "video",
+  "video/quicktime": "video",
+  "application/pdf":    "file",
+  "application/msword": "file",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "file",
+};
+
+// MIME -> a safe, fixed extension. Deliberately keyed off the *validated*
+// MIME type, never the client-supplied filename — a filename is arbitrary
+// client input and must never determine the storage object's extension.
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png":  "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "video/mp4":       "mp4",
+  "video/quicktime": "mov",
+  "application/pdf":    "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+};
+
+export function classifyAttachmentMime(mimeType: string): AttachmentKind | null {
+  return MIME_TO_KIND[mimeType] ?? null;
+}
+
+export function safeExtensionForMime(mimeType: string): string | null {
+  return MIME_TO_EXTENSION[mimeType] ?? null;
+}
+
+export type AttachmentValidationErrorCode =
+  | "unsupported_mime"
+  | "invalid_size"
+  | "too_large"
+  | "too_many_attachments";
+
+export type AttachmentValidationError = {
+  code: AttachmentValidationErrorCode;
+  message: string;
+};
+
+export type AttachmentFileValidationResult =
+  | { ok: true; kind: AttachmentKind }
+  | { ok: false; error: AttachmentValidationError };
+
+/** Validates one file's MIME type and size against the locked per-kind
+ *  limits. Does not know about (and never enforces) the per-message
+ *  attachment count — see validateAttachmentCount for that. */
+export function validateAttachmentFile(params: {
+  mimeType: string;
+  byteSize: number;
+}): AttachmentFileValidationResult {
+  const kind = classifyAttachmentMime(params.mimeType);
+  if (!kind) {
+    return {
+      ok: false,
+      error: { code: "unsupported_mime", message: `File type "${params.mimeType}" is not supported.` },
+    };
+  }
+  if (!Number.isFinite(params.byteSize) || params.byteSize <= 0) {
+    return { ok: false, error: { code: "invalid_size", message: "File appears to be empty." } };
+  }
+  const maxBytes = MAX_BYTES_BY_KIND[kind];
+  if (params.byteSize > maxBytes) {
+    return {
+      ok: false,
+      error: {
+        code: "too_large",
+        message: `File exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB limit for ${kind}s.`,
+      },
+    };
+  }
+  return { ok: true, kind };
+}
+
+/** Validates the TOTAL number of attachments a message would carry
+ *  (existing + incoming, for an API route that wants to check before
+ *  accepting more uploads) against the locked per-message maximum. */
+export function validateAttachmentCount(totalCount: number): { ok: true } | { ok: false; error: AttachmentValidationError } {
+  if (totalCount > MAX_ATTACHMENTS_PER_MESSAGE) {
+    return {
+      ok: false,
+      error: {
+        code: "too_many_attachments",
+        message: `A message can have at most ${MAX_ATTACHMENTS_PER_MESSAGE} attachments.`,
+      },
+    };
+  }
+  return { ok: true };
+}
 
 // ─── Internal raw types ───────────────────────────────────────────────────────
 
@@ -156,6 +317,12 @@ type RawParticipant = {
   platform_admins: RawPlatformAdminInfo | null;
 };
 
+// Only the public-safe fields are ever selected for the embed (see
+// ATTACHMENT_EMBED_SELECT) — storage_path/uploader/status/message_id are
+// deliberately never fetched here, so there is no raw value to
+// accidentally forward to a client even by omission-bug.
+type RawMessageAttachment = MessageAttachmentPublic;
+
 type RawMessage = {
   id: string;
   thread_id: string;
@@ -169,6 +336,7 @@ type RawMessage = {
   created_at: string;
   team_coaches: RawCoachInfo | null;
   team_members: RawMemberInfo | null;
+  message_attachments: RawMessageAttachment[] | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -197,6 +365,15 @@ const PARTICIPANT_SELECT =
   "id,thread_id,actor_type,coach_id,member_id,platform_admin_id,is_auto_included,is_observer," +
   `team_coaches!coach_id(${COACH_INFO_SELECT}),team_members!member_id(${MEMBER_INFO_SELECT}),` +
   `platform_admins!platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`;
+
+// Only ever the public-safe columns — see MessageAttachmentPublic/
+// RawMessageAttachment. PostgREST resolves this embed via
+// message_attachments.message_id -> messages.id; a pending (unclaimed)
+// attachment has message_id = NULL and so never appears in any message's
+// embed, which is exactly the desired "existing/text-only messages come
+// back with attachments: []" behavior — no extra filtering needed.
+const ATTACHMENT_EMBED_SELECT =
+  "message_attachments(id,original_filename,mime_type,byte_size,attachment_kind,created_at)";
 
 // ─── Thread list ──────────────────────────────────────────────────────────────
 
@@ -332,8 +509,12 @@ export async function getMessagesForThread(
   const res = await fetch(
     `${BASE}/rest/v1/messages?thread_id=eq.${encodeURIComponent(threadId)}` +
     `&order=created_at.asc&limit=${limit}` +
+    // Deterministic attachment ordering within each message's embed —
+    // created_at first, id as a stable tiebreak for same-instant uploads.
+    `&message_attachments.order=created_at.asc,id.asc` +
     `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at,` +
-    `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT})`,
+    `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT}),` +
+    ATTACHMENT_EMBED_SELECT,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];
@@ -371,6 +552,7 @@ export async function getMessagesForThread(
     sender_role: r.sender_role,
     sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
     read_at: readMap.get(r.id) ?? null,
+    attachments: r.message_attachments ?? [],
   }));
 }
 
@@ -906,4 +1088,417 @@ export async function fetchHeadCoaches(
   );
   if (!res.ok) return [];
   return res.json();
+}
+
+// Pure: maps an ActorKey to the exact three-way coach_id/member_id/
+// platform_admin_id column shape used for both uploader_* (message_
+// attachments) and p_sender_* (the send_message_with_attachments RPC
+// params) — same three-way exclusivity pattern used everywhere else in
+// this schema. Extracted so the "exactly one column stamped, matching
+// actor.kind" behavior is independently testable without a network call.
+export function actorIdColumns(actor: ActorKey): {
+  coach_id: string | null;
+  member_id: string | null;
+  platform_admin_id: string | null;
+} {
+  return {
+    coach_id:          actor.kind === "coach"          ? actor.id : null,
+    member_id:         actor.kind === "member"         ? actor.id : null,
+    platform_admin_id: actor.kind === "platform_admin" ? actor.id : null,
+  };
+}
+
+// ─── Attachment write path (Phase 2) ──────────────────────────────────────────
+//
+// Lifecycle recap (see the approved design + phase_a31 migration): a
+// pending row is created here, before any message exists, scoped to a
+// thread the caller has ALREADY been authorized against by the route
+// (isParticipant — this module never re-derives that). It is only ever
+// claimed by the send_message_with_attachments Postgres RPC
+// (sendMessageWithAttachments below), atomically with the message insert
+// — never by a second, non-transactional UPDATE from this file.
+
+export const MESSAGE_ATTACHMENTS_BUCKET = "message-attachments";
+
+export type CreatePendingAttachmentError = AttachmentValidationError | {
+  code: "insert_failed";
+  message: string;
+};
+
+export type CreatePendingAttachmentResult =
+  | { ok: true; attachmentId: string; storagePath: string; kind: AttachmentKind }
+  | { ok: false; error: CreatePendingAttachmentError };
+
+/** Creates a 'pending' message_attachments row for a file the caller is
+ *  about to upload. Generates the attachment id and storage_path
+ *  server-side — NEVER accepts either from the client — so a claimed or
+ *  guessed path can't be supplied by a caller. The path is thread-scoped
+ *  (`${threadId}/${id}.${ext}`), matching the design's storage-path
+ *  convention; `threadId` must already be a real thread the caller has
+ *  been authorized against (isParticipant) by the route BEFORE this is
+ *  called — this function performs no authorization of its own. */
+export async function createPendingAttachment(params: {
+  threadId: string;
+  actor: ActorKey;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+}): Promise<CreatePendingAttachmentResult> {
+  const validation = validateAttachmentFile({ mimeType: params.mimeType, byteSize: params.byteSize });
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  // Unreachable in practice (validateAttachmentFile already rejects any
+  // MIME not present in MIME_TO_KIND, and MIME_TO_KIND/MIME_TO_EXTENSION
+  // share the exact same key set) — kept as a defensive type-narrowing
+  // guard rather than a non-null assertion on safeExtensionForMime.
+  const ext = safeExtensionForMime(params.mimeType);
+  if (!ext) {
+    return {
+      ok: false,
+      error: { code: "unsupported_mime", message: `File type "${params.mimeType}" is not supported.` },
+    };
+  }
+
+  const id = randomUUID();
+  const storagePath = `${params.threadId}/${id}.${ext}`;
+  const uploaderColumns = actorIdColumns(params.actor);
+
+  const res = await fetch(`${BASE}/rest/v1/message_attachments`, {
+    method:  "POST",
+    headers: h({ Prefer: "return=minimal" }),
+    body:    JSON.stringify({
+      id,
+      thread_id:           params.threadId,
+      status:              "pending",
+      uploader_actor_type: params.actor.kind,
+      uploader_coach_id:          uploaderColumns.coach_id,
+      uploader_member_id:         uploaderColumns.member_id,
+      uploader_platform_admin_id: uploaderColumns.platform_admin_id,
+      storage_path:      storagePath,
+      original_filename: params.originalFilename,
+      mime_type:          params.mimeType,
+      byte_size:          params.byteSize,
+      attachment_kind:    validation.kind,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] createPendingAttachment insert failed:", res.status, detail);
+    return { ok: false, error: { code: "insert_failed", message: "Failed to prepare attachment upload." } };
+  }
+
+  return { ok: true, attachmentId: id, storagePath, kind: validation.kind };
+}
+
+export type SignedAttachmentUploadResult =
+  | { ok: true; signedUploadUrl: string }
+  | { ok: false; error: string };
+
+/** Signed upload URL for the PRIVATE message-attachments bucket — same
+ *  Supabase Storage sign-upload pattern already used for team-files (see
+ *  api/team/[slug]/files/sign/route.ts), targeting the new bucket
+ *  instead. Never makes the bucket public, never returns a permanent
+ *  public URL — only a short-lived signed PUT target for this one
+ *  storage_path. */
+export async function createSignedAttachmentUploadUrl(
+  storagePath: string,
+): Promise<SignedAttachmentUploadResult> {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const res = await fetch(
+    `${BASE}/storage/v1/object/upload/sign/${MESSAGE_ATTACHMENTS_BUCKET}/${storagePath}`,
+    {
+      method:  "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body:    JSON.stringify({}),
+    },
+  );
+  if (!res.ok) {
+    const msg = await res.text();
+    console.error("[messages] createSignedAttachmentUploadUrl failed:", res.status, msg);
+    return { ok: false, error: "Failed to create upload URL." };
+  }
+
+  const body = await res.json();
+  const relativeUrl: string = body.signedURL ?? body.url ?? "";
+  if (!relativeUrl) return { ok: false, error: "No signed URL returned from storage." };
+
+  return {
+    ok: true,
+    signedUploadUrl: relativeUrl.startsWith("http") ? relativeUrl : `${BASE}${relativeUrl}`,
+  };
+}
+
+export const STALE_PENDING_MS = 24 * 60 * 60 * 1000;
+
+/** Pure: the ISO cutoff timestamp below which a 'pending' attachment
+ *  counts as stale, as of `now` (defaults to the real current time —
+ *  overridable so the 24h boundary itself is testable without faking the
+ *  system clock). Rows with created_at older than this are eligible for
+ *  sweepStalePendingAttachments's cleanup. */
+export function stalePendingCutoffIso(now: number = Date.now()): string {
+  return new Date(now - STALE_PENDING_MS).toISOString();
+}
+
+/** Bounded, request-triggered cleanup — NOT a background job. Intended to
+ *  be called opportunistically by the sign endpoint (a later phase) each
+ *  time it's invoked for a given thread, so abandoned composer uploads
+ *  don't accumulate forever without needing any new scheduled
+ *  infrastructure. Deletes the DB rows first, then makes a best-effort
+ *  attempt to delete the corresponding Storage objects — a Storage
+ *  failure is logged (by count/status only, never by path or filename)
+ *  and never propagates to the caller. */
+export async function sweepStalePendingAttachments(threadId: string): Promise<void> {
+  const cutoff = stalePendingCutoffIso();
+
+  const staleRes = await fetch(
+    `${BASE}/rest/v1/message_attachments` +
+    `?thread_id=eq.${encodeURIComponent(threadId)}&status=eq.pending&created_at=lt.${encodeURIComponent(cutoff)}` +
+    `&select=id,storage_path`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!staleRes.ok) return;
+  const stale: { id: string; storage_path: string }[] = await staleRes.json();
+  if (!stale.length) return;
+
+  const idsClause = stale.map(s => s.id).join(",");
+  const deleteRes = await fetch(
+    `${BASE}/rest/v1/message_attachments?id=in.(${idsClause})`,
+    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+  );
+  if (!deleteRes.ok) {
+    console.error("[messages] sweepStalePendingAttachments: failed to delete stale rows, status", deleteRes.status);
+    return; // don't attempt storage cleanup for rows we couldn't confirm removed
+  }
+
+  try {
+    const storageRes = await fetch(`${BASE}/storage/v1/object/${MESSAGE_ATTACHMENTS_BUCKET}`, {
+      method:  "DELETE",
+      headers: h(),
+      body:    JSON.stringify({ prefixes: stale.map(s => s.storage_path) }),
+    });
+    if (!storageRes.ok) {
+      console.error("[messages] sweepStalePendingAttachments: storage cleanup failed, status", storageRes.status);
+    }
+  } catch (err) {
+    console.error("[messages] sweepStalePendingAttachments: storage cleanup threw", err);
+  }
+}
+
+export type SendMessageWithAttachmentsResult =
+  | { ok: true; message: { id: string; created_at: string } }
+  | { ok: false; error: string };
+
+/** Thin wrapper around the send_message_with_attachments Postgres RPC
+ *  (supabase/migrations/phase_a31_message_attachments.sql) — the sole
+ *  transactional authority for attachment thread/status/uploader
+ *  verification and the message+claim atomicity. This function
+ *  deliberately does NOT re-implement any of that verification in
+ *  TypeScript; it only shapes the request and surfaces failure. Callers
+ *  (API routes) are still responsible for isParticipant(threadId,
+ *  actorKey) authorization BEFORE calling this — the RPC has no way to
+ *  know whether the caller is actually a participant of the thread. */
+export async function sendMessageWithAttachments(params: {
+  threadId: string;
+  actor: ActorKey;
+  senderName: string;
+  senderRole: string;
+  body: string;
+  attachmentIds: string[];
+}): Promise<SendMessageWithAttachmentsResult> {
+  const senderColumns = actorIdColumns(params.actor);
+  const res = await fetch(`${BASE}/rest/v1/rpc/send_message_with_attachments`, {
+    method:  "POST",
+    headers: h(),
+    body:    JSON.stringify({
+      p_thread_id:                params.threadId,
+      p_sender_type:              params.actor.kind,
+      p_sender_coach_id:          senderColumns.coach_id,
+      p_sender_member_id:         senderColumns.member_id,
+      p_sender_platform_admin_id: senderColumns.platform_admin_id,
+      p_sender_name: params.senderName,
+      p_sender_role: params.senderRole,
+      p_body:        params.body,
+      p_attachment_ids: params.attachmentIds,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] sendMessageWithAttachments RPC failed:", res.status, detail);
+    return { ok: false, error: "Failed to send message." };
+  }
+
+  // A function RETURNS-ing a single row (not SETOF) comes back from
+  // PostgREST as one JSON object, not an array.
+  const row: { id: string; created_at: string } = await res.json();
+  return { ok: true, message: { id: row.id, created_at: row.created_at } };
+}
+
+// ─── Canonical thread resolve/create (Phase 2 extraction) ─────────────────────
+//
+// Extracted from api/team/[slug]/messages/threads/route.ts's POST handler
+// so the future /threads/resolve endpoint (attachment-only new-thread
+// flow — see the approved design) and the existing text-only POST route
+// can share EXACTLY the same recipient validation, family auto-inclusion,
+// Head Coach oversight, canonical-reuse, and participant sync/top-up
+// logic, with zero risk of the two diverging over time. This function
+// NEVER inserts a message — that stays the caller's responsibility, so it
+// works identically whether a message already has a body in hand (the
+// existing route) or not yet (the future resolve-only endpoint).
+export type ResolveOrCreateThreadOutcome =
+  | { ok: true; thread: MessageThread; reused: boolean }
+  | { ok: false; error: string; status: number };
+
+export async function resolveOrCreateThreadForRecipient(params: {
+  slug: string;
+  actor: ActorKey;
+  actorName: string;
+  actorRole: string;
+  /** Head-coach-equivalent authority — true for a real head_coach OR a
+   *  platform admin (who never needs Head Coach oversight added to their
+   *  own threads any more than a real head coach does). Computed by the
+   *  caller from the full TeamActor, since this module only knows
+   *  ActorKey and deliberately has no dependency on permissions.ts. */
+  actorIsHeadCoach: boolean;
+  recipientActorType: "coach" | "member";
+  recipientId: string;
+  /** Set on the newly-CREATED thread row's last_message_preview at
+   *  creation time — pass the trimmed message body when the caller
+   *  already has one (the existing route, preserving its exact current
+   *  behavior of setting the preview atomically with thread creation),
+   *  or null when no message exists yet (a future resolve-only caller;
+   *  the preview is then fixed up later by the normal updateThreadMeta
+   *  call once a message is actually sent into the thread). Has no
+   *  effect on the reuse path, which always re-asserts the preview via
+   *  updateThreadMeta after the caller inserts its message, exactly as
+   *  before this extraction. */
+  initialPreview: string | null;
+}): Promise<ResolveOrCreateThreadOutcome> {
+  const { slug, actor, actorName, actorRole, actorIsHeadCoach, recipientActorType, recipientId, initialPreview } = params;
+
+  // Members (athlete/parent/booster) can only initiate threads with coaches.
+  if (actor.kind === "member" && recipientActorType !== "coach") {
+    return { ok: false, error: "Members can only start conversations with coaches.", status: 403 };
+  }
+
+  // Validate recipient exists in this campaign.
+  const recipientCoach = recipientActorType === "coach" ? await fetchCoachById(recipientId, slug) : null;
+  const recipientMember = recipientActorType === "member" ? await fetchMemberById(recipientId, slug) : null;
+  if (!recipientCoach && !recipientMember) {
+    return { ok: false, error: "Recipient not found.", status: 404 };
+  }
+
+  // Build participant list (deduped by actor key)
+  const seen = new Set<string>();
+  const participants: Omit<ParticipantInsert, "thread_id">[] = [];
+
+  function addParticipant(
+    actor_type: "coach" | "member" | "platform_admin",
+    id: string,
+    is_auto_included: boolean,
+    is_observer: boolean,
+  ) {
+    const key = `${actor_type}:${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    participants.push({
+      actor_type,
+      coach_id:          actor_type === "coach"          ? id : null,
+      member_id:         actor_type === "member"         ? id : null,
+      platform_admin_id: actor_type === "platform_admin" ? id : null,
+      is_auto_included,
+      is_observer,
+    });
+  }
+
+  // Creator
+  addParticipant(actor.kind, actor.id, false, false);
+
+  // Explicit recipient
+  addParticipant(recipientActorType, recipientId, false, false);
+
+  // Family auto-include (athlete <-> parent) — canonical, symmetric in
+  // both directions. Seeds from whichever side(s) of this thread are
+  // members: the actor (covers athlete->coach, parent->coach) and the
+  // explicit recipient (covers coach->athlete, coach->parent).
+  const familySeedIds: string[] = [];
+  if (actor.kind === "member") familySeedIds.push(actor.id);
+  if (recipientMember) familySeedIds.push(recipientMember.id);
+  const familyParticipants = await resolveRequiredFamilyParticipants(familySeedIds, slug);
+  for (const fp of familyParticipants) {
+    if (fp.member_id) addParticipant("member", fp.member_id, true, false);
+  }
+
+  // Head coach oversight condition: add if thread has athlete/parent OR
+  // actor does not already carry head-coach-equivalent authority.
+  const hasAthleteOrParent = participants.some(p => {
+    if (p.actor_type !== "member") return false;
+    const id = p.member_id!;
+    return id === recipientId
+      ? ["athlete", "parent"].includes(recipientMember?.role ?? "")
+      : true;
+  });
+  const needsOversight = hasAthleteOrParent || !actorIsHeadCoach;
+  const headCoaches = needsOversight ? await fetchHeadCoaches(slug) : [];
+
+  // Canonical conversation reuse (Phase 2B): `participants` at this point
+  // is exactly the desired NON-OBSERVER set — oversight hasn't been added
+  // yet, so observers are excluded from the identity check by
+  // construction, not by a filter.
+  const desiredNonObserver: ParticipantRef[] = participants.map(p => ({
+    actor_type: p.actor_type, coach_id: p.coach_id, member_id: p.member_id, platform_admin_id: p.platform_admin_id,
+  }));
+  const existingThread = await findCanonicalExistingThread(slug, actor, desiredNonObserver);
+
+  if (existingThread) {
+    // Reuse: sync family (defensive — the match already requires an exact
+    // current-state match, but cheap and correct to re-assert) and top up
+    // any missing oversight. No new thread row, no participant
+    // duplication.
+    try {
+      await syncRequiredThreadParticipants(existingThread.id, slug);
+      if (headCoaches.length) {
+        await ensureHeadCoachOversight(existingThread.id, headCoaches.map(hc => hc.id));
+      }
+    } catch {
+      return { ok: false, error: "Unable to send message right now. Please try again.", status: 500 };
+    }
+    return { ok: true, thread: existingThread, reused: true };
+  }
+
+  for (const hc of headCoaches) addParticipant("coach", hc.id, true, true);
+
+  // Create thread — always subjectless going forward (Phase 2B).
+  const threadRes = await fetch(`${BASE}/rest/v1/message_threads`, {
+    method:  "POST",
+    headers: h({ Prefer: "return=representation" }),
+    body:    JSON.stringify({
+      campaign_slug:                 slug,
+      subject:                       null,
+      created_by_type:               actor.kind,
+      created_by_coach_id:           actor.kind === "coach"          ? actor.id : null,
+      created_by_member_id:          actor.kind === "member"         ? actor.id : null,
+      created_by_platform_admin_id:  actor.kind === "platform_admin" ? actor.id : null,
+      creator_name:         actorName,
+      creator_role:         actorRole,
+      last_message_preview: initialPreview,
+    }),
+  });
+  if (!threadRes.ok) {
+    return { ok: false, error: "Failed to create thread.", status: 500 };
+  }
+  const [thread] = await threadRes.json();
+
+  // Insert participants. Must not silently create a thread that omits
+  // required parents/oversight — fail cleanly instead.
+  const ptInserts: ParticipantInsert[] = participants.map(p => ({
+    ...p,
+    thread_id: thread.id,
+  }));
+  try {
+    await insertParticipants(ptInserts);
+  } catch {
+    return { ok: false, error: "Failed to set up conversation participants. Please try again.", status: 500 };
+  }
+
+  return { ok: true, thread, reused: false };
 }
