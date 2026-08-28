@@ -8,6 +8,13 @@ import {
   validateAttachmentCount,
   actorIdColumns,
   stalePendingCutoffIso,
+  validateSendRequest,
+  parseSignRequestBody,
+  parseResolveRequestBody,
+  attachmentOnlyMessagePreview,
+  messagePreview,
+  safeContentDispositionFilename,
+  buildAttachmentContentDisposition,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
@@ -203,4 +210,202 @@ test("stalePendingCutoffIso boundary: an attachment created just over 24h ago IS
   const cutoff = stalePendingCutoffIso(now);
   const createdAt = new Date(now - (STALE_PENDING_MS + 60_000)).toISOString(); // 24h01m old
   assert.equal(createdAt < cutoff, true);
+});
+
+// ─── Phase 3: reply/send request-shape validation ──────────────────────────────
+
+test("validateSendRequest: text-only, non-empty body, no attachments — valid", () => {
+  assert.equal(validateSendRequest({ body: "hello", attachmentIds: [] }).ok, true);
+});
+
+test("validateSendRequest: attachment-only, empty body, >=1 attachment — valid", () => {
+  assert.equal(validateSendRequest({ body: "", attachmentIds: ["a1"] }).ok, true);
+});
+
+test("validateSendRequest: empty body AND no attachments — rejected", () => {
+  const result = validateSendRequest({ body: "", attachmentIds: [] });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error, "body required");
+});
+
+test("validateSendRequest: body over 3000 chars — rejected regardless of attachments", () => {
+  const result = validateSendRequest({ body: "x".repeat(3001), attachmentIds: [] });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error, "Message too long.");
+});
+
+test("validateSendRequest: exactly 6 attachment ids — valid (at the max)", () => {
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6"];
+  assert.equal(ids.length, MAX_ATTACHMENTS_PER_MESSAGE);
+  assert.equal(validateSendRequest({ body: "", attachmentIds: ids }).ok, true);
+});
+
+test("validateSendRequest: 7 attachment ids — rejected (over the max)", () => {
+  const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7"];
+  const result = validateSendRequest({ body: "", attachmentIds: ids });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.match(result.error, /at most 6 attachments/);
+});
+
+test("validateSendRequest: duplicate attachment ids — rejected before any RPC call", () => {
+  const result = validateSendRequest({ body: "", attachmentIds: ["a1", "a2", "a1"] });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error, "Duplicate attachment ids.");
+});
+
+// ─── Phase 3: sign endpoint request-shape validation ───────────────────────────
+
+test("parseSignRequestBody: valid, complete body parses through", () => {
+  const result = parseSignRequestBody({ original_filename: "photo.jpg", mime_type: "image/jpeg", byte_size: 1000 });
+  assert.deepEqual(result, { ok: true, originalFilename: "photo.jpg", mimeType: "image/jpeg", byteSize: 1000 });
+});
+
+test("parseSignRequestBody: missing original_filename — rejected", () => {
+  const result = parseSignRequestBody({ mime_type: "image/jpeg", byte_size: 1000 });
+  assert.equal(result.ok, false);
+});
+
+test("parseSignRequestBody: missing mime_type — rejected", () => {
+  const result = parseSignRequestBody({ original_filename: "a.jpg", byte_size: 1000 });
+  assert.equal(result.ok, false);
+});
+
+test("parseSignRequestBody: byte_size not a number — rejected", () => {
+  const result = parseSignRequestBody({ original_filename: "a.jpg", mime_type: "image/jpeg", byte_size: "1000" });
+  assert.equal(result.ok, false);
+});
+
+test("parseSignRequestBody: null/non-object body — rejected, not thrown", () => {
+  assert.equal(parseSignRequestBody(null).ok, false);
+  assert.equal(parseSignRequestBody(undefined).ok, false);
+});
+
+test("parseSignRequestBody: never reads storage_path, attachment id, or uploader fields even if the client sends them", () => {
+  // A malicious/confused client sending extra fields must not have them
+  // silently accepted anywhere downstream — parseSignRequestBody's return
+  // type only ever carries originalFilename/mimeType/byteSize.
+  const result = parseSignRequestBody({
+    original_filename: "a.jpg", mime_type: "image/jpeg", byte_size: 1000,
+    storage_path: "attacker-controlled/path.jpg", id: "attacker-chosen-id", uploader_coach_id: "someone-elses-id",
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(Object.keys(result), ["ok", "originalFilename", "mimeType", "byteSize"]);
+});
+
+// ─── Phase 3: resolve endpoint request-shape validation ────────────────────────
+
+test("parseResolveRequestBody: valid body parses through", () => {
+  const result = parseResolveRequestBody({ recipient_actor_type: "coach", recipient_id: "c1" });
+  assert.deepEqual(result, { ok: true, recipientActorType: "coach", recipientId: "c1" });
+});
+
+test("parseResolveRequestBody: missing recipient_actor_type — rejected", () => {
+  assert.equal(parseResolveRequestBody({ recipient_id: "c1" }).ok, false);
+});
+
+test("parseResolveRequestBody: missing recipient_id — rejected", () => {
+  assert.equal(parseResolveRequestBody({ recipient_actor_type: "coach" }).ok, false);
+});
+
+test("parseResolveRequestBody: null body — rejected, not thrown", () => {
+  assert.equal(parseResolveRequestBody(null).ok, false);
+});
+
+// ─── Phase 3: canonical message preview (used for BOTH web-push body and ──────
+// ─── the thread's last_message_preview via updateThreadMeta) ──────────────────
+
+test("attachmentOnlyMessagePreview: single image", () => {
+  assert.equal(attachmentOnlyMessagePreview(["image"]), "📷 Sent a photo");
+});
+
+test("attachmentOnlyMessagePreview: single video", () => {
+  assert.equal(attachmentOnlyMessagePreview(["video"]), "🎥 Sent a video");
+});
+
+test("attachmentOnlyMessagePreview: single generic file", () => {
+  assert.equal(attachmentOnlyMessagePreview(["file"]), "📎 Sent a file");
+});
+
+test("attachmentOnlyMessagePreview: multiple attachments — generic count, regardless of kind mix", () => {
+  assert.equal(attachmentOnlyMessagePreview(["image", "video"]), "📎 Sent 2 attachments");
+  assert.equal(attachmentOnlyMessagePreview(["image", "image", "file"]), "📎 Sent 3 attachments");
+});
+
+// image-only / video-only / file-only / multiple-attachment thread preview
+// (the exact same fallback the web-push body already used, now also the
+// value updateThreadMeta receives — see messagePreview below).
+test("messagePreview: image-only thread/push preview", () => {
+  assert.equal(messagePreview("", ["image"]), "📷 Sent a photo");
+});
+
+test("messagePreview: video-only thread/push preview", () => {
+  assert.equal(messagePreview("", ["video"]), "🎥 Sent a video");
+});
+
+test("messagePreview: file-only thread/push preview", () => {
+  assert.equal(messagePreview("", ["file"]), "📎 Sent a file");
+});
+
+test("messagePreview: multiple-attachment thread/push preview", () => {
+  assert.equal(messagePreview("", ["image", "video", "file"]), "📎 Sent 3 attachments");
+});
+
+test("messagePreview: text + attachments uses the text, never the attachment fallback", () => {
+  assert.equal(messagePreview("see attached", ["image", "file"]), "see attached");
+});
+
+test("messagePreview: text-only behavior is unchanged — truncated to 100 chars, no attachment involvement", () => {
+  assert.equal(messagePreview("hello team", []), "hello team");
+  assert.equal(messagePreview("x".repeat(150), []).length, 100);
+});
+
+test("messagePreview: whitespace-only body falls through to the attachment fallback", () => {
+  assert.equal(messagePreview("   ", ["video"]), "🎥 Sent a video");
+});
+
+test("messagePreview: never contains a filename — the function has no filename input at all, for push OR thread preview", () => {
+  // Structural guarantee, not just a behavioral one: neither
+  // attachmentOnlyMessagePreview nor messagePreview accepts anything
+  // resembling a filename in their parameters, so no private filename
+  // can reach either the push payload or the thread list's preview
+  // through this code path — even a caller that has a filename handy
+  // (e.g. the send route, which knows original_filename) has no
+  // parameter to pass it through.
+  const preview = messagePreview("", ["file"]);
+  assert.equal(preview.includes("."), false); // no accidental "photo.jpg"-style leak
+  assert.equal(preview, "📎 Sent a file");
+});
+
+// ─── Phase 3: safe Content-Disposition filename handling ───────────────────────
+
+test("safeContentDispositionFilename: ordinary filename passes through encoded", () => {
+  assert.equal(safeContentDispositionFilename("photo.jpg"), "photo.jpg");
+});
+
+test("safeContentDispositionFilename: spaces become +, matching the existing team-files pattern", () => {
+  assert.equal(safeContentDispositionFilename("team photo.jpg"), "team+photo.jpg");
+});
+
+test("safeContentDispositionFilename: CRLF header-injection attempt is fully percent-encoded, never raw", () => {
+  const malicious = "a.jpg\r\nX-Injected: evil";
+  const safe = safeContentDispositionFilename(malicious);
+  assert.equal(safe.includes("\r"), false);
+  assert.equal(safe.includes("\n"), false);
+  assert.equal(safe.includes(":"), false);
+});
+
+test("safeContentDispositionFilename: embedded double-quote can't break out of the quoted header value", () => {
+  const safe = safeContentDispositionFilename('a".jpg');
+  assert.equal(safe.includes('"'), false);
+});
+
+test("buildAttachmentContentDisposition: produces both the quoted and UTF-8 filename* forms", () => {
+  const header = buildAttachmentContentDisposition("team photo.jpg");
+  assert.equal(header, `attachment; filename="team+photo.jpg"; filename*=UTF-8''team+photo.jpg`);
+});
+
+test("buildAttachmentContentDisposition: a CRLF-injection attempt never appears raw in the final header value", () => {
+  const header = buildAttachmentContentDisposition("a.jpg\r\nSet-Cookie: evil=1");
+  assert.equal(header.includes("\r"), false);
+  assert.equal(header.includes("\n"), false);
 });

@@ -9,7 +9,12 @@ import {
   updateThreadMeta,
   syncRequiredThreadParticipants,
   ParticipantSyncError,
+  sendMessageWithAttachments,
+  getResolvedMessageById,
+  messagePreview,
+  validateSendRequest,
   type ActorKey,
+  type AttachmentKind,
 } from "@/lib/messages";
 import { sendPushToParticipants } from "@/lib/push";
 import { getTeamIdBySlug, createNotification, buildMessageReferenceUrl } from "@/lib/notifications";
@@ -44,13 +49,19 @@ export async function POST(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  const body = await req.json().catch(() => null);
-  const msgBody: string = body?.body ?? "";
-  if (!msgBody.trim()) {
-    return NextResponse.json({ error: "body required" }, { status: 400 });
-  }
-  if (msgBody.length > 3000) {
-    return NextResponse.json({ error: "Message too long." }, { status: 400 });
+  const parsed = await req.json().catch(() => null);
+  const msgBody: string = typeof parsed?.body === "string" ? parsed.body.trim() : "";
+  const rawAttachmentIds: unknown = parsed?.attachmentIds;
+  const attachmentIds: string[] = Array.isArray(rawAttachmentIds)
+    ? rawAttachmentIds.filter((id): id is string => typeof id === "string")
+    : [];
+
+  // Shape validation only (length/count/required-one-of/duplicates) —
+  // NOT ownership/thread/status. Those remain exclusively the RPC's job
+  // (see send_message_with_attachments).
+  const shapeCheck = validateSendRequest({ body: msgBody, attachmentIds });
+  if (!shapeCheck.ok) {
+    return NextResponse.json({ error: shapeCheck.error }, { status: 400 });
   }
 
   // Self-healing: a parent linked to this athlete after the thread was
@@ -69,12 +80,53 @@ export async function POST(
     throw err;
   }
 
-  const msg = await insertMessage(threadId, actorKey, msgBody.trim(), actorName, actorRole);
-  if (!msg) {
-    return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
+  let responsePayload: unknown;
+  let attachmentKindsForPreview: AttachmentKind[] = [];
+
+  if (attachmentIds.length === 0) {
+    // Text-only — exact existing path, unchanged.
+    const msg = await insertMessage(threadId, actorKey, msgBody, actorName, actorRole);
+    if (!msg) {
+      return NextResponse.json({ error: "Failed to send message." }, { status: 500 });
+    }
+    responsePayload = msg;
+  } else {
+    // Attachment-carrying — the one narrow transactional RPC is the sole
+    // authority for verifying each attachment's thread/status/uploader
+    // match and claiming it atomically with the message insert. Nothing
+    // here re-implements or duplicates that verification.
+    const result = await sendMessageWithAttachments({
+      threadId,
+      actor: actorKey,
+      senderName: actorName,
+      senderRole: actorRole,
+      body: msgBody,
+      attachmentIds,
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    // Return the same client-safe ResolvedMessage shape getMessagesForThread
+    // already produces (attachments included) rather than inventing a
+    // second response format. Falls back to the bare RPC result only if
+    // this immediate re-read somehow fails — still a successful send.
+    const resolved = await getResolvedMessageById(result.message.id, actorKey);
+    responsePayload = resolved ?? result.message;
+    attachmentKindsForPreview = resolved?.attachments.map(a => a.attachment_kind) ?? [];
   }
 
-  void updateThreadMeta(threadId, msgBody.trim());
+  // One canonical, privacy-safe preview computed once and reused for
+  // both the thread's last_message_preview and the web-push body — text
+  // wins whenever present (including text + attachments), the
+  // attachment-kind fallback only applies to a genuinely empty body.
+  // message.body itself is never touched by this: an attachment-only
+  // message's stored body stays exactly empty, as designed. The in-app
+  // notifications row and the native APNs alert are both already fixed,
+  // generic strings regardless of content, so neither needs or gets any
+  // change here. Never includes a filename.
+  const preview = messagePreview(msgBody, attachmentKindsForPreview);
+
+  void updateThreadMeta(threadId, preview);
 
   // Push to other participants
   void (async () => {
@@ -83,7 +135,7 @@ export async function POST(
       const senderKey = `${actorKey.kind}:${actorKey.id}`;
       await sendPushToParticipants(slug, participants, senderKey, {
         title: `New message from ${actorName}`,
-        body:  msgBody.trim().slice(0, 100),
+        body:  preview,
         url:   `/team/${slug}/messages/${threadId}`,
       });
     } catch {}
@@ -117,5 +169,5 @@ export async function POST(
     }
   })();
 
-  return NextResponse.json(msg, { status: 201 });
+  return NextResponse.json(responsePayload, { status: 201 });
 }

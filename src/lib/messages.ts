@@ -268,6 +268,84 @@ export function validateAttachmentCount(totalCount: number): { ok: true } | { ok
   return { ok: true };
 }
 
+// ─── Request-shape validation (Phase 3) ────────────────────────────────────────
+//
+// Pure request-shape checks extracted out of the API routes so they're
+// directly unit-testable without an HTTP mocking framework. None of
+// these perform or replace any authorization, ownership, thread, or
+// status check — those remain the caller's job (isParticipant) or the
+// send_message_with_attachments RPC's job. These only answer "is this
+// request shaped sensibly" — max lengths/counts, required-one-of,
+// duplicates, required fields present with the right JS type.
+
+export type SendRequestValidationResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/** The reply/send endpoint's request-shape rules: body <= 3000 chars,
+ *  at most MAX_ATTACHMENTS_PER_MESSAGE ids, non-empty body OR >=1
+ *  attachment id required, and no duplicate ids in the array. `body`
+ *  should already be trimmed by the caller. */
+export function validateSendRequest(params: {
+  body: string;
+  attachmentIds: string[];
+}): SendRequestValidationResult {
+  if (params.body.length > 3000) {
+    return { ok: false, error: "Message too long." };
+  }
+  if (params.attachmentIds.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    return { ok: false, error: `A message can have at most ${MAX_ATTACHMENTS_PER_MESSAGE} attachments.` };
+  }
+  if (!params.body && params.attachmentIds.length === 0) {
+    return { ok: false, error: "body required" };
+  }
+  if (new Set(params.attachmentIds).size !== params.attachmentIds.length) {
+    return { ok: false, error: "Duplicate attachment ids." };
+  }
+  return { ok: true };
+}
+
+export type SignRequestParseResult =
+  | { ok: true; originalFilename: string; mimeType: string; byteSize: number }
+  | { ok: false; error: string };
+
+/** Parses/validates the sign endpoint's raw request body shape only
+ *  (required fields present, correct JS type) — NOT MIME/size limits,
+ *  which stay validateAttachmentFile's job. Deliberately reads only
+ *  original_filename/mime_type/byte_size — the three fields the sign
+ *  endpoint is allowed to trust from the client; nothing resembling
+ *  storage_path, an attachment id, or an uploader id is ever read here. */
+export function parseSignRequestBody(body: unknown): SignRequestParseResult {
+  const b = body as { original_filename?: unknown; mime_type?: unknown; byte_size?: unknown } | null;
+  const originalFilename = typeof b?.original_filename === "string" ? b.original_filename.trim() : "";
+  const mimeType         = typeof b?.mime_type === "string" ? b.mime_type : "";
+  const byteSize         = typeof b?.byte_size === "number" ? b.byte_size : NaN;
+
+  if (!originalFilename || !mimeType || !Number.isFinite(byteSize)) {
+    return { ok: false, error: "original_filename, mime_type, and byte_size are required." };
+  }
+  return { ok: true, originalFilename, mimeType, byteSize };
+}
+
+export type ResolveRequestParseResult =
+  | { ok: true; recipientActorType: string; recipientId: string }
+  | { ok: false; error: string };
+
+/** Parses/validates the resolve endpoint's raw request body shape —
+ *  intentionally as loose as the existing POST /messages/threads route's
+ *  own check (truthiness only, no strict "coach"|"member" enum
+ *  validation here) so the two endpoints' recipient-shape behavior never
+ *  diverges: an invalid recipient_actor_type falls through to
+ *  resolveOrCreateThreadForRecipient's own "Recipient not found" 404,
+ *  exactly as it always has for the existing route. */
+export function parseResolveRequestBody(body: unknown): ResolveRequestParseResult {
+  const b = body as { recipient_actor_type?: unknown; recipient_id?: unknown } | null;
+  if (!b?.recipient_actor_type || !b?.recipient_id) {
+    return { ok: false, error: "recipient required" };
+  }
+  return { ok: true, recipientActorType: String(b.recipient_actor_type), recipientId: String(b.recipient_id) };
+}
+
 // ─── Internal raw types ───────────────────────────────────────────────────────
 
 // Photo resolution rule (canonical, single source of truth — see
@@ -501,6 +579,37 @@ export async function isParticipant(
   return rows.length > 0;
 }
 
+const MESSAGE_ROW_SELECT =
+  "id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at," +
+  `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT}),` +
+  ATTACHMENT_EMBED_SELECT;
+
+// Shared by getMessagesForThread and getResolvedMessageById (Phase 3) so
+// the two never drift on what a "resolved message" looks like.
+function toResolvedMessage(r: RawMessage, readAt: string | null): ResolvedMessage {
+  return {
+    id: r.id,
+    thread_id: r.thread_id,
+    sender_type: r.sender_type as "coach" | "member" | "platform_admin",
+    sender_coach_id: r.sender_coach_id,
+    sender_member_id: r.sender_member_id,
+    sender_platform_admin_id: r.sender_platform_admin_id,
+    body: r.body,
+    created_at: r.created_at,
+    // Durable snapshot (Phase 3C) — the authoritative historical display
+    // identity, immune to what later happens to the live
+    // team_coaches/team_members relationship. The live join above is used
+    // ONLY for sender_photo_url, which is allowed to gracefully
+    // disappear (Avatar falls back to initials) once that relationship
+    // is gone.
+    sender_name: r.sender_name,
+    sender_role: r.sender_role,
+    sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
+    read_at: readAt,
+    attachments: r.message_attachments ?? [],
+  };
+}
+
 export async function getMessagesForThread(
   threadId: string,
   actor: ActorKey,
@@ -512,9 +621,7 @@ export async function getMessagesForThread(
     // Deterministic attachment ordering within each message's embed —
     // created_at first, id as a stable tiebreak for same-instant uploads.
     `&message_attachments.order=created_at.asc,id.asc` +
-    `&select=id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at,` +
-    `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT}),` +
-    ATTACHMENT_EMBED_SELECT,
+    `&select=${MESSAGE_ROW_SELECT}`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];
@@ -533,27 +640,40 @@ export async function getMessagesForThread(
     : [];
   const readMap = new Map(reads.map(r => [r.message_id, r.read_at]));
 
-  return rows.map(r => ({
-    id: r.id,
-    thread_id: r.thread_id,
-    sender_type: r.sender_type as "coach" | "member" | "platform_admin",
-    sender_coach_id: r.sender_coach_id,
-    sender_member_id: r.sender_member_id,
-    sender_platform_admin_id: r.sender_platform_admin_id,
-    body: r.body,
-    created_at: r.created_at,
-    // Durable snapshot (Phase 3C) — the authoritative historical display
-    // identity, immune to what later happens to the live
-    // team_coaches/team_members relationship. The live join above is used
-    // ONLY for sender_photo_url, which is allowed to gracefully
-    // disappear (Avatar falls back to initials) once that relationship
-    // is gone.
-    sender_name: r.sender_name,
-    sender_role: r.sender_role,
-    sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
-    read_at: readMap.get(r.id) ?? null,
-    attachments: r.message_attachments ?? [],
-  }));
+  return rows.map(r => toResolvedMessage(r, readMap.get(r.id) ?? null));
+}
+
+/** Single-message equivalent of getMessagesForThread — used by the
+ *  attachment-send route (Phase 3) to return the just-sent message in the
+ *  exact same client-safe ResolvedMessage shape (attachments included),
+ *  rather than inventing a second response format. `actor` is the
+ *  CALLER's own actor key, used only to look up their own read_at (which
+ *  will be null immediately after sending their own message — read_at is
+ *  irrelevant to the sender, but kept for shape consistency). */
+export async function getResolvedMessageById(
+  messageId: string,
+  actor: ActorKey,
+): Promise<ResolvedMessage | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/messages?id=eq.${encodeURIComponent(messageId)}&limit=1` +
+    `&message_attachments.order=created_at.asc,id.asc` +
+    `&select=${MESSAGE_ROW_SELECT}`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: RawMessage[] = await res.json();
+  const r = rows[0];
+  if (!r) return null;
+
+  const fk = fkColumn(actor.kind);
+  const readsRes = await fetch(
+    `${BASE}/rest/v1/message_reads?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}` +
+    `&message_id=eq.${encodeURIComponent(messageId)}&select=read_at&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const reads: { read_at: string }[] = readsRes.ok ? await readsRes.json() : [];
+
+  return toResolvedMessage(r, reads[0]?.read_at ?? null);
 }
 
 // ─── Unread count (for nav badge) ─────────────────────────────────────────────
@@ -1282,6 +1402,116 @@ export async function sweepStalePendingAttachments(threadId: string): Promise<vo
   } catch (err) {
     console.error("[messages] sweepStalePendingAttachments: storage cleanup threw", err);
   }
+}
+
+/** Rollback for a pending attachment whose signed-upload-URL step failed
+ *  (see the sign endpoint, Phase 3) — deletes the DB row (scoped to
+ *  status='pending' as a safety guard: this can never touch an already-
+ *  attached row even if called with a stale/wrong id) then makes a
+ *  best-effort attempt to remove any object at that path from Storage.
+ *  Since signing itself failed, no bytes were ever actually uploaded in
+ *  the normal case — the Storage delete is defensive, not expected to
+ *  find anything. Never throws to the caller; logs by status/error only,
+ *  never the path. */
+export async function deletePendingAttachment(params: {
+  attachmentId: string;
+  storagePath: string;
+}): Promise<void> {
+  const res = await fetch(
+    `${BASE}/rest/v1/message_attachments?id=eq.${encodeURIComponent(params.attachmentId)}&status=eq.pending`,
+    { method: "DELETE", headers: h({ Prefer: "return=minimal" }) },
+  );
+  if (!res.ok) {
+    console.error("[messages] deletePendingAttachment: failed to delete row, status", res.status);
+    return;
+  }
+
+  try {
+    const storageRes = await fetch(`${BASE}/storage/v1/object/${MESSAGE_ATTACHMENTS_BUCKET}`, {
+      method:  "DELETE",
+      headers: h(),
+      body:    JSON.stringify({ prefixes: [params.storagePath] }),
+    });
+    if (!storageRes.ok) {
+      console.error("[messages] deletePendingAttachment: storage cleanup failed, status", storageRes.status);
+    }
+  } catch (err) {
+    console.error("[messages] deletePendingAttachment: storage cleanup threw", err);
+  }
+}
+
+/** Full raw row lookup by id — server-internal only (includes
+ *  storage_path). This is the ONLY function in this module that returns
+ *  a raw MessageAttachment to a caller outside itself; the download
+ *  route (Phase 3) is the sole consumer, and it never serializes this
+ *  value back to the client — it uses storage_path purely to fetch the
+ *  object server-side, then builds an ordinary file response. */
+export async function getAttachmentByIdServer(attachmentId: string): Promise<MessageAttachment | null> {
+  const res = await fetch(
+    `${BASE}/rest/v1/message_attachments?id=eq.${encodeURIComponent(attachmentId)}&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return null;
+  const rows: MessageAttachment[] = await res.json();
+  return rows[0] ?? null;
+}
+
+// ─── Canonical message preview (Phase 3) ───────────────────────────────────────
+//
+// One safe, logical "what should this message look like as a short
+// preview string" rule, shared by every place that needs one: the
+// web-push payload (sendPushToParticipants) and the thread's
+// last_message_preview (updateThreadMeta). The in-app notifications row
+// body and the native APNs alert (buildApnsAlert in apns.ts) are both
+// already fixed, generic strings ("${actorName} sent you a message")
+// regardless of content — neither needed, and neither gets, any
+// attachment-aware change here. This never takes a filename as input —
+// there is no code path by which a private filename could reach either
+// consumer through this function. message.body itself is never touched
+// by this — an attachment-only message's stored body stays exactly
+// empty, as designed; this only affects what's shown as a PREVIEW
+// elsewhere.
+
+/** Pure. The fallback preview text for a message with NO text body —
+ *  one or more attachments only. Never given (and never needs) a
+ *  filename. */
+export function attachmentOnlyMessagePreview(attachmentKinds: AttachmentKind[]): string {
+  if (attachmentKinds.length > 1) return `📎 Sent ${attachmentKinds.length} attachments`;
+  const kind = attachmentKinds[0];
+  if (kind === "video") return "🎥 Sent a video";
+  if (kind === "file")  return "📎 Sent a file";
+  return "📷 Sent a photo"; // "image", and the fallback for an unexpected/empty kind
+}
+
+/** Pure. The canonical preview text for a message: the existing
+ *  truncated-text behavior when there's a body (text + attachments still
+ *  uses the text, never the attachment fallback), the attachment
+ *  fallback above when the body is empty. Used for BOTH the web-push
+ *  body and updateThreadMeta's last_message_preview, so the two can
+ *  never drift on what a given message "looks like" as a preview. */
+export function messagePreview(body: string, attachmentKinds: AttachmentKind[]): string {
+  const trimmed = body.trim();
+  if (trimmed) return trimmed.slice(0, 100);
+  return attachmentOnlyMessagePreview(attachmentKinds);
+}
+
+// ─── Safe Content-Disposition (Phase 3) ───────────────────────────────────────
+
+/** Pure. Percent-encodes a filename for safe use inside an HTTP header
+ *  value — encodeURIComponent already escapes CR/LF and quote
+ *  characters, which is what actually prevents header injection/
+ *  malformed values; the %20->+ swap is purely cosmetic (matches the
+ *  existing team-files download route's pattern). */
+export function safeContentDispositionFilename(filename: string): string {
+  return encodeURIComponent(filename).replace(/%20/g, "+");
+}
+
+/** Pure. Full Content-Disposition header value for an attachment
+ *  download — same "attachment; filename=...; filename*=UTF-8''..."
+ *  shape already used by api/team/[slug]/files/[id]/route.ts. */
+export function buildAttachmentContentDisposition(filename: string): string {
+  const safe = safeContentDispositionFilename(filename);
+  return `attachment; filename="${safe}"; filename*=UTF-8''${safe}`;
 }
 
 export type SendMessageWithAttachmentsResult =
