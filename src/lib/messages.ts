@@ -1507,11 +1507,26 @@ export function safeContentDispositionFilename(filename: string): string {
 }
 
 /** Pure. Full Content-Disposition header value for an attachment
- *  download — same "attachment; filename=...; filename*=UTF-8''..."
- *  shape already used by api/team/[slug]/files/[id]/route.ts. */
-export function buildAttachmentContentDisposition(filename: string): string {
+ *  download — same "<disposition>; filename=...; filename*=UTF-8''..."
+ *  shape already used by api/team/[slug]/files/[id]/route.ts.
+ *
+ *  `disposition` defaults to "attachment" (forces a download — correct
+ *  for video/PDF/DOC/DOCX). Images pass "inline" explicitly so an
+ *  <img src="..."> pointed at the download route reliably renders in
+ *  every browser: "attachment" is a top-level-navigation download hint
+ *  and isn't something every browser is guaranteed to still decode as
+ *  an embedded image resource, whereas "inline" is unambiguous either
+ *  way and simply becomes a download when the same URL is opened as a
+ *  top-level navigation (clicking through the image still downloads it,
+ *  matching every other attachment kind's click behavior). This never
+ *  introduces a public or signed-download URL — it only changes one
+ *  response header on the same authenticated, participant-gated route. */
+export function buildAttachmentContentDisposition(
+  filename: string,
+  disposition: "inline" | "attachment" = "attachment",
+): string {
   const safe = safeContentDispositionFilename(filename);
-  return `attachment; filename="${safe}"; filename*=UTF-8''${safe}`;
+  return `${disposition}; filename="${safe}"; filename*=UTF-8''${safe}`;
 }
 
 export type SendMessageWithAttachmentsResult =

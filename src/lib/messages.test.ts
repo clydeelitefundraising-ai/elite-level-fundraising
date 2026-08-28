@@ -409,3 +409,14 @@ test("buildAttachmentContentDisposition: a CRLF-injection attempt never appears 
   assert.equal(header.includes("\r"), false);
   assert.equal(header.includes("\n"), false);
 });
+
+test("buildAttachmentContentDisposition: defaults to 'attachment' when no disposition is given (video/PDF/DOC/DOCX)", () => {
+  const header = buildAttachmentContentDisposition("clip.mp4");
+  assert.match(header, /^attachment;/);
+});
+
+test("buildAttachmentContentDisposition: 'inline' can be requested explicitly (images, for <img src> compatibility)", () => {
+  const header = buildAttachmentContentDisposition("photo.jpg", "inline");
+  assert.match(header, /^inline;/);
+  assert.equal(header, `inline; filename="photo.jpg"; filename*=UTF-8''photo.jpg`);
+});

@@ -7,6 +7,10 @@ import {
   roleLabel, otherParticipants, conversationDisplayName, isFamilyThread, selfParticipantRow,
 } from "./_shared/participantDisplay";
 import Avatar from "./_shared/Avatar";
+import AttachmentPickerButton from "./_shared/AttachmentPickerButton";
+import AttachmentComposerBar from "./_shared/AttachmentComposerBar";
+import { useSelectedAttachments } from "./_shared/useSelectedAttachments";
+import { uploadMessageAttachments } from "./_shared/uploadMessageAttachments";
 
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -173,8 +177,10 @@ function ComposeModal({
   const [step, setStep] = useState<ComposeStep>("recipient");
   const [msgBody, setMsgBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "resolving" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { selected, selectionError, addFiles, removeFile, updateStatus } = useSelectedAttachments();
 
   useEffect(() => {
     fetch(`/api/team/${slug}/messages/directory`)
@@ -221,30 +227,113 @@ function ComposeModal({
       : null;
 
   const handleSend = async () => {
-    if (!recipientId || !msgBody.trim()) return;
+    const body = msgBody.trim();
+    if (!recipientId || (!body && selected.length === 0)) return;
     setSending(true);
     setError("");
+
+    // ── Pure text: exact existing one-shot flow, unchanged. ──
+    if (selected.length === 0) {
+      try {
+        const res = await fetch(`/api/team/${slug}/messages/threads`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            recipient_actor_type: actorType,
+            recipient_id:         recipientId,
+            body,
+          }),
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          setError(d.error ?? "Failed to send.");
+          setSending(false);
+          return;
+        }
+        const data = await res.json();
+        onCreated(data.thread_id);
+      } catch {
+        setError("Network error. Please try again.");
+        setSending(false);
+      }
+      return;
+    }
+
+    // ── Any attachments: resolve the canonical thread first (no message
+    // yet), sign/upload against that REAL thread id, then send exactly
+    // once via the reply endpoint. Never calls the one-shot POST
+    // /messages/threads for this path — that would either create a
+    // placeholder first message or (if attachments were added there
+    // too) require a second, duplicate message call. ──
+    setUploadPhase("resolving");
+    let threadId: string;
     try {
-      const res = await fetch(`/api/team/${slug}/messages/threads`, {
+      const resolveRes = await fetch(`/api/team/${slug}/messages/threads/resolve`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          recipient_actor_type: actorType,
-          recipient_id:         recipientId,
-          body:                 msgBody.trim(),
-        }),
+        body:    JSON.stringify({ recipient_actor_type: actorType, recipient_id: recipientId }),
       });
-      if (!res.ok) {
-        const d = await res.json();
-        setError(d.error ?? "Failed to send.");
+      if (!resolveRes.ok) {
+        const d = await resolveRes.json().catch(() => ({}));
+        setError(d.error ?? "Failed to start the conversation.");
         setSending(false);
+        setUploadPhase("idle");
         return;
       }
-      const data = await res.json();
-      onCreated(data.thread_id);
+      const resolveData = await resolveRes.json();
+      threadId = resolveData.thread_id;
     } catch {
       setError("Network error. Please try again.");
       setSending(false);
+      setUploadPhase("idle");
+      return;
+    }
+
+    setUploadPhase("uploading");
+    const uploadResult = await uploadMessageAttachments(
+      slug,
+      threadId,
+      // Reuse any already-uploaded id, but ONLY if it was uploaded
+      // against this exact threadId — if resolve() ever returns a
+      // different thread on retry, uploadedForThreadId won't match and
+      // the file is re-uploaded fresh against the real current thread
+      // instead of leaking a stale id into the wrong conversation.
+      selected.map(s => ({
+        localId: s.localId, file: s.file,
+        attachmentId: s.attachmentId, uploadedForThreadId: s.uploadedForThreadId,
+      })),
+      (localId, status, err, attachmentId) => updateStatus(localId, status, err, attachmentId, threadId),
+    );
+    if (!uploadResult.ok) {
+      setError(uploadResult.error);
+      setSending(false);
+      setUploadPhase("idle");
+      // The thread may now exist (resolved or newly created) with no
+      // message yet — harmless by design (see the approved design's
+      // failure-recovery notes); recipient/body/remaining files stay in
+      // the composer so the user can retry Send.
+      return;
+    }
+
+    setUploadPhase("sending");
+    try {
+      const sendRes = await fetch(`/api/team/${slug}/messages/threads/${threadId}/messages`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ body, attachmentIds: uploadResult.attachmentIds }),
+      });
+      if (!sendRes.ok) {
+        const d = await sendRes.json().catch(() => ({}));
+        setError(d.error ?? "Failed to send.");
+        setSending(false);
+        setUploadPhase("idle");
+        return;
+      }
+      onCreated(threadId);
+    } catch {
+      setError("Network error. Please try again.");
+      setSending(false);
+      setUploadPhase("idle");
     }
   };
 
@@ -465,12 +554,19 @@ function ComposeModal({
                 marginBottom: ".3rem",
               }}
             />
-            <div style={{ textAlign: "right", fontSize: ".65rem", color: "#9ca3af", marginBottom: ".9rem" }}>
+            <div style={{ textAlign: "right", fontSize: ".65rem", color: "#9ca3af", marginBottom: ".6rem" }}>
               {msgBody.length}/3000
             </div>
 
+            <AttachmentComposerBar
+              selected={selected}
+              onRemove={removeFile}
+              disabled={sending}
+              selectionError={selectionError}
+            />
+
             {error && (
-              <div style={{
+              <div role="alert" style={{
                 background: "#fef2f2", border: "1px solid #fecaca",
                 borderRadius: 8, padding: ".5rem .7rem",
                 fontSize: ".78rem", color: "#dc2626", marginBottom: ".75rem",
@@ -479,21 +575,27 @@ function ComposeModal({
               </div>
             )}
 
-            <button
-              onClick={handleSend}
-              disabled={sending || !msgBody.trim()}
-              style={{
-                width: "100%", padding: ".7rem",
-                background: primaryColor,
-                color: "#fff", border: "none", borderRadius: 10,
-                fontSize: ".9rem", fontWeight: 700,
-                cursor: sending || !msgBody.trim() ? "default" : "pointer",
-                opacity: sending || !msgBody.trim() ? .5 : 1,
-                transition: "opacity .15s",
-              }}
-            >
-              {sending ? "Sending…" : "Send"}
-            </button>
+            <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+              <AttachmentPickerButton onFilesSelected={addFiles} disabled={sending} />
+              <button
+                onClick={handleSend}
+                disabled={sending || (!msgBody.trim() && selected.length === 0)}
+                style={{
+                  flex: 1, padding: ".7rem",
+                  background: primaryColor,
+                  color: "#fff", border: "none", borderRadius: 10,
+                  fontSize: ".9rem", fontWeight: 700,
+                  cursor: sending || (!msgBody.trim() && selected.length === 0) ? "default" : "pointer",
+                  opacity: sending || (!msgBody.trim() && selected.length === 0) ? .5 : 1,
+                  transition: "opacity .15s",
+                }}
+              >
+                {!sending ? "Send"
+                  : uploadPhase === "resolving" ? "Starting…"
+                  : uploadPhase === "uploading" ? "Uploading…"
+                  : "Sending…"}
+              </button>
+            </div>
           </>
         )}
       </div>

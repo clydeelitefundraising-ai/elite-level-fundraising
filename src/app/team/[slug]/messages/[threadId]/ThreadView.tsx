@@ -7,6 +7,12 @@ import {
   roleLabel, otherParticipants, observerParticipants, conversationDisplayName, isFamilyThread,
 } from "../_shared/participantDisplay";
 import Avatar from "../_shared/Avatar";
+import AttachmentCard from "../_shared/AttachmentCard";
+import { shouldRenderTextBubble } from "../_shared/attachmentClient";
+import AttachmentPickerButton from "../_shared/AttachmentPickerButton";
+import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
+import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
+import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -31,16 +37,26 @@ function isOwnMessage(
 // ─── Message bubble ──────────────────────────────────────────────────────────
 
 function MessageBubble({
+  slug,
   msg,
   isSelf,
   showSenderInfo,
   primaryColor,
 }: {
+  slug: string;
   msg: ResolvedMessage;
   isSelf: boolean;
   showSenderInfo: boolean;
   primaryColor: string;
 }) {
+  // An attachment-only message has an empty body — never render the
+  // speech-bubble text container for it (an empty rounded bubble reads
+  // as a rendering bug, not as "no caption"). Text + attachments renders
+  // both: the text bubble first, the attachment card(s) grouped right
+  // below it under the same sender/timestamp.
+  const hasBody = shouldRenderTextBubble(msg.body);
+  const hasAttachments = msg.attachments.length > 0;
+
   return (
     <div
       style={{
@@ -59,27 +75,40 @@ function MessageBubble({
         </div>
       )}
 
-      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isSelf ? "flex-end" : "flex-start" }}>
+      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isSelf ? "flex-end" : "flex-start", gap: ".35rem" }}>
         {!isSelf && showSenderInfo && (
-          <span style={{ fontSize: ".65rem", color: "#9ca3af", marginBottom: ".18rem", fontWeight: 500 }}>
+          <span style={{ fontSize: ".65rem", color: "#9ca3af", marginBottom: "-.15rem", fontWeight: 500 }}>
             {msg.sender_name} · {roleLabel(msg.sender_role)}
           </span>
         )}
-        <div style={{
-          background:   isSelf ? primaryColor : "#fff",
-          color:        isSelf ? "#fff" : "#1f2937",
-          borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-          padding:      ".6rem .8rem",
-          fontSize:     "1rem",
-          lineHeight:   1.45,
-          boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
-          whiteSpace:   "pre-wrap",
-          wordBreak:    "break-word",
-          overflowWrap: "anywhere",
-        }}>
-          {msg.body}
-        </div>
-        <span style={{ fontSize: ".6rem", color: "#c1c7d0", marginTop: ".15rem" }}>
+
+        {hasBody && (
+          <div style={{
+            background:   isSelf ? primaryColor : "#fff",
+            color:        isSelf ? "#fff" : "#1f2937",
+            borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+            padding:      ".6rem .8rem",
+            fontSize:     "1rem",
+            lineHeight:   1.45,
+            boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
+            whiteSpace:   "pre-wrap",
+            wordBreak:    "break-word",
+            overflowWrap: "anywhere",
+            maxWidth:     "100%",
+          }}>
+            {msg.body}
+          </div>
+        )}
+
+        {hasAttachments && (
+          <div style={{ display: "flex", flexDirection: "column", gap: ".35rem", maxWidth: "100%" }}>
+            {msg.attachments.map(a => (
+              <AttachmentCard key={a.id} slug={slug} attachment={a} />
+            ))}
+          </div>
+        )}
+
+        <span style={{ fontSize: ".6rem", color: "#c1c7d0" }}>
           {relativeTime(msg.created_at)}
         </span>
       </div>
@@ -112,9 +141,11 @@ export default function ThreadView({
   const [messages, setMessages] = useState<ResolvedMessage[]>(initialMessages);
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
 
   // Mark as read on mount
   useEffect(() => {
@@ -141,59 +172,118 @@ export default function ThreadView({
   const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
 
+  const canSend = !sending && (replyBody.trim().length > 0 || selected.length > 0);
+
   const handleSend = useCallback(async () => {
-    if (!replyBody.trim() || sending) return;
+    const body = replyBody.trim();
+    if (!canSend) return;
     setSending(true);
     setError("");
 
-    // Optimistic — replaced by the real row once the POST resolves.
-    const optimistic: ResolvedMessage = {
-      id:               `opt-${Date.now()}`,
-      thread_id:        thread.id,
-      sender_type:      actorKind,
-      sender_coach_id:          actorKind === "coach"          ? actorId : null,
-      sender_member_id:         actorKind === "member"         ? actorId : null,
-      sender_platform_admin_id: actorKind === "platform_admin" ? actorId : null,
-      body:             replyBody.trim(),
-      created_at:       new Date().toISOString(),
-      sender_name:      actorName,
-      sender_role:      "",
-      sender_photo_url: null,
-      read_at:          new Date().toISOString(),
-      attachments:      [],
-    };
-    setMessages(prev => [...prev, optimistic]);
-    const body = replyBody.trim();
-    setReplyBody("");
+    // ── Text-only: exact existing optimistic-append-then-replace path,
+    // unchanged. ──
+    if (selected.length === 0) {
+      const optimistic: ResolvedMessage = {
+        id:               `opt-${Date.now()}`,
+        thread_id:        thread.id,
+        sender_type:      actorKind,
+        sender_coach_id:          actorKind === "coach"          ? actorId : null,
+        sender_member_id:         actorKind === "member"         ? actorId : null,
+        sender_platform_admin_id: actorKind === "platform_admin" ? actorId : null,
+        body,
+        created_at:       new Date().toISOString(),
+        sender_name:      actorName,
+        sender_role:      "",
+        sender_photo_url: null,
+        read_at:          new Date().toISOString(),
+        attachments:      [],
+      };
+      setMessages(prev => [...prev, optimistic]);
+      setReplyBody("");
 
+      try {
+        const res = await fetch(
+          `/api/team/${slug}/messages/threads/${thread.id}/messages`,
+          {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ body }),
+          },
+        );
+        if (!res.ok) {
+          const d = await res.json();
+          setError(d.error ?? "Failed to send.");
+          setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+          setSending(false);
+          return;
+        }
+        const real = await res.json();
+        setMessages(prev => prev.map(m =>
+          m.id === optimistic.id
+            ? { ...optimistic, id: real.id, created_at: real.created_at }
+            : m,
+        ));
+      } catch {
+        setError("Network error. Please try again.");
+        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+      }
+      setSending(false);
+      return;
+    }
+
+    // ── One or more attachments: sign+upload each (stopping immediately
+    // on the first failure — nothing is sent if any upload fails), then
+    // send exactly once. No optimistic bubble here: the real, server-
+    // resolved message (with real attachment metadata) is appended
+    // directly once the send succeeds, rather than guessing what it will
+    // look like from local blob previews. ──
+    setUploadPhase("uploading");
+    const uploadResult = await uploadMessageAttachments(
+      slug,
+      thread.id,
+      // Pass each item's already-uploaded id/thread (if any) so a retry
+      // after a SIBLING file failed reuses this one instead of
+      // re-signing/re-uploading and orphaning a second pending row.
+      selected.map(s => ({
+        localId: s.localId, file: s.file,
+        attachmentId: s.attachmentId, uploadedForThreadId: s.uploadedForThreadId,
+      })),
+      (localId, status, err, attachmentId) => updateStatus(localId, status, err, attachmentId, thread.id),
+    );
+    if (!uploadResult.ok) {
+      setError(uploadResult.error);
+      setSending(false);
+      setUploadPhase("idle");
+      return; // composer state (body + selected files) is kept as-is for retry
+    }
+
+    setUploadPhase("sending");
     try {
       const res = await fetch(
         `/api/team/${slug}/messages/threads/${thread.id}/messages`,
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ body }),
+          body:    JSON.stringify({ body, attachmentIds: uploadResult.attachmentIds }),
         },
       );
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Failed to send.");
-        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
         setSending(false);
+        setUploadPhase("idle");
         return;
       }
-      const real = await res.json();
-      setMessages(prev => prev.map(m =>
-        m.id === optimistic.id
-          ? { ...optimistic, id: real.id, created_at: real.created_at }
-          : m,
-      ));
+      const real: ResolvedMessage = await res.json();
+      setMessages(prev => [...prev, real]);
+      setReplyBody("");
+      resetSelected();
     } catch {
       setError("Network error. Please try again.");
-      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     }
     setSending(false);
-  }, [replyBody, sending, slug, thread.id, actorKind, actorId, actorName]);
+    setUploadPhase("idle");
+  }, [replyBody, canSend, selected, slug, thread.id, actorKind, actorId, actorName, updateStatus, resetSelected]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -201,6 +291,12 @@ export default function ThreadView({
       handleSend();
     }
   };
+
+  const sendLabel = !sending
+    ? "Send"
+    : uploadPhase === "uploading" ? "Uploading…"
+    : uploadPhase === "sending"   ? "Sending…"
+    : "…";
 
   return (
     // 100dvh, not 100vh — 100vh does not shrink when the iOS on-screen
@@ -283,6 +379,7 @@ export default function ThreadView({
             return (
               <MessageBubble
                 key={m.id}
+                slug={slug}
                 msg={m}
                 isSelf={isOwnMessage(m, actorKind, actorId)}
                 showSenderInfo={!sameSenderAsPrev}
@@ -309,7 +406,7 @@ export default function ThreadView({
         background: "#f5f6f8",
       }}>
         {error && (
-          <div style={{
+          <div role="alert" style={{
             background: "#fef2f2", border: "1px solid #fecaca",
             borderRadius: 8, padding: ".4rem .6rem",
             fontSize: ".75rem", color: "#dc2626", marginBottom: ".5rem",
@@ -317,7 +414,16 @@ export default function ThreadView({
             {error}
           </div>
         )}
+
+        <AttachmentComposerBar
+          selected={selected}
+          onRemove={removeFile}
+          disabled={sending}
+          selectionError={selectionError}
+        />
+
         <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-end" }}>
+          <AttachmentPickerButton onFilesSelected={addFiles} disabled={sending} />
           <textarea
             ref={textareaRef}
             value={replyBody}
@@ -341,7 +447,7 @@ export default function ThreadView({
           />
           <button
             onClick={handleSend}
-            disabled={sending || !replyBody.trim()}
+            disabled={!canSend}
             aria-label="Send message"
             style={{
               padding: ".55rem .9rem",
@@ -351,14 +457,14 @@ export default function ThreadView({
               borderRadius: 10,
               fontSize: ".82rem",
               fontWeight: 700,
-              cursor: sending || !replyBody.trim() ? "default" : "pointer",
-              opacity: sending || !replyBody.trim() ? .45 : 1,
+              cursor: canSend ? "pointer" : "default",
+              opacity: canSend ? 1 : .45,
               transition: "opacity .15s",
               flexShrink: 0,
               minHeight: 40,
             }}
           >
-            {sending ? "…" : "Send"}
+            {sendLabel}
           </button>
         </div>
       </div>

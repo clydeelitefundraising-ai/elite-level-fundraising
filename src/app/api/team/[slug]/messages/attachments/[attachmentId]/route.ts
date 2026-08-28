@@ -80,10 +80,16 @@ export async function GET(
     return NextResponse.json({ error: "File not available." }, { status: fileRes.status });
   }
 
+  // Images render inline (needed for <img src="..."> to reliably work
+  // across browsers); every other kind still forces a download, exactly
+  // as before. Still the same authenticated, participant-gated route —
+  // no public or signed-download URL is introduced by this.
+  const disposition = attachment.attachment_kind === "image" ? "inline" : "attachment";
+
   return new NextResponse(fileRes.body, {
     headers: {
       "Content-Type":        attachment.mime_type || "application/octet-stream",
-      "Content-Disposition": buildAttachmentContentDisposition(attachment.original_filename),
+      "Content-Disposition": buildAttachmentContentDisposition(attachment.original_filename, disposition),
       "Cache-Control":       "private, max-age=1800",
     },
   });
