@@ -38,15 +38,33 @@ async function uploadOneAttachment(
 
   // PUT directly to the server-issued signed URL — an opaque upload
   // target, never inspected or reconstructed client-side. No apikey/
-  // Authorization header is added here: the signed URL's own embedded
-  // token is what authorizes this one PUT, matching the existing
-  // team-files signed-upload pattern this mirrors.
+  // Authorization header: the token embedded in the URL's own query
+  // string is what authorizes this PUT.
+  //
+  // Body/header shape matches the actual installed @supabase/storage-js
+  // contract exactly (verified against node_modules/@supabase/storage-js
+  // StorageFileApi.ts's own uploadToSignedUrl — team-files' /files/sign
+  // route turned out to have NO client consumer anywhere in this app, so
+  // it was never a proven precedent to copy from). For a File/Blob body,
+  // the real client always sends multipart/form-data — the file appended
+  // under an EMPTY field name, plus a cacheControl field — never a raw
+  // binary body with a manually-set Content-Type. It also always sends
+  // an `x-upsert` header. Sending the wrong body/header shape here was
+  // the actual bug: a raw-binary PUT with an arbitrary Content-Type
+  // value is not a CORS-simple request, and Supabase Storage's edge
+  // likely doesn't allow it for this endpoint — that mismatch is what
+  // surfaced to users as a generic browser "network error" (fetch
+  // rejecting before any readable HTTP response), not a clean 4xx/5xx.
+  const formData = new FormData();
+  formData.append("cacheControl", "3600");
+  formData.append("", file);
+
   let putRes: Response;
   try {
     putRes = await fetch(parsed.signedUploadUrl, {
       method:  "PUT",
-      headers: { "Content-Type": parsed.mimeType },
-      body:    file,
+      headers: { "x-upsert": "false" },
+      body:    formData,
     });
   } catch {
     return { ok: false, error: `Network error while uploading "${file.name}".` };
