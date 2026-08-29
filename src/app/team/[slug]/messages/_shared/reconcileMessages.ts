@@ -34,3 +34,27 @@ export function reconcileMessages<T extends MinimalMessage>(
   const stillPendingLocal = localMessages.filter(m => isOptimisticId(m.id) && !serverIds.has(m.id));
   return [...serverMessages, ...stillPendingLocal];
 }
+
+/** Pure. Whether `incoming` (a fresh authoritative server list) contains
+ *  at least one REAL message id not already present among the real ids
+ *  in `previous` (the currently-known local/authoritative set). Used to
+ *  decide whether a poll tick actually found something new — idle
+ *  polling that returns the exact same set (in any order) must not be
+ *  treated as "a new message arrived."
+ *
+ *  Optimistic ids never count on either side: the server never produces
+ *  one (so `incoming` filtering is defensive, not load-bearing), and one
+ *  sitting in `previous` must never be mistaken for a previously-seen
+ *  REAL message — it isn't one yet. Order and count are both irrelevant;
+ *  only real-id set membership matters, so a reordered-but-identical
+ *  response correctly reports no new message. */
+export function hasNewServerMessages<T extends MinimalMessage>(
+  previous: T[],
+  incoming: T[],
+  isOptimisticId: (id: string) => boolean = isOptimisticMessageId,
+): boolean {
+  const previousRealIds = new Set(
+    previous.filter(m => !isOptimisticId(m.id)).map(m => m.id),
+  );
+  return incoming.some(m => !isOptimisticId(m.id) && !previousRealIds.has(m.id));
+}

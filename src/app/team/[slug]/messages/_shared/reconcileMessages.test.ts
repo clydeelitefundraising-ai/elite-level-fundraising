@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reconcileMessages, isOptimisticMessageId } from "./reconcileMessages.ts";
+import { reconcileMessages, isOptimisticMessageId, hasNewServerMessages } from "./reconcileMessages.ts";
 
 test("isOptimisticMessageId: true only for the client-generated opt- prefix", () => {
   assert.equal(isOptimisticMessageId("opt-1700000000000"), true);
@@ -66,4 +66,52 @@ test("reconcileMessages: a custom isOptimisticId predicate is respected instead 
   const local  = [{ id: "m1" }, { id: "draft-abc" }];
   const result = reconcileMessages(server, local, id => id.startsWith("draft-"));
   assert.deepEqual(result.map(m => m.id), ["m1", "draft-abc"]);
+});
+
+// ─── Phase 5b: idle-poll read/dispatch suppression ─────────────────────────────
+
+test("hasNewServerMessages: identical set -> false (idle poll must not trigger a read write)", () => {
+  const previous = [{ id: "m1" }, { id: "m2" }];
+  const incoming = [{ id: "m1" }, { id: "m2" }];
+  assert.equal(hasNewServerMessages(previous, incoming), false);
+});
+
+test("hasNewServerMessages: same set, different order -> false", () => {
+  const previous = [{ id: "m1" }, { id: "m2" }, { id: "m3" }];
+  const incoming = [{ id: "m3" }, { id: "m1" }, { id: "m2" }];
+  assert.equal(hasNewServerMessages(previous, incoming), false);
+});
+
+test("hasNewServerMessages: one genuinely new server message -> true", () => {
+  const previous = [{ id: "m1" }];
+  const incoming = [{ id: "m1" }, { id: "m2" }];
+  assert.equal(hasNewServerMessages(previous, incoming), true);
+});
+
+test("hasNewServerMessages: empty previous, empty incoming -> false", () => {
+  assert.equal(hasNewServerMessages([], []), false);
+});
+
+test("hasNewServerMessages: an optimistic id in `previous` is never mistaken for a previously-seen real message", () => {
+  // The viewer has an in-flight optimistic bubble locally; the server's
+  // fresh list already contains that same send's REAL id (a different
+  // string). This must count as genuinely new — the optimistic id must
+  // not be treated as if it already "covers" the real id.
+  const previous = [{ id: "m1" }, { id: "opt-999" }];
+  const incoming = [{ id: "m1" }, { id: "real-123" }];
+  assert.equal(hasNewServerMessages(previous, incoming), true);
+});
+
+test("hasNewServerMessages: optimistic-only previous with no matching real server id yet -> false", () => {
+  // Nothing genuinely NEW from the server's point of view — the server
+  // list is identical to the only real id already known.
+  const previous = [{ id: "m1" }, { id: "opt-999" }];
+  const incoming = [{ id: "m1" }];
+  assert.equal(hasNewServerMessages(previous, incoming), false);
+});
+
+test("hasNewServerMessages: a custom isOptimisticId predicate is respected", () => {
+  const previous = [{ id: "m1" }, { id: "draft-abc" }];
+  const incoming = [{ id: "m1" }];
+  assert.equal(hasNewServerMessages(previous, incoming, id => id.startsWith("draft-")), false);
 });

@@ -13,7 +13,7 @@ import AttachmentPickerButton from "../_shared/AttachmentPickerButton";
 import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
-import { reconcileMessages } from "../_shared/reconcileMessages";
+import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -148,6 +148,12 @@ export default function ThreadView({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
 
+  // Mirrors `messages` for read-without-a-stale-closure access inside the
+  // poll loop below (same established pattern as sendingRef) — used only
+  // to compare against a fresh poll response, never mutated during render.
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+
   // Mark as read on mount
   useEffect(() => {
     fetch(`/api/team/${slug}/messages/threads/${thread.id}/read`, { method: "POST" })
@@ -221,16 +227,23 @@ export default function ThreadView({
           // discard this now-stale response rather than let it clobber
           // more recent state with out-of-order data.
           if (seq === refreshSeqRef.current) {
+            // Compare against the currently-known set BEFORE reconciling
+            // — an idle poll that returns the exact same real messages
+            // (any order) must not write a read row or dispatch the
+            // changed event every 5 seconds forever. Optimistic ids on
+            // either side are ignored by hasNewServerMessages itself.
+            const genuinelyNew = hasNewServerMessages(messagesRef.current, data.messages);
             setMessages(prev => reconcileMessages(data.messages, prev));
-            // A new message arrived while this thread is visibly open —
-            // keep the existing "opened/visible thread == read" model
-            // consistent by re-asserting read state, exactly the same
-            // call already made once on mount. Idempotent; harmless to
-            // call even when the refresh was triggered by this actor's
-            // own message.
-            fetch(`/api/team/${slug}/messages/threads/${thread.id}/read`, { method: "POST" })
-              .then(() => window.dispatchEvent(new CustomEvent("elf:messages-changed")))
-              .catch(() => {});
+            if (genuinelyNew) {
+              // A new message arrived while this thread is visibly open —
+              // keep the existing "opened/visible thread == read" model
+              // consistent by re-asserting read state, exactly the same
+              // call already made once on mount. Idempotent; harmless to
+              // call even when the new message was this actor's own.
+              fetch(`/api/team/${slug}/messages/threads/${thread.id}/read`, { method: "POST" })
+                .then(() => window.dispatchEvent(new CustomEvent("elf:messages-changed")))
+                .catch(() => {});
+            }
           }
         }
         // A failed refetch intentionally leaves already-rendered
