@@ -1342,9 +1342,18 @@ export async function createSignedAttachmentUploadUrl(
   const relativeUrl: string = body.signedURL ?? body.url ?? "";
   if (!relativeUrl) return { ok: false, error: "No signed URL returned from storage." };
 
+  // The raw Storage REST response's `url` field is relative to the
+  // Storage API root (`{project}/storage/v1`), NOT the bare project
+  // root — confirmed directly from the installed @supabase/supabase-js
+  // source (SupabaseClient.ts: `this.storageUrl = new URL('storage/v1',
+  // baseUrl)`, which is the exact base the SDK's own
+  // createSignedUploadUrl/uploadToSignedUrl reconstruct this same
+  // relative value against). BASE here is that bare project root (same
+  // as NEXT_PUBLIC_SUPABASE_URL), so it must have /storage/v1 re-added —
+  // matching the request URL just above, which already includes it.
   return {
     ok: true,
-    signedUploadUrl: relativeUrl.startsWith("http") ? relativeUrl : `${BASE}${relativeUrl}`,
+    signedUploadUrl: relativeUrl.startsWith("http") ? relativeUrl : `${BASE}/storage/v1${relativeUrl}`,
   };
 }
 
