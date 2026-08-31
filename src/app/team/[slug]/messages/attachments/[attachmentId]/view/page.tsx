@@ -80,9 +80,32 @@ export default async function AttachmentViewerPage({
           // isForwardableRangeHeader/attachmentDownloadDisposition) is
           // what makes this reliably playable — inline disposition alone
           // isn't sufficient for WebKit's <video> pipeline.
-          <video controls preload="metadata" style={{ display: "block", width: "100%", background: "#000" }}>
-            <source src={apiHref} type={attachment.mime_type} />
-          </video>
+          //
+          // Deliberately a bare src, no <source type="..."> and no
+          // explicit `type` at all: WebKit's media-source preflight (the
+          // `canPlayType()` check a browser runs on a declared MIME
+          // BEFORE requesting bytes) rejects the literal string
+          // "video/quicktime" outright on desktop Safari, even though the
+          // underlying H.264/HEVC content is fully decodable — confirmed
+          // via `video.canPlayType("video/quicktime") === ""` vs.
+          // `canPlayType("video/mp4") === "maybe"` for equivalent codec
+          // content. A bare `src` (no `type`) skips that MIME-string
+          // preflight entirely and lets WebKit inspect the actual
+          // response bytes/Content-Type once the request is made, rather
+          // than being rejected before ever asking. The server's
+          // Content-Type is UNCHANGED — the file is genuinely
+          // video/quicktime and is still served as such; this is a
+          // player-hint change only, not a relabeling of the underlying
+          // bytes. playsInline keeps playback inside this page's element
+          // in the native WKWebView instead of forcing native fullscreen
+          // takeover.
+          <video
+            controls
+            playsInline
+            preload="metadata"
+            src={apiHref}
+            style={{ display: "block", width: "100%", background: "#000" }}
+          />
         )}
 
         {attachment.attachment_kind === "file" && isPdf && (
