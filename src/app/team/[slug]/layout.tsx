@@ -9,11 +9,12 @@ import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
 import { isPlatformAdmin } from "@/lib/permissions";
 import TeamHeader from "./_components/TeamHeader";
 import PlatformAdminBanner from "./_components/PlatformAdminBanner";
-import TeamNavWithBadge from "./_components/TeamNavWithBadge";
+import TeamChrome from "./_components/TeamChrome";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
 import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
 import NativePushRegistrar from "./_components/NativePushRegistrar";
+import styles from "./_components/TeamShell.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,11 @@ export default async function TeamLayout({
 
   // Head-Coach-only badge — matches AthleteRequestsPanel's own gating.
   // Assistant coaches and boosters never see this count, per Phase 1B.
-  const pendingAthleteRequestCount = isHeadCoach(actor) ? await getPendingRequestCount(slug) : 0;
+  // Also gates the desktop sidebar's Requests item (Phase D1): isHeadCoach
+  // already treats a platform admin as head-coach-equivalent, so no
+  // separate platform-admin check is needed here — see permissions.ts.
+  const showRequests = isHeadCoach(actor);
+  const pendingAthleteRequestCount = showRequests ? await getPendingRequestCount(slug) : 0;
 
   return (
     <>
@@ -72,43 +77,59 @@ export default async function TeamLayout({
       justifyContent: "center",
       alignItems: "flex-start",
     }}>
-      <div style={{
-        width: "100%",
-        maxWidth: 430,
+      <div className={styles.shellPanel} style={{
         minHeight: "100vh",
         background: "#f5f6f8",
-        boxShadow: "0 0 60px rgba(0,0,0,.45)",
-        display: "flex",
-        flexDirection: "column",
       }}>
-        <TeamHeader
+        {/* Phase D1: TeamChrome mounts BOTH the mobile bottom nav and the
+            desktop sidebar internally (see TeamChrome.tsx) —
+            TeamShell.module.css's min-width:1024px rule decides which is
+            visible, so there is no client-side breakpoint detection and
+            no hydration-dependent layout switch. Badge numbers are
+            computed exactly once inside TeamChrome and shared by both
+            shells, rather than each one polling independently. Rendered
+            ONCE here — TeamNav's existing position:fixed bottom placement
+            is unaffected by where in the DOM it's mounted, and
+            DesktopSidebar needs to be the first flex item in this row so
+            it lands on the left at desktop width. */}
+        <TeamChrome
+          slug={slug}
           settings={settings}
-          unreadNotifCount={unreadNotifCount}
-          showBell={isMember}
+          showSponsors={isAuthenticated}
+          showRequests={showRequests}
+          announcementCount={announcementMeta.count}
+          latestAnnouncementAt={announcementMeta.latestAt}
+          donorCount={donationStats.donor_count}
+          pendingAthleteRequestCount={pendingAthleteRequestCount}
           accountTeams={accountTeams}
           accountName={accountSession?.name}
           profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
         />
-        {isPlatformAdmin(actor) && (
-          <PlatformAdminBanner teamLabel={`${settings.school_name} ${settings.sport_name}`.trim()} />
-        )}
-        <ServiceWorkerRegistrar />
-        <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
-        <TeamPullRefresh />
-        <TeamRealtimeSync slug={slug} />
-        <main style={{ flex: 1, padding: "1rem .875rem 5.5rem" }}>
-          {children}
-        </main>
-        <TeamNavWithBadge
-          slug={slug}
-          primaryColor={settings.primary_color}
-          showSponsors={isAuthenticated}
-          announcementCount={announcementMeta.count}
-          latestAnnouncementAt={announcementMeta.latestAt}
-          donorCount={donationStats.donor_count}
-          pendingAthleteRequestCount={pendingAthleteRequestCount}
-        />
+
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <div className={styles.mobileOnly}>
+            <TeamHeader
+              settings={settings}
+              unreadNotifCount={unreadNotifCount}
+              showBell={isMember}
+              accountTeams={accountTeams}
+              accountName={accountSession?.name}
+              profilePhotoUrl={accountSession?.profile_photo_url}
+              isAuthenticated={isAuthenticated}
+            />
+          </div>
+          {isPlatformAdmin(actor) && (
+            <PlatformAdminBanner teamLabel={`${settings.school_name} ${settings.sport_name}`.trim()} />
+          )}
+          <ServiceWorkerRegistrar />
+          <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
+          <TeamPullRefresh />
+          <TeamRealtimeSync slug={slug} />
+          <main className={styles.mainContent}>
+            {children}
+          </main>
+        </div>
       </div>
     </div>
     </>

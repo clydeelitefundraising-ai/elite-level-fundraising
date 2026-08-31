@@ -1,0 +1,90 @@
+/*
+ * Desktop Coach Shell — Phase D1.
+ *
+ * SINGLE SOURCE OF TRUTH for the desktop breakpoint. This is the only
+ * width threshold that decides mobile-shell vs. desktop-shell chrome —
+ * do not add a second one elsewhere.
+ *
+ * 1024px was chosen deliberately over a smaller tablet-width breakpoint:
+ * common tablet widths (768-834px, including iPad portrait) still get the
+ * existing mobile-first phone-frame experience, per the product direction
+ * to "preserve the existing simple/mobile experience as much as possible"
+ * — only laptop-and-up widths become the desktop "command center" shell.
+ * 1024px is also the conventional "laptop and up" breakpoint (matches
+ * Tailwind's `lg`), even though Tailwind itself isn't wired into this
+ * app's build (confirmed dead tooling — see the Desktop Coach audit).
+ *
+ * This is UNRELATED to, and does not replace, the separate 430px mobile
+ * "phone frame" width still hard-coded in layout.tsx and TeamNav.tsx (the
+ * max-width of the mobile device-frame panel itself) — that constant is
+ * intentionally left untouched by this phase; this file only adds the
+ * NEW mobile-shell-vs-desktop-shell switch on top of it.
+ *
+ * Pure CSS, no JS breakpoint detection (no window.innerWidth/matchMedia/
+ * resize listeners) — both shells are always present in the DOM; only
+ * `display` changes per breakpoint. This avoids any hydration-dependent
+ * layout flicker.
+ *
+ * Explicitly scoped to `screen` so this never interacts with the
+ * existing `@media print { ... }` rules in CalendarView.tsx/
+ * SettingsView.tsx/FollowUpsView.tsx, which already hide anything with
+ * `role="navigation"` (matched by both TeamNav's mobile bar and
+ * DesktopSidebar's root, by convention) and `#elf-team-header` at print
+ * time — those rules needed no changes for either shell.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+.shellPanel {
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 60px rgba(0, 0, 0, .45);
+}
+
+.mainContent {
+  flex: 1;
+  min-width: 0;
+  padding: 1rem 0.875rem 5.5rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: flex;
+  }
+
+  .shellPanel {
+    max-width: none;
+    width: 100%;
+    flex-direction: row;
+    box-shadow: none;
+  }
+
+  .mainContent {
+    /* No fixed bottom nav to clear at desktop width. */
+    padding: 2rem 2rem 2rem;
+  }
+}
+
+/* Belt-and-suspenders: guarantee the desktop sidebar never appears in
+ * printed output even if a print engine's viewport-width heuristics ever
+ * disagree with the `screen` scoping above. DesktopSidebar's own root
+ * already carries role="navigation", which the existing print rules in
+ * Calendar/Settings/FollowUps already hide — this rule doesn't depend on
+ * that convention being preserved elsewhere to be correct. */
+@media print {
+  .desktopOnly {
+    display: none !important;
+  }
+}
