@@ -1,0 +1,28 @@
+/*
+ * Phase D4 — desktop Calendar workspace visibility toggle.
+ *
+ * Same 1024px breakpoint as D1/D2/D3 (see
+ * src/app/team/[slug]/team/Team.module.css). Pure CSS media-query
+ * switching only — no window.innerWidth/matchMedia/resize listeners, no
+ * hydration-dependent state. Both CalendarView (mobile) and
+ * DesktopCalendarView (desktop) are always mounted for a
+ * desktop-eligible actor; only `display` changes per breakpoint.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}

@@ -1,7 +1,7 @@
 import { getCalendarEvents } from "@/lib/teamData";
 import { getCampaignSettings } from "@/lib/supabase";
 import { requireTeamMembership } from "@/lib/permissions.server";
-import CalendarView from "./CalendarView";
+import CalendarWorkspaceView from "./CalendarWorkspaceView";
 
 export default async function CalendarPage({
   params,
@@ -22,5 +22,5 @@ export default async function CalendarPage({
   // value isn't threaded through props today, so this is a second small
   // read rather than a layout-prop-drilling change.
   const teamName = settings ? `${settings.school_name} ${settings.sport_name}`.trim() : "";
-  return <CalendarView slug={slug} initialEvents={events} actor={actor} teamName={teamName} />;
+  return <CalendarWorkspaceView slug={slug} initialEvents={events} actor={actor} teamName={teamName} />;
 }
