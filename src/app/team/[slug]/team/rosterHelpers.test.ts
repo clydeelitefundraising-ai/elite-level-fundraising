@@ -106,11 +106,32 @@ test("buildDesktopRosterRows: outreach status maps to the correct athlete", () =
   const outreachMap = { a1: outreach("a1", "contacted"), a2: outreach("a2", "needs_follow_up") };
   const rows = buildDesktopRosterRows(athletes, EMPTY_ATTRIBUTION, {}, outreachMap);
   assert.equal(rows.find(r => r.id === "a1")?.outreachStatus, "Contacted");
-  assert.equal(rows.find(r => r.id === "a2")?.outreachStatus, "Needs Follow-up");
-  assert.equal(rows.find(r => r.id === "a3")?.outreachStatus, "Not Started");
+  assert.equal(rows.find(r => r.id === "a2")?.outreachStatus, "Follow Up");
+  assert.equal(rows.find(r => r.id === "a3")?.outreachStatus, "No outreach logged");
 });
 
-test("buildDesktopRosterRows: resolved outreach status maps correctly", () => {
+// D3a: explicit per-DB-value mapping, matching CoachAthleteView.tsx's own
+// established outreach vocabulary (OUTREACH_CONFIG) rather than D3's
+// original wording.
+test("buildDesktopRosterRows: an athlete absent from getOutreachMap's result shows 'No outreach logged', not 'Not Started'", () => {
+  const athletes = [athlete({ id: "a1", name: "Alice" })];
+  const rows = buildDesktopRosterRows(athletes, EMPTY_ATTRIBUTION, {}, {});
+  assert.equal(rows[0].outreachStatus, "No outreach logged");
+});
+
+test("buildDesktopRosterRows: DB status 'contacted' maps to 'Contacted'", () => {
+  const athletes = [athlete({ id: "a1", name: "Alice" })];
+  const rows = buildDesktopRosterRows(athletes, EMPTY_ATTRIBUTION, {}, { a1: outreach("a1", "contacted") });
+  assert.equal(rows[0].outreachStatus, "Contacted");
+});
+
+test("buildDesktopRosterRows: DB status 'needs_follow_up' maps to 'Follow Up' (not 'Needs Follow-up')", () => {
+  const athletes = [athlete({ id: "a1", name: "Alice" })];
+  const rows = buildDesktopRosterRows(athletes, EMPTY_ATTRIBUTION, {}, { a1: outreach("a1", "needs_follow_up") });
+  assert.equal(rows[0].outreachStatus, "Follow Up");
+});
+
+test("buildDesktopRosterRows: DB status 'resolved' maps to 'Resolved'", () => {
   const athletes = [athlete({ id: "a1", name: "Alice" })];
   const rows = buildDesktopRosterRows(athletes, EMPTY_ATTRIBUTION, {}, { a1: outreach("a1", "resolved") });
   assert.equal(rows[0].outreachStatus, "Resolved");
@@ -122,14 +143,14 @@ test("buildDesktopRosterRows: missing auxiliary data produces safe fallbacks, ne
   assert.equal(rows[0].raisedCents, 0);
   assert.equal(rows[0].donorCount, 0);
   assert.equal(rows[0].contactCount, 0);
-  assert.equal(rows[0].outreachStatus, "Not Started");
+  assert.equal(rows[0].outreachStatus, "No outreach logged");
 });
 
 // ─── filterDesktopRosterRows ────────────────────────────────────────────────
 
 const ROWS: RosterRow[] = [
   { id: "a1", name: "Alice Anderson", profile_photo: null, class_year: "Freshman", event: "Sprints", jersey_number: 1, contact_phone: null, contact_email: null, goal_cents: 10000, raisedCents: 5000, donorCount: 2, contactCount: 3, outreachStatus: "Contacted" },
-  { id: "a2", name: "Bob Baker",      profile_photo: null, class_year: "Senior",   event: "Distance", jersey_number: 2, contact_phone: null, contact_email: null, goal_cents: null,  raisedCents: 0,    donorCount: 0, contactCount: 0, outreachStatus: "Not Started" },
+  { id: "a2", name: "Bob Baker",      profile_photo: null, class_year: "Senior",   event: "Distance", jersey_number: 2, contact_phone: null, contact_email: null, goal_cents: null,  raisedCents: 0,    donorCount: 0, contactCount: 0, outreachStatus: "No outreach logged" },
   { id: "a3", name: "cara Chen",      profile_photo: null, class_year: "Freshman", event: null,       jersey_number: null, contact_phone: null, contact_email: null, goal_cents: null, raisedCents: 2500, donorCount: 1, contactCount: 1, outreachStatus: "Resolved" },
 ];
 

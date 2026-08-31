@@ -27,7 +27,16 @@ export function shouldShowDesktopRoster(actor: TeamActor): boolean {
 
 // ─── Row shape ───────────────────────────────────────────────────────────────
 
-export type OutreachStatusLabel = "Not Started" | "Contacted" | "Needs Follow-up" | "Resolved";
+// D3a: wording reconciled with the athlete-detail page's own established
+// outreach vocabulary (CoachAthleteView.tsx's OUTREACH_CONFIG) — "Follow
+// Up", not "Needs Follow-up". The absent-record case is deliberately NOT
+// "Not Started": per the outreach-semantics audit, an athlete with no
+// logged entry only proves no outreach ACTION has been logged — it does
+// not prove no outreach has happened. "Not Started" is also already used
+// elsewhere in CoachAthleteView.tsx for an unrelated concept (the
+// Fundraising Contacts goal-progress card), so reusing it here for
+// outreach would be doubly misleading.
+export type OutreachStatusLabel = "No outreach logged" | "Contacted" | "Follow Up" | "Resolved";
 
 export type RosterRow = {
   id: string;
@@ -46,9 +55,9 @@ export type RosterRow = {
 };
 
 function outreachStatusLabel(row: OutreachCurrentRow | undefined): OutreachStatusLabel {
-  if (!row) return "Not Started";
+  if (!row) return "No outreach logged";
   if (row.status === "contacted") return "Contacted";
-  if (row.status === "needs_follow_up") return "Needs Follow-up";
+  if (row.status === "needs_follow_up") return "Follow Up";
   return "Resolved";
 }
 
@@ -56,9 +65,10 @@ function outreachStatusLabel(row: OutreachCurrentRow | undefined): OutreachStatu
  *  (attributeDonationsToAthletes' output, getContactCountsByAthlete's map,
  *  getOutreachMap's map) into one row per athlete. No new queries — this
  *  is purely a join of data the server page already fetches via existing,
- *  unmodified helpers. Every athlete gets a safe fallback (0 / "Not
- *  Started") when a given athlete has no matching entry in one of the
- *  auxiliary maps, so the table never shows undefined/null/raw values. */
+ *  unmodified helpers. Every athlete gets a safe fallback (0 / "No
+ *  outreach logged") when a given athlete has no matching entry in one of
+ *  the auxiliary maps, so the table never shows undefined/null/raw
+ *  values. */
 export function buildDesktopRosterRows(
   athletes: TeamAthleteRow[],
   attribution: AttributionTotals,

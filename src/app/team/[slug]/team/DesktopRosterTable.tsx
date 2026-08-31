@@ -25,11 +25,14 @@ function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
 }
 
-const OUTREACH_TONE: Record<RosterRow["outreachStatus"], { bg: string; color: string }> = {
-  "Not Started":     { bg: "#f3f4f6", color: "#6b7280" },
-  "Contacted":       { bg: "#dbeafe", color: "#1d4ed8" },
-  "Needs Follow-up": { bg: "#fef3c7", color: "#b45309" },
-  "Resolved":        { bg: "#dcfce7", color: "#15803d" },
+// D3a: only the three real logged statuses get a (restrained) pill —
+// "No outreach logged" renders as plain muted text instead (see the
+// table body below), so a roster full of never-contacted athletes isn't
+// dominated by identical heavy badges.
+const OUTREACH_TONE: Partial<Record<RosterRow["outreachStatus"], { bg: string; color: string }>> = {
+  "Contacted": { bg: "#dbeafe", color: "#1d4ed8" },
+  "Follow Up": { bg: "#fef3c7", color: "#b45309" },
+  "Resolved":  { bg: "#dcfce7", color: "#15803d" },
 };
 
 const th: React.CSSProperties = {
@@ -94,6 +97,14 @@ export default function DesktopRosterTable({
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* D3a: Remove starts neutral/subdued (color set via this class, not
+          inline, so :hover/:focus-visible can override it) — the action
+          itself, isHeadCoach gating, and the existing confirm() dialog in
+          handleDelete are all unchanged. */}
+      <style>{`
+        .roster-remove-btn { color: #9ca3af; }
+        .roster-remove-btn:hover, .roster-remove-btn:focus-visible { color: #dc2626; }
+      `}</style>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: "1.25rem" }}>
         <div>
@@ -125,18 +136,18 @@ export default function DesktopRosterTable({
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search athletes…"
-          style={{ ...selectStyle, flex: "1 1 220px", minWidth: 180 }}
+          style={{ ...selectStyle, flex: "0 1 42%", minWidth: 200 }}
         />
-        <select value={grade} onChange={e => setGrade(e.target.value)} style={selectStyle}>
+        <select value={grade} onChange={e => setGrade(e.target.value)} style={{ ...selectStyle, flex: "0 1 auto", minWidth: 140 }}>
           <option value="">All Grades</option>
           {gradeOptions.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
-        <select value={fundraising} onChange={e => setFundraising(e.target.value as FundraisingFilter)} style={selectStyle}>
+        <select value={fundraising} onChange={e => setFundraising(e.target.value as FundraisingFilter)} style={{ ...selectStyle, flex: "0 1 auto", minWidth: 170 }}>
           <option value="all">All Fundraising</option>
           <option value="has-raised">Has Raised Funds</option>
           <option value="no-raised">No Funds Raised</option>
         </select>
-        <select value={sort} onChange={e => setSort(e.target.value as RosterSort)} style={selectStyle}>
+        <select value={sort} onChange={e => setSort(e.target.value as RosterSort)} style={{ ...selectStyle, flex: "0 1 auto", minWidth: 190 }}>
           <option value="name-asc">Name A–Z</option>
           <option value="name-desc">Name Z–A</option>
           <option value="raised-desc">Amount Raised: High–Low</option>
@@ -231,7 +242,16 @@ export default function DesktopRosterTable({
                     </td>
                     <td style={td}>{row.contactCount}</td>
                     <td style={td}>
-                      <div style={{ fontWeight: 700, color: "#0b1e3d" }}>{fmtMoney(row.raisedCents)}</div>
+                      {/* D3a: $0 stays quiet (regular weight, muted color) —
+                          only a positive raised amount earns the bold navy
+                          treatment, so the eye is drawn to athletes who've
+                          actually raised something. */}
+                      <div style={row.raisedCents > 0
+                        ? { fontWeight: 700, color: "#0b1e3d" }
+                        : { fontWeight: 400, color: "#9ca3af" }
+                      }>
+                        {fmtMoney(row.raisedCents)}
+                      </div>
                       {pct != null && (
                         <div style={{ background: "#eaecef", borderRadius: 100, height: 5, width: 80, overflow: "hidden", marginTop: ".25rem" }}>
                           <div style={{ background: "#0b1e3d", height: "100%", width: `${pct}%`, borderRadius: 100 }} />
@@ -239,12 +259,20 @@ export default function DesktopRosterTable({
                       )}
                     </td>
                     <td style={td}>
-                      <span style={{
-                        display: "inline-block", padding: ".18rem .55rem", borderRadius: 100,
-                        fontSize: ".7rem", fontWeight: 700, background: tone.bg, color: tone.color,
-                      }}>
-                        {row.outreachStatus}
-                      </span>
+                      {/* D3a: only the three real logged statuses get a
+                          pill; "No outreach logged" is plain muted text so
+                          a roster full of never-contacted athletes isn't
+                          dominated by identical heavy badges. */}
+                      {tone ? (
+                        <span style={{
+                          display: "inline-block", padding: ".15rem .5rem", borderRadius: 100,
+                          fontSize: ".68rem", fontWeight: 600, background: tone.bg, color: tone.color,
+                        }}>
+                          {row.outreachStatus}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: ".78rem", color: "#9ca3af" }}>{row.outreachStatus}</span>
+                      )}
                     </td>
                     <td style={{ ...td, textAlign: "right" }}>
                       {staffMode && (
@@ -256,9 +284,14 @@ export default function DesktopRosterTable({
                         </button>
                       )}
                       {canDelete && (
+                        // D3a: neutral by default — destructive red only
+                        // appears on hover/focus (see the .roster-remove-btn
+                        // rule below) — the action/gating/confirmation are
+                        // all unchanged, only the resting-state color is.
                         <button
                           onClick={() => handleDelete(row.id)}
-                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".78rem", fontWeight: 600, color: "#dc2626", padding: ".2rem .5rem" }}
+                          className="roster-remove-btn"
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".78rem", fontWeight: 600, padding: ".2rem .5rem" }}
                         >
                           Remove
                         </button>

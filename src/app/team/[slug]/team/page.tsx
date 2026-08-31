@@ -44,6 +44,7 @@ export default async function TeamPage({
   // mobile experience itself (AthleteRosterGrid.tsx) is unchanged.
   return (
     <TeamTabs
+      actor={actor}
       overview={<OverviewView />}
       roster={
         <RosterTabs
