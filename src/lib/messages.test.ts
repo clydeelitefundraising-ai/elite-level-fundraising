@@ -15,6 +15,8 @@ import {
   messagePreview,
   safeContentDispositionFilename,
   buildAttachmentContentDisposition,
+  attachmentDownloadDisposition,
+  isForwardableRangeHeader,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
@@ -410,13 +412,65 @@ test("buildAttachmentContentDisposition: a CRLF-injection attempt never appears 
   assert.equal(header.includes("\n"), false);
 });
 
-test("buildAttachmentContentDisposition: defaults to 'attachment' when no disposition is given (video/PDF/DOC/DOCX)", () => {
-  const header = buildAttachmentContentDisposition("clip.mp4");
+test("buildAttachmentContentDisposition: defaults to 'attachment' when no disposition is given (DOC/DOCX)", () => {
+  const header = buildAttachmentContentDisposition("resume.docx");
   assert.match(header, /^attachment;/);
 });
 
-test("buildAttachmentContentDisposition: 'inline' can be requested explicitly (images, for <img src> compatibility)", () => {
+test("buildAttachmentContentDisposition: 'inline' can be requested explicitly (images/video/PDF, for in-place rendering)", () => {
   const header = buildAttachmentContentDisposition("photo.jpg", "inline");
   assert.match(header, /^inline;/);
   assert.equal(header, `inline; filename="photo.jpg"; filename*=UTF-8''photo.jpg`);
+});
+
+// ─── attachmentDownloadDisposition: native attachment viewer ───────────────────
+
+test("attachmentDownloadDisposition: image is always inline", () => {
+  assert.equal(attachmentDownloadDisposition("image/jpeg", "image"), "inline");
+});
+
+test("attachmentDownloadDisposition: video is always inline (needed for <video> playback, not just scrubbing)", () => {
+  assert.equal(attachmentDownloadDisposition("video/mp4", "video"), "inline");
+  assert.equal(attachmentDownloadDisposition("video/quicktime", "video"), "inline");
+});
+
+test("attachmentDownloadDisposition: PDF (a 'file' kind) is inline, so it can render in an <iframe>", () => {
+  assert.equal(attachmentDownloadDisposition("application/pdf", "file"), "inline");
+});
+
+test("attachmentDownloadDisposition: DOC/DOCX (also 'file' kind) stay 'attachment' — nothing renders them inline", () => {
+  assert.equal(attachmentDownloadDisposition("application/msword", "file"), "attachment");
+  assert.equal(
+    attachmentDownloadDisposition(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "file",
+    ),
+    "attachment",
+  );
+});
+
+// ─── isForwardableRangeHeader: safe Range passthrough ───────────────────────────
+
+test("isForwardableRangeHeader: absent Range header is not forwardable", () => {
+  assert.equal(isForwardableRangeHeader(null), false);
+});
+
+test("isForwardableRangeHeader: a normal single byte-range is forwardable", () => {
+  assert.equal(isForwardableRangeHeader("bytes=0-1023"), true);
+  assert.equal(isForwardableRangeHeader("bytes=1024-"), true);
+  assert.equal(isForwardableRangeHeader("bytes=-500"), true);
+});
+
+test("isForwardableRangeHeader: 'bytes=-' (no start, no end) is syntactically matched but meaningless — rejected", () => {
+  assert.equal(isForwardableRangeHeader("bytes=-"), false);
+});
+
+test("isForwardableRangeHeader: a multi-range value is rejected (Storage's single-part response wouldn't match it)", () => {
+  assert.equal(isForwardableRangeHeader("bytes=0-10,20-30"), false);
+});
+
+test("isForwardableRangeHeader: malformed values are rejected, never thrown", () => {
+  assert.equal(isForwardableRangeHeader("not-a-range"), false);
+  assert.equal(isForwardableRangeHeader("items=0-10"), false);
+  assert.equal(isForwardableRangeHeader(""), false);
 });
