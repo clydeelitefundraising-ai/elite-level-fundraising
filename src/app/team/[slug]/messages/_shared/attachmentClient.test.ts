@@ -9,6 +9,9 @@ import {
   parseSignResponse,
   shouldRenderTextBubble,
   attachmentAnchorProps,
+  attachmentApiHref,
+  attachmentViewerHref,
+  attachmentAnchorHref,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
@@ -187,4 +190,62 @@ test("attachmentAnchorProps: native Capacitor never sets target=_blank", () => {
 test("attachmentAnchorProps: native Capacitor returns no rel either (no target means nothing for rel to protect)", () => {
   const props = attachmentAnchorProps(true);
   assert.deepEqual(props, {});
+});
+
+// ─── attachmentAnchorHref: native attachment viewer routing ────────────────────
+//
+// Native must land on the dedicated ELF viewer page for EVERY attachment
+// kind (image, video, PDF, DOC/DOCX) — not just images/video — since
+// navigating straight to the raw API route in-WebView either strands the
+// user with no ELF chrome/Back control (renderable responses) or fails
+// outright (forced-download responses trigger Capacitor's offline
+// screen). Web is unchanged: always the raw authenticated API route.
+
+test("attachmentApiHref: always the raw authenticated API route, regardless of kind", () => {
+  assert.equal(
+    attachmentApiHref("wildcats-2026", "att-1"),
+    "/api/team/wildcats-2026/messages/attachments/att-1",
+  );
+});
+
+test("attachmentViewerHref: the dedicated ELF viewer page route", () => {
+  assert.equal(
+    attachmentViewerHref("wildcats-2026", "att-1"),
+    "/team/wildcats-2026/messages/attachments/att-1/view",
+  );
+});
+
+test("attachmentAnchorHref: web (non-native) always uses the raw API route", () => {
+  assert.equal(
+    attachmentAnchorHref("wildcats-2026", "att-1", false),
+    attachmentApiHref("wildcats-2026", "att-1"),
+  );
+});
+
+test("attachmentAnchorHref: native uses the viewer route for an image attachment", () => {
+  assert.equal(
+    attachmentAnchorHref("wildcats-2026", "img-1", true),
+    attachmentViewerHref("wildcats-2026", "img-1"),
+  );
+});
+
+test("attachmentAnchorHref: native uses the viewer route for a video attachment", () => {
+  assert.equal(
+    attachmentAnchorHref("wildcats-2026", "vid-1", true),
+    attachmentViewerHref("wildcats-2026", "vid-1"),
+  );
+});
+
+test("attachmentAnchorHref: native uses the viewer route for a PDF attachment", () => {
+  assert.equal(
+    attachmentAnchorHref("wildcats-2026", "pdf-1", true),
+    attachmentViewerHref("wildcats-2026", "pdf-1"),
+  );
+});
+
+test("attachmentAnchorHref: native uses the viewer route for a DOC/DOCX attachment too — never the raw route", () => {
+  assert.equal(
+    attachmentAnchorHref("wildcats-2026", "doc-1", true),
+    attachmentViewerHref("wildcats-2026", "doc-1"),
+  );
 });

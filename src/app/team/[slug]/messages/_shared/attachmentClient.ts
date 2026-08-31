@@ -155,6 +155,47 @@ export function attachmentAnchorProps(isNative: boolean): AttachmentAnchorProps 
   return { target: "_blank", rel: "noopener noreferrer" };
 }
 
+// ─── Attachment-open destination (pure) ─────────────────────────────────────────
+
+/** The authenticated raw-bytes route — always the <img>/<video>/<iframe>
+ *  SOURCE regardless of platform, and (on web) also the anchor's
+ *  navigation target. Never a public or signed Storage URL. */
+export function attachmentApiHref(slug: string, attachmentId: string): string {
+  return `/api/team/${slug}/messages/attachments/${attachmentId}`;
+}
+
+/** The dedicated ELF attachment viewer PAGE — a normal authenticated
+ *  Next.js route, not the raw binary API route. Only ever used as the
+ *  native anchor destination (see attachmentAnchorHref) — never as an
+ *  <img>/<video>/<iframe> source, which always stays attachmentApiHref
+ *  regardless of platform. */
+export function attachmentViewerHref(slug: string, attachmentId: string): string {
+  return `/team/${slug}/messages/attachments/${attachmentId}/view`;
+}
+
+/** Pure. The anchor's navigation destination for opening an attachment,
+ *  given whether the app is running as a native Capacitor shell.
+ *
+ *  Desktop/mobile WEB: the raw authenticated API route, unchanged —
+ *  target="_blank" (see attachmentAnchorProps) opens it in a new tab,
+ *  where the browser's own inline image/video/PDF rendering (or download
+ *  prompt for DOC/DOCX) already gives a reasonable experience.
+ *
+ *  Native Capacitor: the dedicated viewer page, for EVERY attachment
+ *  kind — not just images/video. Navigating straight to the raw API
+ *  route in-WebView leaves no ELF chrome/Back control for a renderable
+ *  response (images), and outright fails for a forced-download response
+ *  (video/PDF/DOC/DOCX all used "attachment" disposition), which
+ *  WKWebView can't display as a top-level navigation and which Capacitor
+ *  then surfaces as its generic offline/errorPath screen — a real
+ *  production bug, not a hypothetical one. The viewer page is a normal
+ *  authenticated ELF page, so it always renders successfully regardless
+ *  of the underlying file's disposition, and gives every attachment kind
+ *  a real Back control back to the originating thread. */
+export function attachmentAnchorHref(slug: string, attachmentId: string, isNative: boolean): string {
+  return isNative ? attachmentViewerHref(slug, attachmentId) : attachmentApiHref(slug, attachmentId);
+}
+
 // ─── Sign-response parsing (pure) ──────────────────────────────────────────────
 
 export type SignResponseParsed =

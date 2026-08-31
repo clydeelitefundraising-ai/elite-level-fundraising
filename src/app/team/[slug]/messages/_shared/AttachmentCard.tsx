@@ -6,7 +6,7 @@
 // MessageThread/ResolvedParticipant/ResolvedMessage.
 import { Capacitor } from "@capacitor/core";
 import type { MessageAttachmentPublic } from "@/lib/messages";
-import { attachmentAnchorProps } from "./attachmentClient";
+import { attachmentAnchorProps, attachmentApiHref, attachmentAnchorHref } from "./attachmentClient";
 
 function readableFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -28,15 +28,22 @@ export default function AttachmentCard({
   slug: string;
   attachment: MessageAttachmentPublic;
 }) {
-  const href = `/api/team/${slug}/messages/attachments/${attachment.id}`;
-  // See attachmentAnchorProps for why native must never use target="_blank"
-  // (it hands the navigation off to a separate, unauthenticated browser).
-  const anchorProps = attachmentAnchorProps(Capacitor.isNativePlatform());
+  const isNative = Capacitor.isNativePlatform();
+  // The inline thumbnail's <img> SOURCE is always the raw authenticated
+  // route, on every platform — only the anchor's NAVIGATION destination
+  // differs (see attachmentAnchorHref: native goes to the dedicated
+  // viewer page for every kind; web keeps going straight to the raw
+  // route, unchanged). See attachmentAnchorProps for why native must
+  // never use target="_blank" (it hands the navigation off to a
+  // separate, unauthenticated browser).
+  const apiHref = attachmentApiHref(slug, attachment.id);
+  const anchorHref = attachmentAnchorHref(slug, attachment.id, isNative);
+  const anchorProps = attachmentAnchorProps(isNative);
 
   if (attachment.attachment_kind === "image") {
     return (
       <a
-        href={href}
+        href={anchorHref}
         {...anchorProps}
         aria-label={`Open photo ${attachment.original_filename}`}
         style={{ display: "block", maxWidth: 240, borderRadius: 10, overflow: "hidden", lineHeight: 0 }}
@@ -48,7 +55,7 @@ export default function AttachmentCard({
             only affects a top-level navigation (the click-through above). */}
         {/* eslint-disable-next-line @next/next/no-img-element -- authenticated app route, not a remote/optimizable asset */}
         <img
-          src={href}
+          src={apiHref}
           alt={attachment.original_filename}
           loading="lazy"
           style={{ display: "block", width: "100%", maxHeight: 220, objectFit: "cover" }}
@@ -57,15 +64,14 @@ export default function AttachmentCard({
     );
   }
 
-  // Video and generic files both render as a plain file/download card —
-  // no inline <video> playback in this phase, since the download route
-  // doesn't implement Range/partial-content support and scrubbing a
-  // large file without it is a poor experience. Deliberately not adding
-  // that server-side just to enable this here.
+  // Video and generic files both render as a plain file/download card in
+  // the thread itself — the actual video/document EXPERIENCE (playback,
+  // PDF preview, etc.) lives in the attachment viewer page on native, and
+  // in whatever the browser does with the raw route on web.
   const icon = attachment.attachment_kind === "video" ? "🎥" : "📎";
   return (
     <a
-      href={href}
+      href={anchorHref}
       {...anchorProps}
       aria-label={`Open ${attachment.attachment_kind === "video" ? "video" : "file"} ${attachment.original_filename}`}
       style={{

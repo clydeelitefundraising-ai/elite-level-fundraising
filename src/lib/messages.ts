@@ -1465,6 +1465,53 @@ export async function getAttachmentByIdServer(attachmentId: string): Promise<Mes
   return rows[0] ?? null;
 }
 
+export type AuthorizedAttachmentResult =
+  | { ok: true; attachment: MessageAttachment }
+  | { ok: false; status: number; error: string };
+
+/** The shared attachment-authorization chain: attachment id -> attachment
+ *  row -> its linked message -> that message's live thread_id
+ *  (defense-in-depth cross-check against the RPC's own invariant) ->
+ *  current actor's participation in that thread (isParticipant — the one
+ *  real authorization gate, identical for every actor kind, no Platform
+ *  Admin bypass). Used by BOTH the raw download route and the attachment
+ *  viewer page, so the two can never drift on what counts as authorized.
+ *  Every failure returns a generic 404 ("File not found.") — this never
+ *  distinguishes "doesn't exist" from "exists but you're not authorized",
+ *  matching the original download route's convention. Callers are still
+ *  responsible for their own actor resolution and the separate 401 for a
+ *  fully unauthenticated (kind: "public") caller — this function only
+ *  ever receives an already-resolved ActorKey. */
+export async function resolveAuthorizedAttachment(
+  attachmentId: string,
+  actorKey: ActorKey,
+): Promise<AuthorizedAttachmentResult> {
+  const attachment = await getAttachmentByIdServer(attachmentId);
+  // A pending (unclaimed) attachment is never accessible — only a fully
+  // attached one, with a real message_id, can be.
+  if (!attachment || attachment.status !== "attached" || !attachment.message_id) {
+    return { ok: false, status: 404, error: "File not found." };
+  }
+
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const msgRes = await fetch(
+    `${BASE}/rest/v1/messages?id=eq.${encodeURIComponent(attachment.message_id)}&select=thread_id&limit=1`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" },
+  );
+  const msgRows: { thread_id: string }[] = msgRes.ok ? await msgRes.json() : [];
+  const messageThreadId = msgRows[0]?.thread_id ?? null;
+  if (!messageThreadId || messageThreadId !== attachment.thread_id) {
+    return { ok: false, status: 404, error: "File not found." };
+  }
+
+  const ok = await isParticipant(attachment.thread_id, actorKey);
+  if (!ok) {
+    return { ok: false, status: 404, error: "File not found." };
+  }
+
+  return { ok: true, attachment };
+}
+
 // ─── Canonical message preview (Phase 3) ───────────────────────────────────────
 //
 // One safe, logical "what should this message look like as a short
@@ -1519,23 +1566,73 @@ export function safeContentDispositionFilename(filename: string): string {
  *  download — same "<disposition>; filename=...; filename*=UTF-8''..."
  *  shape already used by api/team/[slug]/files/[id]/route.ts.
  *
- *  `disposition` defaults to "attachment" (forces a download — correct
- *  for video/PDF/DOC/DOCX). Images pass "inline" explicitly so an
- *  <img src="..."> pointed at the download route reliably renders in
- *  every browser: "attachment" is a top-level-navigation download hint
- *  and isn't something every browser is guaranteed to still decode as
- *  an embedded image resource, whereas "inline" is unambiguous either
- *  way and simply becomes a download when the same URL is opened as a
- *  top-level navigation (clicking through the image still downloads it,
- *  matching every other attachment kind's click behavior). This never
- *  introduces a public or signed-download URL — it only changes one
- *  response header on the same authenticated, participant-gated route. */
+ *  `disposition` defaults to "attachment" (forces a download — the
+ *  correct fallback for DOC/DOCX, which nothing in this app can render
+ *  inline). Callers pass "inline" explicitly for images, video, and PDF
+ *  — see attachmentDownloadDisposition — so an <img>/<video>/<iframe>
+ *  pointed at the download route reliably renders/plays in place:
+ *  "attachment" is a top-level-navigation download hint and isn't
+ *  something every browser/WebView is guaranteed to still decode as an
+ *  embeddable resource, whereas "inline" is unambiguous either way and
+ *  simply becomes a download when the same URL is opened as a top-level
+ *  navigation with no renderer for it (unchanged DOC/DOCX click
+ *  behavior). This never introduces a public or signed-download URL — it
+ *  only changes one response header on the same authenticated,
+ *  participant-gated route. */
 export function buildAttachmentContentDisposition(
   filename: string,
   disposition: "inline" | "attachment" = "attachment",
 ): string {
   const safe = safeContentDispositionFilename(filename);
   return `${disposition}; filename="${safe}"; filename*=UTF-8''${safe}`;
+}
+
+/** Pure. The Content-Disposition mode for a given attachment's download —
+ *  "inline" lets the browser/WebView render or play it in place (needed
+ *  for the <img>/<video>/<iframe>-based viewer and inline thread
+ *  previews); "attachment" forces a save prompt. Images and video are
+ *  always inline (video needs this for <video> playback, not just
+ *  scrubbing — many browsers refuse to play a video element whose source
+ *  is served as a forced download). PDF is inline too, so both the
+ *  desktop-web new-tab preview and the native in-viewer <iframe> render
+ *  it directly instead of downloading. Everything else (DOC/DOCX) stays
+ *  "attachment" — nothing in this app can render those inline, and nothing
+ *  about this change is meant to alter that. Keyed by MIME type, not
+ *  attachment_kind alone, since "file" covers both PDF (renderable) and
+ *  DOC/DOCX (not). */
+export function attachmentDownloadDisposition(
+  mimeType: string,
+  attachmentKind: AttachmentKind,
+): "inline" | "attachment" {
+  if (attachmentKind === "image") return "inline";
+  if (attachmentKind === "video") return "inline";
+  if (mimeType === "application/pdf") return "inline";
+  return "attachment";
+}
+
+// ─── Safe Range-header passthrough (Phase: native attachment viewer) ──────────
+
+// Matches a single, well-formed byte-range spec only — "bytes=N-",
+// "bytes=N-M", or "bytes=-N". Deliberately does not attempt to validate
+// the numbers against the actual object size; Supabase Storage's own
+// GET-object endpoint is the authority on whether a given range is
+// actually satisfiable (it replies 416 if not), exactly like it already
+// is for every other GET this route makes.
+const SINGLE_BYTE_RANGE_RE = /^bytes=\d*-\d*$/;
+
+/** Pure. Whether an incoming Range header value is safe to forward
+ *  verbatim to Supabase Storage. Rejects multi-range values
+ *  ("bytes=0-10,20-30" — Storage's single-part response wouldn't match
+ *  what a multi-range request expects), anything malformed, absent
+ *  values, and the syntactically-matching-but-meaningless "bytes=-" (no
+ *  start, no end). A rejected value simply means the caller falls back
+ *  to serving the full object with a normal 200 — always a safe degrade,
+ *  never a security or correctness issue, just no partial-content
+ *  optimization for that one request. */
+export function isForwardableRangeHeader(value: string | null): value is string {
+  if (!value) return false;
+  if (value === "bytes=-") return false;
+  return SINGLE_BYTE_RANGE_RE.test(value);
 }
 
 export type SendMessageWithAttachmentsResult =
