@@ -21,7 +21,11 @@ export default async function HomePage({
   // aggregator — unlike layout.tsx's nav badge and team/page.tsx's roster
   // banner, which intentionally stay athlete-request-only since their
   // meaning is specifically roster-page-adjacent, not "all Requests."
-  const pendingRequestCount = isHeadCoach(actor) ? (await getPendingRequestSummary(slug)).total : 0;
+  // D2: the full summary (not just .total) is also threaded through to
+  // HomeView for the desktop Coach Dashboard's Requests card — same call,
+  // no new query, mobile's pendingRequestCount usage is unchanged.
+  const pendingRequestSummary = isHeadCoach(actor) ? await getPendingRequestSummary(slug) : undefined;
+  const pendingRequestCount = pendingRequestSummary?.total ?? 0;
   const [announcements, upcoming, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
     getAnnouncements(slug),
     getCalendarEvents(slug, true),
@@ -45,6 +49,13 @@ export default async function HomePage({
       topAthleteName={fundraiserSummary.topAthleteName}
       primaryColor={settings?.primary_color ?? "#0b1e3d"}
       pendingRequestCount={pendingRequestCount}
+      // D2 — already-fetched values, newly threaded through for the
+      // desktop Coach Dashboard only (see HomeView.tsx/CoachDashboard.tsx).
+      donorCount={donationStats.donor_count}
+      pendingRequestSummary={pendingRequestSummary}
+      schoolName={settings?.school_name}
+      sportName={settings?.sport_name}
+      season={settings?.season ?? undefined}
     />
   );
 }

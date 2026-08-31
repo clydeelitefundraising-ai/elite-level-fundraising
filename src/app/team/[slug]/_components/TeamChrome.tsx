@@ -26,7 +26,6 @@ export default function TeamChrome({
   showRequests,
   announcementCount,
   latestAnnouncementAt,
-  donorCount,
   pendingAthleteRequestCount = 0,
   accountTeams,
   accountName,
@@ -39,7 +38,6 @@ export default function TeamChrome({
   showRequests: boolean;
   announcementCount: number;
   latestAnnouncementAt: string | null;
-  donorCount: number;
   pendingAthleteRequestCount?: number;
   accountTeams: TeamSummary[];
   accountName?: string;
@@ -108,7 +106,9 @@ export default function TeamChrome({
           slug={slug}
           primaryColor={settings.primary_color}
           showSponsors={showSponsors}
-          badgeCounts={{ communications: badge + messageBadge, fundraiser: donorCount, team: pendingAthleteRequestCount }}
+          // D2a: no fundraiser badge — see desktopNavItems.ts's comment on
+          // why donationStats.donor_count was removed from this slot.
+          badgeCounts={{ communications: badge + messageBadge, team: pendingAthleteRequestCount }}
         />
       </div>
       <div className={styles.desktopOnly}>
@@ -119,7 +119,6 @@ export default function TeamChrome({
           showRequests={showRequests}
           communicationsBadge={badge}
           messagesBadge={messageBadge}
-          donorCount={donorCount}
           pendingRequestCount={pendingAthleteRequestCount}
           accountTeams={accountTeams}
           accountName={accountName}

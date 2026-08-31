@@ -9,6 +9,10 @@ import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
+import type { PendingRequestSummary } from "@/lib/platform/requests";
+import { shouldShowCoachDashboard } from "./coachDashboardHelpers";
+import CoachDashboard from "./CoachDashboard";
+import styles from "./Home.module.css";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -38,7 +42,9 @@ const lbl: React.CSSProperties = {
 
 // ── Category + event type colors ──────────────────────────────────────────────
 
-const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string }> = {
+// Exported (D2): reused as-is by the desktop CoachDashboard's compact
+// announcement summary — pure/stateless, zero behavior change here.
+export const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string }> = {
   "schedule":   { bg: "#dbeafe", color: "#1d4ed8", accent: "#3b82f6" },
   "fundraiser": { bg: "#fef3c7", color: "#b45309", accent: "#f59e0b" },
   "travel":     { bg: "#ede9fe", color: "#6d28d9", accent: "#8b5cf6" },
@@ -49,13 +55,17 @@ const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent: string
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtMoney(cents: number): string {
+// Exported (D2): reused as-is by the desktop CoachDashboard's Fundraising
+// card — pure/stateless, zero behavior change here.
+export function fmtMoney(cents: number): string {
   const dollars = cents / 100;
   if (dollars >= 10000) return `$${(dollars / 1000).toFixed(0)}k`;
   return dollars.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
-function relativeTime(iso: string): string {
+// Exported (D2): reused as-is by the desktop CoachDashboard's compact
+// announcement summary — pure/stateless, zero behavior change here.
+export function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (sec < 60)     return "just now";
   if (sec < 3600)   return `${Math.floor(sec / 60)}m ago`;
@@ -199,7 +209,10 @@ function AnnouncementCard({
   );
 }
 
-function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen: (ev: CalendarEventRow) => void }) {
+// Exported (D2): reused as-is by the desktop CoachDashboard's Upcoming
+// card — same row component, same EventDetailsModal, zero behavior
+// change here (mobile HomeContent's own usage below is untouched).
+export function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen: (ev: CalendarEventRow) => void }) {
   const s = eventTypeStyle(ev.type);
   const time = displayEventTime(ev);
   return (
@@ -374,13 +387,41 @@ type HomeViewProps = {
   topAthleteName?: string | null;
   primaryColor?: string;
   pendingRequestCount?: number;
+  // D2 — already fetched by page.tsx (donationStats.donor_count and the
+  // full getPendingRequestSummary() result respectively), just newly
+  // threaded through here for the desktop Coach Dashboard. Optional so
+  // HomeContent (which never reads them) and any other existing caller
+  // are unaffected.
+  donorCount?: number;
+  pendingRequestSummary?: PendingRequestSummary;
+  schoolName?: string;
+  sportName?: string;
+  season?: string;
 };
 
-// ── Role-based entry point (future-proofed for role dashboards) ────────────────
-
+// ── Role-based entry point ──────────────────────────────────────────────────
+//
+// Desktop Coach Dashboard (D2) — gated on shouldShowCoachDashboard(actor),
+// NOT isStaff(): boosters and every member role must keep seeing the
+// existing HomeContent at every width, including desktop. For an eligible
+// actor, BOTH HomeContent and CoachDashboard are mounted; Home.module.css's
+// single 1024px breakpoint (matching the D1 shell's) decides which is
+// visible — no window.innerWidth/matchMedia, no hydration-dependent
+// branch. HomeContent's own internals are completely unmodified.
 export default function HomeView(props: HomeViewProps) {
-  // Future: switch on actor role to render AthleteHome, ParentHome, CoachHome, etc.
-  return <HomeContent {...props} />;
+  if (!shouldShowCoachDashboard(props.actor)) {
+    return <HomeContent {...props} />;
+  }
+  return (
+    <>
+      <div className={styles.mobileOnly}>
+        <HomeContent {...props} />
+      </div>
+      <div className={styles.desktopOnly}>
+        <CoachDashboard {...props} />
+      </div>
+    </>
+  );
 }
 
 // ── Main content ──────────────────────────────────────────────────────────────
