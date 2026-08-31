@@ -8,6 +8,7 @@ import {
   selectFilesForAttachment,
   parseSignResponse,
   shouldRenderTextBubble,
+  attachmentAnchorProps,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_IMAGE_BYTES,
   MAX_VIDEO_BYTES,
@@ -160,4 +161,30 @@ test("shouldRenderTextBubble: false for whitespace-only body", () => {
 
 test("shouldRenderTextBubble: true for a real body, with or without attachments alongside it", () => {
   assert.equal(shouldRenderTextBubble("see attached"), true);
+});
+
+// ─── attachmentAnchorProps: iOS native "File not found." fix ───────────────────
+//
+// Native Capacitor's default handling of target="_blank" hands the
+// navigation off to the SYSTEM browser (a separate app with its own,
+// unrelated cookie storage) instead of keeping it inside the app's own
+// authenticated WKWebView — the ELF session cookie never reaches that
+// separate browser, so the authenticated download route can't recognize
+// the requester as a thread participant. These tests lock in the fix:
+// web keeps target="_blank" unchanged, native drops it entirely so the
+// navigation stays in-WebView with the existing session intact.
+
+test("attachmentAnchorProps: web (non-native) retains target=_blank + rel=noopener noreferrer", () => {
+  const props = attachmentAnchorProps(false);
+  assert.deepEqual(props, { target: "_blank", rel: "noopener noreferrer" });
+});
+
+test("attachmentAnchorProps: native Capacitor never sets target=_blank", () => {
+  const props = attachmentAnchorProps(true);
+  assert.equal(props.target, undefined);
+});
+
+test("attachmentAnchorProps: native Capacitor returns no rel either (no target means nothing for rel to protect)", () => {
+  const props = attachmentAnchorProps(true);
+  assert.deepEqual(props, {});
 });

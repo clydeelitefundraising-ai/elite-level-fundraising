@@ -4,7 +4,9 @@
 // pulled from the server-only src/lib/messages.ts module into the client
 // bundle. This is the same pattern ThreadView.tsx already uses for
 // MessageThread/ResolvedParticipant/ResolvedMessage.
+import { Capacitor } from "@capacitor/core";
 import type { MessageAttachmentPublic } from "@/lib/messages";
+import { attachmentAnchorProps } from "./attachmentClient";
 
 function readableFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -27,13 +29,15 @@ export default function AttachmentCard({
   attachment: MessageAttachmentPublic;
 }) {
   const href = `/api/team/${slug}/messages/attachments/${attachment.id}`;
+  // See attachmentAnchorProps for why native must never use target="_blank"
+  // (it hands the navigation off to a separate, unauthenticated browser).
+  const anchorProps = attachmentAnchorProps(Capacitor.isNativePlatform());
 
   if (attachment.attachment_kind === "image") {
     return (
       <a
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...anchorProps}
         aria-label={`Open photo ${attachment.original_filename}`}
         style={{ display: "block", maxWidth: 240, borderRadius: 10, overflow: "hidden", lineHeight: 0 }}
       >
@@ -62,8 +66,7 @@ export default function AttachmentCard({
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      {...anchorProps}
       aria-label={`Open ${attachment.attachment_kind === "video" ? "video" : "file"} ${attachment.original_filename}`}
       style={{
         display: "flex", alignItems: "center", gap: ".6rem",
