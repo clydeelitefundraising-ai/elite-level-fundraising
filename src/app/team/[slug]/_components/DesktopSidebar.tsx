@@ -72,7 +72,11 @@ export default function DesktopSidebar({
       role="navigation"
       aria-label="Team Hub navigation"
       style={{
-        width: 264,
+        // D1b: 264 -> 268 (within the approved 250-270px range) plus
+        // tighter identity-row spacing below — together these gave the
+        // school/team name meaningfully more room before truncating,
+        // per 1440px QA ("Monroe Valley ..." truncating too aggressively).
+        width: 268,
         flexShrink: 0,
         minHeight: "100vh",
         background: "#0b1e3d",
@@ -84,11 +88,15 @@ export default function DesktopSidebar({
         alignSelf: "flex-start",
       }}
     >
+      {/* D1b: horizontal padding and gap trimmed slightly (1rem->.85rem,
+          .65rem->.5rem) purely to reclaim width for the identity text
+          column below — avatar size, AccountMenu, and TeamSwitcher
+          behavior are all unchanged. */}
       <div style={{
-        padding: "1.25rem 1rem",
+        padding: "1.25rem .85rem",
         display: "flex",
         alignItems: "center",
-        gap: ".65rem",
+        gap: ".5rem",
         borderBottom: "1px solid rgba(255,255,255,.14)",
       }}>
         {(settings.team_photo || settings.logo_url) ? (
