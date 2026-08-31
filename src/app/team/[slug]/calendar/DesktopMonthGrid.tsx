@@ -41,7 +41,12 @@ export default function DesktopMonthGrid({
   return (
     <div>
       {/* ── Weekday header row ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+      {/* minmax(0, 1fr), not bare 1fr: a bare 1fr track's minimum width
+          defaults to its content's min-content size. The header labels
+          are short and never triggered this, but the day grid below
+          shares this same column definition, so both use minmax(0, 1fr)
+          to stay visually aligned. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2, marginBottom: 2 }}>
         {WEEKDAY_LABELS.map(w => (
           <div key={w} style={{
             textAlign: "center", fontSize: ".68rem", fontWeight: 700, color: "#9ca3af",
@@ -53,8 +58,10 @@ export default function DesktopMonthGrid({
       </div>
 
       {/* ── Grid ── */}
+      {/* Same minmax(0, 1fr) track definition as the weekday header above
+          so the two rows stay aligned column-for-column. */}
       <div style={{
-        display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2,
+        display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2,
         background: "#e5e7eb", borderRadius: 12, padding: 2, overflow: "hidden",
       }}>
         {cells.map(cell => {
@@ -74,6 +81,13 @@ export default function DesktopMonthGrid({
               aria-pressed={isSelected}
               style={{
                 minHeight: CELL_MIN_HEIGHT,
+                // Grid items default to min-width: auto, which is based on
+                // their content's min-content size — without this, a long
+                // nowrap event title inside this cell could still force
+                // the cell (and therefore its column) wider than 1/7 even
+                // with minmax(0, 1fr) on the track. minWidth: 0 lets this
+                // cell shrink to its track's actual width.
+                minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
                 gap: ".25rem",
@@ -99,7 +113,7 @@ export default function DesktopMonthGrid({
                 {cell.day}
               </span>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: ".18rem", overflow: "hidden" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: ".18rem", overflow: "hidden", minWidth: 0 }}>
                 {visible.map(ev => {
                   const s = eventTypeStyle(ev.type);
                   const time = displayEventTime(ev);
@@ -109,11 +123,12 @@ export default function DesktopMonthGrid({
                       onClick={e => { e.stopPropagation(); onOpenEvent(ev); }}
                       title={time ? `${ev.title} — ${time}` : ev.title}
                       style={{
-                        display: "block", width: "100%", textAlign: "left",
+                        display: "block", width: "100%", minWidth: 0, textAlign: "left",
                         border: "none", borderRadius: 5, cursor: "pointer",
                         padding: ".14rem .35rem", background: s.bg, color: s.color,
                         fontSize: ".68rem", fontWeight: 600, lineHeight: 1.35,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        boxSizing: "border-box",
                       }}
                     >
                       {time ? `${time} ` : ""}{ev.title}
