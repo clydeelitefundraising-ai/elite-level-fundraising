@@ -123,6 +123,38 @@ export function shouldRenderTextBubble(body: string): boolean {
   return body.trim().length > 0;
 }
 
+// ─── Attachment-open anchor behavior (pure) ─────────────────────────────────────
+
+export type AttachmentAnchorProps = { target?: "_blank"; rel?: "noopener noreferrer" };
+
+/** Pure. Decides the anchor attributes AttachmentCard uses to open an
+ *  attachment, given whether the app is running as a native Capacitor
+ *  shell (the caller passes Capacitor.isNativePlatform() — never called
+ *  here directly, so this stays testable without mocking @capacitor/core).
+ *
+ *  Desktop/mobile WEB: target="_blank" (unchanged, existing behavior) —
+ *  opening in a new tab is harmless there since the tab shares the same
+ *  browser's cookie jar as the page that opened it.
+ *
+ *  Native Capacitor: no target at all, so the navigation stays inside the
+ *  app's own authenticated WKWebView instead of Capacitor's default
+ *  target="_blank" handling, which hands the URL off to the SYSTEM
+ *  browser (a separate app/process with its own, unrelated cookie
+ *  storage) — the exact cause of the "File not found." bug: the app's
+ *  HttpOnly ELF session cookie never reaches that separate browser, so
+ *  the authenticated download route can't recognize the requester as a
+ *  participant. Keeping the navigation in-WebView means the existing
+ *  session cookie is attached exactly like the inline <img> load already
+ *  does. The download route's existing Content-Disposition header
+ *  (inline for images, attachment for everything else) is untouched and
+ *  still governs how the WebView displays/downloads the response — this
+ *  fix is purely about which webview/browser makes the request, not the
+ *  URL, the route, or its authorization. */
+export function attachmentAnchorProps(isNative: boolean): AttachmentAnchorProps {
+  if (isNative) return {};
+  return { target: "_blank", rel: "noopener noreferrer" };
+}
+
 // ─── Sign-response parsing (pure) ──────────────────────────────────────────────
 
 export type SignResponseParsed =
