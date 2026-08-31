@@ -7,6 +7,13 @@ import {
   roleLabel, otherParticipants, observerParticipants, conversationDisplayName, isFamilyThread,
 } from "../_shared/participantDisplay";
 import Avatar from "../_shared/Avatar";
+import AttachmentCard from "../_shared/AttachmentCard";
+import { shouldRenderTextBubble } from "../_shared/attachmentClient";
+import AttachmentPickerButton from "../_shared/AttachmentPickerButton";
+import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
+import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
+import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
+import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -31,16 +38,26 @@ function isOwnMessage(
 // ─── Message bubble ──────────────────────────────────────────────────────────
 
 function MessageBubble({
+  slug,
   msg,
   isSelf,
   showSenderInfo,
   primaryColor,
 }: {
+  slug: string;
   msg: ResolvedMessage;
   isSelf: boolean;
   showSenderInfo: boolean;
   primaryColor: string;
 }) {
+  // An attachment-only message has an empty body — never render the
+  // speech-bubble text container for it (an empty rounded bubble reads
+  // as a rendering bug, not as "no caption"). Text + attachments renders
+  // both: the text bubble first, the attachment card(s) grouped right
+  // below it under the same sender/timestamp.
+  const hasBody = shouldRenderTextBubble(msg.body);
+  const hasAttachments = msg.attachments.length > 0;
+
   return (
     <div
       style={{
@@ -59,27 +76,40 @@ function MessageBubble({
         </div>
       )}
 
-      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isSelf ? "flex-end" : "flex-start" }}>
+      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", alignItems: isSelf ? "flex-end" : "flex-start", gap: ".35rem" }}>
         {!isSelf && showSenderInfo && (
-          <span style={{ fontSize: ".65rem", color: "#9ca3af", marginBottom: ".18rem", fontWeight: 500 }}>
+          <span style={{ fontSize: ".65rem", color: "#9ca3af", marginBottom: "-.15rem", fontWeight: 500 }}>
             {msg.sender_name} · {roleLabel(msg.sender_role)}
           </span>
         )}
-        <div style={{
-          background:   isSelf ? primaryColor : "#fff",
-          color:        isSelf ? "#fff" : "#1f2937",
-          borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-          padding:      ".6rem .8rem",
-          fontSize:     "1rem",
-          lineHeight:   1.45,
-          boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
-          whiteSpace:   "pre-wrap",
-          wordBreak:    "break-word",
-          overflowWrap: "anywhere",
-        }}>
-          {msg.body}
-        </div>
-        <span style={{ fontSize: ".6rem", color: "#c1c7d0", marginTop: ".15rem" }}>
+
+        {hasBody && (
+          <div style={{
+            background:   isSelf ? primaryColor : "#fff",
+            color:        isSelf ? "#fff" : "#1f2937",
+            borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+            padding:      ".6rem .8rem",
+            fontSize:     "1rem",
+            lineHeight:   1.45,
+            boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
+            whiteSpace:   "pre-wrap",
+            wordBreak:    "break-word",
+            overflowWrap: "anywhere",
+            maxWidth:     "100%",
+          }}>
+            {msg.body}
+          </div>
+        )}
+
+        {hasAttachments && (
+          <div style={{ display: "flex", flexDirection: "column", gap: ".35rem", maxWidth: "100%" }}>
+            {msg.attachments.map(a => (
+              <AttachmentCard key={a.id} slug={slug} attachment={a} />
+            ))}
+          </div>
+        )}
+
+        <span style={{ fontSize: ".6rem", color: "#c1c7d0" }}>
           {relativeTime(msg.created_at)}
         </span>
       </div>
@@ -112,9 +142,17 @@ export default function ThreadView({
   const [messages, setMessages] = useState<ResolvedMessage[]>(initialMessages);
   const [replyBody, setReplyBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
+
+  // Mirrors `messages` for read-without-a-stale-closure access inside the
+  // poll loop below (same established pattern as sendingRef) — used only
+  // to compare against a fresh poll response, never mutated during render.
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   // Mark as read on mount
   useEffect(() => {
@@ -131,6 +169,133 @@ export default function ThreadView({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  // ── Live-arrival polling (Phase 5, corrected) ──────────────────────────────
+  //
+  // A direct browser Supabase Realtime subscription (postgres_changes on
+  // messages) was tried first and rejected after an authorization audit:
+  // ELF's browser is ALWAYS the bare `anon` Postgres role (this codebase
+  // never establishes a Supabase Auth JWT anywhere — confirmed by
+  // repository-wide search), and `messages` has Row Level Security
+  // enabled with ZERO policies. Supabase's own documentation is explicit
+  // that postgres_changes strictly enforces RLS per-subscriber and never
+  // bypasses it — a bare table GRANT (which `messages` already has for
+  // anon) is not sufficient on its own. RLS-enabled-with-no-policy means
+  // anon has ZERO row visibility on `messages`, full stop — which cuts
+  // both ways: no legitimate user's browser could ever have received a
+  // live event either, and no unauthorized/guessing browser could have
+  // leaked anything — but it also means the realtime approach could not
+  // have functioned at all, safely or otherwise. Adding a permissive
+  // anon SELECT policy to make it work was explicitly out of bounds (that
+  // would expose every private thread to any anon caller with a guessed
+  // thread id). So: short-interval polling instead, through the SAME
+  // authenticated, already-authorized GET route every other read in this
+  // app uses — no anon-role data path is ever involved.
+  //
+  // Below this point, runRefresh/requestRefresh/reconcileMessages are
+  // unchanged from the realtime draft — they were always transport-
+  // agnostic ("something may have changed, go refetch safely"); only the
+  // trigger at the bottom of this block (a setInterval instead of a
+  // Supabase channel subscription) changed.
+  const sendingRef = useRef(sending);
+  useEffect(() => { sendingRef.current = sending; }, [sending]);
+
+  const refreshInFlightRef = useRef(false);
+  const refreshQueuedRef = useRef(false);
+  const refreshSeqRef = useRef(0);
+
+  // A do/while loop, not recursion: draining refreshQueuedRef in a loop
+  // (rather than this function tail-calling itself) avoids ever
+  // referencing this same useCallback-bound name from inside its own
+  // body, which React's hooks linter flags as an unsafe stale-closure
+  // pattern regardless of it working in plain JS.
+  const runRefresh = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    refreshInFlightRef.current = true;
+
+    do {
+      refreshQueuedRef.current = false;
+      const seq = ++refreshSeqRef.current;
+      try {
+        const res = await fetch(`/api/team/${slug}/messages/threads/${thread.id}`, { cache: "no-store" });
+        if (res.ok) {
+          const data: { messages: ResolvedMessage[] } = await res.json();
+          // Sequence-token guard: if a NEWER refresh started after this
+          // one (e.g. a slow response overlapping the next poll tick),
+          // discard this now-stale response rather than let it clobber
+          // more recent state with out-of-order data.
+          if (seq === refreshSeqRef.current) {
+            // Compare against the currently-known set BEFORE reconciling
+            // — an idle poll that returns the exact same real messages
+            // (any order) must not write a read row or dispatch the
+            // changed event every 5 seconds forever. Optimistic ids on
+            // either side are ignored by hasNewServerMessages itself.
+            const genuinelyNew = hasNewServerMessages(messagesRef.current, data.messages);
+            setMessages(prev => reconcileMessages(data.messages, prev));
+            if (genuinelyNew) {
+              // A new message arrived while this thread is visibly open —
+              // keep the existing "opened/visible thread == read" model
+              // consistent by re-asserting read state, exactly the same
+              // call already made once on mount. Idempotent; harmless to
+              // call even when the new message was this actor's own.
+              fetch(`/api/team/${slug}/messages/threads/${thread.id}/read`, { method: "POST" })
+                .then(() => window.dispatchEvent(new CustomEvent("elf:messages-changed")))
+                .catch(() => {});
+            }
+          }
+        }
+        // A failed refetch intentionally leaves already-rendered
+        // messages untouched — no error surfaced for a background sync
+        // failure.
+      } catch {
+        // Network error — same: leave existing messages as they are.
+      }
+    } while (refreshQueuedRef.current);
+
+    refreshInFlightRef.current = false;
+  }, [slug, thread.id]);
+
+  const requestRefresh = useCallback(() => {
+    // Defer while THIS client is itself mid-send: its own optimistic-
+    // append-then-replace-by-id path already reconciles the sender's own
+    // message once the POST resolves, and running a server refetch
+    // concurrently with that (before the POST response lands) is
+    // exactly the narrow race where a duplicate bubble could otherwise
+    // appear — see reconcileMessages' own tests for how the general case
+    // is handled regardless. Overlapping poll ticks (a slow response
+    // still in flight when the next tick fires) are coalesced inside
+    // runRefresh's own queue-drain loop above, not here.
+    if (sendingRef.current) {
+      refreshQueuedRef.current = true;
+      return;
+    }
+    void runRefresh();
+  }, [runRefresh]);
+
+  // Flush a queued refresh once this client's own send finishes, so an
+  // event that arrived mid-send (deferred above) is never dropped.
+  useEffect(() => {
+    if (!sending && refreshQueuedRef.current) {
+      refreshQueuedRef.current = false;
+      void runRefresh();
+    }
+  }, [sending, runRefresh]);
+
+  // Poll only while this ThreadView is mounted (the user has this thread
+  // open) — a plain setInterval, torn down on threadId change/unmount.
+  // No Supabase browser client, no channel, no anon-role data path at
+  // all. 5s is frequent enough to feel live for a chat-style UI without
+  // creating a meaningful request storm (one small authenticated GET per
+  // tick, itself coalesced/gated by requestRefresh exactly as before).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      requestRefresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [requestRefresh]);
+
   // otherParticipants/conversationDisplayName only know "coach"|"member" —
   // same cast pattern already used at MessagesView.tsx:37-38 for the same
   // reason. A platform admin isn't a participant in any existing thread,
@@ -141,58 +306,118 @@ export default function ThreadView({
   const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
 
+  const canSend = !sending && (replyBody.trim().length > 0 || selected.length > 0);
+
   const handleSend = useCallback(async () => {
-    if (!replyBody.trim() || sending) return;
+    const body = replyBody.trim();
+    if (!canSend) return;
     setSending(true);
     setError("");
 
-    // Optimistic — replaced by the real row once the POST resolves.
-    const optimistic: ResolvedMessage = {
-      id:               `opt-${Date.now()}`,
-      thread_id:        thread.id,
-      sender_type:      actorKind,
-      sender_coach_id:          actorKind === "coach"          ? actorId : null,
-      sender_member_id:         actorKind === "member"         ? actorId : null,
-      sender_platform_admin_id: actorKind === "platform_admin" ? actorId : null,
-      body:             replyBody.trim(),
-      created_at:       new Date().toISOString(),
-      sender_name:      actorName,
-      sender_role:      "",
-      sender_photo_url: null,
-      read_at:          new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, optimistic]);
-    const body = replyBody.trim();
-    setReplyBody("");
+    // ── Text-only: exact existing optimistic-append-then-replace path,
+    // unchanged. ──
+    if (selected.length === 0) {
+      const optimistic: ResolvedMessage = {
+        id:               `opt-${Date.now()}`,
+        thread_id:        thread.id,
+        sender_type:      actorKind,
+        sender_coach_id:          actorKind === "coach"          ? actorId : null,
+        sender_member_id:         actorKind === "member"         ? actorId : null,
+        sender_platform_admin_id: actorKind === "platform_admin" ? actorId : null,
+        body,
+        created_at:       new Date().toISOString(),
+        sender_name:      actorName,
+        sender_role:      "",
+        sender_photo_url: null,
+        read_at:          new Date().toISOString(),
+        attachments:      [],
+      };
+      setMessages(prev => [...prev, optimistic]);
+      setReplyBody("");
 
+      try {
+        const res = await fetch(
+          `/api/team/${slug}/messages/threads/${thread.id}/messages`,
+          {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ body }),
+          },
+        );
+        if (!res.ok) {
+          const d = await res.json();
+          setError(d.error ?? "Failed to send.");
+          setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+          setSending(false);
+          return;
+        }
+        const real = await res.json();
+        setMessages(prev => prev.map(m =>
+          m.id === optimistic.id
+            ? { ...optimistic, id: real.id, created_at: real.created_at }
+            : m,
+        ));
+      } catch {
+        setError("Network error. Please try again.");
+        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+      }
+      setSending(false);
+      return;
+    }
+
+    // ── One or more attachments: sign+upload each (stopping immediately
+    // on the first failure — nothing is sent if any upload fails), then
+    // send exactly once. No optimistic bubble here: the real, server-
+    // resolved message (with real attachment metadata) is appended
+    // directly once the send succeeds, rather than guessing what it will
+    // look like from local blob previews. ──
+    setUploadPhase("uploading");
+    const uploadResult = await uploadMessageAttachments(
+      slug,
+      thread.id,
+      // Pass each item's already-uploaded id/thread (if any) so a retry
+      // after a SIBLING file failed reuses this one instead of
+      // re-signing/re-uploading and orphaning a second pending row.
+      selected.map(s => ({
+        localId: s.localId, file: s.file,
+        attachmentId: s.attachmentId, uploadedForThreadId: s.uploadedForThreadId,
+      })),
+      (localId, status, err, attachmentId) => updateStatus(localId, status, err, attachmentId, thread.id),
+    );
+    if (!uploadResult.ok) {
+      setError(uploadResult.error);
+      setSending(false);
+      setUploadPhase("idle");
+      return; // composer state (body + selected files) is kept as-is for retry
+    }
+
+    setUploadPhase("sending");
     try {
       const res = await fetch(
         `/api/team/${slug}/messages/threads/${thread.id}/messages`,
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ body }),
+          body:    JSON.stringify({ body, attachmentIds: uploadResult.attachmentIds }),
         },
       );
       if (!res.ok) {
-        const d = await res.json();
+        const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Failed to send.");
-        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
         setSending(false);
+        setUploadPhase("idle");
         return;
       }
-      const real = await res.json();
-      setMessages(prev => prev.map(m =>
-        m.id === optimistic.id
-          ? { ...optimistic, id: real.id, created_at: real.created_at }
-          : m,
-      ));
+      const real: ResolvedMessage = await res.json();
+      setMessages(prev => [...prev, real]);
+      setReplyBody("");
+      resetSelected();
     } catch {
       setError("Network error. Please try again.");
-      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     }
     setSending(false);
-  }, [replyBody, sending, slug, thread.id, actorKind, actorId, actorName]);
+    setUploadPhase("idle");
+  }, [replyBody, canSend, selected, slug, thread.id, actorKind, actorId, actorName, updateStatus, resetSelected]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -200,6 +425,12 @@ export default function ThreadView({
       handleSend();
     }
   };
+
+  const sendLabel = !sending
+    ? "Send"
+    : uploadPhase === "uploading" ? "Uploading…"
+    : uploadPhase === "sending"   ? "Sending…"
+    : "…";
 
   return (
     // 100dvh, not 100vh — 100vh does not shrink when the iOS on-screen
@@ -282,6 +513,7 @@ export default function ThreadView({
             return (
               <MessageBubble
                 key={m.id}
+                slug={slug}
                 msg={m}
                 isSelf={isOwnMessage(m, actorKind, actorId)}
                 showSenderInfo={!sameSenderAsPrev}
@@ -308,7 +540,7 @@ export default function ThreadView({
         background: "#f5f6f8",
       }}>
         {error && (
-          <div style={{
+          <div role="alert" style={{
             background: "#fef2f2", border: "1px solid #fecaca",
             borderRadius: 8, padding: ".4rem .6rem",
             fontSize: ".75rem", color: "#dc2626", marginBottom: ".5rem",
@@ -316,7 +548,16 @@ export default function ThreadView({
             {error}
           </div>
         )}
+
+        <AttachmentComposerBar
+          selected={selected}
+          onRemove={removeFile}
+          disabled={sending}
+          selectionError={selectionError}
+        />
+
         <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-end" }}>
+          <AttachmentPickerButton onFilesSelected={addFiles} disabled={sending} />
           <textarea
             ref={textareaRef}
             value={replyBody}
@@ -340,7 +581,7 @@ export default function ThreadView({
           />
           <button
             onClick={handleSend}
-            disabled={sending || !replyBody.trim()}
+            disabled={!canSend}
             aria-label="Send message"
             style={{
               padding: ".55rem .9rem",
@@ -350,14 +591,14 @@ export default function ThreadView({
               borderRadius: 10,
               fontSize: ".82rem",
               fontWeight: 700,
-              cursor: sending || !replyBody.trim() ? "default" : "pointer",
-              opacity: sending || !replyBody.trim() ? .45 : 1,
+              cursor: canSend ? "pointer" : "default",
+              opacity: canSend ? 1 : .45,
               transition: "opacity .15s",
               flexShrink: 0,
               minHeight: 40,
             }}
           >
-            {sending ? "…" : "Send"}
+            {sendLabel}
           </button>
         </div>
       </div>
