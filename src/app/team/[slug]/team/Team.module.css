@@ -1,0 +1,42 @@
+/*
+ * Phase D3 — desktop roster workspace visibility toggle.
+ *
+ * Same 1024px breakpoint as the D1 Team Hub shell and D2 Coach Dashboard
+ * (see src/app/team/[slug]/_components/TeamShell.module.css and
+ * src/app/team/[slug]/home/Home.module.css) — kept consistent, not
+ * literally shared, since this page renders through its own tree.
+ *
+ * Pure CSS media-query switching only — no window.innerWidth/matchMedia/
+ * resize listeners, no hydration-dependent state. Both AthleteRosterGrid
+ * (mobile) and DesktopRosterTable (desktop) are always mounted for a
+ * desktop-eligible actor; only `display` changes per breakpoint.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}

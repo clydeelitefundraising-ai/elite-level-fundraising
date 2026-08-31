@@ -1,4 +1,6 @@
-import { getTeamAthletes } from "@/lib/teamData";
+import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap } from "@/lib/teamData";
+import { getDonations } from "@/lib/supabase";
+import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
@@ -22,12 +24,27 @@ export default async function TeamPage({
   // gating; same canonical count function reused everywhere (Phase 3B-1).
   const pendingRequestCount = isHeadCoach(actor) ? await getPendingRequestCount(slug) : 0;
 
+  // D3 — desktop roster table data. All three helpers already exist and
+  // are already used elsewhere (Home/Fundraiser) exactly like this; no
+  // new query, no new backend work. Fetched unconditionally (like
+  // getTeamAthletes itself) rather than gated by role, since the desktop
+  // table's own eligibility check (shouldShowDesktopRoster) already
+  // decides whether any of this is ever rendered — this just avoids a
+  // client-side waterfall for the actors who ARE eligible.
+  const [donations, contactCounts, outreachMap] = await Promise.all([
+    getDonations(slug),
+    getContactCountsByAthlete(slug),
+    getOutreachMap(slug),
+  ]);
+  const attribution = attributeDonationsToAthletes(athletes, donations);
+
   // Phase 7: Team Hub — Overview | Roster | Clearance, with Roster split
-  // into Athletes | Staff. The pre-existing athlete roster experience
-  // (TeamView) is unchanged and unmodified, now nested as Roster's
-  // "Athletes" section.
+  // into Athletes | Staff. Phase D3 added a desktop-only roster table
+  // alongside the original mobile athlete grid (see TeamView.tsx) — the
+  // mobile experience itself (AthleteRosterGrid.tsx) is unchanged.
   return (
     <TeamTabs
+      actor={actor}
       overview={<OverviewView />}
       roster={
         <RosterTabs
@@ -37,6 +54,9 @@ export default async function TeamPage({
               initialAthletes={athletes}
               actor={actor}
               pendingRequestCount={pendingRequestCount}
+              attribution={attribution}
+              contactCounts={contactCounts}
+              outreachMap={outreachMap}
             />
           }
           staff={<TeamStaffRosterView slug={slug} />}
