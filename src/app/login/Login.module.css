@@ -1,0 +1,54 @@
+/*
+ * D1c — desktop entry experience for /login.
+ *
+ * Uses the SAME 1024px breakpoint philosophy as the Team Hub desktop
+ * shell (see src/app/team/[slug]/_components/TeamShell.module.css) for
+ * a consistent feel across Login -> Team Selection -> Team Hub — this
+ * page renders outside that layout tree entirely, so the value is kept
+ * consistent rather than imported/shared as one literal file.
+ *
+ * Pure CSS media-query switching only — no window.innerWidth/matchMedia/
+ * resize listeners, no hydration-dependent state.
+ */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.brandPanel {
+  display: none;
+}
+
+.card {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media screen and (min-width: 1024px) {
+  .page {
+    align-items: center;
+    gap: 4rem;
+    padding: 2rem;
+  }
+
+  .brandPanel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 400px;
+    color: #fff;
+  }
+
+  .card {
+    min-height: 0;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+  }
+}

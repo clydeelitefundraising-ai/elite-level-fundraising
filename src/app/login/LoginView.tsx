@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import styles from "./Login.module.css";
 
 export default function LoginView() {
   const router = useRouter();
@@ -36,8 +37,18 @@ export default function LoginView() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
+    <div className={styles.page} style={{ background: "#0b1e3d", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      {/* D1c: desktop-only brand panel — hidden on mobile (Login.module.css),
+          purely presentational, no auth/session behavior. */}
+      <div className={styles.brandPanel}>
+        <Image src="/ELF.LOGO.png" alt="" width={64} height={64} style={{ borderRadius: ".9rem", marginBottom: "1.5rem" }} />
+        <h1 style={{ margin: 0, fontSize: "2.1rem", fontWeight: 800, letterSpacing: "-.02em" }}>Team Hub</h1>
+        <p style={{ marginTop: ".75rem", fontSize: "1.02rem", color: "rgba(255,255,255,.75)", lineHeight: 1.6, maxWidth: 360 }}>
+          One place for your team&apos;s roster, calendar, messages, and fundraising — built for coaches, athletes, and families.
+        </p>
+      </div>
+
+      <div className={styles.card} style={{ background: "#f5f6f8" }}>
 
         <div style={{ background: "#0b1e3d", padding: "1.25rem 1rem", display: "flex", alignItems: "center", gap: ".75rem" }}>
           <Image src="/ELF.LOGO.png" alt="ELF" width={36} height={36} style={{ borderRadius: ".4rem" }} />

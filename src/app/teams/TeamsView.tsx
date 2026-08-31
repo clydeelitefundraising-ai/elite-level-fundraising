@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import styles from "./Teams.module.css";
 
 export type PendingTeamCard = {
   campaign_slug:  string;
@@ -173,13 +174,13 @@ export default function TeamsView({
   accountName: string;
 }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div className={styles.page} style={{ background: "#0b1e3d", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
         .team-card { transition: transform .15s ease, box-shadow .15s ease; }
         .team-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
         .team-card:active { transform: scale(.985); box-shadow: var(--card-shadow); }
       `}</style>
-      <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
+      <div className={styles.panel} style={{ background: "#f5f6f8" }}>
 
         {/* Header */}
         <div style={{ background: "#0b1e3d", padding: "1.1rem 1rem .9rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
@@ -209,7 +210,7 @@ export default function TeamsView({
         </div>
 
         {/* Team cards */}
-        <div style={{ padding: "0 1.25rem", display: "flex", flexDirection: "column", gap: ".85rem", flex: 1 }}>
+        <div className={styles.contentColumn}>
           {pendingCards.map(card => (
             <PendingCard key={`${card.campaign_slug}-${card.status}`} card={card} />
           ))}
@@ -228,7 +229,8 @@ export default function TeamsView({
               </a>
             </div>
           ) : (
-            teams.map(team => {
+            <div className={styles.teamsGrid}>
+            {teams.map(team => {
               const color = team.primary_color || "#0b1e3d";
               const cardShadow      = `0 3px 12px 0 ${hexToRgba(color, 0.16)}`;
               const cardShadowHover = `0 10px 28px 0 ${hexToRgba(color, 0.3)}`;
@@ -303,7 +305,8 @@ export default function TeamsView({
                   </div>
                 </a>
               );
-            })
+            })}
+            </div>
           )}
 
           {(teams.length > 0 || pendingCards.length > 0) && (
