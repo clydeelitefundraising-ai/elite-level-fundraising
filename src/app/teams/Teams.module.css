@@ -1,0 +1,77 @@
+/*
+ * D1c — desktop entry experience for /teams.
+ *
+ * Same 1024px breakpoint philosophy as /login and the Team Hub desktop
+ * shell (see src/app/team/[slug]/_components/TeamShell.module.css) —
+ * kept consistent, not literally shared, since this page also renders
+ * outside that layout tree.
+ *
+ * Pure CSS media-query switching only — no window.innerWidth/matchMedia/
+ * resize listeners, no hydration-dependent state. Routing and team-switch
+ * logic are untouched by this file; it only affects layout/sizing.
+ */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.panel {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.contentColumn {
+  padding: 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  flex: 1;
+}
+
+/* Only the team cards themselves become a wider grid at desktop — the
+ * pending-request cards, empty state, "+ Add Team" action, and the
+ * "Need another team?" footer note stay full-width single-column
+ * elements in .contentColumn, both to avoid squeezing a long paragraph
+ * into a half-width cell and to keep those elements' existing visual
+ * role unchanged. */
+.teamsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .page {
+    align-items: center;
+    padding: 2rem;
+  }
+
+  .panel {
+    max-width: 760px;
+    min-height: 0;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+  }
+
+  .contentColumn {
+    padding: 0 1.75rem 1.75rem;
+  }
+
+  /* auto-fit + a min/max card width + justify-content:center means:
+   * one team -> a single card, centered, not stretched full width;
+   * two teams -> a centered pair making real use of the extra width;
+   * three or more -> wraps into additional centered rows. */
+  .teamsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 420px));
+    justify-content: center;
+    gap: 1rem;
+  }
+}
