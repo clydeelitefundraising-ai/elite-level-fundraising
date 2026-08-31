@@ -7,7 +7,6 @@ const BASE_PARAMS = {
   showRequests: false,
   communicationsBadge: 0,
   messagesBadge: 0,
-  donorCount: 0,
   pendingRequestCount: 0,
 };
 
@@ -50,16 +49,33 @@ test("buildDesktopNavItems: badge numbers are wired to the correct items, never 
     ...BASE_PARAMS,
     communicationsBadge: 2,
     messagesBadge: 5,
-    donorCount: 12,
     showRequests: true,
     pendingRequestCount: 1,
   });
   const byKey = Object.fromEntries(items.map(i => [i.key, i.badge]));
   assert.equal(byKey.communications, 2);
   assert.equal(byKey.messages, 5);
-  assert.equal(byKey.fundraiser, 12);
   assert.equal(byKey.requests, 1);
   assert.equal(byKey.home, undefined);
+});
+
+// D2a: the Fundraising nav item's badge was removed — it used to show
+// donationStats.donor_count (an all-time donation-record count), which
+// misused the same red "attention" visual language as Communications/
+// Requests/Messages despite never being an unread/pending signal. The
+// number itself still appears as plain text on the Coach Dashboard and
+// Fundraising page — only the nav badge is gone.
+test("buildDesktopNavItems: Fundraising nav item never has a badge, regardless of other counts", () => {
+  const items = buildDesktopNavItems({
+    ...BASE_PARAMS,
+    communicationsBadge: 2,
+    messagesBadge: 5,
+    showRequests: true,
+    pendingRequestCount: 1,
+  });
+  const fundraiser = items.find(i => i.key === "fundraiser");
+  assert.ok(fundraiser);
+  assert.equal(fundraiser?.badge, undefined);
 });
 
 // ─── isDesktopNavItemActive ─────────────────────────────────────────────────

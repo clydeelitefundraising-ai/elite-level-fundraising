@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
-import { getAnnouncementMeta, getDonationStats } from "@/lib/teamData";
+import { getAnnouncementMeta } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
@@ -27,10 +27,14 @@ export default async function TeamLayout({
 }) {
   const { slug } = await params;
 
-  const [settings, announcementMeta, donationStats, actor, accountSession] = await Promise.all([
+  // D2a: getDonationStats(slug) was removed here — its only consumer was
+  // the fundraiser nav badge (an all-time donation-record count, not an
+  // unread/pending signal), which has been removed from both nav shells.
+  // The Coach Dashboard's own Fundraising card fetches this independently
+  // in home/page.tsx and is unaffected.
+  const [settings, announcementMeta, actor, accountSession] = await Promise.all([
     getCampaignSettings(slug),
     getAnnouncementMeta(slug),
-    getDonationStats(slug),
     getTeamActor(slug),
     getAccountSession(),
   ]);
@@ -99,7 +103,6 @@ export default async function TeamLayout({
           showRequests={showRequests}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
-          donorCount={donationStats.donor_count}
           pendingAthleteRequestCount={pendingAthleteRequestCount}
           accountTeams={accountTeams}
           accountName={accountSession?.name}

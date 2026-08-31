@@ -29,7 +29,6 @@ export default function DesktopSidebar({
   showRequests,
   communicationsBadge,
   messagesBadge,
-  donorCount,
   pendingRequestCount,
   accountTeams,
   accountName,
@@ -42,7 +41,6 @@ export default function DesktopSidebar({
   showRequests: boolean;
   communicationsBadge: number;
   messagesBadge: number;
-  donorCount: number;
   pendingRequestCount: number;
   accountTeams: TeamSummary[];
   accountName?: string;
@@ -57,7 +55,6 @@ export default function DesktopSidebar({
     showRequests,
     communicationsBadge,
     messagesBadge,
-    donorCount,
     pendingRequestCount,
   });
 

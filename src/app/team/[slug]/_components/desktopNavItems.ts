@@ -27,7 +27,6 @@ export function buildDesktopNavItems(params: {
   showRequests: boolean;
   communicationsBadge: number;
   messagesBadge: number;
-  donorCount: number;
   pendingRequestCount: number;
 }): DesktopNavItem[] {
   const items: DesktopNavItem[] = [
@@ -36,7 +35,14 @@ export function buildDesktopNavItems(params: {
     { key: "calendar", href: "calendar", label: "Calendar", icon: "📅" },
     { key: "communications", href: "communications", label: "Communications", icon: "📣", badge: params.communicationsBadge },
     { key: "messages", href: "messages", label: "Messages", icon: "💬", badge: params.messagesBadge },
-    { key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: "💰", badge: params.donorCount },
+    // D2a: deliberately NO badge here. This item's badge used to be
+    // donationStats.donor_count — an all-time donation-record count, not
+    // an unread/pending/attention signal — which misused the same red
+    // "something needs you" visual language as Communications/Requests.
+    // The number itself is still shown, correctly, as plain informational
+    // text on the Coach Dashboard's Fundraising card and the Fundraising
+    // page — this only removes it from the nav badge slot.
+    { key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: "💰" },
   ];
 
   if (params.showSponsors) {
