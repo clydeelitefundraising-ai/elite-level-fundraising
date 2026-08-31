@@ -1,0 +1,67 @@
+/*
+ * Phase D2 — desktop Coach Dashboard visibility toggle.
+ *
+ * Same 1024px breakpoint as the D1 Team Hub shell (see
+ * src/app/team/[slug]/_components/TeamShell.module.css) and the D1c
+ * entry pages — kept consistent, not literally shared, since Home
+ * renders through its own component tree.
+ *
+ * Pure CSS media-query switching only — no window.innerWidth/matchMedia/
+ * resize listeners, no hydration-dependent state. Both HomeContent and
+ * CoachDashboard are always mounted for a coach-dashboard-eligible actor;
+ * only `display` changes per breakpoint (see HomeView.tsx).
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+/* Internal reading-width constraint for the dashboard itself — the D1
+ * shell's main workspace is fluid (no cap), but individual cards
+ * shouldn't stretch edge-to-edge on very wide monitors. */
+.dashboardShell {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.quickActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .85rem;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* Below this, even though the whole dashboard is desktop-only (>=1024px),
+ * a two-column 1.4fr/1fr split gets cramped — fall back to a single
+ * column until there's genuinely enough room for both. */
+@media screen and (max-width: 1279px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}
