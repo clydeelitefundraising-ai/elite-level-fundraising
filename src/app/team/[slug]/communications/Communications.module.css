@@ -1,0 +1,47 @@
+/*
+ * Phase D5 — desktop Communications/Updates workspace visibility toggle.
+ *
+ * Same 1024px breakpoint as D1-D4 (see
+ * src/app/team/[slug]/team/Team.module.css /
+ * src/app/team/[slug]/calendar/Calendar.module.css). Pure CSS media-query
+ * switching only — no window.innerWidth/matchMedia/resize listeners, no
+ * hydration-dependent state. Both the existing mobile UpdatesView and the
+ * new DesktopUpdatesView are always mounted for a desktop-eligible actor;
+ * only `display` changes per breakpoint.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}
+
+/*
+ * Applied only when the actor is desktop-eligible (shouldShowDesktopCommunications)
+ * — the standalone Files section is mounted exactly once (see
+ * UpdatesWorkspaceView.tsx) rather than duplicated per-presentation, so its
+ * width can't simply live inside DesktopUpdatesView.tsx's own constrained
+ * column. This mirrors that same 760px constraint at desktop widths only,
+ * so it visually lines up under the desktop feed; ineligible actors never
+ * receive this class, so their Files section is full-width at every
+ * viewport width, unchanged.
+ */
+@media screen and (min-width: 1024px) {
+  .filesWrapDesktop {
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
