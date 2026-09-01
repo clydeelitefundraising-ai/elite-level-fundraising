@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
 import { isHeadCoach, type TeamActor } from "@/lib/permissions";
 import type { ThreadWithDetails } from "@/lib/messages";
-import UpdatesView from "../files/UpdatesView";
+import UpdatesWorkspaceView from "../files/UpdatesWorkspaceView";
 import MessagesView from "../messages/MessagesView";
 
 type Section = "updates" | "messages";
@@ -114,7 +114,7 @@ export default function CommunicationsView({
 
       {/* ── Section 1: Team Updates ── */}
       {section === "updates" && (
-        <UpdatesView
+        <UpdatesWorkspaceView
           slug={slug}
           initialUpdates={initialUpdates}
           initialFiles={initialFiles}
