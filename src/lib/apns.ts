@@ -35,6 +35,14 @@ function apnsHost(): string {
     : "api.sandbox.push.apple.com";
 }
 
+/** Diagnostic-only — the resolved environment name, never the raw
+ *  APNS_ENVIRONMENT value itself. Safe to log: this reveals only whether
+ *  the exact-match comparison in apnsHost() passed, not the value that
+ *  produced the result. */
+export function apnsEnvironmentLabel(): "production" | "sandbox" {
+  return apnsHost() === "api.push.apple.com" ? "production" : "sandbox";
+}
+
 // ── JWT (ES256, token-based auth) ────────────────────────────────────────────
 //
 // Apple recommends reusing a signed token for up to ~55 minutes rather than
@@ -185,6 +193,19 @@ export type ApnsDispatchInput = {
   url: string;
 };
 
+// Diagnostic-only logging (Phase 10 delivery audit) — every line below is
+// safe to log: no device tokens, no JWT/authorization values, no private
+// key material, no account/session identifiers beyond the internal
+// push_devices row id (an opaque UUID, not the token itself) and the
+// account_id already used as the dispatch's own targeting key. Purpose:
+// production logs currently show a 200 on the announcement POST with zero
+// visibility into what happened between recipient selection and Apple's
+// actual response — this closes that gap without exposing anything
+// sensitive.
+function logApns(event: string, detail?: Record<string, unknown>): void {
+  console.log(`[apns] ${event}`, detail ?? {});
+}
+
 /** Fan out one alert to every active iOS device for the given accounts,
  *  skipping any account that has opted the category off. Never throws —
  *  every failure mode (unconfigured APNs, network error, invalid token,
@@ -192,15 +213,24 @@ export type ApnsDispatchInput = {
  *  action that triggered it. */
 export async function dispatchApnsPush(input: ApnsDispatchInput): Promise<void> {
   try {
-    if (!isConfigured()) return; // no-op until Apple Developer/native setup is complete
-    if (!input.accountIds.length) return;
+    logApns("dispatch_started", {
+      category: input.category,
+      kind: input.kind,
+      accountCount: input.accountIds.length,
+    });
+
+    if (!isConfigured()) { logApns("dispatch_skipped", { reason: "not_configured" }); return; }
+    if (!input.accountIds.length) { logApns("dispatch_skipped", { reason: "no_accounts" }); return; }
+
+    logApns("environment_resolved", { environment: apnsEnvironmentLabel() });
 
     const jwt = signApnsJwt();
-    if (!jwt) return;
+    if (!jwt) { logApns("dispatch_skipped", { reason: "jwt_signing_failed" }); return; }
 
     const devices: PushDeviceRow[] = await getActiveDevicesForAccounts(input.accountIds);
     const iosDevices = devices.filter(d => d.platform === "ios");
-    if (!iosDevices.length) return;
+    logApns("devices_resolved", { activeDeviceCount: devices.length, iosDeviceCount: iosDevices.length });
+    if (!iosDevices.length) { logApns("dispatch_skipped", { reason: "no_ios_devices" }); return; }
 
     const alert = buildApnsAlert(input.kind, input.ctx);
     const payload = buildApnsPayload(alert, input.url);
@@ -209,20 +239,29 @@ export async function dispatchApnsPush(input: ApnsDispatchInput): Promise<void> 
       iosDevices.map(async device => {
         try {
           const prefs = await getPushPreferences(device.account_id);
-          if (!isCategoryEnabled(prefs, input.category)) return;
+          if (!isCategoryEnabled(prefs, input.category)) {
+            logApns("device_skipped", { deviceId: device.id, reason: "preference_disabled" });
+            return;
+          }
 
           const { status, reason } = await sendOne(device.device_token, jwt, payload);
-          if (status >= 200 && status < 300) return;
+          if (status >= 200 && status < 300) {
+            logApns("device_accepted", { deviceId: device.id, status });
+            return;
+          }
+          logApns("device_rejected", { deviceId: device.id, status, reason });
           if (classifyApnsFailure(status, reason) === "deactivate") {
             await deactivateDeviceById(device.id);
+            logApns("device_deactivated", { deviceId: device.id, status, reason });
           }
-        } catch {
-          // Per-device failure — never let one bad device affect the rest,
-          // and never propagate to the caller of dispatchApnsPush.
+        } catch (err) {
+          logApns("device_error", { deviceId: device.id, error: err instanceof Error ? err.message : String(err) });
         }
       }),
     );
-  } catch {
-    // Whole-dispatch safety net — see module header.
+
+    logApns("dispatch_finished", { iosDeviceCount: iosDevices.length });
+  } catch (err) {
+    logApns("dispatch_error", { error: err instanceof Error ? err.message : String(err) });
   }
 }
