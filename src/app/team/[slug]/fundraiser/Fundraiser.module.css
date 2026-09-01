@@ -1,0 +1,43 @@
+/*
+ * Phase D6 — desktop Fundraiser (Overview | Follow-Ups nav + desktop
+ * Follow-Ups workspace) visibility toggle.
+ *
+ * Same 1024px breakpoint as D1-D5 (see
+ * src/app/team/[slug]/team/Team.module.css /
+ * src/app/team/[slug]/calendar/Calendar.module.css /
+ * src/app/team/[slug]/communications/Communications.module.css). Pure CSS
+ * media-query switching only — no window.innerWidth/matchMedia/resize
+ * listeners, no hydration-dependent state. Both the existing mobile
+ * FollowUpsView and the new DesktopFollowUpsView (and both nav
+ * presentations in FundraiserTabs.tsx) are always mounted for a
+ * desktop-eligible actor; only `display` changes per breakpoint.
+ */
+
+.mobileOnly {
+  display: block;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+  align-items: center;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
