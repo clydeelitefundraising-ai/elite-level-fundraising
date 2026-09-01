@@ -13,7 +13,7 @@ import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
 import FundraiserTabs from "./FundraiserTabs";
-import FollowUpsView from "./FollowUpsView";
+import FollowUpsWorkspaceView from "./FollowUpsWorkspaceView";
 
 export const dynamic = "force-dynamic";
 
@@ -506,6 +506,7 @@ export default async function FundraiserPage({
 
     return (
       <FundraiserTabs
+        actor={actor}
         overview={
           <>
             <TeamCampaignView
@@ -527,7 +528,7 @@ export default async function FundraiserPage({
           </>
         }
         followUps={
-          <FollowUpsView slug={slug} settings={settings} initialRows={followUpRows} />
+          <FollowUpsWorkspaceView slug={slug} settings={settings} initialRows={followUpRows} actor={actor} />
         }
       />
     );
@@ -553,6 +554,7 @@ export default async function FundraiserPage({
 
     return (
       <FundraiserTabs
+        actor={actor}
         overview={
           <TeamCampaignView
             settings={settings}
@@ -564,7 +566,7 @@ export default async function FundraiserPage({
           />
         }
         followUps={
-          <FollowUpsView slug={slug} settings={settings} initialRows={followUpRows} />
+          <FollowUpsWorkspaceView slug={slug} settings={settings} initialRows={followUpRows} actor={actor} />
         }
       />
     );
