@@ -33,23 +33,29 @@ export default function DesktopUpdatesView({
   } = workspace;
 
   return (
-    <div style={{ maxWidth: FEED_MAX_WIDTH, margin: "0 auto" }}>
-      {/* ── Header ── */}
+    <div style={{ width: "100%", maxWidth: FEED_MAX_WIDTH, margin: "0 auto", boxSizing: "border-box" }}>
+      {/* ── Header — same 760px column as the feed below it, title/count on
+          the left and Post Update on the right via justifyContent:
+          space-between (not a flex-spacer div), so the button's right edge
+          always lands exactly at this column's right edge regardless of
+          any parent layout context. ── */}
       <div style={{ marginBottom: ".75rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: ".65rem", marginBottom: ".85rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em" }}>
-            Team Updates
-          </h2>
-          {items.length > 0 && (
-            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".68rem", fontWeight: 700, padding: ".18rem .55rem" }}>
-              {items.length} post{items.length !== 1 ? "s" : ""}
-            </span>
-          )}
-          <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".65rem", marginBottom: ".85rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em" }}>
+              Team Updates
+            </h2>
+            {items.length > 0 && (
+              <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".68rem", fontWeight: 700, padding: ".18rem .55rem" }}>
+                {items.length} post{items.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
           <CoachBar show={canEdit} label="Post Update" onAdd={openAdd} />
         </div>
 
-        {/* ── Category filters — normal wrapping row, no horizontal scroll ── */}
+        {/* ── Category filters — normal wrapping row, no horizontal scroll,
+            same 760px column as the header and feed above/below it ── */}
         <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap" }}>
           {FILTER_CHIPS.map(chip => {
             const active = filterCat === chip.id;
