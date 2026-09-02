@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { staffRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
@@ -112,8 +112,21 @@ export async function POST(
     });
   }
 
-  // Fire-and-forget: in-app notification + scoped push.
-  void (async () => {
+  // In-app notification + scoped push, deferred via Next.js's after() (not
+  // a bare fire-and-forget `void (async () => {...})()`) — this app runs
+  // on Vercel's standard Node.js serverless runtime, which can freeze a
+  // function's execution the moment its response is sent; an un-awaited
+  // promise racing that freeze is a real, previously undiagnosed risk for
+  // dispatchApnsPush's outbound HTTP/2 connection to Apple. after() is
+  // Next.js's own built-in mechanism (stable since Next 15, confirmed
+  // exported from this project's installed next/server — no new
+  // dependency) for exactly this case: it runs the callback after the
+  // response has been sent, while the platform keeps the invocation alive
+  // until the callback finishes. Response latency is unchanged — the
+  // callback still runs after NextResponse.json() below, not before it —
+  // this only removes the freeze race, it does not change when the
+  // response is returned to the client.
+  after(async () => {
     try {
       const teamId = await getTeamIdBySlug(slug);
       if (teamId) {
@@ -166,7 +179,7 @@ export async function POST(
         console.error("[announcements] dispatchApnsPush failed:", err);
       }
     }
-  })();
+  });
 
   return NextResponse.json(newAnnouncement);
 }
