@@ -41,6 +41,10 @@ yarn-error.log*
 # machine-local — not repo content)
 supabase/.temp
 
+# local iOS archive/export validation evidence (xcarchive, ipa, export logs —
+# machine-local, not repo content)
+/build_output_validation
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
