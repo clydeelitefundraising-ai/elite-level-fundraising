@@ -1,9 +1,15 @@
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LinkButton } from "@/components/marketing/Button";
 import { ProductPreview } from "@/components/marketing/ProductPreview";
-import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
-import { CrownMark, CactusMark, ArrowMark } from "@/components/marketing/brand-marks/BrandMarks";
+import { CrownMark, ArrowMark } from "@/components/marketing/brand-marks/BrandMarks";
 import Image from "next/image";
+
+// Phase 8 (asset integration): the hero photo and four of the mosaic tiles
+// below are now real approved production artwork (not MediaPlaceholder
+// slots) — see /public/marketing/brand/ and the Phase 8 report for exact
+// source files, dimensions, and a flagged native-resolution caveat on two of
+// them. MediaPlaceholder itself is untouched/still exported for future use
+// elsewhere; it's simply no longer referenced from this page.
 
 // Mockup-fidelity homepage structure (Phase 7): Header/Nav -> Hero ->
 // Trust strip -> three mosaic rows -> Footer. This intentionally REMOVES
@@ -53,12 +59,15 @@ export default function MarketingPage() {
           the mockup-fidelity notes. */}
       <section className="mk-hero">
         <div className="mk-hero-media">
-          <MediaPlaceholder
-            label="Five athletes from behind at dusk, arms around each other, stadium/track in the background — one jersey reads MORE THAN A TEAM."
-            variant="bleed"
+          <Image
+            src="/marketing/brand/hero.png"
+            alt="Five football players walking from behind at dusk, arms around each other, stadium lights and palm trees silhouetted against a sunset sky"
             fill
-            scrim="left"
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover", objectPosition: "center 30%" }}
           />
+          <div className="mk-hero-scrim" aria-hidden="true" />
         </div>
 
         <span className="mk-hero-callout mk-hand">
@@ -115,15 +124,13 @@ export default function MarketingPage() {
           fictional phone UI, arranged in the same overlapping composition. */}
       <section className="mk-mosaic-row mk-row1">
         <div className="mk-mosaic-tile mk-mosaic-tile-photo">
-          <MediaPlaceholder
-            label="Athlete portrait, face paint, close crop, dusk — documentary style, not posed"
+          <Image
+            src="/marketing/brand/big-things-start-locally.png"
+            alt="Big things start locally. Portrait of an athlete with eye-black face paint, dusk stadium in the background."
             fill
-            scrim="bottom"
+            sizes="(max-width: 900px) 100vw, 33vw"
+            style={{ objectFit: "cover", objectPosition: "center bottom" }}
           />
-          <div className="mk-row1-photo-copy mk-hand">
-            <CrownMark className="mk-row1-photo-crown" />
-            Big things<br />start<br /><span className="mk-marker-underline">locally.</span>
-          </div>
         </div>
 
         <div className="mk-mosaic-tile mk-row1-copy">
@@ -155,44 +162,36 @@ export default function MarketingPage() {
       </section>
 
       {/* ── MOSAIC ROW 2 — Real Opportunities for Real Teams. ──
-          Orange copy tile | photo tile | photo tile. Absorbs the previous
-          standalone "What Are We Funding" section's content (eyebrow +
-          funding categories) into this row's copy/caption, per the mockup. */}
-      <section className="mk-mosaic-row mk-row2">
-        <div className="mk-mosaic-tile mk-row2-copy">
-          <span className="mk-eyebrow">
-            <CactusMark className="mk-row2-cactus" />
-            More than fundraising
-          </span>
-          <h2 className="mk-display">Real opportunities<br />for real teams.</h2>
-          <div>
-            <LinkButton href="/why-elf" variant="dark">Explore Stories &rarr;</LinkButton>
-          </div>
-        </div>
-
-        <div className="mk-mosaic-tile mk-mosaic-tile-photo">
-          <MediaPlaceholder
-            label="Team celebration — athletes in ELF jerseys, close together, laughing"
+          Phase 8: this row is now ONE finished composite artwork (the
+          orange panel, both photos, and all their copy/marks are baked into
+          the image itself) — see the Phase 8 report. The only live element
+          is a transparent, percentage-positioned hit-area over the image's
+          baked-in "Explore Stories" button, so it still functions as a
+          real link once its destination is decided (see the TODO below —
+          no dedicated stories/case-studies page exists yet, so this
+          deliberately does not navigate anywhere until that's resolved). */}
+      <section className="mk-mosaic-row mk-row2-banner">
+        <div className="mk-row2-banner-frame">
+          <Image
+            src="/marketing/brand/real-opportunities-banner.png"
+            alt="More than fundraising. Real opportunities for real teams. This is why we raise: a team of athletes celebrating together, and a squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
             fill
-            scrim="bottom"
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
           />
-          <div className="mk-row2-photo-copy mk-hand">
-            <span className="mk-row2-crowns" aria-hidden="true">
-              <CrownMark /><CrownMark />
-            </span>
-            <br />Good people.<br />Big impact.
-          </div>
-        </div>
-
-        <div className="mk-mosaic-tile mk-mosaic-tile-photo">
-          <MediaPlaceholder
-            label="Silhouetted palm trees against a dusk sky"
-            fill
-            scrim="bottom"
+          {/* TODO(pending user decision): no real "stories" destination exists
+              on the site yet (Phase 1 audit routes: /about, /why-elf,
+              /product, /fundraising, /communication, /sponsors, /pricing,
+              /faq, /contact, /demo, /trust/*, /legal/*). Per explicit
+              instruction we are not inventing one — this button is
+              keyboard-focusable and announced to screen readers as
+              "Explore Stories" but intentionally does not navigate until a
+              real destination is approved. */}
+          <button
+            type="button"
+            className="mk-row2-banner-link"
+            aria-label="Explore Stories"
           />
-          <p className="mk-row2-photo-copy mk-row2-fund-copy">
-            Travel. Uniforms. Tournaments.<br />Team dinners. <span className="mk-marker-underline">Equipment.</span><br />And more.
-          </p>
         </div>
       </section>
 
@@ -203,15 +202,13 @@ export default function MarketingPage() {
           approval warning before this ships with real attribution. */}
       <section className="mk-mosaic-row mk-row3">
         <div className="mk-mosaic-tile mk-mosaic-tile-photo">
-          <MediaPlaceholder
-            label="Close-up track/asphalt texture with lane paint"
+          <Image
+            src="/marketing/brand/athletics-build-better-people.png"
+            alt="Athletics build better people. Stencil-style text painted on a running track's asphalt, with a small cactus graphic."
             fill
-            scrim="bottom"
+            sizes="(max-width: 900px) 100vw, 33vw"
+            style={{ objectFit: "cover" }}
           />
-          <div className="mk-row3-stencil-copy">
-            <p className="mk-stencil">Athletes<br />build better<br />people.</p>
-            <CactusMark className="mk-row3-cactus" />
-          </div>
         </div>
 
         <div className="mk-mosaic-tile mk-row3-testimonial">
@@ -232,12 +229,13 @@ export default function MarketingPage() {
         </div>
 
         <div className="mk-mosaic-tile mk-mosaic-tile-photo mk-row3-arm-tile">
-          <MediaPlaceholder
-            label="Close-up of an arm/hand gripping a relay baton, bokeh background"
+          <Image
+            src="/marketing/brand/give-them-the-season.png"
+            alt="Give them the season they earned. Four athletes with gear bags walking away from the camera into a sunset."
             fill
-            scrim="bottom"
+            sizes="(max-width: 900px) 100vw, 33vw"
+            style={{ objectFit: "cover", objectPosition: "center top" }}
           />
-          <p className="mk-row3-photo-copy mk-hand">More sports.<br />Brighter<br />futures.</p>
         </div>
       </section>
     </MarketingShell>

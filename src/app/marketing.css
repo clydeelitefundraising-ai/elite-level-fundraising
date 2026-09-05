@@ -378,12 +378,31 @@
   color: #fff;
   overflow: hidden;
   min-height: 560px;
+  /* Bug found during Phase 8: globals.css (Team App) declares a bare
+     `section { padding: 6rem 5%; }` reset that leaks into every marketing
+     page — there's no per-route CSS boundary (MarketingShell is rendered
+     directly, not via a layout.tsx, so both stylesheets load on every
+     route). It was invisible here specifically because the hero's own
+     near-black background matched the leaked inset almost seamlessly
+     against the dark photo — but it was real, insetting the "full-bleed"
+     photo by 96px/5% from the section's true edges. Reset explicitly. */
+  padding: 0;
 }
 .mk-hero-media {
   position: absolute;
   inset: 0;
 }
-.mk-hero-media .mk-media-placeholder { height: 100%; }
+/* Phase 8: real photo now sits here (see MarketingPage.tsx) — a minimal,
+   localized scrim only, not a full-image dark wash, so the photograph stays
+   visibly photographic. Strongest on the left (behind the headline column),
+   fading out by the time it reaches the crowd/lights on the right, matching
+   how the approved artwork's own tonal range already keeps that side dark. */
+.mk-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, rgba(10,9,8,0.68) 0%, rgba(10,9,8,0.4) 22%, rgba(10,9,8,0.08) 44%, transparent 58%);
+  pointer-events: none;
+}
 .mk-hero-inner {
   position: relative;
   z-index: 2;
@@ -616,7 +635,11 @@
    sections entirely on the homepage (those pages still exist and are
    linked from nav/footer — only the HOMEPAGE composition changes). No
    .mk-container here — tiles run full viewport width, like the mockup. */
-.mk-mosaic-row { display: grid; }
+/* Same globals.css `section { padding: 6rem 5%; }` leak as the hero above —
+   reset here too so all three rows (and Row 2's banner especially, which
+   must be genuinely edge-to-edge per its "one continuous artwork"
+   requirement) aren't silently inset. */
+.mk-mosaic-row { display: grid; padding: 0; }
 .mk-mosaic-tile { position: relative; padding: var(--mk-space-6); display: flex; flex-direction: column; justify-content: center; min-height: 210px; overflow: hidden; }
 .mk-mosaic-tile-photo { padding: 0; min-height: 210px; justify-content: flex-end; }
 
@@ -624,8 +647,6 @@
    sharing one warm off-white field (the copy/phone tiles have no background
    of their own — the row's background shows through both). */
 .mk-row1 { background: var(--mk-paper-2); grid-template-columns: 1fr 1fr 1fr; }
-.mk-row1-photo-copy { color: #fff; font-size: var(--mk-text-xl); position: relative; z-index: 1; padding: var(--mk-space-6); }
-.mk-row1-photo-crown { width: 22px; height: 22px; color: var(--mk-orange); margin-bottom: var(--mk-space-2); }
 .mk-row1-copy h2 { font-size: var(--mk-text-3xl); margin-bottom: var(--mk-space-3); }
 .mk-row1-copy p { color: var(--mk-muted); font-size: var(--mk-text-sm); max-width: 38ch; margin-bottom: var(--mk-space-4); }
 .mk-row1-phones { position: relative; display: flex; align-items: center; justify-content: center; padding-top: var(--mk-space-8); }
@@ -655,37 +676,54 @@
 @media (max-width: 900px) {
   .mk-row1 { grid-template-columns: 1fr; }
   .mk-mosaic-tile-photo { min-height: 280px; }
+  /* Phase 8: the generic 280px min-height above crops too tight for this
+     specific tile once it goes full-width single-column — the baked-in
+     "Big things start locally." text block (with crown) needs roughly the
+     bottom ~88% of the source photo's height to stay fully visible;
+     aspect-ratio (not a flat px height) keeps that fraction correct as the
+     tile's width changes across 375–899px, instead of guessing one number. */
+  .mk-row1 .mk-mosaic-tile-photo { aspect-ratio: 238 / 205; min-height: 0; }
   .mk-row1-phones { min-height: 220px; }
   .mk-row1-arrow { display: none; }
 }
 
-/* Row 2 — "Real Opportunities for Real Teams." Orange copy tile | photo
-   tile | photo tile. Eyebrow phrase ("More than fundraising") and the
-   funding-categories caption (on the palm-trees tile) absorb what used to
-   be the standalone "What Are We Funding" section's content. */
-.mk-row2 { grid-template-columns: 0.9fr 1.05fr 1.05fr; }
-.mk-row2-copy { background: var(--mk-orange); color: var(--mk-ink); }
-.mk-row2-copy .mk-eyebrow { color: var(--mk-ink); opacity: 0.65; display: inline-flex; align-items: center; gap: var(--mk-space-2); }
-.mk-row2-copy h2 { font-size: var(--mk-text-2xl); margin-bottom: var(--mk-space-4); }
-.mk-row2-cactus { width: 16px; height: 16px; }
-.mk-row2-photo-copy { color: #fff; font-size: var(--mk-text-lg); position: relative; z-index: 1; padding: var(--mk-space-6); }
-.mk-row2-crowns { position: relative; display: inline-block; width: 34px; height: 28px; margin-bottom: var(--mk-space-3); }
-.mk-row2-crowns svg { position: absolute; width: 24px; height: 24px; }
-.mk-row2-crowns svg:first-child { top: 2px; left: 6px; color: #fff; }
-.mk-row2-crowns svg:last-child { top: 0; left: 0; color: var(--mk-orange); }
-.mk-row2-fund-copy { font-family: var(--mk-font); font-weight: 700; font-size: var(--mk-text-base); text-transform: none; }
-.mk-row2-fund-copy .mk-marker-underline::after { background: var(--mk-yellow); height: 0.1em; }
-@media (max-width: 900px) {
-  .mk-row2 { grid-template-columns: 1fr; }
+/* Row 2 — "Real Opportunities for Real Teams." Phase 8: replaced by one
+   finished composite artwork (the orange panel + both photos + all their
+   copy/marks are baked into the image) — see MarketingPage.tsx and the
+   Phase 8 report. The frame is locked to the artwork's own intrinsic aspect
+   ratio (2170 / 725) so it scales as one block at every width with zero
+   cropping, which is also what keeps the transparent hit-area below
+   perfectly aligned to the image's baked-in button without any
+   viewport-specific pixel math. */
+.mk-row2-banner-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2170 / 725;
+  overflow: hidden;
 }
+/* Percentage box measured against the artwork's baked-in "Explore Stories"
+   button (approximate — visually verified against a render, not measured
+   with pixel-level tooling; nudge these four values if a closer look at a
+   production render shows drift). */
+.mk-row2-banner-link {
+  position: absolute;
+  left: 4.4%;
+  top: 71.6%;
+  width: 18.2%;
+  height: 10.7%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.mk-row2-banner-frame :focus-visible { outline-color: #fff; outline-offset: 2px; }
 
 /* Row 3 — "Athletes Build Better People." Stencil photo tile | testimonial
    card | photo tile. The testimonial is MOCKUP CONTENT — see the report's
    explicit approval warning before treating it as a real endorsement. */
 .mk-row3 { grid-template-columns: 0.85fr 1.3fr 0.85fr; }
-.mk-row3-stencil-copy { color: var(--mk-paper-2); position: relative; z-index: 1; padding: var(--mk-space-6); }
-.mk-row3-stencil-copy .mk-stencil { font-size: clamp(1.6rem, 3.4vw, 2.4rem); }
-.mk-row3-cactus { width: 34px; height: 34px; color: #fff; margin-top: var(--mk-space-3); opacity: 0.9; }
 .mk-row3-testimonial { background: var(--mk-paper-2); justify-content: center; align-items: center; text-align: center; }
 .mk-row3-quote { font-size: var(--mk-text-lg); line-height: var(--mk-leading-snug); max-width: 34ch; }
 .mk-row3-quote strong { font-weight: 800; }
@@ -696,8 +734,6 @@
 .mk-row3-dots span:first-child { background: var(--mk-ink); }
 .mk-row3-dots button { background: none; border: none; padding: var(--mk-space-1); color: var(--mk-ink); cursor: pointer; display: flex; }
 .mk-row3-dots button svg { width: 16px; height: 16px; }
-.mk-row3-photo-copy { color: var(--mk-orange); font-size: var(--mk-text-lg); position: relative; z-index: 1; text-align: right; align-self: flex-end; padding: var(--mk-space-6); }
-.mk-row3-arm-tile { justify-content: flex-start; }
 @media (max-width: 900px) {
   .mk-row3 { grid-template-columns: 1fr; }
 }
