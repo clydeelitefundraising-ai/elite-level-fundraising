@@ -51,6 +51,10 @@ export default function SponsorsPage() {
 
       <div className="mk-section">
         <div className="mk-container">
+          <div className="mk-section-head">
+            <span className="mk-eyebrow">How it works</span>
+            <h2>Sponsor tracking, in three steps.</h2>
+          </div>
           <div className="mk-steps" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             {STAGES.map((s) => (
               <div className="mk-step" key={s.num}>

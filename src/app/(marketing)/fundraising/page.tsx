@@ -89,7 +89,7 @@ export default function FundraisingPage() {
               <div className="mk-persona-grid">
                 <div>
                   <span className="mk-eyebrow">{p.role}</span>
-                  <h3>{p.headline}</h3>
+                  <h2>{p.headline}</h2>
                 </div>
                 <div>
                   <p style={{ color: "var(--mk-muted)", marginBottom: "var(--mk-space-4)" }}>{p.body}</p>

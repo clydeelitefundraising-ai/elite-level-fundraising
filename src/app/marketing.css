@@ -48,6 +48,16 @@
   border-radius: var(--mk-radius-sm);
 }
 
+/* Phase 5 fix: outline-offset draws the ring outside the element, on
+   whatever the *section* background is — not the element's own fill. Inside
+   an ink-background section the ink-colored ring above becomes invisible
+   against it (WCAG 2.4.7). Flip to white only within these dark sections. */
+.mk-hero :focus-visible,
+.mk-cta-band :focus-visible,
+.mk-statement-band.mk-statement-ink :focus-visible {
+  outline-color: #fff;
+}
+
 /* ── Skip link ── */
 .mk-skip-link {
   position: absolute;
@@ -640,7 +650,6 @@
   white-space: nowrap;
 }
 .mk-pipeline-status-active { background: rgba(47,107,79,0.28); color: #8FD6AE; }
-.mk-pipeline-status-renewal { background: rgba(156,122,46,0.3); color: #E3C177; }
 .mk-pipeline-status-prospect { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
 
 /* ── How it works ── */
@@ -709,6 +718,7 @@
 
 /* ── Forms ── */
 .mk-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-space-5); }
+@media (max-width: 560px) { .mk-form-grid { grid-template-columns: 1fr; } }
 .mk-field { display: flex; flex-direction: column; gap: var(--mk-space-2); }
 .mk-field.mk-field-full { grid-column: 1 / -1; }
 .mk-field label { font-size: var(--mk-text-sm); font-weight: 600; }

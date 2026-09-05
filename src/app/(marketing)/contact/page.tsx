@@ -31,7 +31,7 @@ export default function ContactPage() {
       <div className="mk-section">
         <div className="mk-container mk-contact-grid">
           <div className="mk-contact-card">
-            <h3>Ready to see the platform?</h3>
+            <h2>Ready to see the platform?</h2>
             <p>
               The fastest way to get real answers &mdash; on features, timeline, and pricing &mdash;
               is a short demo built around your program.
@@ -39,7 +39,7 @@ export default function ContactPage() {
             <LinkButton href="/demo">Book a Free Demo</LinkButton>
           </div>
           <div className="mk-contact-card">
-            <h3>General questions</h3>
+            <h2>General questions</h2>
             <p>
               Email us directly at{" "}
               <a href="mailto:info@elitelevelfundraising.com">info@elitelevelfundraising.com</a>{" "}
