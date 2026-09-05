@@ -639,9 +639,29 @@
    cropping, which also keeps the transparent hit-area below perfectly
    aligned to the baked-in "See How It Works" button without any
    viewport-specific pixel math. */
+/* Scale-refinement pass: at full 100vw the artwork was behaving like a
+   second full-bleed hero, competing with the actual hero for visual
+   dominance. Contained as an editorial feature instead — capped at 1440px
+   (the site's standard desktop QA width; wider than the normal
+   --mk-content-width/1120px content column on purpose, since this stays
+   one of the largest visual moments on the page, just not viewport-
+   spanning) and centered, with --mk-space-12 (48px) of warm-paper breathing
+   room above and below so it reads as a contained panel rather than an
+   edge-to-edge band. Below 1440px this is a no-op (frame still scales to
+   100% of the viewport exactly as before) — only large-desktop scale
+   changes. The percentage-based hit-area below needs no recalibration:
+   its percentages are relative to this frame's own box, not the viewport,
+   so they stay correct at any frame size (verified via DOM measurement,
+   not assumed). */
+.mk-row1-banner {
+  background: var(--mk-paper-2);
+  padding: var(--mk-space-12) 0;
+}
 .mk-row1-banner-frame {
   position: relative;
   width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
   aspect-ratio: 1672 / 941;
   overflow: hidden;
 }
