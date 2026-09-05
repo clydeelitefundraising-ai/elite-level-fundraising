@@ -34,18 +34,22 @@
   --mk-accent:      var(--mk-orange);
   --mk-accent-ink:  #B23A15;
 
+  /* --mk-font-display / --mk-font-hand (the display + handwritten family
+     aliases) are declared on .mk-root in marketing.css, not here — they
+     reference --mk-font-display-family/--mk-font-hand-family, which next/font
+     only defines on .mk-root (via its `variable` className), not on :root.
+     A custom property's var() references are resolved once, at the element
+     where it's specified — declaring the alias at :root while the family
+     it points to only exists on a descendant produces the CSS
+     guaranteed-invalid value, which then inherits down as invalid even
+     though the referenced variable becomes valid again further down the
+     tree. Keeping both declarations on the same element (.mk-root) avoids
+     that trap. */
   --mk-focus:       var(--mk-ink); /* neutral/high-contrast so the ring reads clearly against orange fills too */
   --mk-good:        #2F6B4F;
   --mk-good-soft:   #E5EFE9;
   --mk-error:       #B23A20;
   --mk-error-soft:  #F6E3DC;
-
-  /* ── Typography families ──
-     Body: Inter (existing, unchanged — highly legible UI/paragraph text).
-     Display: bold condensed athletic face for major headlines.
-     Hand: marker/brush accent face — sparing use only, never body copy. */
-  --mk-font-display: var(--mk-font-display-family), Impact, "Arial Narrow Bold", sans-serif;
-  --mk-font-hand:    var(--mk-font-hand-family), "Segoe Print", cursive;
 
   /* ── Type scale ── */
   --mk-text-xs:   0.8125rem;

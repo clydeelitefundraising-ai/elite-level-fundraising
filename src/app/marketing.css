@@ -10,6 +10,11 @@
   font-size: var(--mk-text-base);
   line-height: var(--mk-leading-body);
   -webkit-font-smoothing: antialiased;
+  /* See the comment in marketing-tokens.css — these must be declared here,
+     on the same element as the next/font `variable` classNames, not on
+     :root. */
+  --mk-font-display: var(--mk-font-display-family), Impact, "Arial Narrow Bold", sans-serif;
+  --mk-font-hand:    var(--mk-font-hand-family), "Segoe Print", cursive;
 }
 
 .mk-root * { box-sizing: border-box; }
@@ -279,12 +284,21 @@
 .mk-btn-block { width: 100%; }
 .mk-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ── Hero ── */
-.mk-hero { padding: var(--mk-space-24) 0 var(--mk-space-20); }
+/* ── Hero ──
+   Homepage-exclusive (confirmed via grep — no other marketing page uses
+   .mk-hero*), so this block is fully redesigned for Phase 3: a dark,
+   photograph-led editorial hero instead of the previous light two-column
+   SaaS layout. */
+.mk-hero {
+  background: var(--mk-ink);
+  color: #fff;
+  padding: var(--mk-space-16) 0 var(--mk-space-20);
+  overflow: hidden;
+}
 .mk-hero-grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: var(--mk-space-16);
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: var(--mk-space-12);
   align-items: center;
 }
 .mk-hero-tag {
@@ -295,76 +309,204 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--mk-accent-ink);
-  background: var(--mk-paper-2);
-  border: 1px solid var(--mk-line);
+  color: rgba(255,255,255,0.75);
+  border: 1px solid rgba(255,255,255,0.25);
   padding: var(--mk-space-2) var(--mk-space-4);
   border-radius: var(--mk-radius-md);
-  margin-bottom: var(--mk-space-6);
-}
-.mk-hero h1 {
-  font-size: var(--mk-text-5xl);
-  margin-bottom: var(--mk-space-6);
-}
-.mk-hero-sub {
-  font-size: var(--mk-text-lg);
-  color: var(--mk-muted);
-  max-width: 46ch;
   margin-bottom: var(--mk-space-8);
 }
+.mk-hero h1 {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--mk-yellow);
+  font-size: clamp(3.25rem, 8vw, 6rem);
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  margin-bottom: var(--mk-space-5);
+}
+.mk-hero h1 .mk-marker-underline::after { background: var(--mk-orange); height: 0.09em; }
+.mk-hero-sub {
+  font-size: var(--mk-text-lg);
+  color: rgba(255,255,255,0.78);
+  max-width: 44ch;
+  margin-bottom: var(--mk-space-6);
+}
+.mk-hero-hand {
+  display: block;
+  color: #fff;
+  font-size: var(--mk-text-xl);
+  margin-bottom: var(--mk-space-8);
+  transform: rotate(-1deg);
+}
 .mk-hero-actions { display: flex; gap: var(--mk-space-4); flex-wrap: wrap; margin-bottom: var(--mk-space-6); }
-.mk-hero-note { font-size: var(--mk-text-xs); color: var(--mk-muted); }
-.mk-hero-visual img { width: 100%; height: auto; border-radius: var(--mk-radius-md); }
+.mk-hero .mk-btn-outline { color: #fff; border-color: rgba(255,255,255,0.5); }
+.mk-hero .mk-btn-outline:hover { background: #fff; color: var(--mk-ink); }
+.mk-hero-note { font-size: var(--mk-text-xs); color: rgba(255,255,255,0.55); }
 
 @media (max-width: 900px) {
   .mk-hero-grid { grid-template-columns: 1fr; }
-  .mk-hero-visual { order: -1; }
+  .mk-hero-visual { order: -1; margin-bottom: var(--mk-space-4); }
 }
 
-/* ── Trust band ── */
-.mk-trust-band { padding: 0; border-top: 1px solid var(--mk-line); border-bottom: 1px solid var(--mk-line); background: var(--mk-paper-2); }
+/* Hero/secondary photo placeholders — see MediaPlaceholder.tsx. Deliberately
+   plain (no gradients/glow) so it reads as "slot", not a finished visual. */
+.mk-media-placeholder {
+  width: 100%;
+  border: var(--mk-border-width-strong) dashed rgba(255,255,255,0.35);
+  border-radius: var(--mk-radius-md);
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--mk-space-2);
+  padding: var(--mk-space-6);
+}
+.mk-media-placeholder-tag {
+  font-size: var(--mk-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mk-yellow);
+}
+.mk-media-placeholder-label {
+  font-size: var(--mk-text-sm);
+  color: rgba(255,255,255,0.65);
+  max-width: 32ch;
+}
+/* On light sections the placeholder needs ink-toned chrome instead of the
+   white-on-dark treatment above. */
+.mk-section .mk-media-placeholder,
+.mk-section-alt .mk-media-placeholder {
+  border-color: var(--mk-line-strong);
+  background: repeating-linear-gradient(135deg, rgba(18,17,16,0.04) 0 12px, rgba(18,17,16,0.015) 12px 24px);
+}
+.mk-section .mk-media-placeholder-tag,
+.mk-section-alt .mk-media-placeholder-tag { color: var(--mk-accent-ink); }
+.mk-section .mk-media-placeholder-label,
+.mk-section-alt .mk-media-placeholder-label { color: var(--mk-muted); }
+
+/* ── Trust strip ──
+   Homepage-exclusive. Compact dark strip: real partner/school logos plus
+   the same five trust facts as before, condensed to short badges rather
+   than icon+paragraph cards — content preserved, presentation tightened. */
+.mk-trust-band { padding: var(--mk-space-10) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+.mk-trust-eyebrow {
+  font-size: var(--mk-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: var(--mk-space-5);
+}
+.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-6); flex-wrap: wrap; margin-bottom: var(--mk-space-8); }
+.mk-trust-logo-chip {
+  background: #fff;
+  border-radius: var(--mk-radius-sm);
+  padding: var(--mk-space-2) var(--mk-space-4);
+  display: flex;
+  align-items: center;
+  height: 40px;
+}
+.mk-trust-logo-chip img { height: 100%; width: auto; max-width: 96px; object-fit: contain; }
 .mk-trust-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--mk-space-8);
-  padding: var(--mk-space-12) 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mk-space-3) var(--mk-space-8);
+  padding-top: var(--mk-space-6);
+  border-top: 1px solid rgba(255,255,255,0.15);
 }
-@media (max-width: 1080px) { .mk-trust-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 700px) { .mk-trust-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .mk-trust-grid { grid-template-columns: 1fr; } }
-.mk-trust-item { display: flex; gap: var(--mk-space-3); align-items: flex-start; }
-.mk-trust-item svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--mk-accent-ink); margin-top: 2px; }
-.mk-trust-item strong { display: block; font-size: var(--mk-text-sm); margin-bottom: 2px; font-weight: 700; }
-.mk-trust-item p { font-size: var(--mk-text-xs); color: var(--mk-muted); }
+.mk-trust-item { font-size: var(--mk-text-xs); color: rgba(255,255,255,0.75); }
+.mk-trust-item strong { color: #fff; font-weight: 700; }
 
-/* ── Problem statement ── */
-.mk-problem-grid {
+/* ── Value section (Raise More. Do More.) ── */
+.mk-value-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--mk-space-16);
-  align-items: start;
+  align-items: center;
 }
-.mk-problem-list { list-style: none; margin: var(--mk-space-6) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-4); }
-.mk-problem-list li { display: flex; gap: var(--mk-space-3); font-size: var(--mk-text-base); color: var(--mk-muted); }
-.mk-problem-list li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mk-accent); margin-top: 10px; flex-shrink: 0; }
-@media (max-width: 800px) { .mk-problem-grid { grid-template-columns: 1fr; gap: var(--mk-space-8); } }
+.mk-value-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mk-space-2) var(--mk-space-6);
+  margin-top: var(--mk-space-8);
+  padding-top: var(--mk-space-6);
+  border-top: 1px solid var(--mk-line);
+}
+.mk-value-links a { font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); text-decoration: none; border-bottom: 2px solid var(--mk-orange); padding-bottom: 2px; }
+.mk-value-links a:hover { color: var(--mk-orange-dark); }
+.mk-value-visual { position: relative; }
+.mk-value-visual .mk-preview-frame { transform: rotate(-1.2deg); }
+.mk-value-tag {
+  position: absolute;
+  left: -14px;
+  top: -16px;
+  background: var(--mk-orange);
+  color: var(--mk-ink);
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: var(--mk-text-sm);
+  padding: var(--mk-space-3) var(--mk-space-5);
+  border-radius: var(--mk-radius-sm);
+  transform: rotate(-2deg);
+}
+@media (max-width: 860px) {
+  .mk-value-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); }
+  .mk-value-visual { order: -1; }
+  .mk-value-visual .mk-preview-frame { transform: none; }
+  .mk-value-tag { left: 8px; top: -14px; }
+}
 
-/* ── Module / capability cards ── */
-.mk-module-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
-.mk-module-card {
-  border: 1px solid var(--mk-line);
-  border-radius: var(--mk-radius-md);
-  padding: var(--mk-space-6);
-  text-decoration: none;
-  color: inherit;
-  display: block;
-  transition: border-color var(--mk-duration) var(--mk-ease);
+/* ── What teams fund ── */
+.mk-fund-section { background: var(--mk-orange); color: var(--mk-ink); }
+.mk-fund-section .mk-eyebrow { color: var(--mk-ink); opacity: 0.7; }
+.mk-fund-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--mk-space-16); align-items: start; }
+.mk-fund-list { list-style: none; margin: var(--mk-space-8) 0 0; padding: 0; }
+.mk-fund-list li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--mk-space-5);
+  padding: var(--mk-space-4) 0;
+  border-top: var(--mk-border-width) solid rgba(18,17,16,0.25);
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  letter-spacing: 0.005em;
 }
-.mk-module-card:hover { border-color: var(--mk-line-strong); }
-.mk-module-card h3, .mk-module-card h2 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); }
-.mk-module-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-module-num { font-size: var(--mk-text-xs); font-weight: 700; color: var(--mk-accent-ink); margin-bottom: var(--mk-space-4); display: block; }
-@media (max-width: 860px) { .mk-module-grid { grid-template-columns: 1fr; } }
+.mk-fund-list li:last-child { border-bottom: var(--mk-border-width) solid rgba(18,17,16,0.25); }
+.mk-fund-list li span { font-family: var(--mk-font); font-weight: 700; font-size: var(--mk-text-sm); text-transform: none; color: rgba(18,17,16,0.6); }
+@media (max-width: 860px) {
+  .mk-fund-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); }
+}
+
+/* ── How it works — homepage-only size bump layered on the shared .mk-step
+   primitive (used as-is elsewhere, e.g. /sponsors); this modifier only
+   enlarges the numeral, it doesn't change the shared rule. ── */
+.mk-home-steps .mk-step-num {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  font-size: var(--mk-text-3xl);
+  color: var(--mk-ink);
+  opacity: 0.15;
+}
+
+/* ── Stories (built for real teams) — editorial columns, not cards ── */
+.mk-story-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+.mk-story-col { padding: 0 var(--mk-space-8); border-left: var(--mk-border-width) solid var(--mk-line); }
+.mk-story-col:first-child { border-left: none; padding-left: 0; }
+.mk-story-col h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-4); }
+.mk-story-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-3); font-size: var(--mk-text-sm); color: var(--mk-muted); }
+.mk-story-col li::before { content: "— "; color: var(--mk-accent-ink); }
+@media (max-width: 860px) {
+  .mk-story-grid { grid-template-columns: 1fr; gap: var(--mk-space-8); }
+  .mk-story-col { border-left: none; padding-left: 0; border-top: var(--mk-border-width) solid var(--mk-line); padding-top: var(--mk-space-8); }
+  .mk-story-col:first-child { border-top: none; padding-top: 0; }
+}
 
 /* ── Capability sections (alternating) ── */
 .mk-capability { scroll-margin-top: calc(var(--mk-nav-height) + 16px); }
@@ -496,14 +638,6 @@
 .mk-step p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
 @media (max-width: 860px) { .mk-steps { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .mk-steps { grid-template-columns: 1fr; } }
-
-/* ── Audience cards ── */
-.mk-audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
-.mk-audience-card { border: 1px solid var(--mk-line); border-radius: var(--mk-radius-md); padding: var(--mk-space-8); }
-.mk-audience-card h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-4); }
-.mk-audience-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-3); font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-audience-card li::before { content: "✓ "; color: var(--mk-good); font-weight: 700; }
-@media (max-width: 860px) { .mk-audience-grid { grid-template-columns: 1fr; } }
 
 /* ── FAQ ── */
 .mk-faq { max-width: var(--mk-content-width-narrow); margin: 0 auto; }

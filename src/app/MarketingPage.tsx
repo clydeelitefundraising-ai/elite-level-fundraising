@@ -1,29 +1,41 @@
+import Image from "next/image";
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LinkButton } from "@/components/marketing/Button";
 import { ProductPreview } from "@/components/marketing/ProductPreview";
 import { FaqList } from "@/components/marketing/FaqList";
+import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
 
 // Anchors here must match the section ids below exactly — one card per
 // section, no duplicates.
 const MODULES = [
-  {
-    href: "/fundraising",
-    num: "01",
-    title: "Fundraising",
-    desc: "Athlete pages, live leaderboards, and transparent Stripe-secured payments.",
-  },
-  {
-    href: "/communication",
-    num: "02",
-    title: "Communication",
-    desc: "Announcements, messages, roster, and calendar — one thread instead of five.",
-  },
-  {
-    href: "/sponsors",
-    num: "03",
-    title: "Sponsors & Reporting",
-    desc: "A CRM built to match your program with local businesses ready to invest.",
-  },
+  { href: "/fundraising", title: "Fundraising" },
+  { href: "/communication", title: "Communication" },
+  { href: "/sponsors", title: "Sponsors & Reporting" },
+];
+
+// Real, checked-in school/partner logos only — see Phase 3 report for a
+// flagged third asset (public/univeristy-logo.png) deliberately excluded
+// here because it's generic stock crest art, not a real ELF partner.
+const TRUST_LOGOS = [
+  { src: "/Glendale-logo.png", alt: "Glendale Cardinals", width: 390, height: 129 },
+  { src: "/pvcc-logo.png", alt: "Paradise Valley Community College", width: 1569, height: 340 },
+];
+
+const TRUST_FACTS = [
+  { label: "Secure payments", detail: "Stripe-secured, no card details stored" },
+  { label: "Built in Arizona", detail: "Phoenix HQ, built for schools first" },
+  { label: "Built with coaches", detail: "Shaped by direct coach feedback" },
+  { label: "Real Trust Center", detail: "Security & privacy docs, public" },
+  { label: "Direct support", detail: "A person who knows the product answers" },
+];
+
+const FUND_ITEMS = [
+  { label: "Travel", num: "01" },
+  { label: "Uniforms", num: "02" },
+  { label: "Hotels", num: "03" },
+  { label: "Tournaments & meets", num: "04" },
+  { label: "Equipment", num: "05" },
+  { label: "Team experiences", num: "06" },
 ];
 
 const FAQS = [
@@ -61,89 +73,96 @@ export default function MarketingPage() {
         <div className="mk-container mk-hero-grid">
           <div>
             <span className="mk-hero-tag">Proudly serving Arizona schools</span>
-            <h1>The operating system for athletic programs.</h1>
+            <h1>
+              Fund<br />
+              the<br />
+              <span className="mk-marker-underline">season.</span>
+            </h1>
             <p className="mk-hero-sub">
-              Fundraising, communication, and team management in one platform &mdash;
-              built so coaches spend less time on admin and more time coaching.
+              ELF helps teams raise money, build stronger programs, and keep everyone connected &mdash;
+              in one place instead of five.
             </p>
+            <span className="mk-hand mk-hero-hand">Same team. Bigger opportunities.</span>
             <div className="mk-hero-actions">
-              <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
-              <LinkButton href="/product" variant="secondary" size="lg">See the Platform</LinkButton>
+              <LinkButton href="/demo" size="lg">Get Started</LinkButton>
+              <LinkButton href="/product" variant="outline" size="lg">See ELF in Action</LinkButton>
             </div>
             <p className="mk-hero-note">No commitment. 20 minutes. Built around your program.</p>
           </div>
 
           <div className="mk-hero-visual">
-            <ProductPreview
-              label="Live campaign page"
-              image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
-              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+            <MediaPlaceholder
+              label="Team huddle or sideline moment — real athletes, documentary style, not posed"
+              aspect="4 / 5"
             />
           </div>
         </div>
       </section>
 
-      {/* ── TRUST BAND ── */}
+      {/* ── TRUST STRIP ── */}
       <section className="mk-trust-band">
-        <div className="mk-container mk-trust-grid">
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z" /></svg>
-            <div><strong>Secure payments</strong><p>Every donation runs through Stripe. We never store card details.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5A7 7 0 105 9.5C5 14.9 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
-            <div><strong>Built in Arizona</strong><p>Headquartered in Phoenix, built for schools first &mdash; not adapted from something else.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
-            <div><strong>Built with coaches</strong><p>Every feature is shaped by direct feedback from the coaches using it.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 22c5.5-1.6 9-6 9-11V5l-9-3-9 3v6c0 5 3.5 9.4 9 11z" /></svg>
-            <div><strong>Real Trust Center</strong><p>Security, privacy, and accessibility practices, documented and public.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9L20 10h-6.5l-0.5-8z" /></svg>
-            <div><strong>Direct support</strong><p>When you email us, a person who knows the product answers.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── PROBLEM ── */}
-      <section className="mk-section">
-        <div className="mk-container mk-problem-grid">
-          <div>
-            <span className="mk-eyebrow">The problem</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Running a program shouldn&rsquo;t mean juggling five different apps.</h2>
-          </div>
-          <ul className="mk-problem-list">
-            <li>A fundraising tool for donations, a group text for parents, a spreadsheet for the roster, a separate inbox for sponsors.</li>
-            <li>Coaches spend hours a week on admin instead of practice planning.</li>
-            <li>Nothing talks to anything else, so nothing important stays tracked for long.</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* ── PLATFORM OVERVIEW ── */}
-      <section className="mk-section mk-section-alt" id="platform">
         <div className="mk-container">
-          <div className="mk-section-head">
-            <span className="mk-eyebrow">One platform</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Less chaos. Better communication. More fundraising.</h2>
-            <p>Three modules, one system of record — fundraising is where we started, not where the platform ends.</p>
-          </div>
-          <div className="mk-module-grid">
-            {MODULES.map((m) => (
-              <a href={m.href} className="mk-module-card" key={m.title}>
-                <span className="mk-module-num">{m.num}</span>
-                <h3>{m.title}</h3>
-                <p>{m.desc}</p>
-              </a>
+          <p className="mk-trust-eyebrow">Trusted by programs across Arizona and beyond</p>
+          <div className="mk-trust-logos">
+            {TRUST_LOGOS.map((logo) => (
+              <span className="mk-trust-logo-chip" key={logo.src}>
+                <Image src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} style={{ height: "100%", width: "auto" }} />
+              </span>
             ))}
           </div>
-          <p style={{ marginTop: "var(--mk-space-8)" }}>
-            <a href="/product" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full guided walkthrough &rarr;</a>
-          </p>
+          <div className="mk-trust-grid">
+            {TRUST_FACTS.map((f) => (
+              <span className="mk-trust-item" key={f.label}>
+                <strong>{f.label}.</strong> {f.detail}.
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── VALUE (RAISE MORE. DO MORE.) ── */}
+      <section className="mk-section mk-section-alt" id="platform">
+        <div className="mk-container mk-value-grid">
+          <div>
+            <span className="mk-eyebrow">One platform</span>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)", marginBottom: "var(--mk-space-5)" }}>
+              Raise more.<br />Do more.
+            </h2>
+            <p style={{ color: "var(--mk-muted)", fontSize: "var(--mk-text-lg)", maxWidth: "44ch" }}>
+              Running a program shouldn&rsquo;t mean juggling five different apps. ELF makes it easy for
+              high school teams to raise money, manage their program, and keep everyone connected &mdash; all
+              in one place.
+            </p>
+            <div className="mk-value-links">
+              {MODULES.map((m) => (
+                <a href={m.href} key={m.title}>{m.title} &rarr;</a>
+              ))}
+            </div>
+          </div>
+          <div className="mk-value-visual">
+            <ProductPreview
+              label="Live campaign page"
+              image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
+              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+            />
+            <span className="mk-value-tag mk-display">Built for teams</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHAT ARE WE FUNDING ── */}
+      <section className="mk-section mk-fund-section">
+        <div className="mk-container mk-fund-grid">
+          <div>
+            <span className="mk-eyebrow">More than fundraising</span>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>What are we funding?</h2>
+            <ul className="mk-fund-list">
+              {FUND_ITEMS.map((f) => (
+                <li key={f.label}><span>{f.num}</span>{f.label}</li>
+              ))}
+            </ul>
+          </div>
+          <MediaPlaceholder label="Team travel or tournament experience — real trip, real team" aspect="3 / 4" />
         </div>
       </section>
 
@@ -175,7 +194,7 @@ export default function MarketingPage() {
         <div className="mk-container mk-capability-grid mk-reverse">
           <div className="mk-capability-copy">
             <span className="mk-eyebrow">Communication &amp; Team Management</span>
-            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>One thread instead of five.</h2>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-3xl)" }}>Fundraising was just the beginning.</h2>
             <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
               Announcements, direct messages, the roster, and the calendar all live in the same place coaches already check for donations.
             </p>
@@ -197,7 +216,7 @@ export default function MarketingPage() {
         <div className="mk-container mk-capability-grid">
           <div className="mk-capability-copy">
             <span className="mk-eyebrow">Sponsors &amp; Reporting</span>
-            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>Sponsor relationships that don&rsquo;t rely on memory.</h2>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-3xl)" }}>Your town has your back.</h2>
             <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
               A dedicated CRM tracks every sponsor conversation, and reporting rolls it all up so coaches and ADs always know where things stand.
             </p>
@@ -219,10 +238,10 @@ export default function MarketingPage() {
         <div className="mk-container">
           <div className="mk-section-head">
             <span className="mk-eyebrow">The process</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>How it works</h2>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>Build it. Share it. Get funded.</h2>
             <p>We keep it simple so coaches can focus on coaching, not admin.</p>
           </div>
-          <div className="mk-steps">
+          <div className="mk-steps mk-home-steps">
             <div className="mk-step">
               <span className="mk-step-num">01</span>
               <h3>Apply</h3>
@@ -247,15 +266,20 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── AUDIENCE VALUE ── */}
+      {/* ── STORIES / BUILT FOR REAL TEAMS ──
+          No real customer testimonial/quote exists yet anywhere in the repo
+          (checked — see Phase 3 report). Per instructions not to invent one,
+          this fills the "stories" slot with the same real, existing
+          Coaches/ADs/Booster Clubs content as before, restyled as editorial
+          columns instead of a 3-card grid. */}
       <section className="mk-section">
         <div className="mk-container">
           <div className="mk-section-head">
-            <span className="mk-eyebrow">Built for your role</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Whoever you are on the team, it&rsquo;s built around your day.</h2>
+            <span className="mk-eyebrow">Built for real teams</span>
+            <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>Real opportunities for real teams.</h2>
           </div>
-          <div className="mk-audience-grid">
-            <div className="mk-audience-card">
+          <div className="mk-story-grid">
+            <div className="mk-story-col">
               <h3>Coaches</h3>
               <ul>
                 <li>One login, not a group text and three spreadsheets</li>
@@ -263,7 +287,7 @@ export default function MarketingPage() {
                 <li>Parent and athlete communication in one thread</li>
               </ul>
             </div>
-            <div className="mk-audience-card">
+            <div className="mk-story-col">
               <h3>Athletic Directors</h3>
               <ul>
                 <li>Visibility across every team&rsquo;s fundraising</li>
@@ -271,7 +295,7 @@ export default function MarketingPage() {
                 <li>Sponsor relationships tracked, not lost to memory</li>
               </ul>
             </div>
-            <div className="mk-audience-card">
+            <div className="mk-story-col">
               <h3>Booster Clubs</h3>
               <ul>
                 <li>Transparent, real-time fundraising totals</li>
@@ -297,12 +321,20 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── FINAL CTA ── */}
+      {/* ── FINAL CTA ──
+          .mk-cta-band is shared with ~8 other marketing pages — reused
+          unmodified here, only the copy/links below changed. */}
       <section className="mk-section mk-cta-band">
         <div className="mk-container-narrow">
-          <h2>See it running for a program like yours.</h2>
+          <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>Ready to fund your season?</h2>
           <p>No commitment. We&rsquo;ll walk through the platform using your sport as the example.</p>
-          <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
+          <div className="mk-hero-actions" style={{ justifyContent: "center" }}>
+            <LinkButton href="/demo" size="lg">Get Started</LinkButton>
+            <LinkButton href="/#how" variant="text" size="lg" style={{ color: "#fff" }}>See How ELF Works</LinkButton>
+          </div>
+          <span className="mk-hand" style={{ display: "block", marginTop: "var(--mk-space-6)", fontSize: "var(--mk-text-lg)" }}>
+            no bake sales required.
+          </span>
         </div>
       </section>
     </MarketingShell>
