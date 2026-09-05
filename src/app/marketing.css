@@ -629,73 +629,46 @@
    requirement) aren't silently inset. */
 .mk-mosaic-row { display: grid; padding: 0; }
 .mk-mosaic-tile { position: relative; padding: var(--mk-space-6); display: flex; flex-direction: column; justify-content: center; min-height: 210px; overflow: hidden; }
-.mk-mosaic-tile-photo { padding: 0; min-height: 210px; justify-content: flex-end; }
 
-/* Row 1 — "Raise More. Do More." Photo tile | copy tile | phone tile, all
-   sharing one warm off-white field (the copy/phone tiles have no background
-   of their own — the row's background shows through both). */
-/* Change 6 (surgical cleanup pass): was a rigid 1fr/1fr/1fr grid whose
-   equal-stretch row height left the copy tile's short headline/paragraph
-   floating in a much taller box than it needed — read as a generic
-   three-column SaaS feature section. Same ingredients, tighter editorial
-   composition: asymmetric columns (photo/copy narrower, screenshots wider),
-   a shorter phones stack (less top padding, so the row's overall height —
-   which the equal-stretch grid still shares across all three tiles — drops
-   too), and a bigger/tighter headline so it reads as intentional rather
-   than centered in leftover space. The front screenshot is also allowed to
-   bleed slightly past its own tile's edge (see `overflow: visible` below)
-   instead of staying inside a perfectly boxed column. */
-.mk-row1 { background: var(--mk-paper-2); grid-template-columns: 0.92fr 1fr 1.18fr; }
-.mk-row1-copy { padding: var(--mk-space-8) var(--mk-space-6); }
-.mk-row1-copy h2 { font-size: var(--mk-text-4xl); line-height: 0.95; margin-bottom: var(--mk-space-4); }
-.mk-row1-copy p { color: var(--mk-muted); font-size: var(--mk-text-sm); max-width: 36ch; margin-bottom: var(--mk-space-5); }
-.mk-row1-phones { position: relative; display: flex; align-items: center; justify-content: center; padding-top: var(--mk-space-4); }
-/* Change 6: bigger/bolder front screenshot (74% -> 82% of the tile) gives
-   the product UI more presence without needing to bleed past its own tile
-   boundary — an earlier attempt at an actual translateX bleed here fought
-   with the back phone's intentional "only a clipped sliver peeks out"
-   treatment below and cut its label off mid-word; reverted to keep that
-   working as designed. */
-.mk-row1-phones .mk-preview-frame:first-child {
-  width: 82%;
+/* Row 1 — "Raise More. Do More." Row-1-replacement pass: like Row 2 below,
+   this is now ONE finished composite artwork (athlete photo, "Big things
+   start locally.", the headline/copy, and the real-product phone
+   composition are all baked into the image) — see MarketingPage.tsx. Same
+   pattern as Row 2's frame: locked to the artwork's own intrinsic aspect
+   ratio (1672 / 941) so it scales as one block at every width with zero
+   cropping, which also keeps the transparent hit-area below perfectly
+   aligned to the baked-in "See How It Works" button without any
+   viewport-specific pixel math. */
+.mk-row1-banner-frame {
   position: relative;
-  z-index: 2;
-}
-.mk-row1-phones .mk-preview-frame:last-child {
-  width: 40%;
-  position: absolute;
-  right: -4%;
-  bottom: -4%;
-  z-index: 1;
-  transform: rotate(4deg);
-  /* Only a sliver of the back screen peeks out, like the mockup's second
-     phone edge — clip its own chrome/label so it doesn't compete visually
-     with the front screenshot's text. */
+  width: 100%;
+  aspect-ratio: 1672 / 941;
   overflow: hidden;
-  max-height: 120px;
 }
-.mk-row1-tag { position: absolute; top: 0; left: var(--mk-space-2); z-index: 3; color: var(--mk-ink); font-size: var(--mk-text-sm); font-weight: 400; text-transform: uppercase; }
-.mk-row1-arrow { position: absolute; top: calc(-1 * var(--mk-space-2)); left: calc(var(--mk-space-2) + 8ch); width: 36px; height: 24px; color: var(--mk-ink-2); z-index: 3; transform: rotate(-8deg); }
-/* This tile is too compact for the shared ProductPreview demo-data
-   disclaimer to render without overflowing/truncating mid-word — the same
-   disclaimer is legible on its full-size counterpart in Row 1's own
-   composition context isn't the right place for it; the fuller disclosure
-   already exists via the screenshot's alt text and the dedicated product
-   pages. */
-.mk-row1-phones .mk-preview-demo-note { display: none; }
-@media (max-width: 900px) {
-  .mk-row1 { grid-template-columns: 1fr; }
-  .mk-mosaic-tile-photo { min-height: 280px; }
-  /* Phase 8: the generic 280px min-height above crops too tight for this
-     specific tile once it goes full-width single-column — the baked-in
-     "Big things start locally." text block (with crown) needs roughly the
-     bottom ~88% of the source photo's height to stay fully visible;
-     aspect-ratio (not a flat px height) keeps that fraction correct as the
-     tile's width changes across 375–899px, instead of guessing one number. */
-  .mk-row1 .mk-mosaic-tile-photo { aspect-ratio: 238 / 205; min-height: 0; }
-  .mk-row1-phones { min-height: 220px; }
-  .mk-row1-arrow { display: none; }
+/* Percentage box measured against the artwork's baked-in "See How It Works"
+   button (approximate — visually verified against a render, not measured
+   with pixel-level tooling; nudge these four values if a closer look at a
+   production render shows drift). */
+.mk-row1-banner-link {
+  position: absolute;
+  left: 32.5%;
+  top: 73.4%;
+  width: 23.3%;
+  height: 6.9%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Specificity note: the site-wide `.mk-root a:focus-visible` rule (near the
+   top of this file) is (0,2,1) — a plain `.mk-row1-banner-frame
+   :focus-visible` descendant selector is only (0,2,0) and loses that fight,
+   which silently renders the ink-on-ink invisible-focus bug this project has
+   already had to fix twice elsewhere. Target the element type directly so
+   this wins outright. */
+a.mk-row1-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; }
 
 /* Row 2 — "Real Opportunities for Real Teams." Phase 8: replaced by one
    finished composite artwork (the orange panel + both photos + all their

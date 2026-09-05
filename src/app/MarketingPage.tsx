@@ -1,15 +1,16 @@
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LinkButton } from "@/components/marketing/Button";
-import { ProductPreview } from "@/components/marketing/ProductPreview";
-import { CrownMark, ArrowMark } from "@/components/marketing/brand-marks/BrandMarks";
+import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
 import Image from "next/image";
 
-// Phase 8 (asset integration): the hero photo and four of the mosaic tiles
-// below are now real approved production artwork (not MediaPlaceholder
-// slots) — see /public/marketing/brand/ and the Phase 8 report for exact
-// source files, dimensions, and a flagged native-resolution caveat on two of
-// them. MediaPlaceholder itself is untouched/still exported for future use
-// elsewhere; it's simply no longer referenced from this page.
+// Phase 8 (asset integration) + the Row 1 replacement pass: the hero photo
+// and every mosaic tile below are now real approved production artwork (not
+// MediaPlaceholder slots) — see /public/marketing/brand/ for exact source
+// files. MediaPlaceholder itself is untouched/still exported for future use
+// elsewhere; it's simply no longer referenced from this page. Row 1 ("Raise
+// More. Do More.") is, like Row 2, a single finished composite image with
+// only a transparent accessible link over its baked-in CTA — no live
+// headline/copy/screenshots are rendered alongside it any more.
 
 // Mockup-fidelity homepage structure (Phase 7): Header/Nav -> Hero ->
 // Trust strip -> three mosaic rows -> Footer. This intentionally REMOVES
@@ -97,45 +98,29 @@ export default function MarketingPage() {
       </section>
 
       {/* ── MOSAIC ROW 1 — Raise More. Do More. ──
-          Photo tile | copy tile | phone tile, edge-to-edge, sharing one
-          off-white field. Real ELF screenshots stand in for the mockup's
-          fictional phone UI, arranged in the same overlapping composition. */}
-      <section className="mk-mosaic-row mk-row1">
-        <div className="mk-mosaic-tile mk-mosaic-tile-photo">
+          Asset-replacement pass: this row is now ONE finished composite
+          artwork (athlete photo, "Big things start locally.", the
+          headline/copy/CTA, and the real-product phone composition are all
+          baked into the image itself) — same "one continuous artwork" +
+          transparent percentage-positioned hit-area pattern already
+          established for Row 2's banner below. The only live element is the
+          accessible link over the image's baked-in "See How It Works"
+          button, routed to the same /product destination the previous live
+          button used. */}
+      <section className="mk-mosaic-row mk-row1-banner">
+        <div className="mk-row1-banner-frame">
           <Image
-            src="/marketing/brand/big-things-start-locally.png"
-            alt="Big things start locally. Portrait of an athlete with eye-black face paint, dusk stadium in the background."
+            src="/marketing/brand/raise-more-do-more.png"
+            alt="Big things start locally. Raise more. Do more. ELF makes it easy for high school teams to raise money, manage their program, and keep everyone connected, all in one place. Real Elite Level Fundraising athlete leaderboard and team communications screenshots shown on two phones, captioned Built for teams."
             fill
-            sizes="(max-width: 900px) 100vw, 33vw"
-            style={{ objectFit: "cover", objectPosition: "center bottom" }}
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
           />
-        </div>
-
-        <div className="mk-mosaic-tile mk-row1-copy">
-          <h2 className="mk-display">Raise more.<br /><span className="mk-marker-underline">Do more.</span></h2>
-          <p>
-            ELF makes it easy for high school teams to raise money, manage their program, and keep
-            everyone connected &mdash; all in one place.
-          </p>
-          <div>
-            <LinkButton href="/product" variant="dark">See How It Works &rarr;</LinkButton>
-          </div>
-        </div>
-
-        <div className="mk-mosaic-tile">
-          <div className="mk-row1-phones">
-            <span className="mk-row1-tag mk-display">Built for teams</span>
-            <ArrowMark className="mk-row1-arrow" />
-            <ProductPreview
-              label="Athlete leaderboard"
-              image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
-              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
-            />
-            <ProductPreview
-              label="Team communications"
-              image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements", width: 720, height: 900 }}
-            />
-          </div>
+          <a
+            href="/product"
+            className="mk-row1-banner-link"
+            aria-label="See How It Works"
+          />
         </div>
       </section>
 
