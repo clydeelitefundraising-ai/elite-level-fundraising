@@ -62,9 +62,22 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
 
   const overlayActive = isOverlayVariant && !elevated && !open;
 
+  // `mk-nav-hero` is applied for the ENTIRE lifetime of the overlay-variant
+  // nav (both before and after the scroll threshold) — it's what pulls the
+  // hero photo up underneath the nav via a constant negative margin, so the
+  // nav's own contribution to document flow height never changes. Only
+  // `mk-nav-overlay` (transparent bg, before scrolling) toggles. Previously
+  // `position` itself flipped between absolute (0 flow height) and sticky
+  // (full flow height) exactly at the scroll threshold, which inserted/
+  // removed a full nav-height of space in the document at that instant —
+  // shifting every section below the hero down by that amount and making it
+  // look like the sticky bar was "swallowing" whatever content happened to
+  // be at the top of the viewport when it fired. Keeping the nav always
+  // sticky and always flow-neutral (via the constant negative margin)
+  // removes that jump entirely; only its background/border repaint on scroll.
   return (
     <header
-      className={`mk-nav${elevated ? " mk-nav-elevated" : ""}${overlayActive ? " mk-nav-overlay" : ""}`}
+      className={`mk-nav${elevated ? " mk-nav-elevated" : ""}${isOverlayVariant ? " mk-nav-hero" : ""}${overlayActive ? " mk-nav-overlay" : ""}`}
     >
       <nav className="mk-nav-inner" aria-label="Primary">
         {isOverlayVariant ? (

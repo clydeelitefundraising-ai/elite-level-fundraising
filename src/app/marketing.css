@@ -52,9 +52,14 @@
 /* Phase 5 fix: outline-offset draws the ring outside the element, on
    whatever the *section* background is — not the element's own fill. Inside
    an ink-background section the ink-colored ring above becomes invisible
-   against it (WCAG 2.4.7). Flip to white only within these dark sections. */
+   against it (WCAG 2.4.7). Flip to white only within these dark sections.
+   `.mk-nav-overlay` added during the surgical cleanup pass (Change 1) —
+   same bug class, just not caught before: the nav is a SIBLING of `.mk-hero`
+   (not a descendant), so its own white-on-photo links weren't covered by
+   the `.mk-hero` rule below and had no override at all while transparent. */
 .mk-hero :focus-visible,
 .mk-cta-band :focus-visible,
+.mk-nav-overlay :focus-visible,
 .mk-statement-band.mk-statement-ink :focus-visible {
   outline-color: #fff;
 }
@@ -236,10 +241,18 @@
 
 .mk-nav-login { font-size: var(--mk-text-sm); font-weight: 600; text-decoration: none; color: inherit; margin-right: var(--mk-space-2); }
 
+/* Hero-integrated nav (homepage only) — ALWAYS applied for the lifetime of
+   the overlay-variant nav, not just while transparent. A constant negative
+   margin pulls the hero photo up underneath the nav's own (always fully
+   reserved, never zero) flow height, so switching to the solid elevated bar
+   on scroll never inserts/removes space in the document and never shifts
+   content below the hero. See MarketingNav.tsx for the full rationale. */
+.mk-nav-hero { margin-bottom: calc(-1 * var(--mk-nav-height)); }
+
 /* Overlay state — transparent over the hero photo, white text, no border;
    flips to the normal solid .mk-nav-elevated bar on scroll (state toggled
    in MarketingNav.tsx). Homepage hero only. */
-.mk-nav-overlay { position: absolute; width: 100%; background: transparent; border-bottom-color: transparent; }
+.mk-nav-overlay { background: transparent; border-bottom-color: transparent; }
 .mk-nav-overlay .mk-nav-links a { color: rgba(255,255,255,0.92); }
 .mk-nav-overlay .mk-nav-links a:hover { color: var(--mk-yellow); border-bottom-color: var(--mk-yellow); }
 .mk-nav-overlay .mk-nav-login { color: rgba(255,255,255,0.92); }
@@ -378,6 +391,12 @@
   color: #fff;
   overflow: hidden;
   min-height: 560px;
+  /* Change 3 (surgical cleanup pass): the trust strip (customer-proof
+     copy, real logos, "Real teams. Real results.") was removed from the
+     homepage entirely — no verified public testimonials/logos exist yet, so
+     no claim replaces it. This one-line orange rule is the "extremely
+     minimal visual divider" the removal instructions allow in its place. */
+  border-bottom: var(--mk-border-width-strong) solid var(--mk-orange);
   /* Bug found during Phase 8: globals.css (Team App) declares a bare
      `section { padding: 6rem 5%; }` reset that leaks into every marketing
      page — there's no per-route CSS boundary (MarketingShell is rendered
@@ -397,10 +416,22 @@
    visibly photographic. Strongest on the left (behind the headline column),
    fading out by the time it reaches the crowd/lights on the right, matching
    how the approved artwork's own tonal range already keeps that side dark. */
+/* Change 8A (surgical cleanup pass): softened from a hard ~70%-opacity band
+   that read as a black panel abutting the photo. More stops, a lower peak,
+   and a longer, gentler falloff so it reads as one photograph with a
+   natural dark readability area rather than two visually distinct halves.
+   Contrast against the headline/copy was re-checked after softening. */
 .mk-hero-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, rgba(10,9,8,0.68) 0%, rgba(10,9,8,0.4) 22%, rgba(10,9,8,0.08) 44%, transparent 58%);
+  background: linear-gradient(105deg,
+    rgba(10,9,8,0.52) 0%,
+    rgba(10,9,8,0.4) 14%,
+    rgba(10,9,8,0.26) 28%,
+    rgba(10,9,8,0.14) 40%,
+    rgba(10,9,8,0.05) 52%,
+    transparent 66%
+  );
   pointer-events: none;
 }
 .mk-hero-inner {
@@ -425,12 +456,15 @@
   margin-bottom: var(--mk-space-4);
 }
 .mk-hero h1 .mk-marker-underline::after { background: var(--mk-orange); height: 0.07em; }
+/* Change 8B: was competing with the headline/handwritten copy at
+   --mk-text-base/700 weight — dropped a step in both size and weight so it
+   reads as a quiet supporting line, not a second headline. */
 .mk-hero-sub {
-  font-size: var(--mk-text-base);
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--mk-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.85);
+  color: rgba(255,255,255,0.68);
   margin-bottom: var(--mk-space-5);
 }
 .mk-hero-actions { display: flex; align-items: center; gap: var(--mk-space-5); flex-wrap: wrap; margin-bottom: var(--mk-space-5); }
@@ -580,52 +614,6 @@
   white-space: nowrap;
 }
 
-/* ── Trust strip ──
-   Homepage-exclusive. Mockup-fidelity pass: a single compact row (eyebrow
-   copy, logo strip, divider, "Real teams. Real results." tagline) — no
-   separate feature-badge caption line competing with the hero, per the
-   explicit instruction to de-emphasize the "enterprise trust wall" feeling.
-   Logo strip is a flex-wrap, not a fixed 6-up grid, so it expands cleanly
-   as more real programs are added later (only 2 real logos exist today). */
-.mk-trust-band { padding: var(--mk-space-4) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
-.mk-trust-row { display: flex; align-items: center; gap: var(--mk-space-8); flex-wrap: wrap; }
-.mk-trust-eyebrow {
-  font-size: var(--mk-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.6);
-  line-height: 1.4;
-  max-width: 15ch;
-  flex-shrink: 0;
-}
-.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-5); flex-wrap: wrap; flex: 1; }
-.mk-trust-logo-chip {
-  background: #fff;
-  border-radius: var(--mk-radius-sm);
-  padding: var(--mk-space-2) var(--mk-space-3);
-  display: flex;
-  align-items: center;
-  height: 36px;
-}
-.mk-trust-logo-chip img { height: 100%; width: auto; max-width: 84px; object-fit: contain; }
-.mk-trust-tagline {
-  font-family: var(--mk-font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: var(--mk-text-lg);
-  line-height: 1;
-  text-align: right;
-  flex-shrink: 0;
-  padding-left: var(--mk-space-6);
-  border-left: 1px solid rgba(255,255,255,0.2);
-}
-.mk-trust-tagline .mk-marker-underline::after { background: var(--mk-orange); height: 0.08em; }
-@media (max-width: 760px) {
-  .mk-trust-row { flex-direction: column; align-items: flex-start; gap: var(--mk-space-4); }
-  .mk-trust-tagline { text-align: left; border-left: none; padding-left: 0; }
-}
-
 /* ── Mosaic rows ──
    Mockup-fidelity pass (Phase 7): below the trust strip, the mockup is not
    a stack of full-width sections — it's three edge-to-edge horizontal rows,
@@ -646,11 +634,33 @@
 /* Row 1 — "Raise More. Do More." Photo tile | copy tile | phone tile, all
    sharing one warm off-white field (the copy/phone tiles have no background
    of their own — the row's background shows through both). */
-.mk-row1 { background: var(--mk-paper-2); grid-template-columns: 1fr 1fr 1fr; }
-.mk-row1-copy h2 { font-size: var(--mk-text-3xl); margin-bottom: var(--mk-space-3); }
-.mk-row1-copy p { color: var(--mk-muted); font-size: var(--mk-text-sm); max-width: 38ch; margin-bottom: var(--mk-space-4); }
-.mk-row1-phones { position: relative; display: flex; align-items: center; justify-content: center; padding-top: var(--mk-space-8); }
-.mk-row1-phones .mk-preview-frame:first-child { width: 74%; position: relative; z-index: 2; }
+/* Change 6 (surgical cleanup pass): was a rigid 1fr/1fr/1fr grid whose
+   equal-stretch row height left the copy tile's short headline/paragraph
+   floating in a much taller box than it needed — read as a generic
+   three-column SaaS feature section. Same ingredients, tighter editorial
+   composition: asymmetric columns (photo/copy narrower, screenshots wider),
+   a shorter phones stack (less top padding, so the row's overall height —
+   which the equal-stretch grid still shares across all three tiles — drops
+   too), and a bigger/tighter headline so it reads as intentional rather
+   than centered in leftover space. The front screenshot is also allowed to
+   bleed slightly past its own tile's edge (see `overflow: visible` below)
+   instead of staying inside a perfectly boxed column. */
+.mk-row1 { background: var(--mk-paper-2); grid-template-columns: 0.92fr 1fr 1.18fr; }
+.mk-row1-copy { padding: var(--mk-space-8) var(--mk-space-6); }
+.mk-row1-copy h2 { font-size: var(--mk-text-4xl); line-height: 0.95; margin-bottom: var(--mk-space-4); }
+.mk-row1-copy p { color: var(--mk-muted); font-size: var(--mk-text-sm); max-width: 36ch; margin-bottom: var(--mk-space-5); }
+.mk-row1-phones { position: relative; display: flex; align-items: center; justify-content: center; padding-top: var(--mk-space-4); }
+/* Change 6: bigger/bolder front screenshot (74% -> 82% of the tile) gives
+   the product UI more presence without needing to bleed past its own tile
+   boundary — an earlier attempt at an actual translateX bleed here fought
+   with the back phone's intentional "only a clipped sliver peeks out"
+   treatment below and cut its label off mid-word; reverted to keep that
+   working as designed. */
+.mk-row1-phones .mk-preview-frame:first-child {
+  width: 82%;
+  position: relative;
+  z-index: 2;
+}
 .mk-row1-phones .mk-preview-frame:last-child {
   width: 40%;
   position: absolute;
@@ -695,9 +705,18 @@
    cropping, which is also what keeps the transparent hit-area below
    perfectly aligned to the image's baked-in button without any
    viewport-specific pixel math. */
+/* Change 7 (surgical cleanup pass): the artwork itself is untouched (no
+   crop, no aspect-ratio change) — it was simply scaling to full 100vw width
+   on very large desktop displays, which at a fixed 2170:725 ratio made it
+   consume a huge absolute vertical span (e.g. ~856px tall at 2560px wide).
+   Capping the frame's width and centering it keeps the entire artwork fully
+   visible and still one of the largest visual moments on the page, without
+   letting it grow unbounded on ultra-wide screens. */
 .mk-row2-banner-frame {
   position: relative;
   width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
   aspect-ratio: 2170 / 725;
   overflow: hidden;
 }
@@ -723,19 +742,57 @@
 /* Row 3 — "Athletes Build Better People." Stencil photo tile | testimonial
    card | photo tile. The testimonial is MOCKUP CONTENT — see the report's
    explicit approval warning before treating it as a real endorsement. */
-.mk-row3 { grid-template-columns: 0.85fr 1.3fr 0.85fr; }
-.mk-row3-testimonial { background: var(--mk-paper-2); justify-content: center; align-items: center; text-align: center; }
-.mk-row3-quote { font-size: var(--mk-text-lg); line-height: var(--mk-leading-snug); max-width: 34ch; }
-.mk-row3-quote strong { font-weight: 800; }
-.mk-row3-attribution { margin-top: var(--mk-space-5); font-size: var(--mk-text-sm); font-weight: 800; }
-.mk-row3-attribution span { display: block; font-weight: 600; color: var(--mk-muted); font-size: var(--mk-text-xs); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
-.mk-row3-dots { display: flex; align-items: center; justify-content: center; gap: var(--mk-space-2); margin-top: var(--mk-space-6); }
-.mk-row3-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--mk-line-strong); }
-.mk-row3-dots span:first-child { background: var(--mk-ink); }
-.mk-row3-dots button { background: none; border: none; padding: var(--mk-space-1); color: var(--mk-ink); cursor: pointer; display: flex; }
-.mk-row3-dots button svg { width: 16px; height: 16px; }
+.mk-row3 { grid-template-columns: 0.85fr 1.3fr 0.85fr; align-items: stretch; }
+
+/* Change 2 (surgical cleanup pass): these two tiles previously stretched to
+   match the grid row's height (CSS Grid's default `align-items: stretch`)
+   and used `object-fit: cover` — since neither image's own aspect ratio
+   matched the resulting stretched box, `cover` was cropping into the
+   baked-in typography (confirmed visibly cut off on Athletics Build Better
+   People). Both are athlete-photo-plus-baked-in-typography artwork where the
+   full composition matters more than filling every pixel of a predefined
+   box, so: opt these two tiles OUT of the row's stretch (`align-self:
+   center`) and size each one by ITS OWN intrinsic aspect ratio instead of
+   the row's height. With the box ratio matching the image ratio exactly,
+   `object-fit: contain` never needs to letterbox — the whole image just
+   renders at its natural proportions, guaranteed uncropped, at any tile
+   width (desktop or mobile). The row's overall visual height is now
+   whichever tile (these two, or the center panel) is naturally tallest —
+   no tile is forced into a size its composition doesn't support. */
+.mk-row3-athletics-tile,
+.mk-row3-arm-tile {
+  align-self: center;
+  min-height: 0;
+  padding: 0;
+}
+/* These two now use a plain (non-`fill`) next/image sized by its own
+   intrinsic width/height, not an absolutely-positioned `fill` layer — so
+   there's nothing to crop: the image renders at its natural aspect ratio
+   and the tile simply wraps it. */
+.mk-row3-athletics-tile img,
+.mk-row3-arm-tile img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mk-row3-testimonial { background: var(--mk-paper-2); justify-content: center; align-items: center; text-align: center; padding: var(--mk-space-8) var(--mk-space-6); }
+/* Change 4: replaces the removed Coach Bolus quote/attribution/carousel.
+   ELF-owned brand copy, not a testimonial — no quotation marks, no
+   attribution, no carousel controls (nothing left for them to control).
+   Styled with the same secondary-headline treatment (Anton) used elsewhere
+   on the page, connecting visually with "Athletics Build Better People"
+   above it and "Give Them The Season They Earned" beside it. */
+.mk-row3-statement-heading {
+  font-size: var(--mk-text-3xl);
+  line-height: 1.05;
+  margin-bottom: var(--mk-space-4);
+}
+.mk-row3-statement-body { color: var(--mk-muted); font-size: var(--mk-text-base); max-width: 32ch; margin: 0 auto; }
 @media (max-width: 900px) {
   .mk-row3 { grid-template-columns: 1fr; }
+  .mk-row3-athletics-tile,
+  .mk-row3-arm-tile { align-self: stretch; }
 }
 
 /* .mk-home-steps and .mk-persona-index/.mk-persona-row* (previous
@@ -795,6 +852,9 @@
   text-transform: uppercase;
   color: rgba(255,255,255,0.62);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .mk-preview-body { padding: var(--mk-space-6); font-size: var(--mk-text-xs); }
 .mk-preview-image-body { position: relative; }

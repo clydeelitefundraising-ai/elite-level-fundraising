@@ -40,15 +40,12 @@ const HOME_NAV_LINKS = [
   { href: "/faq", label: "Resources" },
 ];
 
-// Real, checked-in school/partner logos only (Q2 approved) — see Phase 3
-// report for a flagged third asset (public/univeristy-logo.png) deliberately
-// excluded because it's generic stock crest art, not a real ELF partner.
-// A flex-wrap strip (not a fixed 6-up grid, unlike the mockup's illustrated
-// mascot icons) so it expands cleanly as more real programs are added.
-const TRUST_LOGOS = [
-  { src: "/Glendale-logo.png", alt: "Glendale Cardinals", width: 390, height: 129 },
-  { src: "/pvcc-logo.png", alt: "Paradise Valley Community College", width: 1569, height: 340 },
-];
+// Change 3 (surgical cleanup pass): the trust strip (customer-proof copy,
+// the Glendale/PVCC logo chips, "Real teams. Real results.") was removed
+// from the homepage entirely — ELF has no approved public
+// testimonials/customer-logo endorsements yet, and no fake proof replaces
+// it. The hero's own bottom border (see marketing.css) is the "extremely
+// minimal visual divider" the removal instructions allow in its place.
 
 export default function MarketingPage() {
   return (
@@ -96,25 +93,6 @@ export default function MarketingPage() {
               Better gear.<br />More travel.<br />Unforgettable experiences.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* ── TRUST STRIP ──
-          One compact row: eyebrow, real logos, divider, tagline — no
-          separate feature-badge caption competing with the hero. */}
-      <section className="mk-trust-band">
-        <div className="mk-container mk-trust-row">
-          <p className="mk-trust-eyebrow">Trusted by programs across Arizona and beyond.</p>
-          <div className="mk-trust-logos">
-            {TRUST_LOGOS.map((logo) => (
-              <span className="mk-trust-logo-chip" key={logo.src}>
-                <Image src={logo.src} alt={logo.alt} width={logo.width} height={logo.height} style={{ height: "100%", width: "auto" }} />
-              </span>
-            ))}
-          </div>
-          <p className="mk-trust-tagline mk-display">
-            Real teams.<br /><span className="mk-marker-underline">Real results.</span>
-          </p>
         </div>
       </section>
 
@@ -196,45 +174,45 @@ export default function MarketingPage() {
       </section>
 
       {/* ── MOSAIC ROW 3 — Athletes Build Better People. ──
-          Stencil photo tile | testimonial card | photo tile.
-          IMPORTANT: the Coach Bolus quote below is MOCKUP CONTENT, not a
-          verified real testimonial — see the Phase 7 report's explicit
-          approval warning before this ships with real attribution. */}
+          Stencil photo tile | ELF brand-statement panel | photo tile.
+          Change 2 (surgical cleanup pass): both photo tiles now use a plain
+          (non-`fill`) Image sized by its own intrinsic width/height and an
+          `align-self: center` opt-out of the grid's default row-stretch
+          (see marketing.css) — so neither the artwork's baked-in typography
+          nor its composition gets cropped to fit a box shape the images
+          were never designed for.
+          Change 4: the Coach Bolus quote/attribution/carousel — MOCKUP
+          CONTENT that was never an approved real testimonial — has been
+          removed entirely and replaced with ELF-owned brand copy below.
+          That resolves the standing testimonial-approval warning from
+          every prior report; there is nothing left needing approval here. */}
       <section className="mk-mosaic-row mk-row3">
-        <div className="mk-mosaic-tile mk-mosaic-tile-photo">
+        <div className="mk-mosaic-tile mk-row3-athletics-tile">
           <Image
             src="/marketing/brand/athletics-build-better-people.png"
             alt="Athletics build better people. Stencil-style text painted on a running track's asphalt, with a small cactus graphic."
-            fill
+            width={1462}
+            height={1076}
             sizes="(max-width: 900px) 100vw, 33vw"
-            style={{ objectFit: "cover" }}
           />
         </div>
 
         <div className="mk-mosaic-tile mk-row3-testimonial">
-          <blockquote className="mk-row3-quote">
-            &ldquo;ELF took a huge weight off our coaching staff and helped us{" "}
-            <strong>raise more than</strong> we ever have. <strong>Our kids got to</strong> travel,
-            compete, and create memories that will last a lifetime.&rdquo;
-          </blockquote>
-          <p className="mk-row3-attribution">
-            &mdash; Coach Bolus
-            <span>O&rsquo;Connor High School Track</span>
+          <h2 className="mk-row3-statement-heading mk-display">
+            The season is short.<br />The memories shouldn&rsquo;t be.
+          </h2>
+          <p className="mk-row3-statement-body">
+            Give athletes the opportunity to travel, compete, connect, and make the season count.
           </p>
-          <div className="mk-row3-dots" aria-hidden="true">
-            <button type="button" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg></button>
-            <span /><span /><span /><span />
-            <button type="button" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg></button>
-          </div>
         </div>
 
-        <div className="mk-mosaic-tile mk-mosaic-tile-photo mk-row3-arm-tile">
+        <div className="mk-mosaic-tile mk-row3-arm-tile">
           <Image
             src="/marketing/brand/give-them-the-season.png"
             alt="Give them the season they earned. Four athletes with gear bags walking away from the camera into a sunset."
-            fill
+            width={549}
+            height={553}
             sizes="(max-width: 900px) 100vw, 33vw"
-            style={{ objectFit: "cover", objectPosition: "center top" }}
           />
         </div>
       </section>
