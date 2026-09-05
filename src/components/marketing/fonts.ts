@@ -1,4 +1,4 @@
-import { Inter, Anton, Permanent_Marker } from "next/font/google";
+import { Inter, Anton, Bangers, Kalam } from "next/font/google";
 
 // All three are self-hosted by Next.js at build time (no external request, no
 // render-blocking @import), scoped to the marketing site only via the
@@ -25,10 +25,39 @@ export const marketingDisplayFont = Anton({
 });
 
 // Hand/marker — restrained accent face for short annotations only (never
-// body copy or long UI text). Also a single weight, single file.
-export const marketingHandFont = Permanent_Marker({
+// body copy or long UI text). Single weight, single file.
+//
+// Mockup-fidelity pass: compared Permanent Marker (previous choice) against
+// the mockup's actual handwritten annotations ("Same grind. Bigger
+// opportunities.", "Big things start locally.") via a side-by-side render —
+// the mockup's script is lighter and more cursive-connected than Permanent
+// Marker's uniform blocky strokes. Kalam (bold weight) was the closest real
+// match: casual pen-stroke variation, still bold enough to read clearly at
+// small sizes, no licensing risk (OFL, self-hosted via next/font/google).
+export const marketingHandFont = Kalam({
+  subsets: ["latin"],
+  weight: "700",
+  variable: "--mk-font-hand-family",
+  display: "swap",
+});
+
+// Hero-only display face — homepage hero headline exclusively. Anton (the
+// site's default display face, kept below for every OTHER headline) is
+// clean/geometric; the mockup's "FUND THE SEASON." has a rough, italicized,
+// brush/poster character Anton doesn't reproduce. Compared Anton, Bangers,
+// Rubik Distressed, Passion One Black, Titan One, Luckiest Guy, Rubik Wet
+// Paint, and Rubik Beastly side-by-side against the mockup crop (see Phase 6
+// report). None is a literal match — the mockup's dry-brush diagonal
+// texture likely isn't a real installable typeface — but Bangers is the
+// closest legitimate match on shape: condensed, forward-slanted, bold,
+// energetic, and (unlike the more "distressed/textured" candidates) still
+// fully legible as live/selectable text at hero size. No added CSS texture
+// filter: turbulence/displacement filters on a hero-sized headline risked
+// performance and cross-browser rendering inconsistency for a marginal gain
+// per the "only if it stays performant and readable" instruction.
+export const marketingHeroFont = Bangers({
   subsets: ["latin"],
   weight: "400",
-  variable: "--mk-font-hand-family",
+  variable: "--mk-font-hero-family",
   display: "swap",
 });

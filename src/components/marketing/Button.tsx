@@ -3,8 +3,11 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 
 // "secondary" is kept as an alias of the light/outline treatment for
 // backward compatibility with existing call sites — new call sites can use
-// "outline" directly. "dark" and "text" are additive.
-type Variant = "primary" | "secondary" | "dark" | "outline" | "text";
+// "outline" directly. "dark" and "text" are additive. "yellow" is additive
+// too — the mockup's hero primary CTA is yellow-filled, distinct from the
+// orange fill everywhere else the button system is used; this variant is a
+// deliberate contrast-driven exception, not a replacement for "primary".
+type Variant = "primary" | "secondary" | "dark" | "outline" | "text" | "yellow";
 type Size = "md" | "lg";
 
 const VARIANT_CLASS: Record<Variant, string> = {
@@ -13,6 +16,7 @@ const VARIANT_CLASS: Record<Variant, string> = {
   outline: "mk-btn-outline",
   dark: "mk-btn-dark",
   text: "mk-btn-text",
+  yellow: "mk-btn-yellow",
 };
 
 const classFor = (variant: Variant, size: Size, block?: boolean) =>

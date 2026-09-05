@@ -15,6 +15,7 @@
      :root. */
   --mk-font-display: var(--mk-font-display-family), Impact, "Arial Narrow Bold", sans-serif;
   --mk-font-hand:    var(--mk-font-hand-family), "Segoe Print", cursive;
+  --mk-font-hero:    var(--mk-font-hero-family), var(--mk-font-display-family), Impact, sans-serif;
 }
 
 .mk-root * { box-sizing: border-box; }
@@ -90,9 +91,35 @@
 }
 .mk-hand {
   font-family: var(--mk-font-hand);
-  font-weight: 400;
+  font-weight: 700; /* Kalam is loaded at weight 700 only — see fonts.ts */
   text-transform: none;
   letter-spacing: 0;
+}
+/* Stencil treatment — a third distinct display style from the mockup
+   ("Athletes Build Better People"), approximated on the existing bold
+   condensed base rather than hunting for a literal stencil font: wide
+   tracking + a subtle repeating-gradient "worn paint" texture clipped to
+   the text itself. Stays real, selectable, accessible text throughout. */
+.mk-stencil {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 0.98;
+  /* NOTE: currentColor can't be used in the gradient stops below — color is
+     set to transparent on this same rule for the background-clip:text trick,
+     so currentColor would resolve to transparent too (invisible text). Uses
+     a literal color instead; this class is only used on dark mosaic tiles
+     today (see Row 3), so --mk-paper-2 is a safe fixed value here. */
+  background-image: repeating-linear-gradient(
+    115deg,
+    var(--mk-paper-2) 0px, var(--mk-paper-2) 3px,
+    transparent 3px, transparent 5px
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 /* A short, slightly-rough underline mark — not a plain <hr>. Wrap the
    accented text/heading in a span with this class. */
@@ -188,6 +215,35 @@
   color: var(--mk-ink);
 }
 .mk-nav-logo span { color: var(--mk-orange); }
+
+/* Homepage-only badged logo — a small black corner chip behind the
+   wordmark, echoing the mockup's angular logo badge sitting on top of the
+   hero photo. Only rendered when MarketingNav's variant="overlay". */
+.mk-nav-logo-badged { position: relative; gap: 0; flex-direction: column; align-items: flex-start; padding: var(--mk-space-3) var(--mk-space-6) var(--mk-space-3) 0; z-index: 1; }
+.mk-nav-logo-chip {
+  position: absolute;
+  top: calc(-1 * var(--mk-nav-height));
+  left: calc(-1 * var(--mk-space-6));
+  width: 150px;
+  height: calc(var(--mk-nav-height) + 56px);
+  background: var(--mk-ink);
+  clip-path: polygon(0 0, 100% 0, 62% 100%, 0 100%);
+  z-index: -1;
+}
+.mk-nav-logo-text { display: flex; align-items: center; gap: var(--mk-space-1); font-size: var(--mk-text-xl); font-weight: 800; letter-spacing: 0.02em; color: #fff; }
+.mk-nav-logo-spark { width: 14px; height: 14px; color: var(--mk-yellow); align-self: flex-start; }
+.mk-nav-logo-sub { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.75); margin-top: 1px; }
+
+.mk-nav-login { font-size: var(--mk-text-sm); font-weight: 600; text-decoration: none; color: inherit; margin-right: var(--mk-space-2); }
+
+/* Overlay state — transparent over the hero photo, white text, no border;
+   flips to the normal solid .mk-nav-elevated bar on scroll (state toggled
+   in MarketingNav.tsx). Homepage hero only. */
+.mk-nav-overlay { position: absolute; width: 100%; background: transparent; border-bottom-color: transparent; }
+.mk-nav-overlay .mk-nav-links a { color: rgba(255,255,255,0.92); }
+.mk-nav-overlay .mk-nav-links a:hover { color: var(--mk-yellow); border-bottom-color: var(--mk-yellow); }
+.mk-nav-overlay .mk-nav-login { color: rgba(255,255,255,0.92); }
+.mk-nav-overlay .mk-nav-menu-btn { border-color: rgba(255,255,255,0.6); color: #fff; }
 .mk-nav-links {
   display: flex;
   align-items: center;
@@ -283,6 +339,14 @@
 .mk-btn-primary { background: var(--mk-orange); color: var(--mk-ink); }
 .mk-btn-primary:hover { background: var(--mk-orange-dark); }
 
+/* Yellow — mockup-only exception, hero primary CTA. The mockup varies its
+   button fill by background contrast (yellow/ghost over the dark photo,
+   black over off-white, black over orange) rather than one fixed primary
+   color everywhere; this variant exists for that one hero placement, not as
+   a second general-purpose primary. */
+.mk-btn-yellow { background: var(--mk-yellow); color: var(--mk-yellow-ink); }
+.mk-btn-yellow:hover { background: #FFD65C; }
+
 /* Dark — solid ink fill, for a second strong CTA alongside primary. */
 .mk-btn-dark { background: var(--mk-ink); color: #fff; }
 .mk-btn-dark:hover { background: var(--mk-ink-2); }
@@ -302,96 +366,87 @@
 .mk-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Hero ──
-   Homepage-exclusive (confirmed via grep — no other marketing page uses
-   .mk-hero*). Creative-brand-expression pass: media and headline are one
-   composition, not a left-text/right-box split. The media slot is an
-   absolutely-positioned panel bled to the viewport's right edge; the copy
-   column sits on top of it (higher z-index) and is wide enough that its own
-   right edge overlaps the media panel's left edge on desktop — a scrim
-   gradient on the media panel keeps that overlap legible. Below 900px this
-   collapses to a plain stacked layout (media on top, then copy). */
+   Homepage-exclusive. Mockup-fidelity pass (Phase 7): the mockup's photo is
+   a single full-bleed background spanning the ENTIRE hero — not a side
+   panel — with the nav and headline sitting directly on top of it as one
+   composition. A left-side scrim (see MediaPlaceholder's `scrim="left"`)
+   keeps the headline legible against the eventual photo. Below 900px the
+   corner callout/gear line reflow inline so nothing overlaps. */
 .mk-hero {
   position: relative;
   background: var(--mk-ink);
   color: #fff;
-  padding: var(--mk-space-16) 0 var(--mk-space-20);
   overflow: hidden;
-  min-height: 640px;
-  display: flex;
-  align-items: center;
+  min-height: 560px;
 }
 .mk-hero-media {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 58%;
+  inset: 0;
 }
 .mk-hero-media .mk-media-placeholder { height: 100%; }
 .mk-hero-inner {
   position: relative;
   z-index: 2;
-  width: 100%;
+  min-height: 560px;
+  padding-top: calc(var(--mk-nav-height) + var(--mk-space-6));
+  padding-bottom: var(--mk-space-8);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
-.mk-hero-copy { max-width: 60%; }
-.mk-hero-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mk-space-2);
-  font-size: var(--mk-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.75);
-  border: 1px solid rgba(255,255,255,0.25);
-  padding: var(--mk-space-2) var(--mk-space-4);
-  border-radius: var(--mk-radius-md);
-  margin-bottom: var(--mk-space-8);
-}
+.mk-hero-copy { max-width: 620px; }
 .mk-hero h1 {
-  font-family: var(--mk-font-display);
+  font-family: var(--mk-font-hero);
   font-weight: 400;
   text-transform: uppercase;
   color: var(--mk-yellow);
-  font-size: clamp(3.25rem, 9vw, 7.5rem);
-  line-height: 0.92;
+  font-size: clamp(3.25rem, 8.6vw, 7rem);
+  line-height: 0.88;
   letter-spacing: 0.005em;
+  margin-bottom: var(--mk-space-4);
+}
+.mk-hero h1 .mk-marker-underline::after { background: var(--mk-orange); height: 0.07em; }
+.mk-hero-sub {
+  font-size: var(--mk-text-base);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
   margin-bottom: var(--mk-space-5);
 }
-.mk-hero h1 .mk-marker-underline::after { background: var(--mk-orange); height: 0.09em; }
-.mk-hero-sub {
-  font-size: var(--mk-text-lg);
-  color: rgba(255,255,255,0.78);
-  max-width: 40ch;
-  margin-bottom: var(--mk-space-6);
+.mk-hero-actions { display: flex; align-items: center; gap: var(--mk-space-5); flex-wrap: wrap; margin-bottom: var(--mk-space-5); }
+/* Ghost "Watch video" action — circular outline + play triangle, no fill,
+   the mockup's secondary hero CTA (distinct from the outline button used
+   as a secondary CTA everywhere else on the site). */
+.mk-hero-watch { display: inline-flex; align-items: center; gap: var(--mk-space-3); color: #fff; text-decoration: none; font-size: var(--mk-text-sm); font-weight: 700; }
+.mk-hero-watch-icon {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.mk-hero-hand {
-  display: flex;
-  align-items: center;
-  gap: var(--mk-space-2);
+.mk-hero-watch-icon svg { width: 11px; height: 11px; margin-left: 2px; }
+.mk-hero-gear-line { color: #fff; font-size: var(--mk-text-lg); transform: rotate(-1deg); transform-origin: left center; }
+/* Top-right corner callout ("Same grind. Bigger opportunities.") — sits
+   over the photo, away from the headline column, per the mockup. */
+.mk-hero-callout {
+  position: absolute;
+  top: calc(var(--mk-nav-height) + var(--mk-space-6));
+  right: var(--mk-space-8);
+  z-index: 2;
+  text-align: right;
   color: #fff;
-  font-size: var(--mk-text-xl);
-  margin-bottom: var(--mk-space-8);
-  transform: rotate(-1deg);
+  font-size: var(--mk-text-lg);
+  max-width: 220px;
 }
-.mk-hero-crown { width: 22px; height: 22px; flex-shrink: 0; color: var(--mk-yellow); transform: rotate(6deg); }
-.mk-hero-actions { display: flex; gap: var(--mk-space-4); flex-wrap: wrap; margin-bottom: var(--mk-space-6); }
+.mk-hero-crown { width: 24px; height: 24px; margin-bottom: var(--mk-space-2); color: #fff; }
 .mk-hero .mk-btn-outline { color: #fff; border-color: rgba(255,255,255,0.5); }
 .mk-hero .mk-btn-outline:hover { background: #fff; color: var(--mk-ink); }
-.mk-hero-note { font-size: var(--mk-text-xs); color: rgba(255,255,255,0.55); }
 
 @media (max-width: 900px) {
-  .mk-hero { display: block; min-height: 0; padding-top: var(--mk-space-10); }
-  .mk-hero-media { position: static; width: 100%; margin-bottom: var(--mk-space-6); }
-  .mk-hero-media .mk-media-placeholder {
-    /* Below 900px the photo sits above the headline at a 4/5 aspect ratio —
-       on phone/tablet widths that renders 400px+ tall, over half the first
-       viewport, before any headline text is visible. Cap it so the headline
-       reads on the first screen. */
-    max-height: 260px;
-    height: auto;
-  }
+  .mk-hero-inner { min-height: 0; padding-top: calc(var(--mk-nav-height) + var(--mk-space-16)); padding-bottom: var(--mk-space-8); }
+  .mk-hero-callout { position: static; text-align: left; max-width: none; margin-bottom: var(--mk-space-6); }
+  .mk-hero-crown { margin-bottom: var(--mk-space-1); }
   .mk-hero-copy { max-width: none; }
+  .mk-hero-gear-line { margin-top: var(--mk-space-2); }
 }
 
 /* Hero/secondary photo placeholders — see MediaPlaceholder.tsx. Deliberately
@@ -462,193 +517,196 @@
 .mk-section .mk-media-placeholder-label,
 .mk-section-alt .mk-media-placeholder-label { color: var(--mk-muted); }
 
+/* Fill — used by every mosaic-row photo tile: the placeholder covers its
+   positioned parent completely (the tile's grid/flex cell defines the
+   crop), so text can sit on top of it via a sibling with a higher z-index,
+   exactly as it would sit on top of the eventual real photo. */
+.mk-media-placeholder-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  justify-content: flex-end;
+}
+.mk-media-placeholder-scrim-left.mk-media-placeholder-fill {
+  background:
+    linear-gradient(to right, rgba(18,17,16,0.85) 0%, rgba(18,17,16,0.45) 35%, transparent 65%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--mk-space-8);
+}
+.mk-media-placeholder-scrim-bottom.mk-media-placeholder-fill {
+  background:
+    linear-gradient(to top, rgba(18,17,16,0.85) 0%, rgba(18,17,16,0.35) 40%, transparent 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  align-items: flex-start;
+  padding: var(--mk-space-6);
+}
+/* Every mosaic tile overlays its own real (non-placeholder) heading/handwritten
+   copy on top of these fill slots — the placeholder's own built-in tag/label
+   caption would otherwise visually collide with that real text. Hide the
+   caption visually wherever a real overlay exists (fill variant); the
+   parent's role="img" aria-label still describes the missing photo for
+   assistive tech. */
+.mk-media-placeholder-fill .mk-media-placeholder-tag,
+.mk-media-placeholder-fill .mk-media-placeholder-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 /* ── Trust strip ──
-   Homepage-exclusive. Deliberately quieter than Phase 3: the trust facts
-   used to render as a bulleted "grid" of five separate badges directly
-   under the hero, reading like an enterprise trust wall competing with the
-   hero for attention. They're now one muted, wrapped caption line instead —
-   same content, lower visual weight — and the band itself is shorter. */
-.mk-trust-band { padding: var(--mk-space-8) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+   Homepage-exclusive. Mockup-fidelity pass: a single compact row (eyebrow
+   copy, logo strip, divider, "Real teams. Real results." tagline) — no
+   separate feature-badge caption line competing with the hero, per the
+   explicit instruction to de-emphasize the "enterprise trust wall" feeling.
+   Logo strip is a flex-wrap, not a fixed 6-up grid, so it expands cleanly
+   as more real programs are added later (only 2 real logos exist today). */
+.mk-trust-band { padding: var(--mk-space-4) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+.mk-trust-row { display: flex; align-items: center; gap: var(--mk-space-8); flex-wrap: wrap; }
 .mk-trust-eyebrow {
   font-size: var(--mk-text-xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  margin-bottom: var(--mk-space-4);
+  color: rgba(255,255,255,0.6);
+  line-height: 1.4;
+  max-width: 15ch;
+  flex-shrink: 0;
 }
-.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-6); flex-wrap: wrap; margin-bottom: var(--mk-space-5); }
+.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-5); flex-wrap: wrap; flex: 1; }
 .mk-trust-logo-chip {
   background: #fff;
   border-radius: var(--mk-radius-sm);
-  padding: var(--mk-space-2) var(--mk-space-4);
+  padding: var(--mk-space-2) var(--mk-space-3);
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 36px;
 }
-.mk-trust-logo-chip img { height: 100%; width: auto; max-width: 96px; object-fit: contain; }
-.mk-trust-line {
-  font-size: var(--mk-text-xs);
-  color: rgba(255,255,255,0.55);
-  line-height: 1.8;
-  padding-top: var(--mk-space-4);
-  border-top: 1px solid rgba(255,255,255,0.12);
-}
-.mk-trust-item strong { color: rgba(255,255,255,0.85); font-weight: 700; }
-
-/* ── Value section (Raise More. Do More.) ── */
-.mk-value-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--mk-space-16);
-  align-items: center;
-}
-.mk-value-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mk-space-2) var(--mk-space-6);
-  margin-top: var(--mk-space-8);
-  padding-top: var(--mk-space-6);
-  border-top: 1px solid var(--mk-line);
-}
-.mk-value-links a { font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); text-decoration: none; border-bottom: 2px solid var(--mk-orange); padding-bottom: 2px; }
-.mk-value-links a:hover { color: var(--mk-orange-dark); }
-.mk-value-visual { position: relative; }
-.mk-value-visual .mk-preview-frame { transform: rotate(-1.2deg); }
-/* "Built for teams" stamp — irregular corner radii instead of a clean
-   rectangle, so it reads as a stamped/taped label rather than a SaaS
-   feature badge. */
-.mk-value-tag {
-  position: absolute;
-  left: -14px;
-  top: -16px;
-  background: var(--mk-orange);
-  color: var(--mk-ink);
+.mk-trust-logo-chip img { height: 100%; width: auto; max-width: 84px; object-fit: contain; }
+.mk-trust-tagline {
   font-family: var(--mk-font-display);
   font-weight: 400;
   text-transform: uppercase;
-  font-size: var(--mk-text-sm);
-  padding: var(--mk-space-3) var(--mk-space-5);
-  border-radius: 2px 8px 3px 9px;
-  transform: rotate(-2deg);
-  box-shadow: 0 1px 0 rgba(18,17,16,0.15);
-}
-.mk-value-arrow {
-  position: absolute;
-  width: 44px;
-  height: 30px;
-  right: -30px;
-  top: -34px;
-  color: var(--mk-ink-2);
-  transform: rotate(18deg) scaleX(-1);
-}
-@media (min-width: 1200px) {
-  /* One small, controlled break of the container boundary — the screenshot
-     overflows the section's right edge slightly rather than sitting in a
-     perfectly balanced two-column split. */
-  .mk-value-visual { margin-right: -32px; }
-}
-@media (max-width: 860px) {
-  .mk-value-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); }
-  .mk-value-visual { order: -1; margin-right: 0; }
-  .mk-value-visual .mk-preview-frame { transform: none; }
-  .mk-value-tag { left: 8px; top: -14px; }
-  .mk-value-arrow { display: none; }
-}
-
-/* ── What teams fund ──
-   One oversized faded background word + one cactus mark — the only two
-   decorative additions here; the numbered list/orange field are unchanged. */
-.mk-fund-section { background: var(--mk-orange); color: var(--mk-ink); position: relative; overflow: hidden; }
-.mk-fund-section .mk-eyebrow { color: var(--mk-ink); opacity: 0.7; }
-.mk-fund-section .mk-container { position: relative; z-index: 1; }
-.mk-fund-bg-word {
-  position: absolute;
-  z-index: 0;
-  right: var(--mk-space-8);
-  bottom: -0.12em;
-  font-size: clamp(5rem, 16vw, 11rem);
+  font-size: var(--mk-text-lg);
   line-height: 1;
-  color: rgba(18,17,16,0.09);
-  white-space: nowrap;
-  pointer-events: none;
-  user-select: none;
-}
-.mk-eyebrow.mk-eyebrow--with-mark { display: inline-flex; align-items: center; gap: var(--mk-space-2); }
-.mk-fund-cactus { width: 18px; height: 18px; flex-shrink: 0; }
-.mk-fund-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--mk-space-16); align-items: start; }
-@media (max-width: 700px) {
-  .mk-fund-bg-word { display: none; }
-}
-.mk-fund-list { list-style: none; margin: var(--mk-space-8) 0 0; padding: 0; }
-.mk-fund-list li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--mk-space-5);
-  padding: var(--mk-space-4) 0;
-  border-top: var(--mk-border-width) solid rgba(18,17,16,0.25);
-  font-family: var(--mk-font-display);
-  font-weight: 400;
-  text-transform: uppercase;
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  letter-spacing: 0.005em;
-}
-.mk-fund-list li:last-child { border-bottom: var(--mk-border-width) solid rgba(18,17,16,0.25); }
-.mk-fund-list li span { font-family: var(--mk-font); font-weight: 700; font-size: var(--mk-text-sm); text-transform: none; color: rgba(18,17,16,0.6); }
-@media (max-width: 860px) {
-  .mk-fund-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); }
-}
-
-/* ── How it works — homepage-only size bump layered on the shared .mk-step
-   primitive (used as-is elsewhere, e.g. /sponsors); this modifier only
-   enlarges the numeral, it doesn't change the shared rule. ── */
-.mk-home-steps .mk-step-num {
-  font-family: var(--mk-font-display);
-  font-weight: 400;
-  font-size: var(--mk-text-3xl);
-  color: var(--mk-ink);
-  opacity: 0.15;
-}
-
-/* ── Real Opportunities (built for real teams) ──
-   Rebuilt from three equal enterprise-style columns into an editorial
-   index: full-width rows, varied type scale, one row offset for
-   asymmetry, dividing rules instead of a card grid. At most one brand
-   mark (the crown, on Coaches only) in the whole section. */
-.mk-persona-index { border-top: var(--mk-border-width) solid var(--mk-line); }
-.mk-persona-row {
-  display: grid;
-  grid-template-columns: minmax(200px, 260px) 1fr;
-  gap: var(--mk-space-10);
-  align-items: baseline;
-  padding: var(--mk-space-8) 0;
-  border-bottom: var(--mk-border-width) solid var(--mk-line);
-}
-.mk-persona-row-offset { padding-left: var(--mk-space-12); }
-.mk-persona-row-head { display: flex; align-items: baseline; gap: var(--mk-space-4); }
-.mk-persona-row-num {
-  font-family: var(--mk-font-display);
-  font-weight: 400;
-  font-size: var(--mk-text-2xl);
-  color: var(--mk-ink);
-  opacity: 0.18;
+  text-align: right;
   flex-shrink: 0;
+  padding-left: var(--mk-space-6);
+  border-left: 1px solid rgba(255,255,255,0.2);
 }
-.mk-persona-row-head h3 {
-  display: flex;
-  align-items: center;
-  gap: var(--mk-space-3);
-  font-size: clamp(1.85rem, 4.2vw, 2.75rem);
-}
-.mk-persona-row-head h3.mk-persona-row-heading-sm { font-size: clamp(1.4rem, 3vw, 2rem); opacity: 0.85; }
-.mk-persona-crown { width: 26px; height: 26px; color: var(--mk-accent-ink); flex-shrink: 0; }
-.mk-persona-row ul { list-style: none; margin: var(--mk-space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-2); font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-persona-row li::before { content: "— "; color: var(--mk-accent-ink); }
+.mk-trust-tagline .mk-marker-underline::after { background: var(--mk-orange); height: 0.08em; }
 @media (max-width: 760px) {
-  .mk-persona-row { grid-template-columns: 1fr; gap: var(--mk-space-3); padding: var(--mk-space-6) 0; }
-  .mk-persona-row-offset { padding-left: 0; }
-  .mk-persona-row ul { margin-top: var(--mk-space-2); }
+  .mk-trust-row { flex-direction: column; align-items: flex-start; gap: var(--mk-space-4); }
+  .mk-trust-tagline { text-align: left; border-left: none; padding-left: 0; }
 }
+
+/* ── Mosaic rows ──
+   Mockup-fidelity pass (Phase 7): below the trust strip, the mockup is not
+   a stack of full-width sections — it's three edge-to-edge horizontal rows,
+   each split into unequal-width tiles that mix photography and solid color
+   fields into one composition. These replace the previous Value/Fund
+   sections and the standalone Fundraising/Communication/Sponsors/persona
+   sections entirely on the homepage (those pages still exist and are
+   linked from nav/footer — only the HOMEPAGE composition changes). No
+   .mk-container here — tiles run full viewport width, like the mockup. */
+.mk-mosaic-row { display: grid; }
+.mk-mosaic-tile { position: relative; padding: var(--mk-space-6); display: flex; flex-direction: column; justify-content: center; min-height: 210px; overflow: hidden; }
+.mk-mosaic-tile-photo { padding: 0; min-height: 210px; justify-content: flex-end; }
+
+/* Row 1 — "Raise More. Do More." Photo tile | copy tile | phone tile, all
+   sharing one warm off-white field (the copy/phone tiles have no background
+   of their own — the row's background shows through both). */
+.mk-row1 { background: var(--mk-paper-2); grid-template-columns: 1fr 1fr 1fr; }
+.mk-row1-photo-copy { color: #fff; font-size: var(--mk-text-xl); position: relative; z-index: 1; padding: var(--mk-space-6); }
+.mk-row1-photo-crown { width: 22px; height: 22px; color: var(--mk-orange); margin-bottom: var(--mk-space-2); }
+.mk-row1-copy h2 { font-size: var(--mk-text-3xl); margin-bottom: var(--mk-space-3); }
+.mk-row1-copy p { color: var(--mk-muted); font-size: var(--mk-text-sm); max-width: 38ch; margin-bottom: var(--mk-space-4); }
+.mk-row1-phones { position: relative; display: flex; align-items: center; justify-content: center; padding-top: var(--mk-space-8); }
+.mk-row1-phones .mk-preview-frame:first-child { width: 74%; position: relative; z-index: 2; }
+.mk-row1-phones .mk-preview-frame:last-child {
+  width: 40%;
+  position: absolute;
+  right: -4%;
+  bottom: -4%;
+  z-index: 1;
+  transform: rotate(4deg);
+  /* Only a sliver of the back screen peeks out, like the mockup's second
+     phone edge — clip its own chrome/label so it doesn't compete visually
+     with the front screenshot's text. */
+  overflow: hidden;
+  max-height: 120px;
+}
+.mk-row1-tag { position: absolute; top: 0; left: var(--mk-space-2); z-index: 3; color: var(--mk-ink); font-size: var(--mk-text-sm); font-weight: 400; text-transform: uppercase; }
+.mk-row1-arrow { position: absolute; top: calc(-1 * var(--mk-space-2)); left: calc(var(--mk-space-2) + 8ch); width: 36px; height: 24px; color: var(--mk-ink-2); z-index: 3; transform: rotate(-8deg); }
+/* This tile is too compact for the shared ProductPreview demo-data
+   disclaimer to render without overflowing/truncating mid-word — the same
+   disclaimer is legible on its full-size counterpart in Row 1's own
+   composition context isn't the right place for it; the fuller disclosure
+   already exists via the screenshot's alt text and the dedicated product
+   pages. */
+.mk-row1-phones .mk-preview-demo-note { display: none; }
+@media (max-width: 900px) {
+  .mk-row1 { grid-template-columns: 1fr; }
+  .mk-mosaic-tile-photo { min-height: 280px; }
+  .mk-row1-phones { min-height: 220px; }
+  .mk-row1-arrow { display: none; }
+}
+
+/* Row 2 — "Real Opportunities for Real Teams." Orange copy tile | photo
+   tile | photo tile. Eyebrow phrase ("More than fundraising") and the
+   funding-categories caption (on the palm-trees tile) absorb what used to
+   be the standalone "What Are We Funding" section's content. */
+.mk-row2 { grid-template-columns: 0.9fr 1.05fr 1.05fr; }
+.mk-row2-copy { background: var(--mk-orange); color: var(--mk-ink); }
+.mk-row2-copy .mk-eyebrow { color: var(--mk-ink); opacity: 0.65; display: inline-flex; align-items: center; gap: var(--mk-space-2); }
+.mk-row2-copy h2 { font-size: var(--mk-text-2xl); margin-bottom: var(--mk-space-4); }
+.mk-row2-cactus { width: 16px; height: 16px; }
+.mk-row2-photo-copy { color: #fff; font-size: var(--mk-text-lg); position: relative; z-index: 1; padding: var(--mk-space-6); }
+.mk-row2-crowns { position: relative; display: inline-block; width: 34px; height: 28px; margin-bottom: var(--mk-space-3); }
+.mk-row2-crowns svg { position: absolute; width: 24px; height: 24px; }
+.mk-row2-crowns svg:first-child { top: 2px; left: 6px; color: #fff; }
+.mk-row2-crowns svg:last-child { top: 0; left: 0; color: var(--mk-orange); }
+.mk-row2-fund-copy { font-family: var(--mk-font); font-weight: 700; font-size: var(--mk-text-base); text-transform: none; }
+.mk-row2-fund-copy .mk-marker-underline::after { background: var(--mk-yellow); height: 0.1em; }
+@media (max-width: 900px) {
+  .mk-row2 { grid-template-columns: 1fr; }
+}
+
+/* Row 3 — "Athletes Build Better People." Stencil photo tile | testimonial
+   card | photo tile. The testimonial is MOCKUP CONTENT — see the report's
+   explicit approval warning before treating it as a real endorsement. */
+.mk-row3 { grid-template-columns: 0.85fr 1.3fr 0.85fr; }
+.mk-row3-stencil-copy { color: var(--mk-paper-2); position: relative; z-index: 1; padding: var(--mk-space-6); }
+.mk-row3-stencil-copy .mk-stencil { font-size: clamp(1.6rem, 3.4vw, 2.4rem); }
+.mk-row3-cactus { width: 34px; height: 34px; color: #fff; margin-top: var(--mk-space-3); opacity: 0.9; }
+.mk-row3-testimonial { background: var(--mk-paper-2); justify-content: center; align-items: center; text-align: center; }
+.mk-row3-quote { font-size: var(--mk-text-lg); line-height: var(--mk-leading-snug); max-width: 34ch; }
+.mk-row3-quote strong { font-weight: 800; }
+.mk-row3-attribution { margin-top: var(--mk-space-5); font-size: var(--mk-text-sm); font-weight: 800; }
+.mk-row3-attribution span { display: block; font-weight: 600; color: var(--mk-muted); font-size: var(--mk-text-xs); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.mk-row3-dots { display: flex; align-items: center; justify-content: center; gap: var(--mk-space-2); margin-top: var(--mk-space-6); }
+.mk-row3-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--mk-line-strong); }
+.mk-row3-dots span:first-child { background: var(--mk-ink); }
+.mk-row3-dots button { background: none; border: none; padding: var(--mk-space-1); color: var(--mk-ink); cursor: pointer; display: flex; }
+.mk-row3-dots button svg { width: 16px; height: 16px; }
+.mk-row3-photo-copy { color: var(--mk-orange); font-size: var(--mk-text-lg); position: relative; z-index: 1; text-align: right; align-self: flex-end; padding: var(--mk-space-6); }
+.mk-row3-arm-tile { justify-content: flex-start; }
+@media (max-width: 900px) {
+  .mk-row3 { grid-template-columns: 1fr; }
+}
+
+/* .mk-home-steps and .mk-persona-index/.mk-persona-row* (previous
+   homepage-only How-It-Works / Real-Opportunities-persona treatments) were
+   removed here — both sections were removed from the homepage in the
+   mockup-fidelity pass (Q1) and confirmed unused by any other marketing
+   page, so the CSS became dead weight rather than reusable infrastructure. */
 
 /* ── Capability sections (alternating) ── */
 .mk-capability { scroll-margin-top: calc(var(--mk-nav-height) + 16px); }
@@ -662,62 +720,16 @@
   .mk-capability-grid.mk-reverse .mk-capability-copy { order: 0; }
 }
 
-/* Homepage-only modifiers so Fundraising/Communication/Sponsors each get a
-   distinct rhythm instead of repeating the same split three times.
-   Communication intentionally gets no modifier — staying the calmest of
-   the three by contrast with its neighbors. */
-
-/* Fundraising — most expressive: screenshot breaks the container edge, a
-   stamp label sits on its corner, a hand-drawn arrow points at it. */
-.mk-capability--expressive .mk-capability-visual { position: relative; }
-.mk-capability-arrow {
-  width: 46px;
-  height: 30px;
-  color: var(--mk-accent-ink);
-  margin-top: var(--mk-space-4);
-  transform: rotate(4deg);
-}
-/* A small rotated, roughly-cut label — the same "stamped" language as
-   .mk-value-tag but reusable wherever a screenshot needs a tag. */
-.mk-stamp {
-  position: absolute;
-  top: var(--mk-space-4);
-  right: calc(-1 * var(--mk-space-4));
-  background: var(--mk-ink);
-  color: #fff;
-  font-size: var(--mk-text-xs);
-  padding: var(--mk-space-2) var(--mk-space-4);
-  border-radius: 2px 7px 3px 8px;
-  transform: rotate(3deg);
-  z-index: 2;
-  white-space: nowrap;
-}
-@media (min-width: 1200px) {
-  .mk-capability--expressive .mk-capability-visual { margin-right: -28px; }
-}
-@media (max-width: 860px) {
-  .mk-capability-arrow { display: none; }
-  .mk-capability--expressive .mk-capability-visual { margin-right: 0; }
-  .mk-stamp { right: var(--mk-space-2); top: calc(-1 * var(--mk-space-3)); }
-}
-
-/* Sponsors — its own rhythm: centered intro above a two-column community
-   board, rather than the side-by-side split the other two sections use. */
-.mk-capability--community .mk-capability-copy--centered {
-  max-width: 640px;
-  margin: 0 auto var(--mk-space-10);
-  text-align: center;
-}
-.mk-capability--community .mk-capability-copy--centered p { margin-left: auto; margin-right: auto; }
-.mk-capability--community-body {
-  display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: var(--mk-space-12);
-  align-items: center;
-}
-@media (max-width: 860px) {
-  .mk-capability--community-body { grid-template-columns: 1fr; gap: var(--mk-space-8); }
-}
+/* .mk-capability--expressive/.mk-stamp/.mk-capability-arrow/
+   .mk-capability--community* (previous homepage-only Fundraising/Sponsors
+   rhythm modifiers, including the "stamp" label the mockup doesn't actually
+   show) were removed here — the standalone Fundraising/Communication/
+   Sponsors sections were removed from the homepage in the mockup-fidelity
+   pass (Q1) and these modifiers are confirmed unused by the dedicated
+   /fundraising, /communication, /sponsors pages, which have their own
+   markup. The shared base .mk-capability/.mk-capability-grid/
+   .mk-capability-list/.mk-capability-visual rules below are untouched —
+   those dedicated pages depend on them. */
 
 /* Illustrative (non-photographic) UI preview panel — "browser chrome" frame
    shared by the hero and every capability section, so each mockup reads as
@@ -895,6 +907,28 @@
 .mk-footer-bottom { border-top: var(--mk-border-width) solid var(--mk-line); padding-top: var(--mk-space-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--mk-space-4); font-size: var(--mk-text-xs); color: var(--mk-muted); }
 @media (max-width: 860px) { .mk-footer-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .mk-footer-grid { grid-template-columns: 1fr; } }
+
+/* ── Minimal footer (homepage only) ──
+   The mockup's 4-link footer. Legal/trust/accessibility links stay
+   reachable via the secondary strip below rather than disappearing —
+   visually subordinate (smaller, muted, no column headers) so it doesn't
+   compete with the mockup's minimal treatment above it. */
+.mk-footer-minimal { padding: var(--mk-space-6) 0 0; }
+.mk-footer-minimal-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--mk-space-5); padding-bottom: var(--mk-space-5); }
+.mk-footer-brand-minimal { display: flex; flex-direction: column; font-family: var(--mk-font-display); font-size: var(--mk-text-2xl); text-transform: uppercase; text-decoration: none; color: var(--mk-ink); }
+.mk-footer-brand-sub { font-family: var(--mk-font); font-weight: 700; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mk-muted); }
+.mk-footer-minimal-links { display: flex; flex-wrap: wrap; gap: var(--mk-space-6); list-style: none; margin: 0; padding: 0; }
+.mk-footer-minimal-links a { font-size: var(--mk-text-sm); font-weight: 700; text-decoration: none; color: var(--mk-ink-2); }
+.mk-footer-minimal-links a:hover { color: var(--mk-orange-dark); }
+.mk-footer-minimal-tagline { font-size: var(--mk-text-lg); color: var(--mk-orange-dark); }
+.mk-footer-legal-strip { border-top: var(--mk-border-width) solid var(--mk-line); padding: var(--mk-space-5) 0 var(--mk-space-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--mk-space-3); font-size: var(--mk-text-xs); color: var(--mk-muted); }
+.mk-footer-legal-strip nav ul { display: flex; flex-wrap: wrap; gap: var(--mk-space-5); list-style: none; margin: 0; padding: 0; }
+.mk-footer-legal-strip nav a { color: var(--mk-muted); text-decoration: none; }
+.mk-footer-legal-strip nav a:hover { color: var(--mk-ink); text-decoration: underline; }
+@media (max-width: 640px) {
+  .mk-footer-minimal-row { flex-direction: column; align-items: flex-start; }
+  .mk-footer-legal-strip { flex-direction: column; align-items: flex-start; }
+}
 
 /* ── Forms ── */
 .mk-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-space-5); }
