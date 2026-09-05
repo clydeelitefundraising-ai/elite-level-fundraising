@@ -115,6 +115,13 @@
 }
 .mk-section { padding: var(--mk-space-24) 0; }
 .mk-section-tight { padding: var(--mk-space-16) 0; }
+
+/* Flat 96px top+bottom padding on every section reads fine on desktop but
+   is oversized on phone widths (nearly a quarter of the viewport spent on
+   whitespace between sections). Reduce, don't remove, the rhythm. */
+@media (max-width: 640px) {
+  .mk-section { padding: var(--mk-space-16) 0; }
+}
 .mk-section-alt { background: var(--mk-paper-2); }
 .mk-eyebrow {
   display: inline-block;
@@ -347,6 +354,12 @@
 @media (max-width: 900px) {
   .mk-hero-grid { grid-template-columns: 1fr; }
   .mk-hero-visual { order: -1; margin-bottom: var(--mk-space-4); }
+  /* Below 900px the photo sits above the headline (rule above) at a 4/5
+     aspect ratio — on phone/tablet widths that renders 400px+ tall, over
+     half the first viewport, before any headline text is visible. Cap it so
+     the headline reads on the first screen; desktop (photo beside text, not
+     above it) is unaffected since this whole block only applies ≤900px. */
+  .mk-hero-visual .mk-media-placeholder { max-height: 260px; }
 }
 
 /* Hero/secondary photo placeholders — see MediaPlaceholder.tsx. Deliberately
