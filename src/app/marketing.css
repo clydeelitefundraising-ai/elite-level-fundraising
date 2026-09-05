@@ -303,21 +303,37 @@
 
 /* ── Hero ──
    Homepage-exclusive (confirmed via grep — no other marketing page uses
-   .mk-hero*), so this block is fully redesigned for Phase 3: a dark,
-   photograph-led editorial hero instead of the previous light two-column
-   SaaS layout. */
+   .mk-hero*). Creative-brand-expression pass: media and headline are one
+   composition, not a left-text/right-box split. The media slot is an
+   absolutely-positioned panel bled to the viewport's right edge; the copy
+   column sits on top of it (higher z-index) and is wide enough that its own
+   right edge overlaps the media panel's left edge on desktop — a scrim
+   gradient on the media panel keeps that overlap legible. Below 900px this
+   collapses to a plain stacked layout (media on top, then copy). */
 .mk-hero {
+  position: relative;
   background: var(--mk-ink);
   color: #fff;
   padding: var(--mk-space-16) 0 var(--mk-space-20);
   overflow: hidden;
-}
-.mk-hero-grid {
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: var(--mk-space-12);
+  min-height: 640px;
+  display: flex;
   align-items: center;
 }
+.mk-hero-media {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 58%;
+}
+.mk-hero-media .mk-media-placeholder { height: 100%; }
+.mk-hero-inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+.mk-hero-copy { max-width: 60%; }
 .mk-hero-tag {
   display: inline-flex;
   align-items: center;
@@ -337,7 +353,7 @@
   font-weight: 400;
   text-transform: uppercase;
   color: var(--mk-yellow);
-  font-size: clamp(3.25rem, 8vw, 6rem);
+  font-size: clamp(3.25rem, 9vw, 7.5rem);
   line-height: 0.92;
   letter-spacing: 0.005em;
   margin-bottom: var(--mk-space-5);
@@ -346,30 +362,36 @@
 .mk-hero-sub {
   font-size: var(--mk-text-lg);
   color: rgba(255,255,255,0.78);
-  max-width: 44ch;
+  max-width: 40ch;
   margin-bottom: var(--mk-space-6);
 }
 .mk-hero-hand {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--mk-space-2);
   color: #fff;
   font-size: var(--mk-text-xl);
   margin-bottom: var(--mk-space-8);
   transform: rotate(-1deg);
 }
+.mk-hero-crown { width: 22px; height: 22px; flex-shrink: 0; color: var(--mk-yellow); transform: rotate(6deg); }
 .mk-hero-actions { display: flex; gap: var(--mk-space-4); flex-wrap: wrap; margin-bottom: var(--mk-space-6); }
 .mk-hero .mk-btn-outline { color: #fff; border-color: rgba(255,255,255,0.5); }
 .mk-hero .mk-btn-outline:hover { background: #fff; color: var(--mk-ink); }
 .mk-hero-note { font-size: var(--mk-text-xs); color: rgba(255,255,255,0.55); }
 
 @media (max-width: 900px) {
-  .mk-hero-grid { grid-template-columns: 1fr; }
-  .mk-hero-visual { order: -1; margin-bottom: var(--mk-space-4); }
-  /* Below 900px the photo sits above the headline (rule above) at a 4/5
-     aspect ratio — on phone/tablet widths that renders 400px+ tall, over
-     half the first viewport, before any headline text is visible. Cap it so
-     the headline reads on the first screen; desktop (photo beside text, not
-     above it) is unaffected since this whole block only applies ≤900px. */
-  .mk-hero-visual .mk-media-placeholder { max-height: 260px; }
+  .mk-hero { display: block; min-height: 0; padding-top: var(--mk-space-10); }
+  .mk-hero-media { position: static; width: 100%; margin-bottom: var(--mk-space-6); }
+  .mk-hero-media .mk-media-placeholder {
+    /* Below 900px the photo sits above the headline at a 4/5 aspect ratio —
+       on phone/tablet widths that renders 400px+ tall, over half the first
+       viewport, before any headline text is visible. Cap it so the headline
+       reads on the first screen. */
+    max-height: 260px;
+    height: auto;
+  }
+  .mk-hero-copy { max-width: none; }
 }
 
 /* Hero/secondary photo placeholders — see MediaPlaceholder.tsx. Deliberately
@@ -386,6 +408,35 @@
   text-align: center;
   gap: var(--mk-space-2);
   padding: var(--mk-space-6);
+}
+/* Bleed variant — for a media slot meant to run edge-to-edge and sit behind
+   overlapping type (currently only the hero). No border/dashed box (that
+   reads as a bounded widget); instead, thin corner crop-marks — the print/
+   editorial convention for "photo area," not a finished decorative frame —
+   plus a left-edge scrim so type staying on top of it remains legible once
+   a real photo replaces the placeholder. */
+.mk-media-placeholder-bleed {
+  border: none;
+  border-radius: 0;
+  position: relative;
+  background:
+    linear-gradient(to right, rgba(18,17,16,0.92) 0%, rgba(18,17,16,0.55) 30%, rgba(18,17,16,0.18) 55%, transparent 72%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  justify-content: flex-end;
+  padding: var(--mk-space-8);
+}
+.mk-media-placeholder-bleed::before,
+.mk-media-placeholder-bleed::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+}
+.mk-media-placeholder-bleed::before { top: var(--mk-space-5); right: var(--mk-space-5); border-left: none; border-bottom: none; }
+.mk-media-placeholder-bleed::after { bottom: var(--mk-space-5); right: var(--mk-space-5); border-left: none; border-top: none; }
+@media (max-width: 900px) {
+  .mk-media-placeholder-bleed { justify-content: center; padding: var(--mk-space-6); }
 }
 .mk-media-placeholder-tag {
   font-size: var(--mk-text-xs);
@@ -412,19 +463,21 @@
 .mk-section-alt .mk-media-placeholder-label { color: var(--mk-muted); }
 
 /* ── Trust strip ──
-   Homepage-exclusive. Compact dark strip: real partner/school logos plus
-   the same five trust facts as before, condensed to short badges rather
-   than icon+paragraph cards — content preserved, presentation tightened. */
-.mk-trust-band { padding: var(--mk-space-10) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+   Homepage-exclusive. Deliberately quieter than Phase 3: the trust facts
+   used to render as a bulleted "grid" of five separate badges directly
+   under the hero, reading like an enterprise trust wall competing with the
+   hero for attention. They're now one muted, wrapped caption line instead —
+   same content, lower visual weight — and the band itself is shorter. */
+.mk-trust-band { padding: var(--mk-space-8) 0; background: var(--mk-ink); color: #fff; border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
 .mk-trust-eyebrow {
   font-size: var(--mk-text-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(255,255,255,0.55);
-  margin-bottom: var(--mk-space-5);
+  margin-bottom: var(--mk-space-4);
 }
-.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-6); flex-wrap: wrap; margin-bottom: var(--mk-space-8); }
+.mk-trust-logos { display: flex; align-items: center; gap: var(--mk-space-6); flex-wrap: wrap; margin-bottom: var(--mk-space-5); }
 .mk-trust-logo-chip {
   background: #fff;
   border-radius: var(--mk-radius-sm);
@@ -434,15 +487,14 @@
   height: 40px;
 }
 .mk-trust-logo-chip img { height: 100%; width: auto; max-width: 96px; object-fit: contain; }
-.mk-trust-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--mk-space-3) var(--mk-space-8);
-  padding-top: var(--mk-space-6);
-  border-top: 1px solid rgba(255,255,255,0.15);
+.mk-trust-line {
+  font-size: var(--mk-text-xs);
+  color: rgba(255,255,255,0.55);
+  line-height: 1.8;
+  padding-top: var(--mk-space-4);
+  border-top: 1px solid rgba(255,255,255,0.12);
 }
-.mk-trust-item { font-size: var(--mk-text-xs); color: rgba(255,255,255,0.75); }
-.mk-trust-item strong { color: #fff; font-weight: 700; }
+.mk-trust-item strong { color: rgba(255,255,255,0.85); font-weight: 700; }
 
 /* ── Value section (Raise More. Do More.) ── */
 .mk-value-grid {
@@ -463,6 +515,9 @@
 .mk-value-links a:hover { color: var(--mk-orange-dark); }
 .mk-value-visual { position: relative; }
 .mk-value-visual .mk-preview-frame { transform: rotate(-1.2deg); }
+/* "Built for teams" stamp — irregular corner radii instead of a clean
+   rectangle, so it reads as a stamped/taped label rather than a SaaS
+   feature badge. */
 .mk-value-tag {
   position: absolute;
   left: -14px;
@@ -474,20 +529,57 @@
   text-transform: uppercase;
   font-size: var(--mk-text-sm);
   padding: var(--mk-space-3) var(--mk-space-5);
-  border-radius: var(--mk-radius-sm);
+  border-radius: 2px 8px 3px 9px;
   transform: rotate(-2deg);
+  box-shadow: 0 1px 0 rgba(18,17,16,0.15);
+}
+.mk-value-arrow {
+  position: absolute;
+  width: 44px;
+  height: 30px;
+  right: -30px;
+  top: -34px;
+  color: var(--mk-ink-2);
+  transform: rotate(18deg) scaleX(-1);
+}
+@media (min-width: 1200px) {
+  /* One small, controlled break of the container boundary — the screenshot
+     overflows the section's right edge slightly rather than sitting in a
+     perfectly balanced two-column split. */
+  .mk-value-visual { margin-right: -32px; }
 }
 @media (max-width: 860px) {
   .mk-value-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); }
-  .mk-value-visual { order: -1; }
+  .mk-value-visual { order: -1; margin-right: 0; }
   .mk-value-visual .mk-preview-frame { transform: none; }
   .mk-value-tag { left: 8px; top: -14px; }
+  .mk-value-arrow { display: none; }
 }
 
-/* ── What teams fund ── */
-.mk-fund-section { background: var(--mk-orange); color: var(--mk-ink); }
+/* ── What teams fund ──
+   One oversized faded background word + one cactus mark — the only two
+   decorative additions here; the numbered list/orange field are unchanged. */
+.mk-fund-section { background: var(--mk-orange); color: var(--mk-ink); position: relative; overflow: hidden; }
 .mk-fund-section .mk-eyebrow { color: var(--mk-ink); opacity: 0.7; }
+.mk-fund-section .mk-container { position: relative; z-index: 1; }
+.mk-fund-bg-word {
+  position: absolute;
+  z-index: 0;
+  right: var(--mk-space-8);
+  bottom: -0.12em;
+  font-size: clamp(5rem, 16vw, 11rem);
+  line-height: 1;
+  color: rgba(18,17,16,0.09);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+.mk-eyebrow.mk-eyebrow--with-mark { display: inline-flex; align-items: center; gap: var(--mk-space-2); }
+.mk-fund-cactus { width: 18px; height: 18px; flex-shrink: 0; }
 .mk-fund-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--mk-space-16); align-items: start; }
+@media (max-width: 700px) {
+  .mk-fund-bg-word { display: none; }
+}
 .mk-fund-list { list-style: none; margin: var(--mk-space-8) 0 0; padding: 0; }
 .mk-fund-list li {
   display: flex;
@@ -518,17 +610,44 @@
   opacity: 0.15;
 }
 
-/* ── Stories (built for real teams) — editorial columns, not cards ── */
-.mk-story-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
-.mk-story-col { padding: 0 var(--mk-space-8); border-left: var(--mk-border-width) solid var(--mk-line); }
-.mk-story-col:first-child { border-left: none; padding-left: 0; }
-.mk-story-col h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-4); }
-.mk-story-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-3); font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-story-col li::before { content: "— "; color: var(--mk-accent-ink); }
-@media (max-width: 860px) {
-  .mk-story-grid { grid-template-columns: 1fr; gap: var(--mk-space-8); }
-  .mk-story-col { border-left: none; padding-left: 0; border-top: var(--mk-border-width) solid var(--mk-line); padding-top: var(--mk-space-8); }
-  .mk-story-col:first-child { border-top: none; padding-top: 0; }
+/* ── Real Opportunities (built for real teams) ──
+   Rebuilt from three equal enterprise-style columns into an editorial
+   index: full-width rows, varied type scale, one row offset for
+   asymmetry, dividing rules instead of a card grid. At most one brand
+   mark (the crown, on Coaches only) in the whole section. */
+.mk-persona-index { border-top: var(--mk-border-width) solid var(--mk-line); }
+.mk-persona-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: var(--mk-space-10);
+  align-items: baseline;
+  padding: var(--mk-space-8) 0;
+  border-bottom: var(--mk-border-width) solid var(--mk-line);
+}
+.mk-persona-row-offset { padding-left: var(--mk-space-12); }
+.mk-persona-row-head { display: flex; align-items: baseline; gap: var(--mk-space-4); }
+.mk-persona-row-num {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  font-size: var(--mk-text-2xl);
+  color: var(--mk-ink);
+  opacity: 0.18;
+  flex-shrink: 0;
+}
+.mk-persona-row-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--mk-space-3);
+  font-size: clamp(1.85rem, 4.2vw, 2.75rem);
+}
+.mk-persona-row-head h3.mk-persona-row-heading-sm { font-size: clamp(1.4rem, 3vw, 2rem); opacity: 0.85; }
+.mk-persona-crown { width: 26px; height: 26px; color: var(--mk-accent-ink); flex-shrink: 0; }
+.mk-persona-row ul { list-style: none; margin: var(--mk-space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-2); font-size: var(--mk-text-sm); color: var(--mk-muted); }
+.mk-persona-row li::before { content: "— "; color: var(--mk-accent-ink); }
+@media (max-width: 760px) {
+  .mk-persona-row { grid-template-columns: 1fr; gap: var(--mk-space-3); padding: var(--mk-space-6) 0; }
+  .mk-persona-row-offset { padding-left: 0; }
+  .mk-persona-row ul { margin-top: var(--mk-space-2); }
 }
 
 /* ── Capability sections (alternating) ── */
@@ -541,6 +660,63 @@
 @media (max-width: 860px) {
   .mk-capability-grid, .mk-capability-grid.mk-reverse { grid-template-columns: 1fr; }
   .mk-capability-grid.mk-reverse .mk-capability-copy { order: 0; }
+}
+
+/* Homepage-only modifiers so Fundraising/Communication/Sponsors each get a
+   distinct rhythm instead of repeating the same split three times.
+   Communication intentionally gets no modifier — staying the calmest of
+   the three by contrast with its neighbors. */
+
+/* Fundraising — most expressive: screenshot breaks the container edge, a
+   stamp label sits on its corner, a hand-drawn arrow points at it. */
+.mk-capability--expressive .mk-capability-visual { position: relative; }
+.mk-capability-arrow {
+  width: 46px;
+  height: 30px;
+  color: var(--mk-accent-ink);
+  margin-top: var(--mk-space-4);
+  transform: rotate(4deg);
+}
+/* A small rotated, roughly-cut label — the same "stamped" language as
+   .mk-value-tag but reusable wherever a screenshot needs a tag. */
+.mk-stamp {
+  position: absolute;
+  top: var(--mk-space-4);
+  right: calc(-1 * var(--mk-space-4));
+  background: var(--mk-ink);
+  color: #fff;
+  font-size: var(--mk-text-xs);
+  padding: var(--mk-space-2) var(--mk-space-4);
+  border-radius: 2px 7px 3px 8px;
+  transform: rotate(3deg);
+  z-index: 2;
+  white-space: nowrap;
+}
+@media (min-width: 1200px) {
+  .mk-capability--expressive .mk-capability-visual { margin-right: -28px; }
+}
+@media (max-width: 860px) {
+  .mk-capability-arrow { display: none; }
+  .mk-capability--expressive .mk-capability-visual { margin-right: 0; }
+  .mk-stamp { right: var(--mk-space-2); top: calc(-1 * var(--mk-space-3)); }
+}
+
+/* Sponsors — its own rhythm: centered intro above a two-column community
+   board, rather than the side-by-side split the other two sections use. */
+.mk-capability--community .mk-capability-copy--centered {
+  max-width: 640px;
+  margin: 0 auto var(--mk-space-10);
+  text-align: center;
+}
+.mk-capability--community .mk-capability-copy--centered p { margin-left: auto; margin-right: auto; }
+.mk-capability--community-body {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: var(--mk-space-12);
+  align-items: center;
+}
+@media (max-width: 860px) {
+  .mk-capability--community-body { grid-template-columns: 1fr; gap: var(--mk-space-8); }
 }
 
 /* Illustrative (non-photographic) UI preview panel — "browser chrome" frame
@@ -689,6 +865,10 @@
 .mk-cta-band p { color: rgba(255,255,255,0.72); font-size: var(--mk-text-base); max-width: 52ch; margin: 0 auto var(--mk-space-8); }
 .mk-cta-band .mk-btn-primary { background: #fff; color: var(--mk-ink); }
 .mk-cta-band .mk-btn-primary:hover { background: var(--mk-paper-2); }
+/* Homepage-only modifier: one brand mark (reusing the hero's crown, not a
+   new mark) above the headline — the only change from the shared band
+   used elsewhere, per creative direction not to redesign this section. */
+.mk-cta-crown { width: 30px; height: 30px; color: var(--mk-yellow); margin: 0 auto var(--mk-space-5); display: block; }
 
 /* ── Footer ── */
 /* Explicit background/color reset: globals.css (shared with the Team App)

@@ -4,6 +4,7 @@ import { LinkButton } from "@/components/marketing/Button";
 import { ProductPreview } from "@/components/marketing/ProductPreview";
 import { FaqList } from "@/components/marketing/FaqList";
 import { MediaPlaceholder } from "@/components/marketing/MediaPlaceholder";
+import { CrownMark, CactusMark, ArrowMark } from "@/components/marketing/brand-marks/BrandMarks";
 
 // Anchors here must match the section ids below exactly — one card per
 // section, no duplicates.
@@ -68,10 +69,23 @@ const FAQS = [
 export default function MarketingPage() {
   return (
     <MarketingShell>
-      {/* ── HERO ── */}
+      {/* ── HERO ──
+          Media and headline are one composition, not a left-text/right-box
+          split: the media slot bleeds to the viewport edge behind the copy,
+          and the copy column is wide enough to overlap its left edge (see
+          .mk-hero-copy / .mk-hero-media in marketing.css). A scrim on the
+          media's left edge keeps that overlap legible once a real photo
+          replaces the placeholder. */}
       <section className="mk-hero">
-        <div className="mk-container mk-hero-grid">
-          <div>
+        <div className="mk-hero-media">
+          <MediaPlaceholder
+            label="Team huddle or sideline moment — real athletes, documentary style, not posed"
+            aspect="4 / 5"
+            variant="bleed"
+          />
+        </div>
+        <div className="mk-container mk-hero-inner">
+          <div className="mk-hero-copy">
             <span className="mk-hero-tag">Proudly serving Arizona schools</span>
             <h1>
               Fund<br />
@@ -82,24 +96,23 @@ export default function MarketingPage() {
               ELF helps teams raise money, build stronger programs, and keep everyone connected &mdash;
               in one place instead of five.
             </p>
-            <span className="mk-hand mk-hero-hand">Same team. Bigger opportunities.</span>
+            <span className="mk-hand mk-hero-hand">
+              <CrownMark className="mk-hero-crown" />
+              Same team. Bigger opportunities.
+            </span>
             <div className="mk-hero-actions">
               <LinkButton href="/demo" size="lg">Get Started</LinkButton>
               <LinkButton href="/product" variant="outline" size="lg">See ELF in Action</LinkButton>
             </div>
             <p className="mk-hero-note">No commitment. 20 minutes. Built around your program.</p>
           </div>
-
-          <div className="mk-hero-visual">
-            <MediaPlaceholder
-              label="Team huddle or sideline moment — real athletes, documentary style, not posed"
-              aspect="4 / 5"
-            />
-          </div>
         </div>
       </section>
 
-      {/* ── TRUST STRIP ── */}
+      {/* ── TRUST STRIP ──
+          Deliberately kept calm per creative direction: real logos stay, but
+          the trust facts read as one quiet caption line rather than a wall
+          of feature badges competing with the hero. */}
       <section className="mk-trust-band">
         <div className="mk-container">
           <p className="mk-trust-eyebrow">Trusted by programs across Arizona and beyond</p>
@@ -110,13 +123,13 @@ export default function MarketingPage() {
               </span>
             ))}
           </div>
-          <div className="mk-trust-grid">
-            {TRUST_FACTS.map((f) => (
+          <p className="mk-trust-line">
+            {TRUST_FACTS.map((f, i) => (
               <span className="mk-trust-item" key={f.label}>
-                <strong>{f.label}.</strong> {f.detail}.
+                <strong>{f.label}</strong> &mdash; {f.detail}{i < TRUST_FACTS.length - 1 ? "  ·  " : ""}
               </span>
             ))}
-          </div>
+          </p>
         </div>
       </section>
 
@@ -146,15 +159,23 @@ export default function MarketingPage() {
               demoNote="Demo data — Riverside High School is a sample program, not a real customer."
             />
             <span className="mk-value-tag mk-display">Built for teams</span>
+            <ArrowMark className="mk-value-arrow" />
           </div>
         </div>
       </section>
 
-      {/* ── WHAT ARE WE FUNDING ── */}
+      {/* ── WHAT ARE WE FUNDING ──
+          One oversized faded background word + one cactus mark — the only
+          two decorative additions in this section, per creative direction
+          (keep the numbered list and orange field exactly as-is otherwise). */}
       <section className="mk-section mk-fund-section">
+        <span className="mk-fund-bg-word mk-display" aria-hidden="true">SEASON</span>
         <div className="mk-container mk-fund-grid">
           <div>
-            <span className="mk-eyebrow">More than fundraising</span>
+            <span className="mk-eyebrow mk-eyebrow--with-mark">
+              <CactusMark className="mk-fund-cactus" />
+              More than fundraising
+            </span>
             <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>What are we funding?</h2>
             <ul className="mk-fund-list">
               {FUND_ITEMS.map((f) => (
@@ -166,8 +187,12 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── FUNDRAISING ── */}
-      <section className="mk-section mk-capability" id="fundraising">
+      {/* ── FUNDRAISING ──
+          The most expressive of the three product sections: the screenshot
+          breaks its container's right edge and carries a rotated stamp +
+          a hand-drawn arrow pointing at it from the copy. Communication and
+          Sponsors deliberately do NOT repeat this treatment. */}
+      <section className="mk-section mk-capability mk-capability--expressive" id="fundraising">
         <div className="mk-container mk-capability-grid">
           <div className="mk-capability-copy">
             <span className="mk-eyebrow">Fundraising</span>
@@ -180,12 +205,16 @@ export default function MarketingPage() {
               <li>Real-time campaign tracking for coaches and ADs</li>
               <li>Stripe-powered payments with clear, transparent fees</li>
             </ul>
+            <ArrowMark className="mk-capability-arrow" />
           </div>
-          <ProductPreview
-            label="Athlete leaderboard"
-            image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
-            demoNote="Demo data — Riverside High School is a sample program, not a real customer."
-          />
+          <div className="mk-capability-visual">
+            <ProductPreview
+              label="Athlete leaderboard"
+              image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
+              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+            />
+            <span className="mk-stamp mk-display">Live leaderboard</span>
+          </div>
         </div>
       </section>
 
@@ -211,25 +240,30 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── SPONSORS & REPORTING ── */}
-      <section className="mk-section mk-capability" id="sponsors">
-        <div className="mk-container mk-capability-grid">
-          <div className="mk-capability-copy">
+      {/* ── SPONSORS & REPORTING ──
+          Its own rhythm: a centered intro above a two-column community-board
+          layout, rather than the side-by-side split Fundraising/Communication
+          use — reads as a distinct beat, not a third repetition. */}
+      <section className="mk-section mk-capability mk-capability--community" id="sponsors">
+        <div className="mk-container">
+          <div className="mk-capability-copy mk-capability-copy--centered">
             <span className="mk-eyebrow">Sponsors &amp; Reporting</span>
             <h2 className="mk-display" style={{ fontSize: "var(--mk-text-3xl)" }}>Your town has your back.</h2>
             <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
               A dedicated CRM tracks every sponsor conversation, and reporting rolls it all up so coaches and ADs always know where things stand.
             </p>
+          </div>
+          <div className="mk-capability--community-body">
             <ul className="mk-capability-list">
               <li>Sponsor CRM with activity history and renewal tracking</li>
               <li>Sponsor placement directly on your campaign page</li>
               <li>Reporting built for coaches, ADs, and booster leadership</li>
             </ul>
+            <ProductPreview
+              label="Sponsor placement"
+              image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
+            />
           </div>
-          <ProductPreview
-            label="Sponsor placement"
-            image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
-          />
         </div>
       </section>
 
@@ -278,25 +312,37 @@ export default function MarketingPage() {
             <span className="mk-eyebrow">Built for real teams</span>
             <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>Real opportunities for real teams.</h2>
           </div>
-          <div className="mk-story-grid">
-            <div className="mk-story-col">
-              <h3>Coaches</h3>
+          <div className="mk-persona-index">
+            <div className="mk-persona-row">
+              <div className="mk-persona-row-head">
+                <span className="mk-persona-row-num">01</span>
+                <h3 className="mk-display">
+                  Coaches
+                  <CrownMark className="mk-persona-crown" />
+                </h3>
+              </div>
               <ul>
                 <li>One login, not a group text and three spreadsheets</li>
                 <li>Less time on admin, more time coaching</li>
                 <li>Parent and athlete communication in one thread</li>
               </ul>
             </div>
-            <div className="mk-story-col">
-              <h3>Athletic Directors</h3>
+            <div className="mk-persona-row mk-persona-row-offset">
+              <div className="mk-persona-row-head">
+                <span className="mk-persona-row-num">02</span>
+                <h3 className="mk-display mk-persona-row-heading-sm">Athletic Directors</h3>
+              </div>
               <ul>
                 <li>Visibility across every team&rsquo;s fundraising</li>
                 <li>Consistent tools across the whole department</li>
                 <li>Sponsor relationships tracked, not lost to memory</li>
               </ul>
             </div>
-            <div className="mk-story-col">
-              <h3>Booster Clubs</h3>
+            <div className="mk-persona-row">
+              <div className="mk-persona-row-head">
+                <span className="mk-persona-row-num">03</span>
+                <h3 className="mk-display mk-persona-row-heading-sm">Booster Clubs</h3>
+              </div>
               <ul>
                 <li>Transparent, real-time fundraising totals</li>
                 <li>A shared system instead of parallel spreadsheets</li>
@@ -326,6 +372,7 @@ export default function MarketingPage() {
           unmodified here, only the copy/links below changed. */}
       <section className="mk-section mk-cta-band">
         <div className="mk-container-narrow">
+          <CrownMark className="mk-cta-crown" />
           <h2 className="mk-display" style={{ fontSize: "var(--mk-text-4xl)" }}>Ready to fund your season?</h2>
           <p>No commitment. We&rsquo;ll walk through the platform using your sport as the example.</p>
           <div className="mk-hero-actions" style={{ justifyContent: "center" }}>
