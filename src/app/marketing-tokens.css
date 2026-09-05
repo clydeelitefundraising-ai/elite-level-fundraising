@@ -2,24 +2,50 @@
  * Marketing site design tokens — scoped to the public marketing site only.
  * Deliberately independent of globals.css / design-system.css (those remain
  * untouched; the Team App does not read any of the tokens below).
+ *
+ * Brand: modern sports-editorial identity — near-black, warm off-white, and
+ * a bold ELF orange, with yellow used only as a small high-energy accent.
+ * Supersedes the earlier navy/brass B2B palette in full.
  */
 
 :root {
   /* ── Color ── */
-  --mk-ink:        #0B1E3D; /* brand navy — matches logo/email templates */
-  --mk-ink-2:       #1E3358;
-  --mk-muted:       #4B5566;
-  --mk-paper:       #FFFFFF;
-  --mk-paper-2:     #F6F5F1; /* warm off-white, section separation */
-  --mk-line:        #E3E1D9;
-  --mk-line-strong: #C9C6BB;
-  --mk-accent:      #9C7A2E; /* muted brass — used sparingly, never as a fill */
-  --mk-accent-ink:  #7A5F22;
-  --mk-focus:       #0B1E3D;
+  --mk-ink:         #121110; /* near-black, warm rather than blue-black */
+  --mk-ink-2:       #2A2724; /* charcoal — secondary text on light surfaces */
+  --mk-muted:       #63594E; /* warm gray for body copy on light surfaces */
+  --mk-paper:       #FFFFFF; /* pure/light surface */
+  --mk-paper-2:     #F5F0E6; /* warm paper — the off-white section background */
+  --mk-line:        #E4DCC8;
+  --mk-line-strong: #C9BC9E;
+
+  --mk-orange:      #FF5A1F; /* primary ELF orange — used boldly, full sections/fills */
+  --mk-orange-dark: #DE4712; /* hover/active state for orange fills */
+  --mk-orange-soft: #FFE4D6; /* rare: light orange tint for on-paper accents/badges */
+  --mk-yellow:      #FFCA2A; /* small accent only — headline highlight, underline, badges */
+  --mk-yellow-ink:  #3A2A00; /* text color when placed on the yellow accent */
+
+  /* Aliases kept for every existing selector across marketing.css that isn't
+     in Phase 2's scope (eyebrows, trust icons, list markers, step numbers,
+     FAQ hover, etc.) — repointed to the new palette so those sections pick
+     up the brand refresh automatically without being touched directly.
+     --mk-accent-ink is deliberately darker than --mk-orange for AA text
+     contrast on light surfaces (~6:1 vs. white); --mk-accent is the fill
+     tone used for non-text marks (dots, bars, underlines). */
+  --mk-accent:      var(--mk-orange);
+  --mk-accent-ink:  #B23A15;
+
+  --mk-focus:       var(--mk-ink); /* neutral/high-contrast so the ring reads clearly against orange fills too */
   --mk-good:        #2F6B4F;
   --mk-good-soft:   #E5EFE9;
-  --mk-error:       #A0362A;
-  --mk-error-soft:  #F5E4E1;
+  --mk-error:       #B23A20;
+  --mk-error-soft:  #F6E3DC;
+
+  /* ── Typography families ──
+     Body: Inter (existing, unchanged — highly legible UI/paragraph text).
+     Display: bold condensed athletic face for major headlines.
+     Hand: marker/brush accent face — sparing use only, never body copy. */
+  --mk-font-display: var(--mk-font-display-family), Impact, "Arial Narrow Bold", sans-serif;
+  --mk-font-hand:    var(--mk-font-hand-family), "Segoe Print", cursive;
 
   /* ── Type scale ── */
   --mk-text-xs:   0.8125rem;
@@ -53,8 +79,14 @@
   /* ── Layout ── */
   --mk-content-width: 1120px;
   --mk-content-width-narrow: 760px;
-  --mk-radius-sm: 3px;
-  --mk-radius-md: 6px;
+
+  /* Sharper, more deliberate geometry — small radii, not the soft/pill
+     rounding of generic SaaS UI. */
+  --mk-radius-sm: 2px;
+  --mk-radius-md: 3px;
+  --mk-border-width: 1.5px;
+  --mk-border-width-strong: 2px;
+
   --mk-nav-height: 72px;
 
   /* ── Motion ── */

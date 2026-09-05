@@ -1,13 +1,24 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "secondary";
+// "secondary" is kept as an alias of the light/outline treatment for
+// backward compatibility with existing call sites — new call sites can use
+// "outline" directly. "dark" and "text" are additive.
+type Variant = "primary" | "secondary" | "dark" | "outline" | "text";
 type Size = "md" | "lg";
+
+const VARIANT_CLASS: Record<Variant, string> = {
+  primary: "mk-btn-primary",
+  secondary: "mk-btn-outline",
+  outline: "mk-btn-outline",
+  dark: "mk-btn-dark",
+  text: "mk-btn-text",
+};
 
 const classFor = (variant: Variant, size: Size, block?: boolean) =>
   [
     "mk-btn",
-    variant === "primary" ? "mk-btn-primary" : "mk-btn-secondary",
+    VARIANT_CLASS[variant],
     size === "lg" ? "mk-btn-lg" : "",
     block ? "mk-btn-block" : "",
   ]

@@ -1,7 +1,7 @@
 import "../../app/marketing-tokens.css";
 import "../../app/marketing.css";
 import type { ReactNode } from "react";
-import { marketingFont } from "./fonts";
+import { marketingFont, marketingDisplayFont, marketingHandFont } from "./fonts";
 import { MarketingNav } from "./MarketingNav";
 import { MarketingFooter } from "./MarketingFooter";
 
@@ -11,7 +11,10 @@ import { MarketingFooter } from "./MarketingFooter";
 // has no relationship to /team, /admin, or /campaign.
 export function MarketingShell({ children }: { children: ReactNode }) {
   return (
-    <div className={`mk-root ${marketingFont.variable}`} style={{ fontFamily: "var(--mk-font)" }}>
+    <div
+      className={`mk-root ${marketingFont.variable} ${marketingDisplayFont.variable} ${marketingHandFont.variable}`}
+      style={{ fontFamily: "var(--mk-font)" }}
+    >
       <a href="#main-content" className="mk-skip-link">
         Skip to main content
       </a>
