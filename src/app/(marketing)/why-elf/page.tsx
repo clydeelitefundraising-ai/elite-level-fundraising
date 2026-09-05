@@ -53,17 +53,38 @@ export default function WhyElfPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>Why Elite Level Fundraising exists</h1>
+          <span className="mk-eyebrow">Why ELF</span>
+          <h1 className="mk-display">
+            Not a longer <span className="mk-marker-underline">feature list.</span>
+          </h1>
           <p>
-            Not a longer feature list &mdash; the reasoning behind the platform, and what we&rsquo;re
-            actually trying to fix for coaches and programs.
+            The reasoning behind the platform, and what we&rsquo;re actually trying to fix for
+            coaches and programs.
           </p>
         </div>
       </div>
 
       <div className="mk-section">
         <div className="mk-container-narrow">
-          {THEMES.map((t) => (
+          {THEMES.slice(0, 1).map((t) => (
+            <div className="mk-manifesto-block" key={t.title}>
+              <h2>{t.title}</h2>
+              <p>{t.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mk-section mk-statement-band mk-statement-ink">
+        <div className="mk-container-narrow">
+          <p className="mk-statement-text" style={{ marginBottom: "var(--mk-space-4)" }}>{THEMES[1].title}</p>
+          <p style={{ color: "rgba(255,255,255,0.72)", maxWidth: "62ch" }}>{THEMES[1].body}</p>
+        </div>
+      </div>
+
+      <div className="mk-section">
+        <div className="mk-container-narrow">
+          {THEMES.slice(2).map((t) => (
             <div className="mk-manifesto-block" key={t.title}>
               <h2>{t.title}</h2>
               <p>{t.body}</p>

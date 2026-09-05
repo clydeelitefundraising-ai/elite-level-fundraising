@@ -71,7 +71,10 @@ export default function FundraisingPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>Fundraising, explained for every role on the team</h1>
+          <span className="mk-eyebrow">Fundraising</span>
+          <h1 className="mk-display">
+            Fund the season. <span className="mk-marker-underline">Every role</span> covered.
+          </h1>
           <p>
             One campaign, one page, and a different view for everyone who touches it — coach,
             athlete, parent, donor, and administrator.
@@ -82,7 +85,7 @@ export default function FundraisingPage() {
       <div className="mk-section">
         <div className="mk-container-narrow">
           {PERSONAS.map((p, i) => (
-            <div className="mk-persona-block" key={p.role} style={i % 2 === 1 ? { background: "var(--mk-paper-2)", marginLeft: "calc(-1 * var(--mk-space-8))", marginRight: "calc(-1 * var(--mk-space-8))", paddingLeft: "var(--mk-space-8)", paddingRight: "var(--mk-space-8)", borderRadius: "var(--mk-radius-md)" } : undefined}>
+            <div className={`mk-persona-block ${i % 2 === 1 ? "mk-persona-block-alt" : ""}`} key={p.role}>
               <div className="mk-persona-grid">
                 <div>
                   <span className="mk-eyebrow">{p.role}</span>

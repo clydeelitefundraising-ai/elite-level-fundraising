@@ -90,6 +90,7 @@ export default function FaqPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
+          <span className="mk-eyebrow">FAQ</span>
           <h1>Frequently asked questions</h1>
           <p>Organized by topic. If your question isn&rsquo;t here, email us directly.</p>
         </div>

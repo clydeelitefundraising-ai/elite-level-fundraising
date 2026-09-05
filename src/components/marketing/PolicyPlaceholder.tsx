@@ -12,7 +12,7 @@ interface PolicyPlaceholderProps {
 export function PolicyPlaceholder({ title, summary, children }: PolicyPlaceholderProps) {
   return (
     <>
-      <div className="mk-page-hero">
+      <div className="mk-page-hero mk-page-hero-trust">
         <div className="mk-container-narrow">
           <h1>{title}</h1>
           <p>{summary}</p>

@@ -174,7 +174,10 @@ export default function ProductPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>How Elite Level Fundraising works</h1>
+          <span className="mk-eyebrow">The product</span>
+          <h1 className="mk-display">
+            How ELF <span className="mk-marker-underline">works.</span>
+          </h1>
           <p>
             One platform, from the first setup call to the last donation of the season.
             Here&rsquo;s what actually happens at each stage.

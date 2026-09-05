@@ -27,7 +27,7 @@ const LEGAL_PAGES = [
 export default function TrustIndexPage() {
   return (
     <>
-      <div className="mk-page-hero">
+      <div className="mk-page-hero mk-page-hero-trust">
         <div className="mk-container-narrow">
           <h1>Trust Center</h1>
           <p>

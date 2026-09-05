@@ -768,6 +768,25 @@
 .mk-persona-grid h3 { font-size: var(--mk-text-xl); }
 @media (max-width: 760px) { .mk-persona-grid { grid-template-columns: 1fr; gap: var(--mk-space-4); } }
 
+/* Alternating background — was an inline negative-margin/padding bleed that
+   overflowed the viewport once .mk-container-narrow's own width approached
+   the viewport width (its 24px padding is smaller than the 32px bleed).
+   Bug pre-existed Phase 4; caught during this phase's responsive check.
+   Above 800px there's enough surrounding whitespace for the bleed to read
+   as a soft full-bleed tint; below it, keep the background flush inside
+   the existing container padding instead. */
+.mk-persona-block-alt {
+  background: var(--mk-paper-2);
+  margin-left: calc(-1 * var(--mk-space-8));
+  margin-right: calc(-1 * var(--mk-space-8));
+  padding-left: var(--mk-space-8);
+  padding-right: var(--mk-space-8);
+  border-radius: var(--mk-radius-md);
+}
+@media (max-width: 800px) {
+  .mk-persona-block-alt { margin-left: 0; margin-right: 0; padding-left: var(--mk-space-4); padding-right: var(--mk-space-4); }
+}
+
 /* ── Differentiator panel (Sponsors page) ── */
 .mk-differentiator {
   border: 1px solid var(--mk-line-strong);
@@ -820,6 +839,49 @@
 .mk-trust-index-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
 @media (max-width: 860px) { .mk-trust-index-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .mk-trust-index-grid { grid-template-columns: 1fr; } }
+
+/* Trust Center index cards — referenced by trust/page.tsx but never defined
+   until now (pre-existing gap: rendered as unstyled link blocks). Calm,
+   bordered, no doodles/shadows — the "serious side" of the brand. */
+.mk-module-card {
+  display: block;
+  text-decoration: none;
+  border: var(--mk-border-width) solid var(--mk-line);
+  border-radius: var(--mk-radius-md);
+  padding: var(--mk-space-6);
+  transition: border-color var(--mk-duration) var(--mk-ease);
+}
+.mk-module-card:hover { border-color: var(--mk-orange); }
+.mk-module-card h2 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); color: var(--mk-ink); }
+.mk-module-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
+
+/* Trust/Legal hero variant — "unmistakably ELF but calmer": a slim orange
+   top rule instead of any display type/marker accent, which are reserved
+   for the higher-personality pages. */
+.mk-page-hero-trust { border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+
+/* ── Short bold statement band — a single-sentence pull-statement used
+   sparingly (at most once per high-personality page) to restate something
+   the page already says in prose, as a strong editorial beat rather than a
+   new claim. Never used on pricing/trust/legal/FAQ. ── */
+.mk-statement-band { padding: var(--mk-space-16) 0; }
+.mk-statement-band.mk-statement-orange { background: var(--mk-orange); color: var(--mk-ink); }
+.mk-statement-band.mk-statement-ink { background: var(--mk-ink); color: #fff; }
+.mk-statement-text {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 1.05;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  max-width: 18ch;
+  margin: 0;
+}
+
+/* Sponsors: the existing differentiator panel, in the brand's bold orange
+   instead of the neutral paper-2 treatment used elsewhere — the one place
+   on this page that earns a full-color block. */
+.mk-differentiator-orange { background: var(--mk-orange); border-color: transparent; }
+.mk-differentiator-orange p { color: var(--mk-ink); }
 
 .mk-prose { max-width: var(--mk-content-width-narrow); }
 .mk-prose h2 { font-size: var(--mk-text-xl); margin: var(--mk-space-10) 0 var(--mk-space-3); }

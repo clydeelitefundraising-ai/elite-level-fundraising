@@ -19,6 +19,7 @@ export default function ContactPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
+          <span className="mk-eyebrow">Contact</span>
           <h1>Get in touch</h1>
           <p>
             Whether you have a quick question or you&rsquo;re ready to see the platform, here&rsquo;s
