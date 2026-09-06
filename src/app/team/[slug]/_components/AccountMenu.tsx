@@ -98,7 +98,7 @@ export default function AccountMenu({
             {/* Account identity */}
             {accountName && (
               <div style={{ padding: ".85rem 1rem .7rem", borderBottom: "1px solid #f0f0f0" }}>
-                <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{accountName}</div>
+                <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{accountName}</div>
                 <a
                   href="/teams"
                   onClick={() => setOpen(false)}
@@ -139,14 +139,14 @@ export default function AccountMenu({
                     >
                       <div style={{
                         width: 26, height: 26, borderRadius: "50%",
-                        background: team.primary_color || "#0b1e3d",
+                        background: team.primary_color || "var(--elf-orange)",
                         flexShrink: 0, display: "flex", alignItems: "center",
                         justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: ".68rem",
                       }}>
                         {team.school_name.charAt(0).toUpperCase()}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: ".84rem", fontWeight: 700, color: "#0b1e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontSize: ".84rem", fontWeight: 700, color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {team.school_name}
                         </div>
                         <div style={{ fontSize: ".68rem", color: "#6b7280" }}>{team.sport_name}</div>

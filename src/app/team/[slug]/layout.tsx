@@ -7,6 +7,7 @@ import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
 import { isPlatformAdmin } from "@/lib/permissions";
+import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 import TeamHeader from "./_components/TeamHeader";
 import PlatformAdminBanner from "./_components/PlatformAdminBanner";
 import TeamChrome from "./_components/TeamChrome";
@@ -62,6 +63,14 @@ export default async function TeamLayout({
   const showRequests = isHeadCoach(actor);
   const pendingAthleteRequestCount = showRequests ? await getPendingRequestCount(slug) : 0;
 
+  // Phase 2: dynamic team theming. Resolves to ELF-orange defaults when a
+  // team hasn't customized branding. Set once here as CSS custom
+  // properties on the shell root so any descendant can opt into
+  // var(--team-primary) etc. without prop drilling — existing inline
+  // colors elsewhere (e.g. TeamNav's primaryColor prop) are untouched by
+  // this and keep working exactly as before.
+  const teamThemeVars = resolveTeamTheme(settings.primary_color, settings.secondary_color);
+
   return (
     <>
     <style>{`
@@ -80,6 +89,7 @@ export default async function TeamLayout({
       display: "flex",
       justifyContent: "center",
       alignItems: "flex-start",
+      ...(teamThemeVars as React.CSSProperties),
     }}>
       <div className={styles.shellPanel} style={{
         minHeight: "100vh",

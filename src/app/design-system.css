@@ -38,38 +38,42 @@
 }
 
 .elf-btn:focus-visible {
-  outline: 2px solid var(--color-gold-bright);
+  outline: 2px solid var(--team-primary);
   outline-offset: 3px;
 }
 
-/* Primary — gold fill */
+/* Primary — team-accent fill. Defaults to ELF orange (see globals.css
+   --team-primary fallback); becomes the active team's brand color
+   automatically once set on an ancestor (team layout root). Foreground
+   uses --team-primary-foreground, which is contrast-resolved per team
+   by resolveTeamTheme()/getForegroundForBackground() — never hardcode
+   white or black text on this class directly. */
 .elf-btn-primary {
-  background: var(--color-gold-bright);
-  color: var(--color-navy-900);
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
 }
 
 .elf-btn-primary:hover {
-  background: var(--color-gold-mid);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-gold);
+  filter: brightness(0.92);
+  transform: translateY(-1px);
 }
 
 .elf-btn-primary:active {
   transform: translateY(0);
-  box-shadow: none;
+  filter: brightness(0.85);
 }
 
-/* Secondary — ghost/outline */
+/* Secondary — ghost/outline, team-accent border */
 .elf-btn-secondary {
   background: transparent;
-  color: var(--color-gold-bright);
-  border: 1.5px solid var(--color-gold-bright);
+  color: var(--team-primary);
+  border: 1.5px solid var(--team-primary);
 }
 
 .elf-btn-secondary:hover {
-  background: var(--color-gold-glow);
-  border-color: var(--color-gold-bright);
-  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--team-primary) 10%, transparent);
+  border-color: var(--team-primary);
+  transform: translateY(-1px);
 }
 
 .elf-btn-secondary:active {
@@ -646,6 +650,71 @@
 
 .elf-divider-gold {
   border-top-color: var(--color-gold-border);
+}
+
+
+/* ─────────────────────────────────────────────
+   LIGHT-FIRST APP PRIMITIVES (Phase 2)
+   Utility-first surfaces for the authenticated Team App —
+   flat sections and list rows preferred over floating cards,
+   per the "80% utility / 20% brand personality" design brief.
+───────────────────────────────────────────── */
+
+/* Flat section — no card chrome, just a boundary + spacing.
+   Prefer this over .elf-card for content that doesn't need visual
+   grouping/elevation (most list/detail screens). */
+.elf-section-flat {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--border-app);
+  padding: var(--space-4) 0;
+}
+
+/* Use only when information genuinely needs grouping/elevation
+   (e.g. a summary panel, not a plain list). */
+.elf-surface-card {
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+/* Scannable list row — roster/staff/announcement-list density,
+   avoids the "everything is a card" pattern. */
+.elf-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target-min);
+  padding: var(--space-3) var(--space-1);
+  border-bottom: 1px solid var(--border-app);
+}
+
+.elf-list-row:last-child {
+  border-bottom: none;
+}
+
+.elf-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.elf-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-12) var(--space-4);
+  color: var(--text-muted-app);
 }
 
 
