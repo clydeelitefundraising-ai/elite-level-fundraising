@@ -19,11 +19,20 @@ export default function CommunicationPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>Communication that doesn&rsquo;t live in a group text</h1>
+          <span className="mk-eyebrow">Communication</span>
+          <h1 className="mk-display">
+            Not another <span className="mk-marker-underline">group text.</span>
+          </h1>
           <p>
             A group text has no record, no targeting, and no memory once someone gets a new phone.
             ELF keeps team communication in the same place as everything else.
           </p>
+        </div>
+      </div>
+
+      <div className="mk-section mk-statement-band mk-statement-orange">
+        <div className="mk-container-narrow">
+          <p className="mk-statement-text">Keep everyone in the loop.</p>
         </div>
       </div>
 

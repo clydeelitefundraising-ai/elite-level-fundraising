@@ -13,6 +13,7 @@ export default function DemoPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
+          <span className="mk-eyebrow">Get started</span>
           <h1>Book a Demo</h1>
           <p>
             No commitment, about 20 minutes. We&rsquo;ll show you what your team&rsquo;s page and hub

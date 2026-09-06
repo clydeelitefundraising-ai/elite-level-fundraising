@@ -44,6 +44,7 @@ export default function PricingPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
+          <span className="mk-eyebrow">Pricing</span>
           <h1>Pricing tailored to your program</h1>
           <p>
             We don&rsquo;t have a published price list yet, and we&rsquo;d rather tell you that

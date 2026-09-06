@@ -1,308 +1,247 @@
 import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { LinkButton } from "@/components/marketing/Button";
-import { ProductPreview } from "@/components/marketing/ProductPreview";
-import { FaqList } from "@/components/marketing/FaqList";
+import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
+import Image from "next/image";
 
-// Anchors here must match the section ids below exactly — one card per
-// section, no duplicates.
-const MODULES = [
-  {
-    href: "/fundraising",
-    num: "01",
-    title: "Fundraising",
-    desc: "Athlete pages, live leaderboards, and transparent Stripe-secured payments.",
-  },
-  {
-    href: "/communication",
-    num: "02",
-    title: "Communication",
-    desc: "Announcements, messages, roster, and calendar — one thread instead of five.",
-  },
-  {
-    href: "/sponsors",
-    num: "03",
-    title: "Sponsors & Reporting",
-    desc: "A CRM built to match your program with local businesses ready to invest.",
-  },
+// Phase 8 (asset integration) + the Row 1 replacement pass: the hero photo
+// and every mosaic tile below are now real approved production artwork (not
+// MediaPlaceholder slots) — see /public/marketing/brand/ for exact source
+// files. MediaPlaceholder itself is untouched/still exported for future use
+// elsewhere; it's simply no longer referenced from this page. Row 1 ("Raise
+// More. Do More.") is, like Row 2, a single finished composite image with
+// only a transparent accessible link over its baked-in CTA — no live
+// headline/copy/screenshots are rendered alongside it any more.
+
+// Mockup-fidelity homepage structure (Phase 7): Header/Nav -> Hero ->
+// Trust strip -> three mosaic rows -> Footer. This intentionally REMOVES
+// the previous How It Works / standalone Fundraising / Communication /
+// Sponsors / Coaches-ADs-Boosters / homepage FAQ / final-CTA sections from
+// the HOMEPAGE ONLY — every one of those topics still has its own real,
+// unchanged page (/product, /fundraising, /communication, /sponsors,
+// /pricing, /faq) reachable from nav/footer. See the Phase 7 report for the
+// full rationale and the two content gaps this creates (no page currently
+// hosts the exact "How It Works" 4-step content or the Coaches/ADs/Booster
+// persona breakdown outside the homepage they used to live on).
+
+// Homepage nav uses the mockup's exact wording — every other marketing page
+// keeps the existing NAV_LINKS in MarketingNav.tsx untouched. Mapped to the
+// closest existing real route where the mockup's label has no exact match
+// (see Phase 7 report point on nav mapping):
+//   HOW IT WORKS -> /product   (closest platform-overview page; no
+//                                dedicated "how it works" route exists)
+//   TEAMS        -> /communication (team management/roster/messaging)
+//   SPONSORS     -> /sponsors  (exact match)
+//   PRICING      -> /pricing   (exact match)
+//   RESOURCES    -> /faq       (closest "resource-ish" existing page)
+const HOME_NAV_LINKS = [
+  { href: "/product", label: "How It Works" },
+  { href: "/communication", label: "Teams" },
+  { href: "/sponsors", label: "Sponsors" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/faq", label: "Resources" },
 ];
 
-const FAQS = [
-  {
-    q: "What is Elite Level Fundraising?",
-    a: "A platform built for athletic programs that combines fundraising, team communication, roster and calendar management, and sponsor outreach in one place — instead of a separate tool for each.",
-  },
-  {
-    q: "Is fundraising the whole product?",
-    a: "No. Fundraising is one part of the platform. Coaches also use it for team communication, roster management, and sponsor relationships — the goal is one system instead of several disconnected ones.",
-  },
-  {
-    q: "Where is Elite Level Fundraising available?",
-    a: "We're currently focused on Arizona schools, and the platform is built to support athletic programs nationwide as we grow.",
-  },
-  {
-    q: "How are payments handled?",
-    a: "All donations are processed through Stripe. Elite Level Fundraising does not store card details.",
-  },
-  {
-    q: "What does it cost?",
-    a: "Pricing is tailored to your program and is still evolving as we grow. The best way to get an accurate answer is a short demo.",
-  },
-  {
-    q: "How do I get started?",
-    a: "Request a demo below. We'll walk through the platform using your sport and program as the example, and answer questions before you commit to anything.",
-  },
-];
+// Change 3 (surgical cleanup pass): the trust strip (customer-proof copy,
+// the Glendale/PVCC logo chips, "Real teams. Real results.") was removed
+// from the homepage entirely — ELF has no approved public
+// testimonials/customer-logo endorsements yet, and no fake proof replaces
+// it. The hero's own bottom border (see marketing.css) is the "extremely
+// minimal visual divider" the removal instructions allow in its place.
 
 export default function MarketingPage() {
   return (
-    <MarketingShell>
-      {/* ── HERO ── */}
+    <MarketingShell navVariant="overlay" navLinks={HOME_NAV_LINKS} footerVariant="minimal">
+      {/* ── HERO ──
+          Full-bleed photo, nav and headline sitting directly on top of it as
+          one composition — not a side-by-side split. See marketing.css for
+          the mockup-fidelity notes. */}
       <section className="mk-hero">
-        <div className="mk-container mk-hero-grid">
-          <div>
-            <span className="mk-hero-tag">Proudly serving Arizona schools</span>
-            <h1>The operating system for athletic programs.</h1>
-            <p className="mk-hero-sub">
-              Fundraising, communication, and team management in one platform &mdash;
-              built so coaches spend less time on admin and more time coaching.
-            </p>
-            <div className="mk-hero-actions">
-              <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
-              <LinkButton href="/product" variant="secondary" size="lg">See the Platform</LinkButton>
-            </div>
-            <p className="mk-hero-note">No commitment. 20 minutes. Built around your program.</p>
-          </div>
+        <div className="mk-hero-media">
+          <Image
+            src="/marketing/brand/hero.png"
+            alt="Five football players walking from behind at dusk, arms around each other, stadium lights and palm trees silhouetted against a sunset sky"
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover", objectPosition: "center 30%" }}
+          />
+          <div className="mk-hero-scrim" aria-hidden="true" />
+        </div>
 
-          <div className="mk-hero-visual">
-            <ProductPreview
-              label="Live campaign page"
-              image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
-              demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+        <span className="mk-hero-callout mk-hand">
+          <CrownMark className="mk-hero-crown" />
+          Same grind. Bigger opportunities.
+        </span>
+
+        <div className="mk-container mk-hero-inner">
+          <div className="mk-hero-copy">
+            <h1>
+              Fund<br />
+              the<br />
+              <span className="mk-marker-underline">season.</span>
+            </h1>
+            <p className="mk-hero-sub">Tools. Community. Real impact.</p>
+            <div className="mk-hero-actions">
+              <LinkButton href="/demo" variant="yellow" size="lg">Get Started &rarr;</LinkButton>
+              <a href="/product" className="mk-hero-watch">
+                <span className="mk-hero-watch-icon">
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>
+                </span>
+                Watch video
+              </a>
+            </div>
+            <p className="mk-hero-gear-line mk-hand">
+              Better gear.<br />More travel.<br />Unforgettable experiences.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── MOSAIC ROW 1 — Raise More. Do More. ──
+          Asset-replacement pass: this row is now ONE finished composite
+          artwork (athlete photo, "Big things start locally.", the
+          headline/copy/CTA, and the real-product phone composition are all
+          baked into the image itself) — same "one continuous artwork" +
+          transparent percentage-positioned hit-area pattern already
+          established for Row 2's banner below. The only live element is the
+          accessible link over the image's baked-in "See How It Works"
+          button, routed to the same /product destination the previous live
+          button used. */}
+      <section className="mk-mosaic-row mk-row1-banner">
+        <div className="mk-row1-banner-frame">
+          <Image
+            src="/marketing/brand/raise-more-do-more.png"
+            alt="Big things start locally. Raise more. Do more. ELF makes it easy for high school teams to raise money, manage their program, and keep everyone connected, all in one place. Real Elite Level Fundraising athlete leaderboard and team communications screenshots shown on two phones, captioned Built for teams."
+            fill
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+          />
+          <a
+            href="/product"
+            className="mk-row1-banner-link"
+            aria-label="See How It Works"
+          />
+        </div>
+      </section>
+
+      {/* ── MOSAIC ROW 2 — Real Opportunities for Real Teams. ──
+          Phase 8: this row is now ONE finished composite artwork (the
+          orange panel, both photos, and all their copy/marks are baked into
+          the image itself) — see the Phase 8 report. The only live element
+          is a transparent, percentage-positioned hit-area over the image's
+          baked-in "Explore Stories" button, so it still functions as a
+          real link once its destination is decided (see the TODO below —
+          no dedicated stories/case-studies page exists yet, so this
+          deliberately does not navigate anywhere until that's resolved). */}
+      <section className="mk-mosaic-row mk-row2-banner">
+        {/* Desktop/tablet (>640px): the single panoramic composite, unchanged
+            from the surgical-cleanup pass. Hidden below 640px. */}
+        <div className="mk-row2-banner-frame mk-row2-desktop-only">
+          <Image
+            src="/marketing/brand/real-opportunities-banner.png"
+            alt="More than fundraising. Real opportunities for real teams. This is why we raise: a team of athletes celebrating together, and a squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
+            fill
+            sizes="100vw"
+            style={{ objectFit: "cover" }}
+          />
+          {/* TODO(pending user decision): no real "stories" destination exists
+              on the site yet (Phase 1 audit routes: /about, /why-elf,
+              /product, /fundraising, /communication, /sponsors, /pricing,
+              /faq, /contact, /demo, /trust/*, /legal/*). Per explicit
+              instruction we are not inventing one — this button is
+              keyboard-focusable and announced to screen readers as
+              "Explore Stories" but intentionally does not navigate until a
+              real destination is approved. */}
+          <button
+            type="button"
+            className="mk-row2-banner-link"
+            aria-label="Explore Stories"
+          />
+        </div>
+
+        {/* Mobile (<=640px): the same single source image, shown as three
+            stacked, independently-scaled "windows" onto its orange / team /
+            travel regions, so the baked-in copy reads at a legible size
+            instead of shrinking the whole panorama. See marketing.css for
+            the crop math (each segment: width 100/segFrac%, translateX
+            -startFrac*100%) — no new image files, no re-authored artwork. */}
+        <div className="mk-row2-mobile-only">
+          <div className="mk-row2-seg mk-row2-seg-orange">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="More than fundraising. Real opportunities for real teams."
+              width={2170}
+              height={725}
+              sizes="100vw"
+            />
+            <button
+              type="button"
+              className="mk-row2-banner-link mk-row2-banner-link-mobile"
+              aria-label="Explore Stories"
+            />
+          </div>
+          <div className="mk-row2-seg mk-row2-seg-celebration">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="This is why we raise: a team of athletes celebrating together."
+              width={2170}
+              height={725}
+              sizes="100vw"
+            />
+          </div>
+          <div className="mk-row2-seg mk-row2-seg-travel">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="A squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
+              width={2170}
+              height={725}
+              sizes="100vw"
             />
           </div>
         </div>
       </section>
 
-      {/* ── TRUST BAND ── */}
-      <section className="mk-trust-band">
-        <div className="mk-container mk-trust-grid">
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-4z" /></svg>
-            <div><strong>Secure payments</strong><p>Every donation runs through Stripe. We never store card details.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 21s7-6.1 7-11.5A7 7 0 105 9.5C5 14.9 12 21 12 21z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
-            <div><strong>Built in Arizona</strong><p>Headquartered in Phoenix, built for schools first &mdash; not adapted from something else.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
-            <div><strong>Built with coaches</strong><p>Every feature is shaped by direct feedback from the coaches using it.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M12 22c5.5-1.6 9-6 9-11V5l-9-3-9 3v6c0 5 3.5 9.4 9 11z" /></svg>
-            <div><strong>Real Trust Center</strong><p>Security, privacy, and accessibility practices, documented and public.</p></div>
-          </div>
-          <div className="mk-trust-item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M13 2L4.5 13H11l-1 9L20 10h-6.5l-0.5-8z" /></svg>
-            <div><strong>Direct support</strong><p>When you email us, a person who knows the product answers.</p></div>
-          </div>
+      {/* ── MOSAIC ROW 3 — Athletes Build Better People. ──
+          Stencil photo tile | ELF brand-statement panel | photo tile.
+          Change 2 (surgical cleanup pass): both photo tiles now use a plain
+          (non-`fill`) Image sized by its own intrinsic width/height and an
+          `align-self: center` opt-out of the grid's default row-stretch
+          (see marketing.css) — so neither the artwork's baked-in typography
+          nor its composition gets cropped to fit a box shape the images
+          were never designed for.
+          Change 4: the Coach Bolus quote/attribution/carousel — MOCKUP
+          CONTENT that was never an approved real testimonial — has been
+          removed entirely and replaced with ELF-owned brand copy below.
+          That resolves the standing testimonial-approval warning from
+          every prior report; there is nothing left needing approval here. */}
+      <section className="mk-mosaic-row mk-row3">
+        <div className="mk-mosaic-tile mk-row3-athletics-tile">
+          <Image
+            src="/marketing/brand/athletics-build-better-people.png"
+            alt="Athletics build better people. Stencil-style text painted on a running track's asphalt, with a small cactus graphic."
+            width={1462}
+            height={1076}
+            sizes="(max-width: 900px) 100vw, 33vw"
+          />
         </div>
-      </section>
 
-      {/* ── PROBLEM ── */}
-      <section className="mk-section">
-        <div className="mk-container mk-problem-grid">
-          <div>
-            <span className="mk-eyebrow">The problem</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Running a program shouldn&rsquo;t mean juggling five different apps.</h2>
-          </div>
-          <ul className="mk-problem-list">
-            <li>A fundraising tool for donations, a group text for parents, a spreadsheet for the roster, a separate inbox for sponsors.</li>
-            <li>Coaches spend hours a week on admin instead of practice planning.</li>
-            <li>Nothing talks to anything else, so nothing important stays tracked for long.</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* ── PLATFORM OVERVIEW ── */}
-      <section className="mk-section mk-section-alt" id="platform">
-        <div className="mk-container">
-          <div className="mk-section-head">
-            <span className="mk-eyebrow">One platform</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Less chaos. Better communication. More fundraising.</h2>
-            <p>Three modules, one system of record — fundraising is where we started, not where the platform ends.</p>
-          </div>
-          <div className="mk-module-grid">
-            {MODULES.map((m) => (
-              <a href={m.href} className="mk-module-card" key={m.title}>
-                <span className="mk-module-num">{m.num}</span>
-                <h3>{m.title}</h3>
-                <p>{m.desc}</p>
-              </a>
-            ))}
-          </div>
-          <p style={{ marginTop: "var(--mk-space-8)" }}>
-            <a href="/product" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full guided walkthrough &rarr;</a>
+        <div className="mk-mosaic-tile mk-row3-testimonial">
+          <h2 className="mk-row3-statement-heading mk-display">
+            The season is short.<br />The memories shouldn&rsquo;t be.
+          </h2>
+          <p className="mk-row3-statement-body">
+            Give athletes the opportunity to travel, compete, connect, and make the season count.
           </p>
         </div>
-      </section>
 
-      {/* ── FUNDRAISING ── */}
-      <section className="mk-section mk-capability" id="fundraising">
-        <div className="mk-container mk-capability-grid">
-          <div className="mk-capability-copy">
-            <span className="mk-eyebrow">Fundraising</span>
-            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>Give every athlete a reason to share.</h2>
-            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
-              Each athlete gets a personal fundraising page and a spot on a live leaderboard, so donations feel like team momentum, not a cold ask.
-            </p>
-            <ul className="mk-capability-list">
-              <li>Personal athlete share links and live leaderboards</li>
-              <li>Real-time campaign tracking for coaches and ADs</li>
-              <li>Stripe-powered payments with clear, transparent fees</li>
-            </ul>
-          </div>
-          <ProductPreview
-            label="Athlete leaderboard"
-            image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
-            demoNote="Demo data — Riverside High School is a sample program, not a real customer."
+        <div className="mk-mosaic-tile mk-row3-arm-tile">
+          <Image
+            src="/marketing/brand/give-them-the-season.png"
+            alt="Give them the season they earned. Four athletes with gear bags walking away from the camera into a sunset."
+            width={549}
+            height={553}
+            sizes="(max-width: 900px) 100vw, 33vw"
           />
-        </div>
-      </section>
-
-      {/* ── COMMUNICATION & TEAM MANAGEMENT ── */}
-      <section className="mk-section mk-section-alt mk-capability" id="communication">
-        <div className="mk-container mk-capability-grid mk-reverse">
-          <div className="mk-capability-copy">
-            <span className="mk-eyebrow">Communication &amp; Team Management</span>
-            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>One thread instead of five.</h2>
-            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
-              Announcements, direct messages, the roster, and the calendar all live in the same place coaches already check for donations.
-            </p>
-            <ul className="mk-capability-list">
-              <li>Announcements and direct messaging for coaches, parents, and athletes</li>
-              <li>Shared roster with class year, contact info, and athlete profiles</li>
-              <li>Team calendar and an optional team shop, all in one hub</li>
-            </ul>
-          </div>
-          <ProductPreview
-            label="Team communications"
-            image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
-          />
-        </div>
-      </section>
-
-      {/* ── SPONSORS & REPORTING ── */}
-      <section className="mk-section mk-capability" id="sponsors">
-        <div className="mk-container mk-capability-grid">
-          <div className="mk-capability-copy">
-            <span className="mk-eyebrow">Sponsors &amp; Reporting</span>
-            <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>Sponsor relationships that don&rsquo;t rely on memory.</h2>
-            <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)" }}>
-              A dedicated CRM tracks every sponsor conversation, and reporting rolls it all up so coaches and ADs always know where things stand.
-            </p>
-            <ul className="mk-capability-list">
-              <li>Sponsor CRM with activity history and renewal tracking</li>
-              <li>Sponsor placement directly on your campaign page</li>
-              <li>Reporting built for coaches, ADs, and booster leadership</li>
-            </ul>
-          </div>
-          <ProductPreview
-            label="Sponsor placement"
-            image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
-          />
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section className="mk-section mk-section-alt" id="how">
-        <div className="mk-container">
-          <div className="mk-section-head">
-            <span className="mk-eyebrow">The process</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>How it works</h2>
-            <p>We keep it simple so coaches can focus on coaching, not admin.</p>
-          </div>
-          <div className="mk-steps">
-            <div className="mk-step">
-              <span className="mk-step-num">01</span>
-              <h3>Apply</h3>
-              <p>Tell us about your team, sport, and goals. Takes less than five minutes.</p>
-            </div>
-            <div className="mk-step">
-              <span className="mk-step-num">02</span>
-              <h3>We build</h3>
-              <p>We set up your branded page, add your athletes, and configure your team hub.</p>
-            </div>
-            <div className="mk-step">
-              <span className="mk-step-num">03</span>
-              <h3>You share</h3>
-              <p>Send the link to players, parents, and your community with ready-made templates.</p>
-            </div>
-            <div className="mk-step">
-              <span className="mk-step-num">04</span>
-              <h3>Stay connected</h3>
-              <p>Fundraising, communication, and your roster stay in one place all season.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── AUDIENCE VALUE ── */}
-      <section className="mk-section">
-        <div className="mk-container">
-          <div className="mk-section-head">
-            <span className="mk-eyebrow">Built for your role</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Whoever you are on the team, it&rsquo;s built around your day.</h2>
-          </div>
-          <div className="mk-audience-grid">
-            <div className="mk-audience-card">
-              <h3>Coaches</h3>
-              <ul>
-                <li>One login, not a group text and three spreadsheets</li>
-                <li>Less time on admin, more time coaching</li>
-                <li>Parent and athlete communication in one thread</li>
-              </ul>
-            </div>
-            <div className="mk-audience-card">
-              <h3>Athletic Directors</h3>
-              <ul>
-                <li>Visibility across every team&rsquo;s fundraising</li>
-                <li>Consistent tools across the whole department</li>
-                <li>Sponsor relationships tracked, not lost to memory</li>
-              </ul>
-            </div>
-            <div className="mk-audience-card">
-              <h3>Booster Clubs</h3>
-              <ul>
-                <li>Transparent, real-time fundraising totals</li>
-                <li>A shared system instead of parallel spreadsheets</li>
-                <li>Easier handoffs between volunteer leadership</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FAQ ── */}
-      <section className="mk-section mk-section-alt" id="faq">
-        <div className="mk-container">
-          <div className="mk-section-head" style={{ margin: "0 auto var(--mk-space-10)", textAlign: "center" }}>
-            <span className="mk-eyebrow">Questions</span>
-            <h2 style={{ fontSize: "var(--mk-text-3xl)" }}>Frequently asked questions</h2>
-          </div>
-          <FaqList items={FAQS} />
-          <p style={{ textAlign: "center", marginTop: "var(--mk-space-8)" }}>
-            <a href="/faq" style={{ fontWeight: 700, color: "var(--mk-ink)" }}>See the full FAQ &rarr;</a>
-          </p>
-        </div>
-      </section>
-
-      {/* ── FINAL CTA ── */}
-      <section className="mk-section mk-cta-band">
-        <div className="mk-container-narrow">
-          <h2>See it running for a program like yours.</h2>
-          <p>No commitment. We&rsquo;ll walk through the platform using your sport as the example.</p>
-          <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
         </div>
       </section>
     </MarketingShell>

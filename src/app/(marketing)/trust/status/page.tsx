@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function StatusPage() {
   return (
     <>
-      <div className="mk-page-hero">
+      <div className="mk-page-hero mk-page-hero-trust">
         <div className="mk-container-narrow">
           <h1>System Status</h1>
           <p>Current platform status, updated manually by our team.</p>

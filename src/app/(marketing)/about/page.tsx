@@ -18,8 +18,11 @@ export default function AboutPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>About Elite Level Fundraising</h1>
-          <p>Built in Phoenix, for the coaches actually running these programs.</p>
+          <span className="mk-eyebrow">About ELF</span>
+          <h1 className="mk-display">
+            Built in <span className="mk-marker-underline">Phoenix,</span> for the coaches
+            actually running these programs.
+          </h1>
         </div>
       </div>
 
@@ -37,8 +40,17 @@ export default function AboutPage() {
             fundraising, communication, team organization, and sponsor relationships, instead of a
             different tool for each.
           </p>
+        </div>
+      </div>
 
-          <h2>Coach-first, not fundraising-first</h2>
+      <div className="mk-section mk-statement-band mk-statement-orange">
+        <div className="mk-container-narrow">
+          <p className="mk-statement-text">Coach-first, not fundraising-first.</p>
+        </div>
+      </div>
+
+      <div className="mk-section">
+        <div className="mk-container-narrow mk-prose">
           <p>
             Fundraising is where the platform started, but it isn&rsquo;t the whole product.
             Every feature is built around what actually makes a coach&rsquo;s season easier &mdash;

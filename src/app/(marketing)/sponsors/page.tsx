@@ -37,7 +37,10 @@ export default function SponsorsPage() {
     <>
       <div className="mk-page-hero">
         <div className="mk-container-narrow">
-          <h1>Sponsor relationships that don&rsquo;t rely on memory</h1>
+          <span className="mk-eyebrow">Sponsors</span>
+          <h1 className="mk-display">
+            Your town has your <span className="mk-marker-underline">back.</span>
+          </h1>
           <p>
             Local businesses support athletic programs constantly &mdash; most of that goodwill
             gets lost the moment the person who managed it moves on. ELF keeps it as a record, not
@@ -48,6 +51,10 @@ export default function SponsorsPage() {
 
       <div className="mk-section">
         <div className="mk-container">
+          <div className="mk-section-head">
+            <span className="mk-eyebrow">How it works</span>
+            <h2>Sponsor tracking, in three steps.</h2>
+          </div>
           <div className="mk-steps" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             {STAGES.map((s) => (
               <div className="mk-step" key={s.num}>
@@ -84,7 +91,7 @@ export default function SponsorsPage() {
 
       <div className="mk-section">
         <div className="mk-container">
-          <div className="mk-differentiator">
+          <div className="mk-differentiator mk-differentiator-orange">
             <h2>Sponsors aren&rsquo;t bolted onto fundraising &mdash; they&rsquo;re built alongside it.</h2>
             <p>
               Most fundraising tools treat sponsors as an afterthought, if they support them at

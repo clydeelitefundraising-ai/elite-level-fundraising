@@ -10,6 +10,12 @@
   font-size: var(--mk-text-base);
   line-height: var(--mk-leading-body);
   -webkit-font-smoothing: antialiased;
+  /* See the comment in marketing-tokens.css — these must be declared here,
+     on the same element as the next/font `variable` classNames, not on
+     :root. */
+  --mk-font-display: var(--mk-font-display-family), Impact, "Arial Narrow Bold", sans-serif;
+  --mk-font-hand:    var(--mk-font-hand-family), "Segoe Print", cursive;
+  --mk-font-hero:    var(--mk-font-hero-family), var(--mk-font-display-family), Impact, sans-serif;
 }
 
 .mk-root * { box-sizing: border-box; }
@@ -43,6 +49,21 @@
   border-radius: var(--mk-radius-sm);
 }
 
+/* Phase 5 fix: outline-offset draws the ring outside the element, on
+   whatever the *section* background is — not the element's own fill. Inside
+   an ink-background section the ink-colored ring above becomes invisible
+   against it (WCAG 2.4.7). Flip to white only within these dark sections.
+   `.mk-nav-overlay` added during the surgical cleanup pass (Change 1) —
+   same bug class, just not caught before: the nav is a SIBLING of `.mk-hero`
+   (not a descendant), so its own white-on-photo links weren't covered by
+   the `.mk-hero` rule below and had no override at all while transparent. */
+.mk-hero :focus-visible,
+.mk-cta-band :focus-visible,
+.mk-nav-overlay :focus-visible,
+.mk-statement-band.mk-statement-ink :focus-visible {
+  outline-color: #fff;
+}
+
 /* ── Skip link ── */
 .mk-skip-link {
   position: absolute;
@@ -60,6 +81,69 @@
   left: 0;
 }
 
+/* ── Brand accent utilities ──
+   Opt-in only — nothing in Phase 2 applies these classes anywhere yet.
+   They exist so Phase 3 (homepage) can reach for a consistent display/
+   handwritten treatment instead of each page inventing its own. Per brand
+   direction: the hand/marker face is for short annotations only, never
+   body copy, and typically no more than 1–2 per viewport. */
+.mk-display {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 0.95;
+}
+.mk-hand {
+  font-family: var(--mk-font-hand);
+  font-weight: 700; /* Kalam is loaded at weight 700 only — see fonts.ts */
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* Stencil treatment — a third distinct display style from the mockup
+   ("Athletes Build Better People"), approximated on the existing bold
+   condensed base rather than hunting for a literal stencil font: wide
+   tracking + a subtle repeating-gradient "worn paint" texture clipped to
+   the text itself. Stays real, selectable, accessible text throughout. */
+.mk-stencil {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 0.98;
+  /* NOTE: currentColor can't be used in the gradient stops below — color is
+     set to transparent on this same rule for the background-clip:text trick,
+     so currentColor would resolve to transparent too (invisible text). Uses
+     a literal color instead; this class is only used on dark mosaic tiles
+     today (see Row 3), so --mk-paper-2 is a safe fixed value here. */
+  background-image: repeating-linear-gradient(
+    115deg,
+    var(--mk-paper-2) 0px, var(--mk-paper-2) 3px,
+    transparent 3px, transparent 5px
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* A short, slightly-rough underline mark — not a plain <hr>. Wrap the
+   accented text/heading in a span with this class. */
+.mk-marker-underline {
+  position: relative;
+  display: inline-block;
+}
+.mk-marker-underline::after {
+  content: "";
+  position: absolute;
+  left: 2%;
+  right: -2%;
+  bottom: -0.08em;
+  height: 0.11em;
+  min-height: 4px;
+  background: var(--mk-orange);
+  transform: rotate(-0.6deg);
+}
+
 /* ── Layout helpers ── */
 .mk-container {
   max-width: var(--mk-content-width);
@@ -73,6 +157,13 @@
 }
 .mk-section { padding: var(--mk-space-24) 0; }
 .mk-section-tight { padding: var(--mk-space-16) 0; }
+
+/* Flat 96px top+bottom padding on every section reads fine on desktop but
+   is oversized on phone widths (nearly a quarter of the viewport spent on
+   whitespace between sections). Reduce, don't remove, the rhythm. */
+@media (max-width: 640px) {
+  .mk-section { padding: var(--mk-space-16) 0; }
+}
 .mk-section-alt { background: var(--mk-paper-2); }
 .mk-eyebrow {
   display: inline-block;
@@ -90,21 +181,20 @@
   font-size: var(--mk-text-lg);
 }
 
-/* ── Nav ── */
+/* ── Nav ──
+   Solid surface, no glassmorphism/blur — a flat, deliberate bar that reads
+   as compact and sports-brand rather than a soft floating SaaS header. */
 .mk-nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255,255,255,0.94);
-  backdrop-filter: saturate(180%) blur(8px);
-  border-bottom: 1px solid var(--mk-line);
+  background: var(--mk-paper);
+  border-bottom: var(--mk-border-width) solid var(--mk-line);
   height: var(--mk-nav-height);
-  box-shadow: 0 8px 24px rgba(11,30,61,0);
-  transition: box-shadow var(--mk-duration) var(--mk-ease), border-color var(--mk-duration) var(--mk-ease);
+  transition: border-color var(--mk-duration) var(--mk-ease);
 }
 .mk-nav.mk-nav-elevated {
-  box-shadow: 0 8px 24px rgba(11,30,61,0.06);
-  border-bottom-color: var(--mk-line-strong);
+  border-bottom-color: var(--mk-ink);
 }
 .mk-nav-inner {
   max-width: var(--mk-content-width);
@@ -118,15 +208,70 @@
 }
 .mk-nav-logo {
   display: flex;
-  align-items: center;
-  gap: var(--mk-space-3);
-  font-weight: 800;
-  font-size: var(--mk-text-base);
-  letter-spacing: -0.01em;
+  align-items: baseline;
+  gap: var(--mk-space-2);
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  font-size: var(--mk-text-lg);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
+  color: var(--mk-ink);
 }
-.mk-nav-logo span { color: var(--mk-accent-ink); }
+.mk-nav-logo span { color: var(--mk-orange); }
+
+/* Homepage-only logo mark — the approved ELF brush-lettered wordmark
+   artwork (white on transparent), replacing the previous HTML/CSS-built
+   badge. Only rendered when MarketingNav's variant="overlay". The image is
+   white artwork by design, so it only ever needs to sit on a dark surface —
+   see .mk-nav-hero.mk-nav-elevated below for how the sticky (post-scroll)
+   state stays dark instead of the default white/cream .mk-nav bar, rather
+   than recoloring the artwork itself. */
+.mk-nav-logo-mark { display: flex; align-items: center; }
+.mk-nav-logo-img { height: 34px; width: auto; display: block; }
+
+.mk-nav-login { font-size: var(--mk-text-sm); font-weight: 600; text-decoration: none; color: inherit; margin-right: var(--mk-space-2); }
+
+/* Hero-integrated nav (homepage only) — ALWAYS applied for the lifetime of
+   the overlay-variant nav, not just while transparent. A constant negative
+   margin pulls the hero photo up underneath the nav's own (always fully
+   reserved, never zero) flow height, so switching to the solid elevated bar
+   on scroll never inserts/removes space in the document and never shifts
+   content below the hero. See MarketingNav.tsx for the full rationale. */
+.mk-nav-hero { margin-bottom: calc(-1 * var(--mk-nav-height)); }
+
+/* Overlay state — transparent over the hero photo, white text, no border;
+   flips to the normal solid .mk-nav-elevated bar on scroll (state toggled
+   in MarketingNav.tsx). Homepage hero only. */
+.mk-nav-overlay { background: transparent; border-bottom-color: transparent; }
+.mk-nav-overlay .mk-nav-links a { color: rgba(255,255,255,0.92); }
+.mk-nav-overlay .mk-nav-links a:hover { color: var(--mk-yellow); border-bottom-color: var(--mk-yellow); }
+.mk-nav-overlay .mk-nav-login { color: rgba(255,255,255,0.92); }
+.mk-nav-overlay .mk-nav-menu-btn { border-color: rgba(255,255,255,0.6); color: #fff; }
+
+/* Logo-swap pass: the new approved wordmark artwork is white-on-transparent,
+   so it needs a dark surface any time the nav isn't sitting transparently
+   over the hero photo. The transparent `.mk-nav-overlay` state already is
+   dark via the photo underneath. Every OTHER homepage-nav state — scrolled
+   past the hero (`.mk-nav-elevated`), or the mobile menu opened before
+   scrolling (which also drops `.mk-nav-overlay`, see MarketingNav.tsx's
+   `overlayActive` check) — would otherwise fall back to the base `.mk-nav`
+   white/cream bar (`--mk-paper`), invisible for a white logo. Using
+   `:not(.mk-nav-overlay)` instead of keying only off `.mk-nav-elevated`
+   covers both cases with one rule. Fixed at the nav level (a solid ink/black
+   bar instead of white) rather than recoloring the artwork, per instruction.
+   Homepage nav only (`.mk-nav-hero` scope); every other marketing page's
+   plain-text logo/white bar is unaffected. */
+.mk-nav-hero:not(.mk-nav-overlay) {
+  background: var(--mk-ink);
+  border-bottom-color: var(--mk-ink);
+}
+.mk-nav-hero:not(.mk-nav-overlay) .mk-nav-links a { color: rgba(255,255,255,0.92); }
+.mk-nav-hero:not(.mk-nav-overlay) .mk-nav-links a:hover { color: var(--mk-yellow); border-bottom-color: var(--mk-yellow); }
+.mk-nav-hero:not(.mk-nav-overlay) .mk-nav-login { color: rgba(255,255,255,0.92); }
+.mk-nav-hero:not(.mk-nav-overlay) .mk-nav-menu-btn { border-color: rgba(255,255,255,0.6); color: #fff; }
+
 .mk-nav-links {
   display: flex;
   align-items: center;
@@ -144,7 +289,7 @@
   border-bottom: 2px solid transparent;
   transition: border-color var(--mk-duration) var(--mk-ease), color var(--mk-duration) var(--mk-ease);
 }
-.mk-nav-links a:hover { border-bottom-color: var(--mk-accent); color: var(--mk-ink); }
+.mk-nav-links a:hover { border-bottom-color: var(--mk-orange); color: var(--mk-ink); }
 .mk-nav-actions { display: flex; align-items: center; gap: var(--mk-space-4); }
 .mk-nav-menu-btn {
   display: none;
@@ -153,8 +298,8 @@
   width: 44px;
   height: 44px;
   background: transparent;
-  border: 1px solid var(--mk-line-strong);
-  border-radius: var(--mk-radius-md);
+  border: var(--mk-border-width) solid var(--mk-ink);
+  border-radius: var(--mk-radius-sm);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -194,7 +339,9 @@
   .mk-nav-menu-btn { display: inline-flex; }
 }
 
-/* ── Buttons ── */
+/* ── Buttons ──
+   Four intentional treatments — orange primary, dark, light/outline, and
+   text/link — sharp corners, no pill shapes, no soft glow shadows. */
 .mk-btn {
   display: inline-flex;
   align-items: center;
@@ -205,106 +352,570 @@
   border-radius: var(--mk-radius-md);
   font-size: var(--mk-text-sm);
   font-weight: 700;
+  letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
-  border: 1.5px solid transparent;
-  transition: background var(--mk-duration) var(--mk-ease), border-color var(--mk-duration) var(--mk-ease), color var(--mk-duration) var(--mk-ease), box-shadow var(--mk-duration) var(--mk-ease), transform var(--mk-duration) var(--mk-ease);
+  border: var(--mk-border-width) solid transparent;
+  transition: background var(--mk-duration) var(--mk-ease), border-color var(--mk-duration) var(--mk-ease), color var(--mk-duration) var(--mk-ease);
   white-space: nowrap;
 }
-.mk-btn-primary { background: var(--mk-ink); color: #fff; box-shadow: 0 0 0 rgba(11,30,61,0); transform: translateY(0); }
-.mk-btn-primary:hover { background: var(--mk-ink-2); box-shadow: 0 6px 16px rgba(11,30,61,0.18); transform: translateY(-1px); }
-.mk-btn-secondary { background: transparent; color: var(--mk-ink); border-color: var(--mk-line-strong); }
-.mk-btn-secondary:hover { border-color: var(--mk-ink); }
+
+/* Primary — the bold orange fill. Ink (near-black) text, not white: at this
+   text size white-on-orange fails WCAG AA (~3.1:1); ink-on-orange clears
+   6.7:1, and it matches how the brand pairs bright fills with black text
+   rather than tinting orange down into "safe SaaS accent" territory. */
+.mk-btn-primary { background: var(--mk-orange); color: var(--mk-ink); }
+.mk-btn-primary:hover { background: var(--mk-orange-dark); }
+
+/* Yellow — mockup-only exception, hero primary CTA. The mockup varies its
+   button fill by background contrast (yellow/ghost over the dark photo,
+   black over off-white, black over orange) rather than one fixed primary
+   color everywhere; this variant exists for that one hero placement, not as
+   a second general-purpose primary. */
+.mk-btn-yellow { background: var(--mk-yellow); color: var(--mk-yellow-ink); }
+.mk-btn-yellow:hover { background: #FFD65C; }
+
+/* Dark — solid ink fill, for a second strong CTA alongside primary. */
+.mk-btn-dark { background: var(--mk-ink); color: #fff; }
+.mk-btn-dark:hover { background: var(--mk-ink-2); }
+
+/* Light/outline — transparent, ink border; fills solid on hover rather than
+   leaning on shadow/elevation for feedback. */
+.mk-btn-outline { background: transparent; color: var(--mk-ink); border-color: var(--mk-ink); }
+.mk-btn-outline:hover { background: var(--mk-ink); color: #fff; }
+
+/* Text/link — no border or fill, for the lowest-emphasis actions. */
+.mk-btn-text { background: transparent; color: var(--mk-ink); border-color: transparent; padding-left: 0; padding-right: 0; min-height: auto; text-decoration: underline; text-underline-offset: 3px; }
+.mk-btn-text:hover { color: var(--mk-orange-dark); }
+
 .mk-btn-lg { min-height: 54px; padding: 0 var(--mk-space-8); font-size: var(--mk-text-base); }
+.mk-btn-text.mk-btn-lg { min-height: auto; }
 .mk-btn-block { width: 100%; }
 .mk-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ── Hero ── */
-.mk-hero { padding: var(--mk-space-24) 0 var(--mk-space-20); }
-.mk-hero-grid {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: var(--mk-space-16);
-  align-items: center;
+/* ── Hero ──
+   Homepage-exclusive. Mockup-fidelity pass (Phase 7): the mockup's photo is
+   a single full-bleed background spanning the ENTIRE hero — not a side
+   panel — with the nav and headline sitting directly on top of it as one
+   composition. A left-side scrim (see MediaPlaceholder's `scrim="left"`)
+   keeps the headline legible against the eventual photo. Below 900px the
+   corner callout/gear line reflow inline so nothing overlaps. */
+.mk-hero {
+  position: relative;
+  background: var(--mk-ink);
+  color: #fff;
+  overflow: hidden;
+  min-height: 560px;
+  /* Change 3 (surgical cleanup pass): the trust strip (customer-proof
+     copy, real logos, "Real teams. Real results.") was removed from the
+     homepage entirely — no verified public testimonials/logos exist yet, so
+     no claim replaces it. This one-line orange rule is the "extremely
+     minimal visual divider" the removal instructions allow in its place. */
+  border-bottom: var(--mk-border-width-strong) solid var(--mk-orange);
+  /* Bug found during Phase 8: globals.css (Team App) declares a bare
+     `section { padding: 6rem 5%; }` reset that leaks into every marketing
+     page — there's no per-route CSS boundary (MarketingShell is rendered
+     directly, not via a layout.tsx, so both stylesheets load on every
+     route). It was invisible here specifically because the hero's own
+     near-black background matched the leaked inset almost seamlessly
+     against the dark photo — but it was real, insetting the "full-bleed"
+     photo by 96px/5% from the section's true edges. Reset explicitly. */
+  padding: 0;
 }
-.mk-hero-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--mk-space-2);
-  font-size: var(--mk-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--mk-accent-ink);
-  background: var(--mk-paper-2);
-  border: 1px solid var(--mk-line);
-  padding: var(--mk-space-2) var(--mk-space-4);
-  border-radius: var(--mk-radius-md);
-  margin-bottom: var(--mk-space-6);
+.mk-hero-media {
+  position: absolute;
+  inset: 0;
 }
+/* Phase 8: real photo now sits here (see MarketingPage.tsx) — a minimal,
+   localized scrim only, not a full-image dark wash, so the photograph stays
+   visibly photographic. Strongest on the left (behind the headline column),
+   fading out by the time it reaches the crowd/lights on the right, matching
+   how the approved artwork's own tonal range already keeps that side dark. */
+/* Change 8A (surgical cleanup pass): softened from a hard ~70%-opacity band
+   that read as a black panel abutting the photo. More stops, a lower peak,
+   and a longer, gentler falloff so it reads as one photograph with a
+   natural dark readability area rather than two visually distinct halves.
+   Contrast against the headline/copy was re-checked after softening. */
+.mk-hero-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg,
+    rgba(10,9,8,0.52) 0%,
+    rgba(10,9,8,0.4) 14%,
+    rgba(10,9,8,0.26) 28%,
+    rgba(10,9,8,0.14) 40%,
+    rgba(10,9,8,0.05) 52%,
+    transparent 66%
+  );
+  pointer-events: none;
+}
+.mk-hero-inner {
+  position: relative;
+  z-index: 2;
+  min-height: 560px;
+  padding-top: calc(var(--mk-nav-height) + var(--mk-space-6));
+  padding-bottom: var(--mk-space-8);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.mk-hero-copy { max-width: 620px; }
 .mk-hero h1 {
-  font-size: var(--mk-text-5xl);
-  margin-bottom: var(--mk-space-6);
+  font-family: var(--mk-font-hero);
+  font-weight: 400;
+  text-transform: uppercase;
+  color: var(--mk-yellow);
+  font-size: clamp(3.25rem, 8.6vw, 7rem);
+  line-height: 0.88;
+  letter-spacing: 0.005em;
+  margin-bottom: var(--mk-space-4);
 }
+.mk-hero h1 .mk-marker-underline::after { background: var(--mk-orange); height: 0.07em; }
+/* Change 8B: was competing with the headline/handwritten copy at
+   --mk-text-base/700 weight — dropped a step in both size and weight so it
+   reads as a quiet supporting line, not a second headline. */
 .mk-hero-sub {
-  font-size: var(--mk-text-lg);
-  color: var(--mk-muted);
-  max-width: 46ch;
-  margin-bottom: var(--mk-space-8);
+  font-size: var(--mk-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.68);
+  margin-bottom: var(--mk-space-5);
 }
-.mk-hero-actions { display: flex; gap: var(--mk-space-4); flex-wrap: wrap; margin-bottom: var(--mk-space-6); }
-.mk-hero-note { font-size: var(--mk-text-xs); color: var(--mk-muted); }
-.mk-hero-visual img { width: 100%; height: auto; border-radius: var(--mk-radius-md); }
+.mk-hero-actions { display: flex; align-items: center; gap: var(--mk-space-5); flex-wrap: wrap; margin-bottom: var(--mk-space-5); }
+/* Ghost "Watch video" action — circular outline + play triangle, no fill,
+   the mockup's secondary hero CTA (distinct from the outline button used
+   as a secondary CTA everywhere else on the site). */
+.mk-hero-watch { display: inline-flex; align-items: center; gap: var(--mk-space-3); color: #fff; text-decoration: none; font-size: var(--mk-text-sm); font-weight: 700; }
+.mk-hero-watch-icon {
+  width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.mk-hero-watch-icon svg { width: 11px; height: 11px; margin-left: 2px; }
+.mk-hero-gear-line { color: #fff; font-size: var(--mk-text-lg); transform: rotate(-1deg); transform-origin: left center; }
+/* Top-right corner callout ("Same grind. Bigger opportunities.") — sits
+   over the photo, away from the headline column, per the mockup. */
+.mk-hero-callout {
+  position: absolute;
+  top: calc(var(--mk-nav-height) + var(--mk-space-6));
+  right: var(--mk-space-8);
+  z-index: 2;
+  text-align: right;
+  color: #fff;
+  font-size: var(--mk-text-lg);
+  max-width: 220px;
+}
+.mk-hero-crown { width: 24px; height: 24px; margin-bottom: var(--mk-space-2); color: #fff; }
+.mk-hero .mk-btn-outline { color: #fff; border-color: rgba(255,255,255,0.5); }
+.mk-hero .mk-btn-outline:hover { background: #fff; color: var(--mk-ink); }
 
 @media (max-width: 900px) {
-  .mk-hero-grid { grid-template-columns: 1fr; }
-  .mk-hero-visual { order: -1; }
+  .mk-hero-inner { min-height: 0; padding-top: calc(var(--mk-nav-height) + var(--mk-space-16)); padding-bottom: var(--mk-space-8); }
+  .mk-hero-callout { position: static; text-align: left; max-width: none; margin-bottom: var(--mk-space-6); }
+  .mk-hero-crown { margin-bottom: var(--mk-space-1); }
+  .mk-hero-copy { max-width: none; }
+  .mk-hero-gear-line { margin-top: var(--mk-space-2); }
 }
 
-/* ── Trust band ── */
-.mk-trust-band { padding: 0; border-top: 1px solid var(--mk-line); border-bottom: 1px solid var(--mk-line); background: var(--mk-paper-2); }
-.mk-trust-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--mk-space-8);
+/* Hero/secondary photo placeholders — see MediaPlaceholder.tsx. Deliberately
+   plain (no gradients/glow) so it reads as "slot", not a finished visual. */
+.mk-media-placeholder {
+  width: 100%;
+  border: var(--mk-border-width-strong) dashed rgba(255,255,255,0.35);
+  border-radius: var(--mk-radius-md);
+  background: repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--mk-space-2);
+  padding: var(--mk-space-6);
+}
+/* Bleed variant — for a media slot meant to run edge-to-edge and sit behind
+   overlapping type (currently only the hero). No border/dashed box (that
+   reads as a bounded widget); instead, thin corner crop-marks — the print/
+   editorial convention for "photo area," not a finished decorative frame —
+   plus a left-edge scrim so type staying on top of it remains legible once
+   a real photo replaces the placeholder. */
+.mk-media-placeholder-bleed {
+  border: none;
+  border-radius: 0;
+  position: relative;
+  background:
+    linear-gradient(to right, rgba(18,17,16,0.92) 0%, rgba(18,17,16,0.55) 30%, rgba(18,17,16,0.18) 55%, transparent 72%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  justify-content: flex-end;
+  padding: var(--mk-space-8);
+}
+.mk-media-placeholder-bleed::before,
+.mk-media-placeholder-bleed::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(255,255,255,0.4);
+}
+.mk-media-placeholder-bleed::before { top: var(--mk-space-5); right: var(--mk-space-5); border-left: none; border-bottom: none; }
+.mk-media-placeholder-bleed::after { bottom: var(--mk-space-5); right: var(--mk-space-5); border-left: none; border-top: none; }
+@media (max-width: 900px) {
+  .mk-media-placeholder-bleed { justify-content: center; padding: var(--mk-space-6); }
+}
+.mk-media-placeholder-tag {
+  font-size: var(--mk-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mk-yellow);
+}
+.mk-media-placeholder-label {
+  font-size: var(--mk-text-sm);
+  color: rgba(255,255,255,0.65);
+  max-width: 32ch;
+}
+/* On light sections the placeholder needs ink-toned chrome instead of the
+   white-on-dark treatment above. */
+.mk-section .mk-media-placeholder,
+.mk-section-alt .mk-media-placeholder {
+  border-color: var(--mk-line-strong);
+  background: repeating-linear-gradient(135deg, rgba(18,17,16,0.04) 0 12px, rgba(18,17,16,0.015) 12px 24px);
+}
+.mk-section .mk-media-placeholder-tag,
+.mk-section-alt .mk-media-placeholder-tag { color: var(--mk-accent-ink); }
+.mk-section .mk-media-placeholder-label,
+.mk-section-alt .mk-media-placeholder-label { color: var(--mk-muted); }
+
+/* Fill — used by every mosaic-row photo tile: the placeholder covers its
+   positioned parent completely (the tile's grid/flex cell defines the
+   crop), so text can sit on top of it via a sibling with a higher z-index,
+   exactly as it would sit on top of the eventual real photo. */
+.mk-media-placeholder-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  justify-content: flex-end;
+}
+.mk-media-placeholder-scrim-left.mk-media-placeholder-fill {
+  background:
+    linear-gradient(to right, rgba(18,17,16,0.85) 0%, rgba(18,17,16,0.45) 35%, transparent 65%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--mk-space-8);
+}
+.mk-media-placeholder-scrim-bottom.mk-media-placeholder-fill {
+  background:
+    linear-gradient(to top, rgba(18,17,16,0.85) 0%, rgba(18,17,16,0.35) 40%, transparent 68%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 12px, rgba(255,255,255,0.02) 12px 24px);
+  align-items: flex-start;
+  padding: var(--mk-space-6);
+}
+/* Every mosaic tile overlays its own real (non-placeholder) heading/handwritten
+   copy on top of these fill slots — the placeholder's own built-in tag/label
+   caption would otherwise visually collide with that real text. Hide the
+   caption visually wherever a real overlay exists (fill variant); the
+   parent's role="img" aria-label still describes the missing photo for
+   assistive tech. */
+.mk-media-placeholder-fill .mk-media-placeholder-tag,
+.mk-media-placeholder-fill .mk-media-placeholder-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* ── Mosaic rows ──
+   Mockup-fidelity pass (Phase 7): below the trust strip, the mockup is not
+   a stack of full-width sections — it's three edge-to-edge horizontal rows,
+   each split into unequal-width tiles that mix photography and solid color
+   fields into one composition. These replace the previous Value/Fund
+   sections and the standalone Fundraising/Communication/Sponsors/persona
+   sections entirely on the homepage (those pages still exist and are
+   linked from nav/footer — only the HOMEPAGE composition changes). No
+   .mk-container here — tiles run full viewport width, like the mockup. */
+/* Same globals.css `section { padding: 6rem 5%; }` leak as the hero above —
+   reset here too so all three rows (and Row 2's banner especially, which
+   must be genuinely edge-to-edge per its "one continuous artwork"
+   requirement) aren't silently inset. */
+.mk-mosaic-row { display: grid; padding: 0; }
+.mk-mosaic-tile { position: relative; padding: var(--mk-space-6); display: flex; flex-direction: column; justify-content: center; min-height: 210px; overflow: hidden; }
+
+/* Row 1 — "Raise More. Do More." Row-1-replacement pass: like Row 2 below,
+   this is now ONE finished composite artwork (athlete photo, "Big things
+   start locally.", the headline/copy, and the real-product phone
+   composition are all baked into the image) — see MarketingPage.tsx. Same
+   pattern as Row 2's frame: locked to the artwork's own intrinsic aspect
+   ratio (1672 / 941) so it scales as one block at every width with zero
+   cropping, which also keeps the transparent hit-area below perfectly
+   aligned to the baked-in "See How It Works" button without any
+   viewport-specific pixel math. */
+/* Scale-refinement pass (first round): capped at 1440px so the artwork
+   stopped spanning full viewport width. Second round (this pass): even at
+   1440px the artwork was still reading as a second full-bleed hero,
+   competing with the actual hero for dominance. Sized as a genuinely
+   contained editorial feature now — 78% of the row's width (within the
+   requested 75-80% range) on desktop, with its own 1200px max-width so it
+   can't grow enormous on ultrawide displays, still centered with warm-paper
+   breathing room above and below. Below 900px this reverts to the previous
+   full-width behavior (100%, no cap) — mobile/tablet should scale the full
+   composition naturally rather than shrinking it twice over. The
+   percentage-based hit-area below needs no recalibration either way: its
+   percentages are relative to this frame's own box, not the viewport, so
+   they stay correct at any frame size (verified via DOM measurement, not
+   assumed). */
+.mk-row1-banner {
+  background: var(--mk-paper-2);
   padding: var(--mk-space-12) 0;
 }
-@media (max-width: 1080px) { .mk-trust-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 700px) { .mk-trust-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .mk-trust-grid { grid-template-columns: 1fr; } }
-.mk-trust-item { display: flex; gap: var(--mk-space-3); align-items: flex-start; }
-.mk-trust-item svg { flex-shrink: 0; width: 22px; height: 22px; color: var(--mk-accent-ink); margin-top: 2px; }
-.mk-trust-item strong { display: block; font-size: var(--mk-text-sm); margin-bottom: 2px; font-weight: 700; }
-.mk-trust-item p { font-size: var(--mk-text-xs); color: var(--mk-muted); }
-
-/* ── Problem statement ── */
-.mk-problem-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--mk-space-16);
-  align-items: start;
+.mk-row1-banner-frame {
+  position: relative;
+  width: 78%;
+  max-width: 1200px;
+  margin: 0 auto;
+  aspect-ratio: 1672 / 941;
+  overflow: hidden;
 }
-.mk-problem-list { list-style: none; margin: var(--mk-space-6) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-4); }
-.mk-problem-list li { display: flex; gap: var(--mk-space-3); font-size: var(--mk-text-base); color: var(--mk-muted); }
-.mk-problem-list li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mk-accent); margin-top: 10px; flex-shrink: 0; }
-@media (max-width: 800px) { .mk-problem-grid { grid-template-columns: 1fr; gap: var(--mk-space-8); } }
+@media (max-width: 900px) {
+  .mk-row1-banner-frame { width: 100%; max-width: none; }
+}
+/* Percentage box measured against the artwork's baked-in "See How It Works"
+   button (approximate — visually verified against a render, not measured
+   with pixel-level tooling; nudge these four values if a closer look at a
+   production render shows drift). */
+.mk-row1-banner-link {
+  position: absolute;
+  left: 32.5%;
+  top: 73.4%;
+  width: 23.3%;
+  height: 6.9%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Specificity note: the site-wide `.mk-root a:focus-visible` rule (near the
+   top of this file) is (0,2,1) — a plain `.mk-row1-banner-frame
+   :focus-visible` descendant selector is only (0,2,0) and loses that fight,
+   which silently renders the ink-on-ink invisible-focus bug this project has
+   already had to fix twice elsewhere. Target the element type directly so
+   this wins outright. */
+a.mk-row1-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; }
 
-/* ── Module / capability cards ── */
-.mk-module-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
-.mk-module-card {
-  border: 1px solid var(--mk-line);
-  border-radius: var(--mk-radius-md);
-  padding: var(--mk-space-6);
-  text-decoration: none;
-  color: inherit;
+/* Row 2 — "Real Opportunities for Real Teams." Phase 8: replaced by one
+   finished composite artwork (the orange panel + both photos + all their
+   copy/marks are baked into the image) — see MarketingPage.tsx and the
+   Phase 8 report. The frame is locked to the artwork's own intrinsic aspect
+   ratio (2170 / 725) so it scales as one block at every width with zero
+   cropping, which is also what keeps the transparent hit-area below
+   perfectly aligned to the image's baked-in button without any
+   viewport-specific pixel math. */
+/* Change 7 (surgical cleanup pass): the artwork itself is untouched (no
+   crop, no aspect-ratio change) — it was simply scaling to full 100vw width
+   on very large desktop displays, which at a fixed 2170:725 ratio made it
+   consume a huge absolute vertical span (e.g. ~856px tall at 2560px wide).
+   Capping the frame's width and centering it keeps the entire artwork fully
+   visible and still one of the largest visual moments on the page, without
+   letting it grow unbounded on ultra-wide screens. */
+.mk-row2-banner-frame {
+  position: relative;
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  aspect-ratio: 2170 / 725;
+  overflow: hidden;
+}
+/* Percentage box measured against the artwork's baked-in "Explore Stories"
+   button (approximate — visually verified against a render, not measured
+   with pixel-level tooling; nudge these four values if a closer look at a
+   production render shows drift). */
+.mk-row2-banner-link {
+  position: absolute;
+  left: 4.4%;
+  top: 71.6%;
+  width: 18.2%;
+  height: 10.7%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Specificity note: the site-wide `.mk-root button:focus-visible` rule (near
+   the top of this file) is (0,2,1) — the previous `.mk-row2-banner-frame
+   :focus-visible` descendant selector was only (0,2,0) and lost that fight,
+   silently rendering the ink-on-ink invisible-focus bug this project has
+   already had to fix twice elsewhere (row 1's link, row 2's mobile link).
+   Target the element type directly so this wins outright, matching the same
+   fix already applied to `.mk-row1-banner-link` and
+   `.mk-row2-banner-link-mobile`. */
+button.mk-row2-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; }
+
+/* Mobile Real Opportunities segmentation pass: at 375-430px the full
+   panorama scaled down made its baked-in copy (the eyebrow, the travel
+   list) too small to read comfortably. Fix is presentation-only — same
+   single source image, shown as three independently-cropped/scaled
+   "windows" stacked vertically, each filling the viewport width at a
+   legible scale. Desktop (>640px) is untouched: the frame above stays a
+   single panoramic image, unchanged pixel-for-pixel. */
+.mk-row2-mobile-only { display: none; }
+@media (max-width: 640px) {
+  .mk-row2-desktop-only { display: none; }
+  .mk-row2-mobile-only { display: block; }
+}
+
+/* Each segment shows the source image's horizontal fraction
+   [startFrac, startFrac + segFrac] filling the segment's full width:
+   the image is widened to (100/segFrac)% of the container, then shifted
+   left by startFrac*100% of ITS OWN width (a plain CSS percentage
+   translate is relative to the element's own box, which after the width
+   change still spans the image's full original 0-100% range) — so no
+   cropping/distortion, just a non-destructive CSS "zoom" into a region
+   of the fixed 2170x725 artwork. Segment boundaries were measured
+   against the artwork's own diagonal seams (sampled with a small
+   PowerShell script, not eyeballed): orange truly ends between x-frac
+   0.286 (bottom of the diagonal) and 0.326 (top), so 0-0.31 keeps all of
+   its text clear with only the expected sliver of diagonal bleed at the
+   very edge; the celebration/travel seam sits at x-frac ~0.70. */
+.mk-row2-seg {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+.mk-row2-seg img {
   display: block;
-  transition: border-color var(--mk-duration) var(--mk-ease);
+  width: 100%;
+  height: auto;
 }
-.mk-module-card:hover { border-color: var(--mk-line-strong); }
-.mk-module-card h3, .mk-module-card h2 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); }
-.mk-module-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-module-num { font-size: var(--mk-text-xs); font-weight: 700; color: var(--mk-accent-ink); margin-bottom: var(--mk-space-4); display: block; }
-@media (max-width: 860px) { .mk-module-grid { grid-template-columns: 1fr; } }
+.mk-row2-seg-orange {
+  aspect-ratio: 672.7 / 725; /* (2170*0.31) / 725 */
+}
+.mk-row2-seg-orange img {
+  width: 322.58%; /* 100 / 0.31 */
+  max-width: 322.58%;
+  transform: translateX(0%);
+}
+.mk-row2-seg-celebration {
+  aspect-ratio: 857.15 / 725; /* (2170*0.395) / 725 */
+}
+.mk-row2-seg-celebration img {
+  width: 253.16%; /* 100 / 0.395 */
+  max-width: 253.16%;
+  transform: translateX(-31%); /* -startFrac*100% */
+}
+.mk-row2-seg-travel {
+  aspect-ratio: 640.15 / 725; /* (2170*0.295) / 725 */
+}
+.mk-row2-seg-travel img {
+  width: 338.98%; /* 100 / 0.295 */
+  max-width: 338.98%;
+  transform: translateX(-70.5%); /* -startFrac*100% */
+}
+
+/* Mobile orange-segment CTA hit-area: same button as the desktop overlay,
+   re-measured relative to the orange segment's own cropped box rather
+   than the full panorama (local% = (full% - startFrac*100) / segFrac).
+   Desktop overlay's box: left 4.4% top 71.6% width 18.2% height 10.7% of
+   the full 2170x725 frame -> here: left (4.4-0)/0.31, width 18.2/0.31,
+   top/height unchanged since this segment crops horizontally only. */
+.mk-row2-banner-link-mobile {
+  position: absolute;
+  left: 14.19%;
+  top: 71.6%;
+  width: 58.71%;
+  height: 10.7%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Specificity note: the site-wide `.mk-root button:focus-visible` rule is
+   (0,2,1); a plain `.mk-row2-seg :focus-visible` descendant selector is
+   only (0,2,0) and loses that fight (confirmed by measuring the computed
+   outline-color, which resolved to ink, not white) — the same bug class
+   already fixed twice elsewhere in this project by targeting the element
+   type directly, so do that here too. */
+button.mk-row2-banner-link-mobile:focus-visible { outline-color: #fff; outline-offset: 2px; }
+
+/* Row 3 — "Athletes Build Better People." Stencil photo tile | testimonial
+   card | photo tile. The testimonial is MOCKUP CONTENT — see the report's
+   explicit approval warning before treating it as a real endorsement. */
+/* Vertical-rhythm pass: this row's two photo tiles are intentionally sized
+   by their own intrinsic aspect ratio (see the Change-2 note below) rather
+   than stretched to the row's full height, so whichever tile is shortest
+   leaves a gap in its own grid cell. That gap was rendering as stark white
+   (`.mk-root`'s base background) — a jarring, clearly-accidental color break
+   against the warm-cream tone used everywhere else on the page, not an
+   intentional composition choice. Giving the row itself the same warm-paper
+   background used elsewhere fixes the color mismatch without touching any
+   tile's size, alignment, or content. */
+.mk-row3 { grid-template-columns: 0.85fr 1.3fr 0.85fr; align-items: stretch; background: var(--mk-paper-2); }
+
+/* Change 2 (surgical cleanup pass): these two tiles previously stretched to
+   match the grid row's height (CSS Grid's default `align-items: stretch`)
+   and used `object-fit: cover` — since neither image's own aspect ratio
+   matched the resulting stretched box, `cover` was cropping into the
+   baked-in typography (confirmed visibly cut off on Athletics Build Better
+   People). Both are athlete-photo-plus-baked-in-typography artwork where the
+   full composition matters more than filling every pixel of a predefined
+   box, so: opt these two tiles OUT of the row's stretch (`align-self:
+   center`) and size each one by ITS OWN intrinsic aspect ratio instead of
+   the row's height. With the box ratio matching the image ratio exactly,
+   `object-fit: contain` never needs to letterbox — the whole image just
+   renders at its natural proportions, guaranteed uncropped, at any tile
+   width (desktop or mobile). The row's overall visual height is now
+   whichever tile (these two, or the center panel) is naturally tallest —
+   no tile is forced into a size its composition doesn't support. */
+.mk-row3-athletics-tile,
+.mk-row3-arm-tile {
+  align-self: center;
+  min-height: 0;
+  padding: 0;
+}
+/* These two now use a plain (non-`fill`) next/image sized by its own
+   intrinsic width/height, not an absolutely-positioned `fill` layer — so
+   there's nothing to crop: the image renders at its natural aspect ratio
+   and the tile simply wraps it. */
+.mk-row3-athletics-tile img,
+.mk-row3-arm-tile img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.mk-row3-testimonial { background: var(--mk-paper-2); justify-content: center; align-items: center; text-align: center; padding: var(--mk-space-8) var(--mk-space-6); }
+/* Change 4: replaces the removed Coach Bolus quote/attribution/carousel.
+   ELF-owned brand copy, not a testimonial — no quotation marks, no
+   attribution, no carousel controls (nothing left for them to control).
+   Styled with the same secondary-headline treatment (Anton) used elsewhere
+   on the page, connecting visually with "Athletics Build Better People"
+   above it and "Give Them The Season They Earned" beside it. */
+.mk-row3-statement-heading {
+  font-size: var(--mk-text-3xl);
+  line-height: 1.05;
+  margin-bottom: var(--mk-space-4);
+}
+.mk-row3-statement-body { color: var(--mk-muted); font-size: var(--mk-text-base); max-width: 32ch; margin: 0 auto; }
+@media (max-width: 900px) {
+  .mk-row3 { grid-template-columns: 1fr; }
+  .mk-row3-athletics-tile,
+  .mk-row3-arm-tile { align-self: stretch; }
+}
+
+/* .mk-home-steps and .mk-persona-index/.mk-persona-row* (previous
+   homepage-only How-It-Works / Real-Opportunities-persona treatments) were
+   removed here — both sections were removed from the homepage in the
+   mockup-fidelity pass (Q1) and confirmed unused by any other marketing
+   page, so the CSS became dead weight rather than reusable infrastructure. */
 
 /* ── Capability sections (alternating) ── */
 .mk-capability { scroll-margin-top: calc(var(--mk-nav-height) + 16px); }
@@ -317,6 +928,17 @@
   .mk-capability-grid, .mk-capability-grid.mk-reverse { grid-template-columns: 1fr; }
   .mk-capability-grid.mk-reverse .mk-capability-copy { order: 0; }
 }
+
+/* .mk-capability--expressive/.mk-stamp/.mk-capability-arrow/
+   .mk-capability--community* (previous homepage-only Fundraising/Sponsors
+   rhythm modifiers, including the "stamp" label the mockup doesn't actually
+   show) were removed here — the standalone Fundraising/Communication/
+   Sponsors sections were removed from the homepage in the mockup-fidelity
+   pass (Q1) and these modifiers are confirmed unused by the dedicated
+   /fundraising, /communication, /sponsors pages, which have their own
+   markup. The shared base .mk-capability/.mk-capability-grid/
+   .mk-capability-list/.mk-capability-visual rules below are untouched —
+   those dedicated pages depend on them. */
 
 /* Illustrative (non-photographic) UI preview panel — "browser chrome" frame
    shared by the hero and every capability section, so each mockup reads as
@@ -346,6 +968,9 @@
   text-transform: uppercase;
   color: rgba(255,255,255,0.62);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .mk-preview-body { padding: var(--mk-space-6); font-size: var(--mk-text-xs); }
 .mk-preview-image-body { position: relative; }
@@ -425,7 +1050,6 @@
   white-space: nowrap;
 }
 .mk-pipeline-status-active { background: rgba(47,107,79,0.28); color: #8FD6AE; }
-.mk-pipeline-status-renewal { background: rgba(156,122,46,0.3); color: #E3C177; }
 .mk-pipeline-status-prospect { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
 
 /* ── How it works ── */
@@ -436,14 +1060,6 @@
 .mk-step p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
 @media (max-width: 860px) { .mk-steps { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .mk-steps { grid-template-columns: 1fr; } }
-
-/* ── Audience cards ── */
-.mk-audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
-.mk-audience-card { border: 1px solid var(--mk-line); border-radius: var(--mk-radius-md); padding: var(--mk-space-8); }
-.mk-audience-card h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-4); }
-.mk-audience-card ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-3); font-size: var(--mk-text-sm); color: var(--mk-muted); }
-.mk-audience-card li::before { content: "✓ "; color: var(--mk-good); font-weight: 700; }
-@media (max-width: 860px) { .mk-audience-grid { grid-template-columns: 1fr; } }
 
 /* ── FAQ ── */
 .mk-faq { max-width: var(--mk-content-width-narrow); margin: 0 auto; }
@@ -473,25 +1089,74 @@
 .mk-cta-band p { color: rgba(255,255,255,0.72); font-size: var(--mk-text-base); max-width: 52ch; margin: 0 auto var(--mk-space-8); }
 .mk-cta-band .mk-btn-primary { background: #fff; color: var(--mk-ink); }
 .mk-cta-band .mk-btn-primary:hover { background: var(--mk-paper-2); }
+/* Homepage-only modifier: one brand mark (reusing the hero's crown, not a
+   new mark) above the headline — the only change from the shared band
+   used elsewhere, per creative direction not to redesign this section. */
+.mk-cta-crown { width: 30px; height: 30px; color: var(--mk-yellow); margin: 0 auto var(--mk-space-5); display: block; }
 
 /* ── Footer ── */
 /* Explicit background/color reset: globals.css (shared with the Team App)
    defines a bare `footer { background: #060F1E; ... }` element selector
    that would otherwise leak through, since we don't touch globals.css. */
-.mk-footer { background: var(--mk-paper); color: var(--mk-ink); border-top: 1px solid var(--mk-line); padding: var(--mk-space-16) 0 var(--mk-space-8); }
+.mk-footer { background: var(--mk-paper); color: var(--mk-ink); border-top: var(--mk-border-width-strong) solid var(--mk-ink); padding: var(--mk-space-16) 0 var(--mk-space-8); }
 .mk-footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: var(--mk-space-8); margin-bottom: var(--mk-space-12); }
-.mk-footer-brand { font-weight: 800; margin-bottom: var(--mk-space-3); text-decoration: none; color: var(--mk-ink); display: inline-block; }
+.mk-footer-brand {
+  display: inline-block;
+  margin-bottom: var(--mk-space-3);
+  text-decoration: none;
+  color: var(--mk-ink);
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  font-size: var(--mk-text-lg);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
 .mk-footer-tagline { font-size: var(--mk-text-sm); color: var(--mk-muted); max-width: 32ch; }
 .mk-footer-col-title { font-size: var(--mk-text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mk-muted); margin-bottom: var(--mk-space-4); }
 .mk-footer-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--mk-space-3); }
 .mk-footer-links a { text-decoration: none; font-size: var(--mk-text-sm); color: var(--mk-ink-2); }
-.mk-footer-links a:hover { color: var(--mk-ink); text-decoration: underline; }
-.mk-footer-bottom { border-top: 1px solid var(--mk-line); padding-top: var(--mk-space-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--mk-space-4); font-size: var(--mk-text-xs); color: var(--mk-muted); }
+.mk-footer-links a:hover { color: var(--mk-orange-dark); text-decoration: underline; }
+.mk-footer-bottom { border-top: var(--mk-border-width) solid var(--mk-line); padding-top: var(--mk-space-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--mk-space-4); font-size: var(--mk-text-xs); color: var(--mk-muted); }
 @media (max-width: 860px) { .mk-footer-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .mk-footer-grid { grid-template-columns: 1fr; } }
 
+/* ── Minimal footer (homepage only) ──
+   The mockup's 4-link footer. Legal/trust/accessibility links stay
+   reachable via the secondary strip below rather than disappearing —
+   visually subordinate (smaller, muted, no column headers) so it doesn't
+   compete with the mockup's minimal treatment above it.
+   Logo-swap pass: the new approved wordmark is white-on-transparent
+   artwork (same file used in the nav), so — same principle as the nav
+   fix above — this footer's own background moves to ink/black rather than
+   the base `.mk-footer` white/cream, with every text color below given a
+   light-on-dark variant. Homepage-only (`.mk-footer-minimal` scope); the
+   full Platform/Company/Trust-Center footer used on every other marketing
+   page is untouched. */
+.mk-footer.mk-footer-minimal {
+  background: var(--mk-ink);
+  color: rgba(255,255,255,0.92);
+  border-top-color: var(--mk-ink);
+}
+.mk-footer-minimal { padding: var(--mk-space-8) 0 0; }
+.mk-footer-minimal-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--mk-space-5); padding-bottom: var(--mk-space-5); }
+.mk-footer-brand-minimal { display: flex; align-items: center; text-decoration: none; }
+.mk-footer-brand-img { height: 56px; width: auto; display: block; }
+.mk-footer-minimal-links { display: flex; flex-wrap: wrap; gap: var(--mk-space-6); list-style: none; margin: 0; padding: 0; }
+.mk-footer-minimal-links a { font-size: var(--mk-text-sm); font-weight: 700; text-decoration: none; color: rgba(255,255,255,0.85); }
+.mk-footer-minimal-links a:hover { color: var(--mk-yellow); }
+.mk-footer-minimal-tagline { font-size: var(--mk-text-lg); color: var(--mk-yellow); }
+.mk-footer-legal-strip { border-top: var(--mk-border-width) solid rgba(255,255,255,0.15); padding: var(--mk-space-5) 0 var(--mk-space-6); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--mk-space-3); font-size: var(--mk-text-xs); color: rgba(255,255,255,0.55); }
+.mk-footer-legal-strip nav ul { display: flex; flex-wrap: wrap; gap: var(--mk-space-5); list-style: none; margin: 0; padding: 0; }
+.mk-footer-legal-strip nav a { color: rgba(255,255,255,0.55); text-decoration: none; }
+.mk-footer-legal-strip nav a:hover { color: #fff; text-decoration: underline; }
+@media (max-width: 640px) {
+  .mk-footer-minimal-row { flex-direction: column; align-items: flex-start; }
+  .mk-footer-legal-strip { flex-direction: column; align-items: flex-start; }
+}
+
 /* ── Forms ── */
 .mk-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-space-5); }
+@media (max-width: 560px) { .mk-form-grid { grid-template-columns: 1fr; } }
 .mk-field { display: flex; flex-direction: column; gap: var(--mk-space-2); }
 .mk-field.mk-field-full { grid-column: 1 / -1; }
 .mk-field label { font-size: var(--mk-text-sm); font-weight: 600; }
@@ -551,6 +1216,25 @@
 .mk-persona-grid h3 { font-size: var(--mk-text-xl); }
 @media (max-width: 760px) { .mk-persona-grid { grid-template-columns: 1fr; gap: var(--mk-space-4); } }
 
+/* Alternating background — was an inline negative-margin/padding bleed that
+   overflowed the viewport once .mk-container-narrow's own width approached
+   the viewport width (its 24px padding is smaller than the 32px bleed).
+   Bug pre-existed Phase 4; caught during this phase's responsive check.
+   Above 800px there's enough surrounding whitespace for the bleed to read
+   as a soft full-bleed tint; below it, keep the background flush inside
+   the existing container padding instead. */
+.mk-persona-block-alt {
+  background: var(--mk-paper-2);
+  margin-left: calc(-1 * var(--mk-space-8));
+  margin-right: calc(-1 * var(--mk-space-8));
+  padding-left: var(--mk-space-8);
+  padding-right: var(--mk-space-8);
+  border-radius: var(--mk-radius-md);
+}
+@media (max-width: 800px) {
+  .mk-persona-block-alt { margin-left: 0; margin-right: 0; padding-left: var(--mk-space-4); padding-right: var(--mk-space-4); }
+}
+
 /* ── Differentiator panel (Sponsors page) ── */
 .mk-differentiator {
   border: 1px solid var(--mk-line-strong);
@@ -603,6 +1287,49 @@
 .mk-trust-index-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); }
 @media (max-width: 860px) { .mk-trust-index-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .mk-trust-index-grid { grid-template-columns: 1fr; } }
+
+/* Trust Center index cards — referenced by trust/page.tsx but never defined
+   until now (pre-existing gap: rendered as unstyled link blocks). Calm,
+   bordered, no doodles/shadows — the "serious side" of the brand. */
+.mk-module-card {
+  display: block;
+  text-decoration: none;
+  border: var(--mk-border-width) solid var(--mk-line);
+  border-radius: var(--mk-radius-md);
+  padding: var(--mk-space-6);
+  transition: border-color var(--mk-duration) var(--mk-ease);
+}
+.mk-module-card:hover { border-color: var(--mk-orange); }
+.mk-module-card h2 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); color: var(--mk-ink); }
+.mk-module-card p { font-size: var(--mk-text-sm); color: var(--mk-muted); }
+
+/* Trust/Legal hero variant — "unmistakably ELF but calmer": a slim orange
+   top rule instead of any display type/marker accent, which are reserved
+   for the higher-personality pages. */
+.mk-page-hero-trust { border-top: var(--mk-border-width-strong) solid var(--mk-orange); }
+
+/* ── Short bold statement band — a single-sentence pull-statement used
+   sparingly (at most once per high-personality page) to restate something
+   the page already says in prose, as a strong editorial beat rather than a
+   new claim. Never used on pricing/trust/legal/FAQ. ── */
+.mk-statement-band { padding: var(--mk-space-16) 0; }
+.mk-statement-band.mk-statement-orange { background: var(--mk-orange); color: var(--mk-ink); }
+.mk-statement-band.mk-statement-ink { background: var(--mk-ink); color: #fff; }
+.mk-statement-text {
+  font-family: var(--mk-font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 1.05;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  max-width: 18ch;
+  margin: 0;
+}
+
+/* Sponsors: the existing differentiator panel, in the brand's bold orange
+   instead of the neutral paper-2 treatment used elsewhere — the one place
+   on this page that earns a full-color block. */
+.mk-differentiator-orange { background: var(--mk-orange); border-color: transparent; }
+.mk-differentiator-orange p { color: var(--mk-ink); }
 
 .mk-prose { max-width: var(--mk-content-width-narrow); }
 .mk-prose h2 { font-size: var(--mk-text-xl); margin: var(--mk-space-10) 0 var(--mk-space-3); }
