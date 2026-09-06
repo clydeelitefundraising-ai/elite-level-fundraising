@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export interface NavLink {
@@ -81,15 +82,15 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
     >
       <nav className="mk-nav-inner" aria-label="Primary">
         {isOverlayVariant ? (
-          <Link href="/" className="mk-nav-logo mk-nav-logo-badged" onClick={() => setOpen(false)}>
-            <span className="mk-nav-logo-chip" aria-hidden="true" />
-            <span className="mk-nav-logo-text">
-              ELF
-              <svg className="mk-nav-logo-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2 L13.6 8.4 L20 10 L13.6 11.6 L12 18 L10.4 11.6 L4 10 L10.4 8.4 Z" />
-              </svg>
-            </span>
-            <span className="mk-nav-logo-sub">Elite Level Fundraising</span>
+          <Link href="/" className="mk-nav-logo mk-nav-logo-mark" onClick={() => setOpen(false)}>
+            <Image
+              src="/marketing/brand/elf-logo-horizontal.png"
+              alt="Elite Level Fundraising"
+              width={2172}
+              height={724}
+              priority
+              className="mk-nav-logo-img"
+            />
           </Link>
         ) : (
           <Link href="/" className="mk-nav-logo" onClick={() => setOpen(false)}>

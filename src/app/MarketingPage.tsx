@@ -134,7 +134,9 @@ export default function MarketingPage() {
           no dedicated stories/case-studies page exists yet, so this
           deliberately does not navigate anywhere until that's resolved). */}
       <section className="mk-mosaic-row mk-row2-banner">
-        <div className="mk-row2-banner-frame">
+        {/* Desktop/tablet (>640px): the single panoramic composite, unchanged
+            from the surgical-cleanup pass. Hidden below 640px. */}
+        <div className="mk-row2-banner-frame mk-row2-desktop-only">
           <Image
             src="/marketing/brand/real-opportunities-banner.png"
             alt="More than fundraising. Real opportunities for real teams. This is why we raise: a team of athletes celebrating together, and a squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
@@ -155,6 +157,47 @@ export default function MarketingPage() {
             className="mk-row2-banner-link"
             aria-label="Explore Stories"
           />
+        </div>
+
+        {/* Mobile (<=640px): the same single source image, shown as three
+            stacked, independently-scaled "windows" onto its orange / team /
+            travel regions, so the baked-in copy reads at a legible size
+            instead of shrinking the whole panorama. See marketing.css for
+            the crop math (each segment: width 100/segFrac%, translateX
+            -startFrac*100%) — no new image files, no re-authored artwork. */}
+        <div className="mk-row2-mobile-only">
+          <div className="mk-row2-seg mk-row2-seg-orange">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="More than fundraising. Real opportunities for real teams."
+              width={2170}
+              height={725}
+              sizes="100vw"
+            />
+            <button
+              type="button"
+              className="mk-row2-banner-link mk-row2-banner-link-mobile"
+              aria-label="Explore Stories"
+            />
+          </div>
+          <div className="mk-row2-seg mk-row2-seg-celebration">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="This is why we raise: a team of athletes celebrating together."
+              width={2170}
+              height={725}
+              sizes="100vw"
+            />
+          </div>
+          <div className="mk-row2-seg mk-row2-seg-travel">
+            <Image
+              src="/marketing/brand/real-opportunities-banner.png"
+              alt="A squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
+              width={2170}
+              height={725}
+              sizes="100vw"
+            />
+          </div>
         </div>
       </section>
 

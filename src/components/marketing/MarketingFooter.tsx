@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 interface MarketingFooterProps {
   /** "minimal" = the mockup's 4-link footer (About/Pricing/Resources/
@@ -18,8 +19,13 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
       <footer className="mk-footer mk-footer-minimal">
         <div className="mk-container mk-footer-minimal-row">
           <Link href="/" className="mk-footer-brand mk-footer-brand-minimal">
-            ELF
-            <span className="mk-footer-brand-sub">Elite Level Fundraising</span>
+            <Image
+              src="/marketing/brand/elf-logo-stacked.png"
+              alt="Elite Level Fundraising"
+              width={1536}
+              height={1024}
+              className="mk-footer-brand-img"
+            />
           </Link>
           <ul className="mk-footer-minimal-links">
             <li><Link href="/about">About</Link></li>
