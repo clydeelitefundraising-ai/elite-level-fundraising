@@ -25,6 +25,13 @@ export type TeamSummary = {
   primary_color: string;
   season:        string;
   logo_url:      string | null;
+  // Phase 3: explicit branding-customization flag (see supabase/
+  // migrations/phase_a32_team_branding_customized.sql). Defaults to false
+  // in getAccountTeams() below both for real unset rows AND for the
+  // transition window before that migration has run — both cases mean
+  // the same thing today ("no coach has ever customized this team's
+  // branding"), so the fallback is semantically correct, not just safe.
+  branding_customized: boolean;
   role:          string;       // raw role string (head_coach / assistant_coach / booster / athlete / parent)
   role_kind:     "coach" | "member";
 };
@@ -142,16 +149,36 @@ export async function getAccountTeams(accountId: string): Promise<TeamSummary[]>
   if (slugs.length === 0) return [];
 
   const inList = slugs.join(",");
-  const settingsRes = await fetch(
-    `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=campaign_slug,school_name,mascot,sport_name,primary_color,season,logo_url`,
+  const baseSelect = "campaign_slug,school_name,mascot,sport_name,primary_color,season,logo_url";
+
+  // Phase 3: branding_customized is requested with the rest of the row —
+  // but until supabase/migrations/phase_a32_team_branding_customized.sql
+  // has actually been run, PostgREST 400s on an unknown column. Rather
+  // than let that take down the whole team switcher (a much worse
+  // regression than one missing field), retry once without it and default
+  // every row to false, which is the semantically-correct value for "no
+  // coach has customized branding yet" anyway.
+  let rows: (Omit<TeamSummary, "role" | "role_kind" | "branding_customized"> & { branding_customized?: boolean })[] = [];
+  const withFlagRes = await fetch(
+    `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=${baseSelect},branding_customized`,
     { headers: h(), cache: "no-store" },
   );
-  if (!settingsRes.ok) return [];
-  const rows = await settingsRes.json();
-  if (!Array.isArray(rows)) return [];
+  if (withFlagRes.ok) {
+    const parsed = await withFlagRes.json();
+    if (Array.isArray(parsed)) rows = parsed;
+  } else {
+    const fallbackRes = await fetch(
+      `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=${baseSelect}`,
+      { headers: h(), cache: "no-store" },
+    );
+    if (!fallbackRes.ok) return [];
+    const parsed = await fallbackRes.json();
+    if (Array.isArray(parsed)) rows = parsed;
+  }
 
-  return rows.map((r: Omit<TeamSummary, "role" | "role_kind">) => ({
+  return rows.map(r => ({
     ...r,
+    branding_customized: r.branding_customized ?? false,
     role:      roleBySlug[r.campaign_slug]?.role ?? "",
     role_kind: roleBySlug[r.campaign_slug]?.role_kind ?? "member",
   }));

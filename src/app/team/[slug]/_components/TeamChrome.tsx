@@ -104,7 +104,6 @@ export default function TeamChrome({
       <div className={styles.mobileOnly}>
         <TeamNav
           slug={slug}
-          primaryColor={settings.primary_color}
           showSponsors={showSponsors}
           // D2a: no fundraiser badge — see desktopNavItems.ts's comment on
           // why donationStats.donor_count was removed from this slot.

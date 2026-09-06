@@ -1,20 +1,21 @@
 import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 
-// Phase 2 visual proof harness — reachable at /team/[slug]/theme-proof-phase2,
-// NOT linked from any nav, dev/QA use only.
-// Demonstrates the theming mechanism (resolveTeamTheme + contrast
-// protection) against three representative color inputs rather than a
-// full screen redesign, per the Phase 2 spec's "minimal representative
-// surface" instruction. Safe to delete before Phase 3, or keep as a
-// living fixture — parent's call.
+// Visual proof harness — reachable at /team/[slug]/theme-proof-phase2,
+// NOT linked from any nav, dev/QA use only. Extended in Phase 3 to
+// demonstrate the explicit branding_customized flag (see
+// supabase/migrations/phase_a32_team_branding_customized.sql) rather than
+// the color value alone — the 4th panel is the actual Phase 3 product
+// decision made visible: a real, well-formed dark school color is
+// completely ignored when brandingCustomized is false.
 const SAMPLES = [
-  { label: "Default ELF theme (no custom color)", primary: null, secondary: null },
-  { label: "Dark school primary color", primary: "#1A2F4E", secondary: "#8FA6C2" },
-  { label: "Light school primary color", primary: "#F4E04D", secondary: "#2C2C2C" },
+  { label: "Default ELF theme (branding_customized=false, no color set)", primary: null, secondary: null, customized: false },
+  { label: "branding_customized=false — real school color on file, still ignored", primary: "#1A2F4E", secondary: "#8FA6C2", customized: false },
+  { label: "branding_customized=true — dark school primary color", primary: "#1A2F4E", secondary: "#8FA6C2", customized: true },
+  { label: "branding_customized=true — light school primary color", primary: "#F4E04D", secondary: "#2C2C2C", customized: true },
 ] as const;
 
-function Panel({ label, primary, secondary }: { label: string; primary: string | null; secondary: string | null }) {
-  const theme = resolveTeamTheme(primary, secondary);
+function Panel({ label, primary, secondary, customized }: { label: string; primary: string | null; secondary: string | null; customized: boolean }) {
+  const theme = resolveTeamTheme(primary, secondary, customized);
   return (
     <section
       style={{
@@ -30,7 +31,7 @@ function Panel({ label, primary, secondary }: { label: string; primary: string |
         {label}
       </h2>
       <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted-app)", marginBottom: "var(--space-4)" }}>
-        primary input: {primary ?? "null → falls back to ELF orange"} · resolved foreground: {theme["--team-primary-foreground"]}
+        branding_customized: {String(customized)} · stored primary_color: {primary ?? "null"} · resolved --team-primary: {theme["--team-primary"]} · resolved foreground: {theme["--team-primary-foreground"]}
       </p>
 
       <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", alignItems: "center", marginBottom: "var(--space-4)" }}>
@@ -77,15 +78,16 @@ export default function ThemeProofPage() {
   return (
     <div style={{ padding: "var(--space-6)", maxWidth: 720, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", marginBottom: "var(--space-2)", color: "var(--text-primary-app)" }}>
-        Phase 2 Theme Proof
+        Theme + Branding-Mode Proof
       </h1>
       <p style={{ color: "var(--text-muted-app)", marginBottom: "var(--space-8)" }}>
         Dev-only harness. Not linked from navigation. Canvas/surface/text stay
-        constant white/near-black across all three panels — only the
-        team-accent elements (buttons, avatar, badge, progress fill) change.
+        constant white/near-black across all four panels — only the
+        team-accent elements (buttons, avatar, badge, progress fill) change,
+        and only when branding_customized is true.
       </p>
       {SAMPLES.map((s) => (
-        <Panel key={s.label} label={s.label} primary={s.primary} secondary={s.secondary} />
+        <Panel key={s.label} label={s.label} primary={s.primary} secondary={s.secondary} customized={s.customized} />
       ))}
     </div>
   );

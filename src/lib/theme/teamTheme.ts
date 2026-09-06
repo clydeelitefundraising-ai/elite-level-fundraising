@@ -1,4 +1,4 @@
-import { getForegroundForBackground } from "./contrast";
+import { getForegroundForBackground } from "./contrast.ts";
 
 const ELF_ORANGE = "#FF5A1F";
 const ELF_YELLOW = "#FFC93C";
@@ -22,26 +22,42 @@ export type TeamThemeVars = {
  * decides (e.g. if the contrast rule changes later, every consumer
  * updates at once).
  *
- * Existing call sites that already read settings.primary_color directly
- * as a raw JS value (e.g. TeamNav's active-tab color) are NOT broken by
- * this — they're a separate, still-valid consumption path of the same
- * underlying data. This function supplements them for CSS-driven
- * consumers, it does not replace them in Phase 2.
+ * As of Phase 3, TeamNav/DesktopSidebar/TeamHeader/AccountMenu all consume
+ * var(--team-primary)/var(--team-secondary) directly in CSS rather than
+ * reading settings.primary_color as a raw JS value — this function (via
+ * the team layout root's inline style) is their only source of theme
+ * color. A handful of files elsewhere in the app still read
+ * primary_color/secondary_color directly (documented in the Phase 2
+ * report as the ~74/21-file gap) and remain untouched; migrating them is
+ * later-phase work, not part of Phase 3's shell scope.
  *
- * NOTE on "default ELF theme": campaign_settings.primary_color is a
- * required DB column that gets backfilled with a generic blue
- * (#1B4FA8) at team-onboarding time if a school doesn't supply one —
- * it is very rarely actually null/empty in production. This function's
- * fallback to ELF orange therefore mainly guards against a missing/
- * malformed value rather than being the common case; whether a given
- * team's stored color represents deliberate customization or just the
- * onboarding default is a product decision outside this function's
- * scope (and outside Phase 2's scope to change).
+ * PHASE 3 UPDATE: campaign_settings.primary_color is a required DB column
+ * that was historically backfilled with a generic placeholder blue
+ * (#1B4FA8) at team-onboarding time, and live QA additionally found real
+ * rows carrying the app's own old hardcoded navy (#0b1e3d) stored as if
+ * it were a chosen color — so the stored color can NEVER be trusted to
+ * mean "this coach intentionally customized branding." That signal now
+ * comes from the explicit `campaign_settings.branding_customized` column
+ * (see supabase/migrations/phase_a32_team_branding_customized.sql) instead.
+ * `brandingCustomized` must be passed in from that column, not inferred
+ * from the color values.
  */
 export function resolveTeamTheme(
   primaryColor: string | null | undefined,
-  secondaryColor: string | null | undefined
+  secondaryColor: string | null | undefined,
+  brandingCustomized: boolean
 ): TeamThemeVars {
+  // Explicit-flag-false wins over any stored color, including a real,
+  // well-formed hex value — a team that hasn't opted into custom branding
+  // always gets the ELF default theme, full stop.
+  if (!brandingCustomized) {
+    return {
+      "--team-primary": ELF_ORANGE,
+      "--team-secondary": ELF_YELLOW,
+      "--team-primary-foreground": getForegroundForBackground(ELF_ORANGE),
+    };
+  }
+
   const primary = primaryColor && primaryColor.trim() ? primaryColor.trim() : ELF_ORANGE;
   const secondary = secondaryColor && secondaryColor.trim() ? secondaryColor.trim() : ELF_YELLOW;
 

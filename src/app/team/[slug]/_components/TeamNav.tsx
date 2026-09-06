@@ -26,12 +26,10 @@ const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Spo
 
 export default function TeamNav({
   slug,
-  primaryColor,
   showSponsors = false,
   badgeCounts = {},
 }: {
   slug: string;
-  primaryColor: string;
   showSponsors?: boolean;
   badgeCounts?: Record<string, number>;
 }) {
@@ -64,6 +62,7 @@ export default function TeamNav({
           <Link
             key={tab.href}
             href={href}
+            className="elf-focus-ring"
             style={{
               flex: 1,
               display: "flex",
@@ -71,13 +70,18 @@ export default function TeamNav({
               alignItems: "center",
               padding: ".5rem .25rem .55rem",
               textDecoration: "none",
-              color: active ? primaryColor : "#9ca3af",
+              // Resolved via the shell root's CSS vars (set by
+              // resolveTeamTheme() in layout.tsx) — already respects
+              // branding_customized, never reads primary_color raw.
+              color: active ? "var(--team-primary)" : "var(--text-muted-app)",
               transition: "color .12s",
               minWidth: 0,
               position: "relative",
+              borderRadius: ".4rem",
             }}
           >
-            {/* Active indicator — centered pill at top */}
+            {/* Active indicator — small centered underline, not a filled
+                pill background (per the "restrained accent" rule). */}
             {active && (
               <div style={{
                 position: "absolute",
@@ -86,7 +90,7 @@ export default function TeamNav({
                 transform: "translateX(-50%)",
                 width: 28,
                 height: 2,
-                background: primaryColor,
+                background: "var(--team-primary)",
                 borderRadius: 1,
               }} />
             )}
@@ -98,7 +102,7 @@ export default function TeamNav({
                   position: "absolute",
                   top: -4,
                   right: -7,
-                  background: "#dc2626",
+                  background: "var(--color-error)",
                   color: "#fff",
                   borderRadius: 100,
                   fontSize: ".52rem",

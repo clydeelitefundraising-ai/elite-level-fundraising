@@ -63,13 +63,18 @@ export default async function TeamLayout({
   const showRequests = isHeadCoach(actor);
   const pendingAthleteRequestCount = showRequests ? await getPendingRequestCount(slug) : 0;
 
-  // Phase 2: dynamic team theming. Resolves to ELF-orange defaults when a
-  // team hasn't customized branding. Set once here as CSS custom
-  // properties on the shell root so any descendant can opt into
-  // var(--team-primary) etc. without prop drilling — existing inline
-  // colors elsewhere (e.g. TeamNav's primaryColor prop) are untouched by
-  // this and keep working exactly as before.
-  const teamThemeVars = resolveTeamTheme(settings.primary_color, settings.secondary_color);
+  // Phase 2/3: dynamic team theming. Resolves to ELF-orange defaults
+  // whenever branding_customized is false (the default for every team
+  // today — see phase_a32_team_branding_customized.sql; `?? false` also
+  // covers the transition window before that migration has been run, when
+  // the column is simply absent from `settings`). Set once here as CSS
+  // custom properties on the shell root so any descendant can opt into
+  // var(--team-primary) etc. without prop drilling.
+  const teamThemeVars = resolveTeamTheme(
+    settings.primary_color,
+    settings.secondary_color,
+    settings.branding_customized ?? false
+  );
 
   return (
     <>
@@ -84,7 +89,11 @@ export default async function TeamLayout({
     `}</style>
     <div className="elf-shell" style={{
       minHeight: "100vh",
-      background: "#0b1e3d",
+      // Phase 3: was hardcoded #0b1e3d (old navy). This backdrop sits
+      // outside the white shell panel (visible as letterboxing on wide
+      // viewports) — it's ELF structural chrome, not team identity, so it
+      // uses the shared --shell-backdrop token rather than any team color.
+      background: "var(--shell-backdrop)",
       fontFamily: "system-ui, -apple-system, sans-serif",
       display: "flex",
       justifyContent: "center",

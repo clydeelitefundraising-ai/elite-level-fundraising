@@ -144,11 +144,23 @@
   --text-muted-app: #6b7280;
   --border-app: #e5e7eb;
 
+  /* Phase 3: the ELF-owned structural chrome color (desktop sidebar,
+     the shell's outer backdrop). Deliberately NOT team-colored — "the
+     layout belongs to ELF, the accents belong to the team." Replaces
+     the old hardcoded #0b1e3d navy used in both spots pre-Phase-3. */
+  --shell-backdrop: #15171c;
+
   /* Semantic colors are intentionally NOT redefined here — they remain
      the existing --color-success/warning/error/info values above,
      independent of --team-primary/--team-secondary by design. */
 
-  --focus-ring: 0 0 0 3px rgba(255, 90, 31, 0.35);
+  /* Phase 3: two-tone ring (white moat + team-color ring) so focus stays
+     visible on white, cream, near-black (--shell-backdrop), AND on a
+     filled team-color surface — a single-tone ring can disappear against
+     a similarly-colored background, which is what Phase-2 live QA found
+     ("present but faint/generic") with the old single rgba(255,90,31,.35)
+     glow. Consumed via the .elf-focus-ring utility (design-system.css). */
+  --focus-ring: 0 0 0 2px #fff, 0 0 0 4px var(--team-primary);
   --control-height-sm: 36px;
   --control-height-md: 44px;
   --control-height-lg: 52px;

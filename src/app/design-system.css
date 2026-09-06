@@ -38,8 +38,20 @@
 }
 
 .elf-btn:focus-visible {
-  outline: 2px solid var(--team-primary);
-  outline-offset: 3px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Phase 3: shared keyboard-focus treatment for shell/nav controls that
+   aren't built from .elf-btn (plain <Link>/<button> elements styled
+   inline in TeamNav, DesktopSidebar, AccountMenu, TeamHeader). Two-tone
+   ring stays visible against white, near-black (--shell-backdrop), and
+   filled team-color surfaces alike — see --focus-ring in globals.css.
+   Respects each element's own border-radius automatically (box-shadow
+   follows radius), so no radius override needed here. */
+.elf-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* Primary — team-accent fill. Defaults to ELF orange (see globals.css
