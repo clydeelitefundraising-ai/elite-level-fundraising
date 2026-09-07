@@ -1,5 +1,12 @@
 "use client";
 
+import { Plus } from "lucide-react";
+
+// Phase 5: tokenized (was hardcoded navy #0b1e3d) + Lucide Plus icon
+// (was a literal "+" text glyph). Shared across Home, Sponsors, Shop,
+// Files/Updates (mobile+desktop), Calendar (mobile+desktop), and Team —
+// every consumer inherits this visual update automatically. `show`/
+// `label`/`onAdd` API and behavior are completely unchanged.
 export default function CoachBar({
   show,
   label,
@@ -15,22 +22,23 @@ export default function CoachBar({
     <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: ".75rem" }}>
       <button
         onClick={onAdd}
+        className="elf-focus-ring"
         style={{
           display: "inline-flex",
           alignItems: "center",
           gap: ".35rem",
           padding: ".45rem .95rem",
-          background: "#0b1e3d",
-          color: "#fff",
+          background: "var(--team-primary)",
+          color: "var(--team-primary-foreground)",
           border: "none",
-          borderRadius: 8,
+          borderRadius: "var(--radius-md)",
           fontSize: ".82rem",
           fontWeight: 600,
           cursor: "pointer",
           whiteSpace: "nowrap",
         }}
       >
-        <span style={{ fontSize: "1rem", lineHeight: 1, marginTop: -1 }}>+</span>
+        <Plus size={15} aria-hidden="true" />
         {label}
       </button>
     </div>

@@ -26,7 +26,7 @@ export default function RosterTabs({
         role="tablist"
         aria-label="Roster section"
         style={{
-          display: "inline-flex", background: "#eef0f4", borderRadius: 9, padding: 2,
+          display: "inline-flex", background: "var(--surface-light-elevated)", borderRadius: "var(--radius-md)", padding: 2,
           marginBottom: ".75rem", gap: 2,
         }}
       >
@@ -39,15 +39,16 @@ export default function RosterTabs({
             role="tab"
             aria-selected={section === id}
             onClick={() => setSection(id)}
+            className="elf-focus-ring"
             style={{
               padding: ".35rem .8rem",
-              borderRadius: 7,
+              borderRadius: "var(--radius-sm)",
               border: "none",
               cursor: "pointer",
               fontSize: ".76rem",
               fontWeight: 700,
-              background: section === id ? "#fff" : "transparent",
-              color: section === id ? "#0b1e3d" : "#6b7280",
+              background: section === id ? "var(--surface-light)" : "transparent",
+              color: section === id ? "var(--text-primary-app)" : "var(--text-muted-app)",
               boxShadow: section === id ? "0 1px 2px rgba(0,0,0,.08)" : "none",
             }}
           >
