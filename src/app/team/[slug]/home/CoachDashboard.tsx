@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CalendarPlus as CalendarPlusIcon } from "lucide-react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
@@ -15,7 +16,6 @@ import {
 import {
   buildQuickActions,
   resolveRequestsCardData,
-  shouldShowFundraisingCard,
 } from "./coachDashboardHelpers";
 import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
@@ -39,7 +39,16 @@ function actorFirstName(actor: TeamActor): string {
  *  the explicit feedback that Home needed one genuine visual focal
  *  point. Color still comes from var(--team-primary) (the Phase 2/3
  *  theming pipeline, which respects branding_customized) — unchanged
- *  from the prior pass's fix, not regressed. */
+ *  from the prior pass's fix, not regressed.
+ *
+ *  Phase 4 final revision: this card is now ALWAYS rendered (the
+ *  shouldShowFundraisingCard gate that used to hide it entirely at
+ *  raisedCents===0 has been removed from coachDashboardHelpers.ts) — at
+ *  $0 it shows the same $0/goal/0%-progress layout plus "Ready to start
+ *  raising?" instead of the module disappearing. CoachDashboard is
+ *  coach-only (gated by shouldShowCoachDashboard upstream), so this
+ *  card's $0 copy is always the staff variant — the member-facing
+ *  variant lives in HomeView's FundraiserSnapshot. */
 function FundraisingCard({
   slug,
   raisedCents,
@@ -54,6 +63,7 @@ function FundraisingCard({
   topAthleteName: string | null;
 }) {
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
+  const hasRaised = raisedCents > 0;
   return (
     <Link
       href={`/team/${slug}/fundraiser`}
@@ -88,15 +98,21 @@ function FundraisingCard({
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", fontWeight: 600 }}>
-        <span>{donorCount} donor{donorCount !== 1 ? "s" : ""}</span>
-        {topAthleteName && (
-          <>
-            <span aria-hidden="true" style={{ color: "var(--border-app)" }}>·</span>
-            <span>Top fundraiser: {topAthleteName}</span>
-          </>
-        )}
-      </div>
+      {hasRaised ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", fontWeight: 600 }}>
+          <span>{donorCount} donor{donorCount !== 1 ? "s" : ""}</span>
+          {topAthleteName && (
+            <>
+              <span aria-hidden="true" style={{ color: "var(--border-app)" }}>·</span>
+              <span>Top fundraiser: {topAthleteName}</span>
+            </>
+          )}
+        </div>
+      ) : (
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", fontWeight: 600 }}>
+          Ready to start raising?
+        </div>
+      )}
     </Link>
   );
 }
@@ -171,7 +187,7 @@ function RequestsEntry({ slug, summary }: { slug: string; summary: PendingReques
         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)", marginTop: 2 }}>
           {hasPending
             ? `${summary.athleteRequests} athlete · ${summary.commentApprovals} comment`
-            : "All clear"}
+            : "You're all caught up"}
         </div>
       </div>
       {hasPending && (
@@ -298,7 +314,6 @@ export default function CoachDashboard({
 
   const quickActions = buildQuickActions(slug, actor);
   const requestsData = pendingRequestSummary ? resolveRequestsCardData(actor, pendingRequestSummary) : null;
-  const showFundraising = shouldShowFundraisingCard(raisedCents);
   const upcoming = initialUpcoming.slice(0, 5);
   // First item gets its own "Latest Update" treatment; the rest form the
   // dense Recent Activity feed below it — real data, one existing query,
@@ -327,12 +342,11 @@ export default function CoachDashboard({
       </div>
 
       <div className={styles.mainGrid}>
-        {/* Fundraising — full-width hero, the page's primary focal point */}
-        {showFundraising && (
-          <div className={styles.fundraisingArea}>
-            <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} topAthleteName={topAthleteName} />
-          </div>
-        )}
+        {/* Fundraising — full-width hero, the page's primary focal point.
+            Always rendered (never collapses at $0 — see FundraisingCard). */}
+        <div className={styles.fundraisingArea}>
+          <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} topAthleteName={topAthleteName} />
+        </div>
 
         {/* Quick actions — compact icon tiles, top-right beside fundraising */}
         <div className={styles.actionsArea}>
@@ -391,7 +405,13 @@ export default function CoachDashboard({
               </Link>
             </div>
             {upcoming.length === 0 ? (
-              <div className="elf-empty-state">Nothing scheduled yet.</div>
+              <div className="elf-empty-state">
+                <CalendarPlusIcon aria-hidden="true" size={20} strokeWidth={1.75} />
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary-app)" }}>No upcoming events</div>
+                <Link href={`/team/${slug}/calendar`} className="elf-btn elf-btn-secondary elf-focus-ring" style={{ marginTop: "var(--space-1)", padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}>
+                  + Add Event
+                </Link>
+              </div>
             ) : (
               <div className="elf-section-flat" style={{ padding: 0 }}>
                 {upcoming.slice(0, 3).map(ev => <UpcomingEventRow key={ev.id} ev={ev} onOpen={setViewingEvent} />)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Calendar as CalendarIcon, Activity } from "lucide-react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calendarShared";
@@ -239,6 +240,37 @@ export function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen:
   );
 }
 
+// ── Recent Activity row (Phase 4 final revision) ────────────────────────────
+//
+// Deliberately a small, local, non-exported twin of CoachDashboard's
+// CompactAnnouncementRow rather than a shared import — HomeView.tsx and
+// CoachDashboard.tsx already import FROM HomeView.tsx (UpcomingEventRow,
+// CATEGORY_STYLE, etc.); importing the other direction here would create
+// a circular module dependency between the two files. Same flat-row
+// treatment (category badge, timestamp, title, author), reusing
+// CATEGORY_STYLE/relativeTime already defined above in this file.
+function MobileActivityRow({ a }: { a: AnnouncementRow }) {
+  const cat = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
+  return (
+    <div className="elf-list-row">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".3rem", marginBottom: ".2rem" }}>
+          <span style={{
+            background: cat.bg, color: cat.color, borderRadius: 100,
+            fontSize: ".52rem", fontWeight: 700, padding: ".05rem .32rem",
+            textTransform: "uppercase", letterSpacing: ".03em",
+          }}>
+            {a.category.replace("-", " ")}
+          </span>
+          <span style={{ fontSize: ".66rem", color: "var(--text-muted-app)" }}>{relativeTime(a.created_at)}</span>
+        </div>
+        <div style={{ fontWeight: 700, fontSize: ".82rem", color: "var(--text-primary-app)", marginBottom: 1 }}>{a.title}</div>
+        <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>{a.author_name}</div>
+      </div>
+    </div>
+  );
+}
+
 // ── Requests entry point (Phase 3B-1, Head Coach only) ─────────────────────
 //
 // Deliberately NOT the approval cards themselves — this is only a link to
@@ -274,7 +306,7 @@ function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
         <div style={{ fontSize: ".76rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>
           {hasPending
             ? `Athlete and team approval${count !== 1 ? "s" : ""} waiting`
-            : "No pending requests"}
+            : "You're all caught up — no approvals waiting."}
         </div>
       </div>
       <span style={{ fontSize: ".9rem", color: "var(--text-muted-app)", flexShrink: 0 }}>→</span>
@@ -287,20 +319,32 @@ function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
  *  FundraisingCard. This keeps the mobile and desktop fundraising
  *  snapshots consistent with the branding_customized theming pipeline
  *  instead of one of them silently bypassing it. This is the strongest
- *  single visual emphasis point on mobile Home, per the design brief. */
+ *  single visual emphasis point on mobile Home, per the design brief.
+ *
+ *  Phase 4 final revision: the `if (raisedCents === 0) return null`
+ *  early-return that used to hide this entire module at $0 has been
+ *  removed — this was the root cause identified in the Home diagnostic
+ *  for the dashboard collapsing on sparse-data teams. The module is now
+ *  ALWAYS rendered; at $0 it shows the same $0/goal/0%-progress layout
+ *  plus a short role-appropriate line ("Ready to start raising?" for
+ *  staff, "Fundraising is just getting started." for everyone else)
+ *  instead of disappearing. Presentation only — raisedCents/goalCents
+ *  themselves are untouched, still the exact values page.tsx already
+ *  computes (including the dynamic display-goal logic). */
 function FundraiserSnapshot({
   slug,
   raisedCents,
   goalCents,
+  isStaffViewer,
 }: {
   slug: string;
   raisedCents: number;
   goalCents: number;
   topAthleteName: string | null;
+  isStaffViewer: boolean;
 }) {
-  if (raisedCents === 0) return null;
-
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
+  const hasRaised = raisedCents > 0;
 
   return (
     <div className="elf-surface-card" style={{ overflow: "hidden", padding: 0, marginBottom: ".8rem" }}>
@@ -338,6 +382,12 @@ function FundraiserSnapshot({
               <div style={{ background: "var(--team-primary)", height: "100%", width: `${pct}%`, borderRadius: 100, transition: "width .5s ease" }} />
             </div>
             <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)", textAlign: "right" }}>{pct}% of goal</div>
+          </div>
+        )}
+
+        {!hasRaised && (
+          <div style={{ marginTop: ".65rem", fontSize: ".8rem", fontWeight: 600, color: "var(--text-secondary-app)" }}>
+            {isStaffViewer ? "Ready to start raising?" : "Fundraising is just getting started."}
           </div>
         )}
       </div>
@@ -425,10 +475,6 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   pendingRequestCount = 0,
-  schoolName,
-  sportName,
-  season,
-  logoUrl,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -502,7 +548,14 @@ function HomeContent({
 
   const pinned    = items.filter(a => a.priority === "pinned");
   const nonPinned = items.filter(a => a.priority !== "pinned");
-  const preview   = [...pinned, ...nonPinned].slice(0, 3);
+  const ordered   = [...pinned, ...nonPinned];
+  // Phase 4 final revision: split into a single "Team Update" (full
+  // AnnouncementCard treatment, unchanged) plus a dense "Recent Activity"
+  // list (see #6 in the Home diagnostic — activity was effectively
+  // desktop-only before this) instead of one flat preview list of up to 3
+  // identically-weighted cards.
+  const latestAnnouncement   = ordered[0] ?? null;
+  const recentAnnouncements  = ordered.slice(1, 5);
 
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
@@ -515,32 +568,23 @@ function HomeContent({
   // existing, already-role-aware helper on mobile too (it was previously
   // only mounted in the separate desktop CoachDashboard).
   const quickActions = buildQuickActions(slug, actor);
-  const teamContext = [schoolName, sportName].filter(Boolean).join(" · ") + (season ? ` · ${season}` : "");
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
 
-      {/* 0 — Team identity */}
-      <div style={{ display: "flex", alignItems: "center", gap: ".6rem", marginBottom: ".9rem" }}>
-        {logoUrl && (
-          <img src={logoUrl} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-        )}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", lineHeight: 1.15 }}>
-            {schoolName || "Team Home"}
-          </div>
-          {teamContext && (
-            <div style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", marginTop: 1 }}>{teamContext}</div>
-          )}
-        </div>
-      </div>
+      {/* Team identity lives in the shell header (TeamHeader.tsx) only —
+          Phase 4 final revision removed the near-identical block that used
+          to repeat name/sport/season here immediately below it. Home
+          content now begins directly with actual dashboard content. */}
 
-      {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile) */}
+      {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile,
+             never collapses at $0 — see FundraiserSnapshot) */}
       <FundraiserSnapshot
         slug={slug}
         raisedCents={raisedCents}
         goalCents={goalCents}
         topAthleteName={topAthleteName}
+        isStaffViewer={canEdit}
       />
 
       {/* 2 — Quick Actions */}
@@ -556,24 +600,45 @@ function HomeContent({
       {/* 3 — Needs attention (Head Coach only) */}
       {isHeadCoachViewer && <RequestsEntryCard slug={slug} count={pendingRequestCount} />}
 
-      {/* 4 — Upcoming Events */}
-      {next3.length > 0 && (
-        <div className="elf-section-flat" style={{ padding: ".2rem 0 .5rem", marginBottom: ".8rem" }}>
-          <h2 className={styles.sectionKicker} style={{ display: "block", marginBottom: ".2rem" }}>
-            Upcoming
-          </h2>
-          {next3.map((ev, i) => (
+      {/* 4 — Next Up (never vanishes — see Home diagnostic: an empty
+             calendar used to make this whole section disappear instead of
+             showing an intentional empty state) */}
+      <div className="elf-section-flat" style={{ padding: ".2rem 0 .5rem", marginBottom: ".8rem" }}>
+        <h2 className={styles.sectionKicker} style={{ display: "block", marginBottom: ".2rem" }}>
+          Next Up
+        </h2>
+        {next3.length > 0 ? (
+          next3.map((ev, i) => (
             <div key={ev.id} style={i === next3.length - 1 ? { borderBottom: "none" } : {}}>
               <UpcomingEventRow ev={ev} onOpen={setViewingEvent} />
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <div className="elf-empty-state" style={{ padding: "var(--space-6, 1.25rem) var(--space-4, .75rem)" }}>
+            <CalendarIcon aria-hidden="true" size={22} strokeWidth={1.75} />
+            <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-secondary-app)" }}>
+              No upcoming events
+            </div>
+            <div style={{ fontSize: ".78rem", color: "var(--text-muted-app)" }}>
+              Nothing scheduled yet.
+            </div>
+            {canEdit && (
+              <a
+                href={`/team/${slug}/calendar`}
+                className="elf-btn elf-btn-secondary elf-focus-ring"
+                style={{ marginTop: ".4rem", padding: ".4rem .9rem", fontSize: ".78rem", textDecoration: "none" }}
+              >
+                + Add Event
+              </a>
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* 2 — Team Communications */}
+      {/* 2 — Team Update (latest announcement, full treatment) */}
       <div style={{ marginBottom: ".5rem" }}>
         <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".1rem" }}>
-          Updates
+          Team Update
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
@@ -600,9 +665,9 @@ function HomeContent({
         </div>
       ) : (
         <>
-          {preview.map(a => (
-            <AnnouncementCard key={a.id} a={a} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />
-          ))}
+          {latestAnnouncement && (
+            <AnnouncementCard a={latestAnnouncement} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />
+          )}
           <a
             href={`/team/${slug}/communications?tab=updates`}
             className="elf-focus-ring"
@@ -622,6 +687,28 @@ function HomeContent({
           </a>
         </>
       )}
+
+      {/* 2b — Recent Activity (dense rows, brought to mobile — see Home
+             diagnostic #6: this used to be effectively desktop-only) */}
+      <div style={{ marginTop: ".3rem", marginBottom: ".8rem" }}>
+        <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".3rem" }}>
+          Recent Activity
+        </span>
+        {recentAnnouncements.length === 0 ? (
+          <div className="elf-empty-state" style={{ padding: "var(--space-6, 1.25rem) var(--space-4, .75rem)" }}>
+            <Activity aria-hidden="true" size={20} strokeWidth={1.75} />
+            <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
+              Team activity will appear here.
+            </div>
+          </div>
+        ) : (
+          <div className="elf-section-flat" style={{ padding: 0 }}>
+            {recentAnnouncements.map(a => (
+              <MobileActivityRow key={a.id} a={a} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* 3 — Sponsors */}
       {sponsors.length > 0 && (

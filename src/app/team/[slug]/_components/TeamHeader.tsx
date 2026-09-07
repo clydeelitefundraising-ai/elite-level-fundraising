@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Settings } from "lucide-react";
 import type { CampaignSettings } from "@/lib/supabase";
 import type { TeamSummary } from "@/lib/accountSession";
 import NotificationBell from "./NotificationBell";
 import PushOptIn from "./PushOptIn";
 import AccountMenu from "./AccountMenu";
+import ElfMark from "./ElfMark";
 
 function initials(name: string): string {
   return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
@@ -68,8 +70,12 @@ export default function TeamHeader({
           )}
         </div>
 
-        {/* Icon tray */}
-        <div style={{ display: "flex", gap: ".25rem", flexShrink: 0, alignItems: "center" }}>
+        {/* Icon tray — ELF product mark (top-right, restrained, smaller
+            than team identity) precedes the utility icons. Team stays the
+            PRIMARY identity (left, larger); ELF is the PRODUCT identity
+            (right, small chip) — "your team, powered by ELF." */}
+        <div style={{ display: "flex", gap: ".4rem", flexShrink: 0, alignItems: "center" }}>
+          <ElfMark />
           {showBell && (
             <NotificationBell
               slug={settings.campaign_slug}
@@ -89,9 +95,9 @@ export default function TeamHeader({
               href={`/team/${settings.campaign_slug}/settings`}
               aria-label="Team settings"
               className="elf-focus-ring"
-              style={{ fontSize: "1.1rem", opacity: .75, padding: ".3rem", lineHeight: 1, display: "block", textDecoration: "none", borderRadius: ".4rem" }}
+              style={{ opacity: .75, padding: ".3rem", lineHeight: 1, display: "flex", textDecoration: "none", borderRadius: ".4rem", color: "var(--text-primary-app)" }}
             >
-              ⚙️
+              <Settings aria-hidden="true" size={18} strokeWidth={2} />
             </Link>
           )}
         </div>

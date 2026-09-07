@@ -2,27 +2,34 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, Megaphone, Calendar, DollarSign, ShoppingBag, Users, Handshake, type LucideIcon } from "lucide-react";
 
 type TabConfig = {
   href: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   badgeCount?: number;
 };
 
+// Final Phase 4 revision: Lucide icons, no emoji, one consistent icon
+// family across mobile/desktop nav + Quick Actions (see coachDashboardHelpers.ts,
+// desktopNavItems.ts). Destination COUNT is deliberately unchanged here —
+// a 5-primary-plus-"More" restructure was evaluated (per the product
+// direction) but not implemented this pass; see the Phase 4 final report
+// for why and what a follow-up navigation phase would need to do.
 const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
-  { href: "home",           label: "Home",           icon: "🏠" },
+  { href: "home",           label: "Home",           icon: Home },
   // "Communications" (14 chars) doesn't fit this tab's flex width at
   // 320-390px without CSS ellipsis truncating it to "Communi…" — the page
   // itself is still titled "Communications" (see communications/page.tsx);
   // this is only the short nav-tab label.
-  { href: "communications", label: "Comms",          icon: "💬" },
-  { href: "calendar",       label: "Calendar",       icon: "📅" },
-  { href: "fundraiser",     label: "Fundraising",    icon: "💰" },
-  { href: "shop",           label: "Shop",           icon: "🛍️" },
-  { href: "team",           label: "Team",           icon: "👥" },
+  { href: "communications", label: "Comms",          icon: Megaphone },
+  { href: "calendar",       label: "Calendar",       icon: Calendar },
+  { href: "fundraiser",     label: "Fundraising",    icon: DollarSign },
+  { href: "shop",           label: "Shop",           icon: ShoppingBag },
+  { href: "team",           label: "Team",           icon: Users },
 ];
-const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: "🤝" };
+const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: Handshake };
 
 export default function TeamNav({
   slug,
@@ -96,7 +103,7 @@ export default function TeamNav({
             )}
             {/* Icon with optional badge */}
             <div style={{ position: "relative", lineHeight: 1.3 }}>
-              <span style={{ fontSize: "1.15rem" }}>{tab.icon}</span>
+              <tab.icon aria-hidden="true" size={21} strokeWidth={active ? 2.3 : 2} />
               {badge > 0 && (
                 <span style={{
                   position: "absolute",

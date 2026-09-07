@@ -11,6 +11,7 @@
 // (type-only "@/" imports are fine — they're erased entirely).
 import { isStaff, isHeadCoach, isCoachOnly, type TeamActor } from "../../../../lib/permissions.ts";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
+import { Megaphone, CalendarPlus, MessageCircle, Users, type LucideIcon } from "lucide-react";
 
 /** Whether this actor sees the desktop Coach Dashboard instead of the
  *  existing mobile-style HomeContent at desktop widths.
@@ -39,7 +40,10 @@ export type QuickActionKey = "post-announcement" | "add-event" | "send-message" 
 export type QuickAction = {
   key: QuickActionKey;
   label: string;
-  icon: string;
+  // Phase 4 final revision: Lucide icon component, not an emoji glyph —
+  // "no emoji in primary product navigation/action UI" is now a global
+  // Team App design rule. QuickActions.tsx renders this as <Icon />.
+  icon: LucideIcon;
   href: string;
 };
 
@@ -64,13 +68,13 @@ export function buildQuickActions(slug: string, actor: TeamActor): QuickAction[]
     actions.push({
       key: "post-announcement",
       label: "Post Announcement",
-      icon: "📣",
+      icon: Megaphone,
       href: `/team/${slug}/communications?tab=updates`,
     });
     actions.push({
       key: "add-event",
       label: "Add Event",
-      icon: "📅",
+      icon: CalendarPlus,
       href: `/team/${slug}/calendar`,
     });
   }
@@ -78,13 +82,13 @@ export function buildQuickActions(slug: string, actor: TeamActor): QuickAction[]
   actions.push({
     key: "send-message",
     label: "Send Message",
-    icon: "💬",
+    icon: MessageCircle,
     href: `/team/${slug}/messages`,
   });
   actions.push({
     key: "manage-team",
     label: "Manage Team",
-    icon: "👥",
+    icon: Users,
     href: `/team/${slug}/team`,
   });
 
@@ -108,11 +112,13 @@ export function resolveRequestsCardData(
 }
 
 // ─── Fundraising card ────────────────────────────────────────────────────────
-
-/** Matches the existing mobile FundraiserSnapshot's exact rule
- *  (`if (raisedCents === 0) return null`) — the dashboard's Fundraising
- *  card and the mobile snapshot must never disagree about when there's
- *  "nothing to show yet." */
-export function shouldShowFundraisingCard(raisedCents: number): boolean {
-  return raisedCents > 0;
-}
+//
+// Phase 4 final revision: the Fundraising module is now ALWAYS rendered on
+// both mobile and desktop, at every raisedCents value including 0 — a
+// $0/no-goal team gets an intentional "Ready to start raising?" empty
+// state instead of the module silently disappearing (this was the root
+// cause identified in the Home diagnostic: "no data -> disappear" is a
+// presentation bug, not a data problem). The `shouldShowFundraisingCard`
+// gate that used to hide the module at raisedCents===0 has been removed
+// entirely — there is no longer a visibility rule to compute here, only a
+// presentation branch inside FundraisingCard/FundraiserSnapshot themselves.

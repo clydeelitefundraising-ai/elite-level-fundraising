@@ -4,12 +4,15 @@
 // none — see attachmentClient.ts/reconcileMessages.ts for the same pattern).
 // DesktopSidebar.tsx is the only consumer; it renders exactly what these
 // functions compute and nothing more.
+import { Home, Users, Calendar, Megaphone, MessageCircle, DollarSign, Handshake, ClipboardList, Settings, type LucideIcon } from "lucide-react";
 
 export type DesktopNavItem = {
   key: string;
   href: string;
   label: string;
-  icon: string;
+  // Phase 4 final revision: Lucide icon component, no emoji — same icon
+  // family as TeamNav.tsx (mobile) and Quick Actions.
+  icon: LucideIcon;
   badge?: number;
 };
 
@@ -30,11 +33,11 @@ export function buildDesktopNavItems(params: {
   pendingRequestCount: number;
 }): DesktopNavItem[] {
   const items: DesktopNavItem[] = [
-    { key: "home", href: "home", label: "Home", icon: "🏠" },
-    { key: "team", href: "team", label: "Team", icon: "👥" },
-    { key: "calendar", href: "calendar", label: "Calendar", icon: "📅" },
-    { key: "communications", href: "communications", label: "Communications", icon: "📣", badge: params.communicationsBadge },
-    { key: "messages", href: "messages", label: "Messages", icon: "💬", badge: params.messagesBadge },
+    { key: "home", href: "home", label: "Home", icon: Home },
+    { key: "team", href: "team", label: "Team", icon: Users },
+    { key: "calendar", href: "calendar", label: "Calendar", icon: Calendar },
+    { key: "communications", href: "communications", label: "Communications", icon: Megaphone, badge: params.communicationsBadge },
+    { key: "messages", href: "messages", label: "Messages", icon: MessageCircle, badge: params.messagesBadge },
     // D2a: deliberately NO badge here. This item's badge used to be
     // donationStats.donor_count — an all-time donation-record count, not
     // an unread/pending/attention signal — which misused the same red
@@ -42,17 +45,17 @@ export function buildDesktopNavItems(params: {
     // The number itself is still shown, correctly, as plain informational
     // text on the Coach Dashboard's Fundraising card and the Fundraising
     // page — this only removes it from the nav badge slot.
-    { key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: "💰" },
+    { key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: DollarSign },
   ];
 
   if (params.showSponsors) {
-    items.push({ key: "sponsors", href: "sponsors", label: "Sponsors", icon: "🤝" });
+    items.push({ key: "sponsors", href: "sponsors", label: "Sponsors", icon: Handshake });
   }
   if (params.showRequests) {
-    items.push({ key: "requests", href: "requests", label: "Requests", icon: "📋", badge: params.pendingRequestCount });
+    items.push({ key: "requests", href: "requests", label: "Requests", icon: ClipboardList, badge: params.pendingRequestCount });
   }
 
-  items.push({ key: "settings", href: "settings", label: "Settings", icon: "⚙️" });
+  items.push({ key: "settings", href: "settings", label: "Settings", icon: Settings });
 
   return items;
 }

@@ -182,8 +182,8 @@ export default function DesktopSidebar({
                 fontSize: ".88rem",
               }}
             >
-              <span aria-hidden="true" style={{ fontSize: "1.05rem", width: 20, textAlign: "center", flexShrink: 0 }}>
-                {item.icon}
+              <span aria-hidden="true" style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <item.icon size={18} strokeWidth={active ? 2.3 : 2} />
               </span>
               <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {item.label}

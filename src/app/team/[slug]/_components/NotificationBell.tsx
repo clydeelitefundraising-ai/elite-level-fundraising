@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Bell } from "lucide-react";
 
 export default function NotificationBell({
   slug,
@@ -53,7 +54,7 @@ export default function NotificationBell({
         transition: "background .18s ease",
       }}
     >
-      🔔
+      <Bell aria-hidden="true" size={17} strokeWidth={2.1} />
       {count > 0 && (
         <span
           style={{
