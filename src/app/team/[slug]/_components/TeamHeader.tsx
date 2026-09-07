@@ -44,7 +44,15 @@ export default function TeamHeader({
     // (already branding_customized-aware through the shell root's CSS
     // vars, unlike the old raw settings.secondary_color read).
     <div id="elf-team-header" style={{ background: "var(--canvas)", color: "var(--text-primary-app)", borderBottom: "1px solid var(--border-app)" }}>
-      <div style={{ padding: ".85rem 1rem", display: "flex", alignItems: "center", gap: ".85rem" }}>
+      {/* ELF product-identity strip — top-left, above team identity.
+          Compact (no vertical padding of its own beyond a small top gap)
+          so the header doesn't grow taller than necessary. Team stays the
+          larger, primary identity in the row below. */}
+      <div style={{ padding: ".5rem 1rem 0" }}>
+        <ElfMark />
+      </div>
+
+      <div style={{ padding: ".55rem 1rem .85rem", display: "flex", alignItems: "center", gap: ".85rem" }}>
         {/* Team avatar */}
         {(settings.team_photo || settings.logo_url) ? (
           <img
@@ -70,12 +78,10 @@ export default function TeamHeader({
           )}
         </div>
 
-        {/* Icon tray — ELF product mark (top-right, restrained, smaller
-            than team identity) precedes the utility icons. Team stays the
-            PRIMARY identity (left, larger); ELF is the PRODUCT identity
-            (right, small chip) — "your team, powered by ELF." */}
+        {/* Icon tray — notifications + account/settings only. The ELF
+            product mark now lives in its own strip above (top-left);
+            this tray stays top-right utility controls only. */}
         <div style={{ display: "flex", gap: ".4rem", flexShrink: 0, alignItems: "center" }}>
-          <ElfMark />
           {showBell && (
             <NotificationBell
               slug={settings.campaign_slug}

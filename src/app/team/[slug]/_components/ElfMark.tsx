@@ -1,8 +1,9 @@
 /**
  * Restrained ELF product-identity mark for the mobile TeamHeader (top
- * right, per the Phase 4 final revision — "TEAM = content identity, ELF =
- * product identity"). Deliberately smaller than the team avatar (44px) and
- * never larger than the utility icons beside it.
+ * left, in its own compact strip above team identity — moved here from
+ * the top-right icon tray per a follow-up correction to the Phase 4 final
+ * revision). "TEAM = content identity, ELF = product identity."
+ * Deliberately smaller than the team avatar (44px).
  *
  * The existing approved ELF logo assets (public/marketing/brand/elf-logo-
  * horizontal.png / elf-logo-stacked.png, from the marketing site redesign)
@@ -19,13 +20,14 @@ export default function ElfMark() {
     <div
       aria-hidden="true"
       style={{
-        display: "flex",
+        display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         background: "var(--shell-backdrop)",
         borderRadius: 7,
         padding: "5px 8px",
         height: 26,
+        width: "fit-content",
         flexShrink: 0,
       }}
     >
