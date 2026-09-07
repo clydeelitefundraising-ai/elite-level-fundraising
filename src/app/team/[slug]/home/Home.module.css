@@ -22,32 +22,72 @@
 
 /* Internal reading-width constraint for the dashboard itself — the D1
  * shell's main workspace is fluid (no cap), but individual cards
- * shouldn't stretch edge-to-edge on very wide monitors. */
+ * shouldn't stretch edge-to-edge on very wide monitors. Raised from
+ * 1200->1440 (Phase 4 revision) so the asymmetric hero/grid composition
+ * below actually gets to use a 1440px+ monitor's width instead of
+ * capping well inside it. */
 .dashboardShell {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
 .quickActions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+/* Icon-forward tile (icon stacked above label, centered) instead of a
+ * left-aligned list row — per the Phase 4 revision's "feel like real
+ * dashboard controls, not text links" requirement. */
+.actionTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
+  min-height: 84px;
+  text-align: center;
+}
+
+.actionTile .actionIcon {
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 /*
- * Phase 4 — purposeful two-column workspace, not a generic stretched
- * grid. LEFT/MAIN carries the content a coach reads (fundraising,
- * recent activity, latest announcement); RIGHT/SECONDARY carries the
- * content a coach acts on (next event, quick actions, approvals).
- * Named grid-template-areas so the DOM order (main content first, for
- * mobile-source-order/SEO reasons) doesn't have to match visual order.
+ * Phase 4 revision — an intentionally asymmetric dashboard, not a
+ * generic equal-size SaaS grid. Three visual bands, named grid areas so
+ * DOM order (fundraising/actions first for mobile-source-order, then
+ * main/side, then sponsors) doesn't have to match visual placement:
+ *
+ *   [ FUNDRAISING (hero, wide) ]   [ QUICK ACTIONS ]
+ *   [ RECENT ACTIVITY (wide)   ]   [ NEXT EVENT / NEEDS ATTENTION ]
+ *   [ SPONSORS (full width, modest) ]
+ *
+ * Fundraising gets real visual weight here (large stat type, tinted
+ * band) rather than being one info-card among equals — that's the
+ * "strong visual focal point" the dashboard was missing.
  */
 .mainGrid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  grid-template-areas: "main side";
+  grid-template-columns: 1.6fr 1fr;
+  grid-template-areas:
+    "fundraising actions"
+    "main side"
+    "sponsors sponsors";
   gap: var(--space-6);
   align-items: start;
+}
+
+.fundraisingArea {
+  grid-area: fundraising;
+  min-width: 0;
+}
+
+.actionsArea {
+  grid-area: actions;
+  min-width: 0;
 }
 
 .mainColumn {
@@ -66,16 +106,48 @@
   min-width: 0;
 }
 
+.sponsorsArea {
+  grid-area: sponsors;
+  min-width: 0;
+}
+
 /* Below this, even though the whole dashboard is desktop-only (>=1024px),
- * a two-column 1.4fr/1fr split gets cramped — fall back to a single
- * column until there's genuinely enough room for both. */
+ * the 1.6fr/1fr split gets cramped — fall back to a single column,
+ * preserving reading order (fundraising -> actions -> main -> side ->
+ * sponsors) until there's genuinely enough room for the full layout. */
 @media screen and (max-width: 1279px) {
   .mainGrid {
     grid-template-columns: 1fr;
     grid-template-areas:
+      "fundraising"
+      "actions"
       "main"
-      "side";
+      "side"
+      "sponsors";
   }
+}
+
+/* Full-width tinted band for the Fundraising hero module — a controlled,
+ * single-panel use of the resolved team accent (never a full-page/section
+ * recolor), per the theming rules. Opacity-based tint keeps it legible
+ * regardless of whether --team-primary is light or dark. */
+.fundraisingHero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-app);
+  /* Flat tint, not a gradient — the guardrails explicitly rule gradients
+   * out as an AI-slop pattern. */
+  background: color-mix(in srgb, var(--team-primary) 6%, var(--surface-light));
+  padding: var(--space-6);
+}
+
+.fundraisingHero::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--team-primary);
 }
 
 @media screen and (min-width: 1024px) {

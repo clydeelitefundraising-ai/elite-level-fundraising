@@ -10,8 +10,9 @@ import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
-import { shouldShowCoachDashboard } from "./coachDashboardHelpers";
+import { shouldShowCoachDashboard, buildQuickActions } from "./coachDashboardHelpers";
 import CoachDashboard from "./CoachDashboard";
+import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
@@ -376,6 +377,10 @@ type HomeViewProps = {
   schoolName?: string;
   sportName?: string;
   season?: string;
+  // Phase 4 revision: already fetched by page.tsx's getCampaignSettings
+  // call — threaded through for the compact identity block on both the
+  // desktop dashboard and mobile Home. No new query.
+  logoUrl?: string | null;
 };
 
 // ── Role-based entry point ──────────────────────────────────────────────────
@@ -420,6 +425,10 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   pendingRequestCount = 0,
+  schoolName,
+  sportName,
+  season,
+  logoUrl,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -498,13 +507,56 @@ function HomeContent({
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
 
+  // Phase 4 revision: every actor who reaches Home (coach or otherwise)
+  // already gets a role-appropriate action list from the existing,
+  // unmodified buildQuickActions() helper — booster/athlete/parent get
+  // Send Message + Manage Team only, since Post/Add Event stay
+  // isStaff()-gated inside the helper itself. This just renders that
+  // existing, already-role-aware helper on mobile too (it was previously
+  // only mounted in the separate desktop CoachDashboard).
+  const quickActions = buildQuickActions(slug, actor);
+  const teamContext = [schoolName, sportName].filter(Boolean).join(" · ") + (season ? ` · ${season}` : "");
+
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
 
-      {/* 0 — Requests entry point (Head Coach only, Phase 3B-1) */}
+      {/* 0 — Team identity */}
+      <div style={{ display: "flex", alignItems: "center", gap: ".6rem", marginBottom: ".9rem" }}>
+        {logoUrl && (
+          <img src={logoUrl} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", lineHeight: 1.15 }}>
+            {schoolName || "Team Home"}
+          </div>
+          {teamContext && (
+            <div style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", marginTop: 1 }}>{teamContext}</div>
+          )}
+        </div>
+      </div>
+
+      {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile) */}
+      <FundraiserSnapshot
+        slug={slug}
+        raisedCents={raisedCents}
+        goalCents={goalCents}
+        topAthleteName={topAthleteName}
+      />
+
+      {/* 2 — Quick Actions */}
+      {quickActions.length > 0 && (
+        <div style={{ marginBottom: ".8rem" }}>
+          <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".4rem" }}>
+            Quick Actions
+          </span>
+          <QuickActions actions={quickActions} />
+        </div>
+      )}
+
+      {/* 3 — Needs attention (Head Coach only) */}
       {isHeadCoachViewer && <RequestsEntryCard slug={slug} count={pendingRequestCount} />}
 
-      {/* 1 — Upcoming Events */}
+      {/* 4 — Upcoming Events */}
       {next3.length > 0 && (
         <div className="elf-section-flat" style={{ padding: ".2rem 0 .5rem", marginBottom: ".8rem" }}>
           <h2 className={styles.sectionKicker} style={{ display: "block", marginBottom: ".2rem" }}>
@@ -636,14 +688,6 @@ function HomeContent({
           </div>
         </div>
       )}
-
-      {/* 4 — Fundraiser Snapshot (compact, secondary) */}
-      <FundraiserSnapshot
-        slug={slug}
-        raisedCents={raisedCents}
-        goalCents={goalCents}
-        topAthleteName={topAthleteName}
-      />
 
       {/* Event details — same shared component the Calendar page uses, so
           Home can never show different information than Calendar for the

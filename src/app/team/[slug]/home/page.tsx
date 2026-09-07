@@ -48,6 +48,10 @@ export default async function HomePage({
       goalCents={getDisplayGoalCents(settings?.goal_cents ?? 0, donationStats.raised_cents)}
       topAthleteName={fundraiserSummary.topAthleteName}
       primaryColor={settings?.primary_color ?? "#0b1e3d"}
+      // Phase 4 revision: already-fetched by getCampaignSettings above —
+      // just newly threaded through for the identity header (desktop
+      // dashboard) and mobile identity block. No new query.
+      logoUrl={settings?.logo_url ?? null}
       pendingRequestCount={pendingRequestCount}
       // D2 — already-fetched values, newly threaded through for the
       // desktop Coach Dashboard only (see HomeView.tsx/CoachDashboard.tsx).

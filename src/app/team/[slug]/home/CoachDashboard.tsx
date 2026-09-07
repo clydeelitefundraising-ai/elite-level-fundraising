@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
+import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
 import EventDetailsModal from "../_components/EventDetailsModal";
@@ -25,55 +25,131 @@ function actorFirstName(actor: TeamActor): string {
   return actor.session.name.split(" ")[0] || "there";
 }
 
-/** Amount raised / display goal / progress / donor count — the same
- *  fields (and the same "hide entirely until something's been raised"
- *  rule) as the existing mobile FundraiserSnapshot. No new query, no
- *  leaderboard/outreach/top-athlete data — those are explicitly deferred
- *  to a later fundraising-focused desktop phase.
+/** Amount raised / display goal / progress / donor count / top fundraiser —
+ *  no new query: raisedCents/goalCents/donorCount already came through
+ *  page.tsx's existing Promise.all, and topAthleteName is
+ *  fundraiserSummary.topAthleteName, already fetched there too (it was
+ *  threaded to HomeView/mobile's FundraiserSnapshot but never read by
+ *  CoachDashboard — this revision is the first place on desktop that
+ *  uses it). Leaderboard/outreach data beyond that single name is still
+ *  explicitly deferred to a later fundraising-focused desktop phase.
  *
- *  Phase 4: color now comes from var(--team-primary) (the Phase 2/3
- *  theming pipeline, which respects branding_customized) instead of the
- *  raw primaryColor prop — the prop was reading settings.primary_color
- *  directly, which bypasses the branding_customized guard entirely and
- *  would show a team's stored placeholder color even when the team has
- *  never customized branding. This is the highest-emphasis panel on the
- *  page, per the design brief. */
+ *  Phase 4 revision: promoted from an ordinary info-card to a full-width
+ *  hero band (large stat type, tinted panel, thin team-color rule) per
+ *  the explicit feedback that Home needed one genuine visual focal
+ *  point. Color still comes from var(--team-primary) (the Phase 2/3
+ *  theming pipeline, which respects branding_customized) — unchanged
+ *  from the prior pass's fix, not regressed. */
 function FundraisingCard({
   slug,
   raisedCents,
   goalCents,
   donorCount,
+  topAthleteName,
 }: {
   slug: string;
   raisedCents: number;
   goalCents: number;
   donorCount: number;
+  topAthleteName: string | null;
 }) {
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
   return (
     <Link
       href={`/team/${slug}/fundraiser`}
-      className="elf-surface-card elf-focus-ring"
+      className={`${styles.fundraisingHero} elf-focus-ring`}
       style={{ display: "block", textDecoration: "none" }}
     >
-      <div className={styles.sectionKicker}>Fundraising</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", marginTop: "var(--space-1)" }}>
-        <div style={{ fontWeight: 800, fontSize: "var(--text-3xl)", color: "var(--text-primary-app)", lineHeight: 1 }}>
-          {fmtMoney(raisedCents)}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--space-4)" }}>
+        <div style={{ minWidth: 0 }}>
+          <div className={styles.sectionKicker}>Fundraising</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginTop: "var(--space-2)" }}>
+            <div style={{ fontWeight: 800, fontSize: "var(--text-5xl)", color: "var(--text-primary-app)", lineHeight: 1, letterSpacing: "-.02em" }}>
+              {fmtMoney(raisedCents)}
+            </div>
+            {goalCents > 0 && (
+              <div style={{ fontSize: "var(--text-base)", color: "var(--text-muted-app)", fontWeight: 600 }}>of {fmtMoney(goalCents)} goal</div>
+            )}
+          </div>
         </div>
         {goalCents > 0 && (
-          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted-app)" }}>of {fmtMoney(goalCents)}</div>
+          <div style={{
+            flexShrink: 0, fontWeight: 800, fontSize: "var(--text-2xl)", color: "var(--team-primary-foreground)",
+            background: "var(--team-primary)", borderRadius: "var(--radius-lg)", padding: "var(--space-2) var(--space-4)", lineHeight: 1,
+          }}>
+            {pct}%
+          </div>
         )}
       </div>
+
       {goalCents > 0 && (
-        <div style={{ background: "var(--border-app)", borderRadius: "var(--radius-full)", height: 8, overflow: "hidden", margin: "var(--space-3) 0 var(--space-2)" }}>
+        <div style={{ background: "var(--border-app)", borderRadius: "var(--radius-full)", height: 10, overflow: "hidden", margin: "var(--space-5) 0 var(--space-3)" }}>
           <div style={{ background: "var(--team-primary)", height: "100%", width: `${pct}%`, borderRadius: "var(--radius-full)", transition: "width .5s ease" }} />
         </div>
       )}
-      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted-app)" }}>
-        {goalCents > 0 && `${pct}% of goal · `}{donorCount} donor{donorCount !== 1 ? "s" : ""}
+
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", fontWeight: 600 }}>
+        <span>{donorCount} donor{donorCount !== 1 ? "s" : ""}</span>
+        {topAthleteName && (
+          <>
+            <span aria-hidden="true" style={{ color: "var(--border-app)" }}>·</span>
+            <span>Top fundraiser: {topAthleteName}</span>
+          </>
+        )}
       </div>
     </Link>
+  );
+}
+
+/** Modest, secondary strip — reuses the exact sponsors data page.tsx
+ *  already fetches and passes to HomeView (previously threaded through
+ *  to CoachDashboard's props but never rendered there; mobile
+ *  HomeContent has always shown it). Deliberately placed last/full-width
+ *  and kept visually quiet — the explicit feedback was that sponsors
+ *  should not consume prime dashboard space. */
+function SponsorsStrip({ slug, sponsors }: { slug: string; sponsors: SponsorRow[] }) {
+  if (sponsors.length === 0) return null;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+        <span className={styles.sectionKicker}>Our Sponsors</span>
+        <Link href={`/team/${slug}/sponsors`} className={`${styles.sectionLink} elf-focus-ring`}>
+          View All →
+        </Link>
+      </div>
+      <div style={{ display: "flex", gap: "var(--space-3)", overflowX: "auto", paddingBottom: 2 }}>
+        {sponsors.slice(0, 8).map(s => (
+          <a
+            key={s.id}
+            href={s.url || `/team/${slug}/sponsors`}
+            target={s.url ? "_blank" : undefined}
+            rel={s.url ? "noopener noreferrer" : undefined}
+            className="elf-focus-ring"
+            style={{
+              flexShrink: 0, width: 72, display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
+              textDecoration: "none", padding: "var(--space-2)", border: "1px solid var(--border-app)", borderRadius: "var(--radius-md)",
+            }}
+          >
+            {s.logo_url ? (
+              <img src={s.logo_url} alt={s.name} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 6 }} />
+            ) : (
+              <div style={{
+                width: 36, height: 36, borderRadius: 6, background: "var(--surface-light-elevated)",
+                display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "var(--team-primary)",
+              }}>
+                {s.name.trim()[0]?.toUpperCase() ?? "S"}
+              </div>
+            )}
+            <span style={{
+              fontSize: "10px", fontWeight: 700, color: "var(--text-muted-app)", textAlign: "center", lineHeight: 1.2,
+              overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+            }}>
+              {s.name}
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -193,6 +269,9 @@ export type CoachDashboardProps = {
   goalCents?: number;
   primaryColor?: string;
   donorCount?: number;
+  topAthleteName?: string | null;
+  sponsors?: SponsorRow[];
+  logoUrl?: string | null;
   pendingRequestSummary?: PendingRequestSummary;
   schoolName?: string;
   sportName?: string;
@@ -207,6 +286,9 @@ export default function CoachDashboard({
   raisedCents = 0,
   goalCents = 0,
   donorCount = 0,
+  topAthleteName = null,
+  sponsors = [],
+  logoUrl,
   pendingRequestSummary,
   schoolName,
   sportName,
@@ -218,38 +300,79 @@ export default function CoachDashboard({
   const requestsData = pendingRequestSummary ? resolveRequestsCardData(actor, pendingRequestSummary) : null;
   const showFundraising = shouldShowFundraisingCard(raisedCents);
   const upcoming = initialUpcoming.slice(0, 5);
-  const recentAnnouncements = initialAnnouncements.slice(0, 5);
+  // First item gets its own "Latest Update" treatment; the rest form the
+  // dense Recent Activity feed below it — real data, one existing query,
+  // no separate donation-activity fetch invented for this revision.
+  const [latestAnnouncement, ...restAnnouncements] = initialAnnouncements;
+  const recentAnnouncements = restAnnouncements.slice(0, 4);
 
   const teamContext = [schoolName, sportName].filter(Boolean).join(" · ") + (season ? ` · ${season}` : "");
 
   return (
     <div className={styles.dashboardShell} style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* 1 — Team status / identity (compact, no oversized hero) */}
-      <div style={{ marginBottom: "var(--space-6)" }}>
-        <h1 style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
-          Welcome back, {actorFirstName(actor)}
-        </h1>
-        {teamContext && (
-          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", marginTop: 4 }}>{teamContext}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-6)" }}>
+        {logoUrl && (
+          <img src={logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: "var(--radius-md)", objectFit: "cover", flexShrink: 0 }} />
         )}
+        <div style={{ minWidth: 0 }}>
+          <div className={styles.sectionKicker}>Team Dashboard</div>
+          <h1 style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
+            Welcome back, {actorFirstName(actor)}
+          </h1>
+          {teamContext && (
+            <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", marginTop: 2 }}>{teamContext}</div>
+          )}
+        </div>
       </div>
 
       <div className={styles.mainGrid}>
-        {/* LEFT / MAIN — fundraising, recent activity, latest announcement */}
+        {/* Fundraising — full-width hero, the page's primary focal point */}
+        {showFundraising && (
+          <div className={styles.fundraisingArea}>
+            <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} topAthleteName={topAthleteName} />
+          </div>
+        )}
+
+        {/* Quick actions — compact icon tiles, top-right beside fundraising */}
+        <div className={styles.actionsArea}>
+          <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Quick Actions</h2>
+          <QuickActions actions={quickActions} />
+        </div>
+
+        {/* LEFT / MAIN — latest update + recent activity feed */}
         <div className={styles.mainColumn}>
-          {showFundraising && (
-            <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} />
+          {latestAnnouncement && (
+            <div>
+              <div className={styles.sectionKicker} style={{ marginBottom: "var(--space-1)" }}>Latest Team Update</div>
+              <div className="elf-surface-card" style={{ borderLeft: `4px solid ${(CATEGORY_STYLE[latestAnnouncement.category] ?? CATEGORY_STYLE["team"]).accent}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
+                  <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)" }}>{latestAnnouncement.author_name}</span>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)" }}>{relativeTime(latestAnnouncement.created_at)}</span>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: "var(--text-lg)", color: "var(--text-primary-app)", marginBottom: latestAnnouncement.body ? "var(--space-1)" : 0 }}>
+                  {latestAnnouncement.title}
+                </div>
+                {latestAnnouncement.body && (
+                  <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", lineHeight: 1.55 }}>
+                    {latestAnnouncement.body}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
 
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
-              <h2 className={styles.sectionHeading}>Recent Team Activity</h2>
+              <h2 className={styles.sectionHeading}>Recent Activity</h2>
               <Link href={`/team/${slug}/communications?tab=updates`} className={`${styles.sectionLink} elf-focus-ring`}>
                 View Communications →
               </Link>
             </div>
-            {recentAnnouncements.length === 0 ? (
+            {!latestAnnouncement ? (
               <div className="elf-empty-state">No announcements yet.</div>
+            ) : recentAnnouncements.length === 0 ? (
+              <div className="elf-empty-state">Nothing else recent.</div>
             ) : (
               <div className="elf-section-flat" style={{ padding: 0 }}>
                 {recentAnnouncements.map(a => <CompactAnnouncementRow key={a.id} a={a} />)}
@@ -258,11 +381,11 @@ export default function CoachDashboard({
           </div>
         </div>
 
-        {/* RIGHT / SECONDARY — next event, quick actions, approvals */}
+        {/* RIGHT / SECONDARY — next event, needs attention */}
         <div className={styles.sideColumn}>
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
-              <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)" }}>Upcoming</h2>
+              <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)" }}>Next Event</h2>
               <Link href={`/team/${slug}/calendar`} className={`${styles.sectionLink} elf-focus-ring`}>
                 View Calendar →
               </Link>
@@ -277,14 +400,17 @@ export default function CoachDashboard({
           </div>
 
           <div>
-            <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Quick Actions</h2>
-            <QuickActions actions={quickActions} />
+            <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Needs Attention</h2>
+            <div className="elf-section-flat" style={{ padding: 0 }}>
+              {requestsData && <RequestsEntry slug={slug} summary={requestsData} />}
+              <MessagesEntry slug={slug} />
+            </div>
           </div>
+        </div>
 
-          <div className="elf-section-flat" style={{ padding: 0 }}>
-            {requestsData && <RequestsEntry slug={slug} summary={requestsData} />}
-            <MessagesEntry slug={slug} />
-          </div>
+        {/* Sponsors — modest, full-width, bottom of the page */}
+        <div className={styles.sponsorsArea}>
+          <SponsorsStrip slug={slug} sponsors={sponsors} />
         </div>
       </div>
 
