@@ -17,6 +17,25 @@
   display: none;
 }
 
+/*
+ * Presentation fix (D4, matching D3's .memberRosterDesktop / D5's
+ * .memberUpdatesDesktop precedent): for actors where
+ * shouldShowDesktopCalendar(actor) is false (Parent/Athlete/Booster —
+ * see CalendarWorkspaceView.tsx), DesktopCalendarView never mounts, so
+ * the old .mobileOnly rule left them with nothing visible at >=1024px.
+ * This class is the non-coach substitute: never display:none, so
+ * CalendarView (already role-safe via cal.canManage inside itself, not
+ * viewport) stays visible at every width for these actors, with Booster's
+ * existing isStaff-granted Add/Edit/Delete controls intact. At desktop
+ * widths it additionally gets a purposeful max-width/padding so it reads
+ * as an intentional compact member calendar rather than a stretched
+ * phone list. Zero effect on coach-only actors, who still use
+ * .mobileOnly above.
+ */
+.memberCalendarDesktop {
+  display: block;
+}
+
 @media screen and (min-width: 1024px) {
   .mobileOnly {
     display: none;
@@ -24,5 +43,11 @@
 
   .desktopOnly {
     display: block;
+  }
+
+  .memberCalendarDesktop {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
   }
 }

@@ -37,15 +37,15 @@ export default function CalendarView({
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
-        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Schedule
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Team Calendar
           </h2>
           {events.length > 0 && (
-            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
+            <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: "var(--radius-full)", fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
               {events.length} event{events.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -55,14 +55,13 @@ export default function CalendarView({
         </div>
       </div>
 
-      {/* ── Month / Agenda toggle ── */}
+      {/* ── Month / Agenda toggle — thin-underline treatment, matching the
+          RosterTabs.tsx secondary-nav precedent, replacing the earlier
+          pill/box style. ── */}
       <div
         role="tablist"
         aria-label="Calendar view"
-        style={{
-          display: "inline-flex", background: "#f3f4f6", borderRadius: 10, padding: 3,
-          marginBottom: ".85rem", gap: 2,
-        }}
+        style={{ display: "flex", gap: "1.1rem", marginBottom: ".85rem", borderBottom: "1px solid var(--border-app)" }}
       >
         {(["month", "agenda"] as const).map(mode => (
           <button
@@ -70,16 +69,17 @@ export default function CalendarView({
             role="tab"
             aria-selected={viewMode === mode}
             onClick={() => changeViewMode(mode)}
+            className="elf-focus-ring"
             style={{
-              padding: ".4rem .95rem",
-              borderRadius: 8,
+              padding: ".5rem 0",
+              marginBottom: "-1px",
               border: "none",
+              borderBottom: viewMode === mode ? "2px solid var(--team-primary)" : "2px solid transparent",
               cursor: "pointer",
               fontSize: ".8rem",
-              fontWeight: 700,
-              background: viewMode === mode ? "#fff" : "transparent",
-              color: viewMode === mode ? "#0b1e3d" : "#6b7280",
-              boxShadow: viewMode === mode ? "0 1px 3px rgba(0,0,0,.1)" : "none",
+              fontWeight: viewMode === mode ? 700 : 500,
+              background: "none",
+              color: viewMode === mode ? "var(--text-primary-app)" : "var(--text-muted-app)",
               textTransform: "capitalize",
             }}
           >

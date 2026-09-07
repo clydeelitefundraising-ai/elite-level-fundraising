@@ -136,10 +136,11 @@ export default function ExportMenu({
         onClick={() => (open ? setOpen(false) : openMenu())}
         aria-haspopup="menu"
         aria-expanded={open}
+        className="elf-focus-ring"
         style={{
           display: "inline-flex", alignItems: "center", gap: ".35rem",
-          padding: ".45rem .8rem", background: "#f3f4f6", color: "#374151",
-          border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 600, cursor: "pointer",
+          padding: ".45rem .8rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)",
+          border: "none", borderRadius: "var(--radius-md)", fontSize: ".8rem", fontWeight: 600, cursor: "pointer",
         }}
       >
         Export
@@ -236,7 +237,7 @@ function SyncButton({ label, onClick, disabled, danger }: { label: string; onCli
       style={{
         display: "block", width: "100%", textAlign: "center", marginBottom: ".4rem",
         padding: ".5rem .7rem", border: "none", borderRadius: 8,
-        background: danger ? "#fef2f2" : "#0b1e3d", color: danger ? "#dc2626" : "#fff",
+        background: danger ? "#fef2f2" : "var(--team-primary)", color: danger ? "#dc2626" : "var(--team-primary-foreground)",
         fontSize: ".78rem", fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? .6 : 1,
       }}
@@ -248,7 +249,7 @@ function SyncButton({ label, onClick, disabled, danger }: { label: string; onCli
 
 const linkButton: React.CSSProperties = {
   display: "block", width: "100%", textAlign: "center", marginBottom: ".4rem", boxSizing: "border-box",
-  padding: ".5rem .7rem", borderRadius: 8, background: "#f0f4ff", color: "#1d4ed8",
+  padding: ".5rem .7rem", borderRadius: 8, background: "var(--surface-light-elevated)", color: "var(--team-primary)",
   fontSize: ".78rem", fontWeight: 700, textDecoration: "none",
 };
 

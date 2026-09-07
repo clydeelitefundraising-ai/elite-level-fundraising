@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays } from "lucide-react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { arizonaTodayISO, arizonaTomorrowISO, groupEventsByDate } from "@/lib/calendarShared";
 import DateGroupCard from "./DateGroupCard";
@@ -25,14 +26,14 @@ export default function AgendaList({
   if (events.length === 0) {
     return (
       <div style={{
-        background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
-        textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "3rem 1.5rem",
+        textAlign: "center", border: "1px solid var(--border-app)",
       }}>
-        <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📅</div>
-        <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+        <CalendarDays size={30} strokeWidth={1.5} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: ".75rem" }} />
+        <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: ".3rem" }}>
           No events scheduled
         </div>
-        <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+        <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
           {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
         </div>
       </div>

@@ -49,7 +49,7 @@ export default function DesktopMonthGrid({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2, marginBottom: 2 }}>
         {WEEKDAY_LABELS.map(w => (
           <div key={w} style={{
-            textAlign: "center", fontSize: ".68rem", fontWeight: 700, color: "#9ca3af",
+            textAlign: "center", fontSize: ".68rem", fontWeight: 700, color: "var(--text-muted-app)",
             textTransform: "uppercase", letterSpacing: ".04em", padding: ".35rem 0",
           }}>
             {w}
@@ -62,7 +62,7 @@ export default function DesktopMonthGrid({
           so the two rows stay aligned column-for-column. */}
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2,
-        background: "#e5e7eb", borderRadius: 12, padding: 2, overflow: "hidden",
+        background: "var(--border-app)", borderRadius: "var(--radius-lg)", padding: 2, overflow: "hidden",
       }}>
         {cells.map(cell => {
           const evs = byDate.get(cell.iso) ?? [];
@@ -79,6 +79,7 @@ export default function DesktopMonthGrid({
               aria-label={`${cell.iso}${isToday ? ", today" : ""}${evs.length ? `, ${evs.length} event${evs.length !== 1 ? "s" : ""}` : ""}`}
               aria-current={isToday ? "date" : undefined}
               aria-pressed={isSelected}
+              className="elf-focus-ring"
               style={{
                 minHeight: CELL_MIN_HEIGHT,
                 // Grid items default to min-width: auto, which is based on
@@ -93,21 +94,21 @@ export default function DesktopMonthGrid({
                 gap: ".25rem",
                 padding: ".4rem",
                 cursor: "pointer",
-                background: isSelected ? "#eef2ff" : "#fff",
+                background: isSelected ? "var(--surface-light-elevated)" : "var(--surface-light)",
                 opacity: cell.inCurrentMonth ? 1 : 0.5,
                 boxSizing: "border-box",
-                outline: isSelected ? "2px solid #0b1e3d" : "none",
+                outline: isSelected ? "2px solid var(--team-primary)" : "none",
                 outlineOffset: -2,
-                borderRadius: 6,
+                borderRadius: "var(--radius-sm)",
               }}
             >
               <span style={{
                 fontSize: ".8rem",
                 fontWeight: isToday ? 800 : 600,
-                color: isToday ? "#fff" : "#111827",
+                color: isToday ? "var(--team-primary-foreground)" : "var(--text-primary-app)",
                 width: 24, height: 24, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: isToday ? "#0b1e3d" : "transparent",
+                background: isToday ? "var(--team-primary)" : "transparent",
                 flexShrink: 0, alignSelf: "flex-start",
               }}>
                 {cell.day}
@@ -141,7 +142,7 @@ export default function DesktopMonthGrid({
                     style={{
                       display: "block", width: "100%", textAlign: "left",
                       border: "none", background: "none", cursor: "pointer",
-                      padding: ".1rem .35rem", fontSize: ".66rem", fontWeight: 700, color: "#6b7280",
+                      padding: ".1rem .35rem", fontSize: ".66rem", fontWeight: 700, color: "var(--text-muted-app)",
                     }}
                   >
                     +{overflowCount} more

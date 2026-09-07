@@ -13,6 +13,7 @@ import {
   WEEKDAY_LABELS,
   type MonthKey,
 } from "@/lib/calendarShared";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import DateGroupCard from "./DateGroupCard";
 
 // Phase 4B refinement: cells are dot-only and uniform — no title
@@ -63,22 +64,24 @@ export default function MonthView({
           <button
             aria-label="Previous month"
             onClick={() => onChangeMonth(addMonths(visibleMonth, -1))}
+            className="elf-focus-ring"
             style={navBtnStyle}
           >
-            ‹
+            <ChevronLeft size={16} strokeWidth={2.5} />
           </button>
-          <span style={{ fontSize: ".95rem", fontWeight: 800, color: "#0b1e3d", minWidth: 130, textAlign: "center" }}>
+          <span style={{ fontSize: ".95rem", fontWeight: 800, color: "var(--text-primary-app)", minWidth: 130, textAlign: "center" }}>
             {formatMonthYear(visibleMonth)}
           </span>
           <button
             aria-label="Next month"
             onClick={() => onChangeMonth(addMonths(visibleMonth, 1))}
+            className="elf-focus-ring"
             style={navBtnStyle}
           >
-            ›
+            <ChevronRight size={16} strokeWidth={2.5} />
           </button>
         </div>
-        <button onClick={onToday} style={todayBtnStyle} aria-label="Go to today">
+        <button onClick={onToday} className="elf-focus-ring" style={todayBtnStyle} aria-label="Go to today">
           Today
         </button>
       </div>
@@ -98,7 +101,7 @@ export default function MonthView({
       {/* ── Grid: every cell is exactly CELL_HEIGHT, content never changes that ── */}
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2,
-        background: "#f3f4f6", borderRadius: 12, padding: 2, overflow: "hidden",
+        background: "var(--surface-light-elevated)", borderRadius: "var(--radius-lg)", padding: 2, overflow: "hidden",
       }}>
         {cells.map(cell => {
           const evs = byDate.get(cell.iso) ?? [];
@@ -109,6 +112,7 @@ export default function MonthView({
             <button
               key={cell.iso}
               onClick={() => onSelectDate(cell.iso)}
+              className="elf-focus-ring"
               aria-label={`${cell.iso}${isToday ? ", today" : ""}${evs.length ? `, ${evs.length} event${evs.length !== 1 ? "s" : ""}` : ""}`}
               aria-current={isToday ? "date" : undefined}
               aria-pressed={isSelected}
@@ -123,9 +127,9 @@ export default function MonthView({
                 padding: 0,
                 border: "none",
                 cursor: "pointer",
-                background: isSelected ? "#0b1e3d" : "#fff",
+                background: isSelected ? "var(--team-primary)" : "var(--surface-light)",
                 opacity: cell.inCurrentMonth ? 1 : 0.45,
-                borderRadius: 8,
+                borderRadius: "var(--radius-sm)",
                 font: "inherit",
                 boxSizing: "border-box",
               }}
@@ -133,10 +137,10 @@ export default function MonthView({
               <span style={{
                 fontSize: ".78rem",
                 fontWeight: isToday ? 800 : 600,
-                color: isSelected ? "#fff" : isToday ? "#1d4ed8" : "#111827",
+                color: isSelected ? "var(--team-primary-foreground)" : isToday ? "var(--team-primary)" : "var(--text-primary-app)",
                 width: 22, height: 22, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: isToday && !isSelected ? "#f0f4ff" : "transparent",
+                background: isToday && !isSelected ? "var(--surface-light-elevated)" : "transparent",
                 flexShrink: 0,
               }}>
                 {cell.day}
@@ -148,7 +152,7 @@ export default function MonthView({
                 {Array.from({ length: dotCount }).map((_, i) => (
                   <span key={i} style={{
                     width: 5, height: 5, borderRadius: "50%",
-                    background: isSelected ? "#fff" : "#9ca3af",
+                    background: isSelected ? "var(--team-primary-foreground)" : "#9ca3af",
                   }} />
                 ))}
               </div>
@@ -162,12 +166,13 @@ export default function MonthView({
         {selectedDate ? (
           <>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: ".5rem", marginBottom: ".6rem", flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
+              <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "var(--text-primary-app)" }}>
                 {formatFullDate(selectedDate)}
               </h3>
               <button
                 onClick={onClearSelectedDate}
-                style={{ border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: ".76rem", fontWeight: 700, color: "#1d4ed8" }}
+                className="elf-focus-ring"
+                style={{ border: "none", background: "none", cursor: "pointer", padding: 0, fontSize: ".76rem", fontWeight: 700, color: "var(--team-primary)" }}
               >
                 View all {monthLabel} events
               </button>
@@ -175,9 +180,9 @@ export default function MonthView({
 
             {selectedEvents.length === 0 ? (
               <div style={{
-                background: "#fff", borderRadius: 14, padding: "1.5rem 1.25rem",
-                textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-                fontSize: ".82rem", color: "#9ca3af",
+                background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1.5rem 1.25rem",
+                textAlign: "center", border: "1px solid var(--border-app)",
+                fontSize: ".82rem", color: "var(--text-muted-app)",
               }}>
                 No events scheduled for this day.
               </div>
@@ -193,15 +198,15 @@ export default function MonthView({
           </>
         ) : (
           <>
-            <h3 style={{ margin: "0 0 .6rem", fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
+            <h3 style={{ margin: "0 0 .6rem", fontSize: ".92rem", fontWeight: 800, color: "var(--text-primary-app)" }}>
               {monthLabel} Events
             </h3>
 
             {monthEvents.length === 0 ? (
               <div style={{
-                background: "#fff", borderRadius: 14, padding: "1.5rem 1.25rem",
-                textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-                fontSize: ".82rem", color: "#9ca3af",
+                background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1.5rem 1.25rem",
+                textAlign: "center", border: "1px solid var(--border-app)",
+                fontSize: ".82rem", color: "var(--text-muted-app)",
               }}>
                 No events scheduled in {formatMonthYear(visibleMonth)}.
               </div>
@@ -225,12 +230,12 @@ export default function MonthView({
 }
 
 const navBtnStyle: React.CSSProperties = {
-  width: 30, height: 30, borderRadius: 8, border: "none", background: "#f3f4f6",
-  color: "#374151", fontSize: "1.1rem", fontWeight: 700, cursor: "pointer",
+  width: 30, height: 30, borderRadius: "var(--radius-md)", border: "none", background: "var(--surface-light-elevated)",
+  color: "var(--text-secondary-app)", cursor: "pointer",
   display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
 };
 
 const todayBtnStyle: React.CSSProperties = {
-  padding: ".35rem .75rem", borderRadius: 8, border: "none", background: "#f0f4ff",
-  color: "#1d4ed8", fontSize: ".76rem", fontWeight: 700, cursor: "pointer",
+  padding: ".35rem .75rem", borderRadius: "var(--radius-md)", border: "none", background: "var(--surface-light-elevated)",
+  color: "var(--team-primary)", fontSize: ".76rem", fontWeight: 700, cursor: "pointer",
 };
