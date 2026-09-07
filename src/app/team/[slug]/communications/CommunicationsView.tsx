@@ -8,6 +8,7 @@ import { isHeadCoach, type TeamActor } from "@/lib/permissions";
 import type { ThreadWithDetails } from "@/lib/messages";
 import UpdatesWorkspaceView from "../files/UpdatesWorkspaceView";
 import MessagesView from "../messages/MessagesView";
+import styles from "./Communications.module.css";
 
 type Section = "updates" | "messages";
 
@@ -141,9 +142,17 @@ export default function CommunicationsView({
         />
       )}
 
-      {/* ── Section 2: Direct Messages ── */}
+      {/* ── Section 2: Direct Messages ──
+          messagesWrapDesktop (Phase 6 refinement): MessagesView previously
+          had no width constraint at all, so it stretched full-bleed at
+          desktop like a phone list enlarged rather than a real workspace.
+          Same 760px reading-width treatment as Updates' memberUpdatesDesktop
+          — applied unconditionally here since MessagesView already renders
+          identically for every role (no coach/member split to preserve).
+          Pure CSS wrapper only; no routing/realtime/polling touched. */}
       {section === "messages" && (
-        actorKind === null ? (
+        <div className={styles.messagesWrapDesktop}>
+        {actorKind === null ? (
           <div style={{
             background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: "3rem 1.5rem",
             textAlign: "center", border: "1px solid var(--border-app)",
@@ -172,7 +181,8 @@ export default function CommunicationsView({
             primaryColor={primaryColor}
             onUnreadChange={setDmUnreadCount}
           />
-        )
+        )}
+        </div>
       )}
     </div>
   );
