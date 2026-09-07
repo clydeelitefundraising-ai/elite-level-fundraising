@@ -4,8 +4,9 @@ import type { QuickAction } from "./coachDashboardHelpers";
 
 /** Renders the dashboard's quick-action shortcuts — every item is a plain
  *  navigation Link into an existing page/workflow (see buildQuickActions
- *  in coachDashboard.ts); this component has no logic of its own beyond
- *  presentation. */
+ *  in coachDashboardHelpers.ts); this component has no logic of its own
+ *  beyond presentation. Compact, touch-friendly rows — no giant pills,
+ *  no decorative icon treatment beyond the existing emoji glyphs. */
 export default function QuickActions({ actions }: { actions: QuickAction[] }) {
   if (actions.length === 0) return null;
 
@@ -15,15 +16,17 @@ export default function QuickActions({ actions }: { actions: QuickAction[] }) {
         <Link
           key={action.key}
           href={action.href}
+          className="elf-list-row elf-focus-ring"
           style={{
-            display: "flex", alignItems: "center", gap: ".65rem",
-            background: "#fff", borderRadius: 14, padding: ".9rem 1rem",
             textDecoration: "none",
-            boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+            color: "inherit",
+            border: "1px solid var(--border-app)",
+            borderRadius: "var(--radius-md)",
+            minHeight: "var(--tap-target-min)",
           }}
         >
-          <span aria-hidden="true" style={{ fontSize: "1.3rem", flexShrink: 0 }}>{action.icon}</span>
-          <span style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{action.label}</span>
+          <span aria-hidden="true" style={{ fontSize: "1.1rem", flexShrink: 0 }}>{action.icon}</span>
+          <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)" }}>{action.label}</span>
         </Link>
       ))}
     </div>

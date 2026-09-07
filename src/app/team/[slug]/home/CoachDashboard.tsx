@@ -20,17 +20,6 @@ import {
 import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
 
-const CARD_STYLE: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 14,
-  boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-};
-
-const KICKER_STYLE: React.CSSProperties = {
-  fontSize: ".62rem", fontWeight: 700, color: "#9ca3af",
-  textTransform: "uppercase", letterSpacing: ".09em",
-};
-
 function actorFirstName(actor: TeamActor): string {
   if (actor.kind === "public") return "there";
   return actor.session.name.split(" ")[0] || "there";
@@ -40,36 +29,48 @@ function actorFirstName(actor: TeamActor): string {
  *  fields (and the same "hide entirely until something's been raised"
  *  rule) as the existing mobile FundraiserSnapshot. No new query, no
  *  leaderboard/outreach/top-athlete data — those are explicitly deferred
- *  to a later fundraising-focused desktop phase. */
+ *  to a later fundraising-focused desktop phase.
+ *
+ *  Phase 4: color now comes from var(--team-primary) (the Phase 2/3
+ *  theming pipeline, which respects branding_customized) instead of the
+ *  raw primaryColor prop — the prop was reading settings.primary_color
+ *  directly, which bypasses the branding_customized guard entirely and
+ *  would show a team's stored placeholder color even when the team has
+ *  never customized branding. This is the highest-emphasis panel on the
+ *  page, per the design brief. */
 function FundraisingCard({
   slug,
   raisedCents,
   goalCents,
   donorCount,
-  primaryColor,
 }: {
   slug: string;
   raisedCents: number;
   goalCents: number;
   donorCount: number;
-  primaryColor: string;
 }) {
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
   return (
-    <Link href={`/team/${slug}/fundraiser`} style={{ ...CARD_STYLE, display: "block", padding: "1rem 1.1rem", textDecoration: "none" }}>
-      <div style={KICKER_STYLE}>Fundraising</div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: ".6rem", marginTop: ".3rem" }}>
-        <div style={{ fontWeight: 800, fontSize: "1.6rem", color: "#0b1e3d", lineHeight: 1 }}>{fmtMoney(raisedCents)}</div>
+    <Link
+      href={`/team/${slug}/fundraiser`}
+      className="elf-surface-card elf-focus-ring"
+      style={{ display: "block", textDecoration: "none" }}
+    >
+      <div className={styles.sectionKicker}>Fundraising</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)", marginTop: "var(--space-1)" }}>
+        <div style={{ fontWeight: 800, fontSize: "var(--text-3xl)", color: "var(--text-primary-app)", lineHeight: 1 }}>
+          {fmtMoney(raisedCents)}
+        </div>
         {goalCents > 0 && (
-          <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>of {fmtMoney(goalCents)}</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted-app)" }}>of {fmtMoney(goalCents)}</div>
         )}
       </div>
       {goalCents > 0 && (
-        <div style={{ background: "#eaecef", borderRadius: 100, height: 7, overflow: "hidden", margin: ".55rem 0 .4rem" }}>
-          <div style={{ background: primaryColor, height: "100%", width: `${pct}%`, borderRadius: 100 }} />
+        <div style={{ background: "var(--border-app)", borderRadius: "var(--radius-full)", height: 8, overflow: "hidden", margin: "var(--space-3) 0 var(--space-2)" }}>
+          <div style={{ background: "var(--team-primary)", height: "100%", width: `${pct}%`, borderRadius: "var(--radius-full)", transition: "width .5s ease" }} />
         </div>
       )}
-      <div style={{ fontSize: ".76rem", color: "#6b7280" }}>
+      <div style={{ fontSize: "var(--text-sm)", color: "var(--text-muted-app)" }}>
         {goalCents > 0 && `${pct}% of goal · `}{donorCount} donor{donorCount !== 1 ? "s" : ""}
       </div>
     </Link>
@@ -77,26 +78,31 @@ function FundraisingCard({
 }
 
 /** Head-Coach/Platform-Admin only (see resolveRequestsCardData — the
- *  card itself is simply absent for an Assistant Coach, not
+ *  entry is simply absent for an Assistant Coach, not
  *  disabled/placeholder). No approve/decline controls — clicking goes to
- *  the existing Requests Center. */
-function RequestsCard({ slug, summary }: { slug: string; summary: PendingRequestSummary }) {
+ *  the existing Requests Center. Count/link only, per the explicit
+ *  product requirement that Home never render inline moderation. */
+function RequestsEntry({ slug, summary }: { slug: string; summary: PendingRequestSummary }) {
+  const hasPending = summary.total > 0;
   return (
-    <Link href={`/team/${slug}/requests`} style={{ ...CARD_STYLE, display: "block", padding: "1rem 1.1rem", textDecoration: "none" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={KICKER_STYLE}>Requests</div>
-        {summary.total > 0 && (
-          <span style={{ background: "#dc2626", color: "#fff", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, padding: ".1rem .5rem" }}>
-            {summary.total}
-          </span>
-        )}
+    <Link
+      href={`/team/${slug}/requests`}
+      className="elf-list-row elf-focus-ring"
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)" }}>Approvals</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)", marginTop: 2 }}>
+          {hasPending
+            ? `${summary.athleteRequests} athlete · ${summary.commentApprovals} comment`
+            : "All clear"}
+        </div>
       </div>
-      <div style={{ fontWeight: 800, fontSize: "1.6rem", color: "#0b1e3d", marginTop: ".3rem", lineHeight: 1 }}>
-        {summary.total === 0 ? "All clear" : `${summary.total} waiting`}
-      </div>
-      <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".4rem" }}>
-        {summary.athleteRequests} athlete request{summary.athleteRequests !== 1 ? "s" : ""} · {summary.commentApprovals} comment approval{summary.commentApprovals !== 1 ? "s" : ""}
-      </div>
+      {hasPending && (
+        <span className="elf-badge" style={{ background: "var(--color-error)", color: "#fff" }}>
+          {summary.total}
+        </span>
+      )}
     </Link>
   );
 }
@@ -113,7 +119,7 @@ function RequestsCard({ slug, summary }: { slug: string; summary: PendingRequest
  *  TeamChrome's in-memory state) avoids coupling the layout's chrome
  *  component to a page-level dashboard component in a different part of
  *  the tree. */
-function MessagesCard({ slug }: { slug: string }) {
+function MessagesEntry({ slug }: { slug: string }) {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -130,21 +136,22 @@ function MessagesCard({ slug }: { slug: string }) {
 
   const display = count ?? 0;
   return (
-    <Link href={`/team/${slug}/messages`} style={{ ...CARD_STYLE, display: "block", padding: "1rem 1.1rem", textDecoration: "none" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={KICKER_STYLE}>Messages</div>
-        {display > 0 && (
-          <span style={{ background: "#dc2626", color: "#fff", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, padding: ".1rem .5rem" }}>
-            {display}
-          </span>
-        )}
+    <Link
+      href={`/team/${slug}/messages`}
+      className="elf-list-row elf-focus-ring"
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)" }}>Messages</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)", marginTop: 2 }}>
+          {display === 0 ? "All read" : `${display} unread`}
+        </div>
       </div>
-      <div style={{ fontWeight: 800, fontSize: "1.6rem", color: "#0b1e3d", marginTop: ".3rem", lineHeight: 1 }}>
-        {display === 0 ? "All read" : `${display} unread`}
-      </div>
-      <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".4rem" }}>
-        View conversations →
-      </div>
+      {display > 0 && (
+        <span className="elf-badge" style={{ background: "var(--color-error)", color: "#fff" }}>
+          {display}
+        </span>
+      )}
     </Link>
   );
 }
@@ -153,22 +160,26 @@ function MessagesCard({ slug }: { slug: string }) {
  *  full AnnouncementCard: that component carries its own
  *  useSeenTracker/edit/delete wiring, which this preview should not
  *  duplicate (see the D2 design plan on why mounting a second seen-
- *  tracking instance for the same announcement is unnecessary here). */
+ *  tracking instance for the same announcement is unnecessary here).
+ *  Rendered as a flat list row, not its own floating card, per the
+ *  "reserve cards for content that genuinely needs grouping" rule. */
 function CompactAnnouncementRow({ a }: { a: AnnouncementRow }) {
   const cat = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   return (
-    <div style={{ padding: ".7rem 0", borderBottom: "1px solid #f3f4f6" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".25rem" }}>
-        <span style={{
-          background: cat.bg, color: cat.color, borderRadius: 100,
-          fontSize: ".6rem", fontWeight: 700, padding: ".08rem .5rem", textTransform: "uppercase", letterSpacing: ".03em",
-        }}>
-          {a.category.replace("-", " ")}
-        </span>
-        <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>{relativeTime(a.created_at)}</span>
+    <div className="elf-list-row">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: 4 }}>
+          <span style={{
+            background: cat.bg, color: cat.color, borderRadius: "var(--radius-full)",
+            fontSize: "10px", fontWeight: 700, padding: "1px 8px", textTransform: "uppercase", letterSpacing: ".03em",
+          }}>
+            {a.category.replace("-", " ")}
+          </span>
+          <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)" }}>{relativeTime(a.created_at)}</span>
+        </div>
+        <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)", marginBottom: 2 }}>{a.title}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)" }}>{a.author_name}</div>
       </div>
-      <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d", marginBottom: ".15rem" }}>{a.title}</div>
-      <div style={{ fontSize: ".78rem", color: "#6b7280" }}>{a.author_name}</div>
     </div>
   );
 }
@@ -195,7 +206,6 @@ export default function CoachDashboard({
   initialUpcoming,
   raisedCents = 0,
   goalCents = 0,
-  primaryColor = "#0b1e3d",
   donorCount = 0,
   pendingRequestSummary,
   schoolName,
@@ -214,60 +224,67 @@ export default function CoachDashboard({
 
   return (
     <div className={styles.dashboardShell} style={{ animation: "elf-fadeUp .22s ease both" }}>
-      {/* Header */}
-      <div style={{ marginBottom: "1.25rem" }}>
-        <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em" }}>
+      {/* 1 — Team status / identity (compact, no oversized hero) */}
+      <div style={{ marginBottom: "var(--space-6)" }}>
+        <h1 style={{ margin: 0, fontSize: "var(--text-2xl)", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
           Welcome back, {actorFirstName(actor)}
         </h1>
         {teamContext && (
-          <div style={{ fontSize: ".85rem", color: "#6b7280", marginTop: ".2rem" }}>{teamContext}</div>
+          <div style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary-app)", marginTop: 4 }}>{teamContext}</div>
         )}
       </div>
 
-      {/* Quick actions */}
-      <div style={{ marginBottom: "1.25rem" }}>
-        <QuickActions actions={quickActions} />
-      </div>
-
-      {/* Attention / KPI row */}
-      <div className={styles.kpiGrid} style={{ marginBottom: "1.25rem" }}>
-        {showFundraising && (
-          <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} primaryColor={primaryColor} />
-        )}
-        {requestsData && <RequestsCard slug={slug} summary={requestsData} />}
-        <MessagesCard slug={slug} />
-      </div>
-
-      {/* Main content */}
       <div className={styles.mainGrid}>
-        {/* Upcoming */}
-        <div style={{ ...CARD_STYLE, padding: "1rem 1.1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <h2 style={{ margin: 0, fontSize: ".95rem", fontWeight: 800, color: "#0b1e3d" }}>Upcoming</h2>
-            <Link href={`/team/${slug}/calendar`} style={{ fontSize: ".78rem", fontWeight: 700, color: "#0b1e3d", textDecoration: "none" }}>
-              View Calendar →
-            </Link>
-          </div>
-          {upcoming.length === 0 ? (
-            <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: "1rem 0" }}>Nothing scheduled yet.</div>
-          ) : (
-            upcoming.map(ev => <UpcomingEventRow key={ev.id} ev={ev} onOpen={setViewingEvent} />)
+        {/* LEFT / MAIN — fundraising, recent activity, latest announcement */}
+        <div className={styles.mainColumn}>
+          {showFundraising && (
+            <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} />
           )}
+
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+              <h2 className={styles.sectionHeading}>Recent Team Activity</h2>
+              <Link href={`/team/${slug}/communications?tab=updates`} className={`${styles.sectionLink} elf-focus-ring`}>
+                View Communications →
+              </Link>
+            </div>
+            {recentAnnouncements.length === 0 ? (
+              <div className="elf-empty-state">No announcements yet.</div>
+            ) : (
+              <div className="elf-section-flat" style={{ padding: 0 }}>
+                {recentAnnouncements.map(a => <CompactAnnouncementRow key={a.id} a={a} />)}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Recent Team Activity */}
-        <div style={{ ...CARD_STYLE, padding: "1rem 1.1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <h2 style={{ margin: 0, fontSize: ".95rem", fontWeight: 800, color: "#0b1e3d" }}>Recent Team Activity</h2>
-            <Link href={`/team/${slug}/communications?tab=updates`} style={{ fontSize: ".78rem", fontWeight: 700, color: "#0b1e3d", textDecoration: "none" }}>
-              View Communications →
-            </Link>
+        {/* RIGHT / SECONDARY — next event, quick actions, approvals */}
+        <div className={styles.sideColumn}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+              <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)" }}>Upcoming</h2>
+              <Link href={`/team/${slug}/calendar`} className={`${styles.sectionLink} elf-focus-ring`}>
+                View Calendar →
+              </Link>
+            </div>
+            {upcoming.length === 0 ? (
+              <div className="elf-empty-state">Nothing scheduled yet.</div>
+            ) : (
+              <div className="elf-section-flat" style={{ padding: 0 }}>
+                {upcoming.slice(0, 3).map(ev => <UpcomingEventRow key={ev.id} ev={ev} onOpen={setViewingEvent} />)}
+              </div>
+            )}
           </div>
-          {recentAnnouncements.length === 0 ? (
-            <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: "1rem 0" }}>No announcements yet.</div>
-          ) : (
-            recentAnnouncements.map(a => <CompactAnnouncementRow key={a.id} a={a} />)
-          )}
+
+          <div>
+            <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Quick Actions</h2>
+            <QuickActions actions={quickActions} />
+          </div>
+
+          <div className="elf-section-flat" style={{ padding: 0 }}>
+            {requestsData && <RequestsEntry slug={slug} summary={requestsData} />}
+            <MessagesEntry slug={slug} />
+          </div>
         </div>
       </div>
 

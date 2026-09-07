@@ -30,21 +30,40 @@
 
 .quickActions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: .85rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2);
 }
 
-.kpiGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
-}
-
+/*
+ * Phase 4 — purposeful two-column workspace, not a generic stretched
+ * grid. LEFT/MAIN carries the content a coach reads (fundraising,
+ * recent activity, latest announcement); RIGHT/SECONDARY carries the
+ * content a coach acts on (next event, quick actions, approvals).
+ * Named grid-template-areas so the DOM order (main content first, for
+ * mobile-source-order/SEO reasons) doesn't have to match visual order.
+ */
 .mainGrid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
-  gap: 1.25rem;
+  grid-template-areas: "main side";
+  gap: var(--space-6);
   align-items: start;
+}
+
+.mainColumn {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.sideColumn {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 /* Below this, even though the whole dashboard is desktop-only (>=1024px),
@@ -53,6 +72,9 @@
 @media screen and (max-width: 1279px) {
   .mainGrid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "side";
   }
 }
 
@@ -64,4 +86,35 @@
   .desktopOnly {
     display: block;
   }
+}
+
+/* ── Shared section primitives (mobile + desktop) ──────────────────── */
+
+.sectionKicker {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .09em;
+}
+
+.sectionHeading {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text-primary-app);
+  letter-spacing: -.01em;
+}
+
+.sectionLink {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-secondary-app);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+}
+
+.sectionLink:hover {
+  color: var(--team-primary);
 }
