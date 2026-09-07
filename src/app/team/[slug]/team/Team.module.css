@@ -20,6 +20,23 @@
   display: none;
 }
 
+/*
+ * Presentation fix: for actors where shouldShowDesktopRoster(actor) is
+ * false (Parent/Athlete/Booster — see TeamView.tsx), DesktopRosterTable
+ * never mounts, so the old .mobileOnly rule left them with nothing
+ * visible at >=1024px (AthleteRosterGrid hidden, no replacement). This
+ * class is the non-coach substitute: never display:none, so
+ * AthleteRosterGrid (already role-safe via staffMode/canDelete inside
+ * itself, not viewport) stays visible at every width for these actors.
+ * At desktop widths it additionally gets a purposeful max-width/padding
+ * so it reads as an intentional compact member roster rather than a
+ * stretched phone list. Zero effect on coach-only actors, who still use
+ * .mobileOnly above.
+ */
+.memberRosterDesktop {
+  display: block;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -38,5 +55,11 @@
 
   .desktopOnly {
     display: block;
+  }
+
+  .memberRosterDesktop {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
   }
 }
