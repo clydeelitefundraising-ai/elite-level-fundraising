@@ -40,13 +40,18 @@ const OUTREACH_TONE: Partial<Record<RosterRow["outreachStatus"], { bg: string; c
 };
 
 const th: React.CSSProperties = {
-  textAlign: "left", padding: ".65rem .75rem", fontSize: ".68rem", fontWeight: 700,
+  textAlign: "left", padding: ".55rem .75rem", fontSize: ".66rem", fontWeight: 700,
   color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".05em",
   borderBottom: "1.5px solid var(--border-app)", whiteSpace: "nowrap",
 };
 
+// Tightened from .65rem to .4rem vertical padding as part of the density
+// revision — this alone drops per-row height enough that a coach sees
+// meaningfully more athletes without scrolling on a 1440px screen. Row
+// hover added below (`.roster-row:hover`) since a denser table needs a
+// stronger scan aid than the previous looser spacing did.
 const td: React.CSSProperties = {
-  padding: ".65rem .75rem", fontSize: ".85rem", color: "var(--text-primary-app)",
+  padding: ".4rem .75rem", fontSize: ".83rem", color: "var(--text-primary-app)",
   borderBottom: "1px solid var(--border-app)", verticalAlign: "middle",
 };
 
@@ -92,16 +97,25 @@ export default function DesktopRosterTable({
   const clearFilters = () => { setSearch(""); setGrade(""); setFundraising("all"); };
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    // Density revision: maxWidth trimmed from 1200->1100 and vertical
+    // rhythm (header/toolbar margins) tightened — the previous version
+    // was already centered rather than edge-to-edge, but the generous
+    // margins plus loose row padding still read as "a short list with a
+    // lot of air around it" on a 1440px+ screen. This purposefully keeps
+    // the roster table itself as a deliberate content column, not full
+    // canvas width, while using the reclaimed vertical space for rows.
+    <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       {/* Remove starts neutral/subdued, red only on hover/focus — the
           action itself, isHeadCoach gating, and the existing confirm()
-          dialog in handleDelete are all unchanged. */}
+          dialog in handleDelete are all unchanged. Row hover is a new,
+          purely visual scan aid for the tightened row density below. */}
       <style>{`
         .roster-remove-btn { color: var(--text-muted-app); }
         .roster-remove-btn:hover, .roster-remove-btn:focus-visible { color: var(--color-error); }
+        .roster-row:hover { background: var(--surface-light-elevated); }
       `}</style>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: ".85rem" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
             Team Roster
@@ -128,7 +142,7 @@ export default function DesktopRosterTable({
       </div>
 
       {/* Toolbar: search / filters / sort */}
-      <div className={styles.toolbar} style={{ marginBottom: "1rem" }}>
+      <div className={styles.toolbar} style={{ marginBottom: ".75rem" }}>
         <div style={{ position: "relative", flex: "0 1 42%", minWidth: 200 }}>
           <Search size={15} aria-hidden="true" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted-app)" }} />
           <input
@@ -204,7 +218,7 @@ export default function DesktopRosterTable({
                   : null;
                 const tone = OUTREACH_TONE[row.outreachStatus];
                 return (
-                  <tr key={row.id}>
+                  <tr key={row.id} className="roster-row">
                     <td style={td}>
                       <button
                         onClick={() => staffMode && router.push(`/team/${slug}/team/${row.id}`)}
@@ -216,11 +230,11 @@ export default function DesktopRosterTable({
                         disabled={!staffMode}
                       >
                         {row.profile_photo ? (
-                          <img src={row.profile_photo} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                          <img src={row.profile_photo} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                         ) : (
                           <div style={{
-                            width: 32, height: 32, borderRadius: "50%", background: "var(--team-primary)", color: "var(--team-primary-foreground)",
-                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".62rem", fontWeight: 800, flexShrink: 0,
+                            width: 28, height: 28, borderRadius: "50%", background: "var(--team-primary)", color: "var(--team-primary-foreground)",
+                            display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".58rem", fontWeight: 800, flexShrink: 0,
                           }}>
                             {initials(row.name)}
                           </div>
