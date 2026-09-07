@@ -120,6 +120,16 @@ export default function LoginView() {
           <a href="/coach-login" style={{ fontSize: ".75rem", color: "#9ca3af", textDecoration: "underline" }}>
             Coach using old login? Continue with legacy coach login.
           </a>
+          {/* Identity Compatibility follow-up: no safe, slug-agnostic link
+              exists here — /enter-code is the new-member join path (would
+              risk creating a duplicate membership for someone who already
+              has one), and the team-specific /activate-account page needs a
+              team_member cookie /login doesn't have. Pointing this
+              population at their coach/admin is the only route that's both
+              safe (no email enumeration, no guessed slug) and accurate. */}
+          <p style={{ fontSize: ".75rem", color: "#9ca3af", margin: 0, lineHeight: 1.5, maxWidth: 300, marginLeft: "auto", marginRight: "auto" }}>
+            Previously used a team-specific login and don&apos;t have an ELF account yet? Ask your coach or team admin to help you activate your ELF account.
+          </p>
         </div>
       </div>
     </div>
