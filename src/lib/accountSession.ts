@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
+import { mergeRoleBySlug } from "@/lib/accountTeamsMerge";
 import type { TeamActor } from "@/lib/permissions";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -126,24 +127,12 @@ export async function getAccountTeams(accountId: string): Promise<TeamSummary[]>
     ),
   ]);
 
-  const roleBySlug: Record<string, { role: string; role_kind: "coach" | "member" }> = {};
-
-  if (memberRes.ok) {
-    const rows = await memberRes.json();
-    if (Array.isArray(rows)) {
-      for (const r of rows as { campaign_slug: string; role: string }[]) {
-        roleBySlug[r.campaign_slug] = { role: r.role, role_kind: "member" };
-      }
-    }
-  }
-  if (coachRes.ok) {
-    const rows = await coachRes.json();
-    if (Array.isArray(rows)) {
-      for (const r of rows as { campaign_slug: string; role: string }[]) {
-        if (!roleBySlug[r.campaign_slug]) roleBySlug[r.campaign_slug] = { role: r.role, role_kind: "coach" };
-      }
-    }
-  }
+  const memberRows = memberRes.ok ? await memberRes.json() : [];
+  const coachRows  = coachRes.ok  ? await coachRes.json()  : [];
+  const roleBySlug = mergeRoleBySlug(
+    Array.isArray(coachRows)  ? coachRows  : [],
+    Array.isArray(memberRows) ? memberRows : [],
+  );
 
   const slugs = Object.keys(roleBySlug);
   if (slugs.length === 0) return [];

@@ -155,6 +155,9 @@ export default function CoachLoginPage() {
         <p style={{ margin: "1.5rem 0 0", textAlign: "center", fontSize: ".78rem", color: "#9ca3af" }}>
           Need access? Contact your team administrator.
         </p>
+        <p style={{ margin: ".6rem 0 0", textAlign: "center", fontSize: ".78rem", color: "#9ca3af" }}>
+          Coaching more than one team? <a href="/login" style={{ color: "#0b1e3d", fontWeight: 600 }}>Use your ELF account</a> instead — ask your administrator for an activation link if you haven&apos;t set one up yet.
+        </p>
       </div>
     </div>
   );
