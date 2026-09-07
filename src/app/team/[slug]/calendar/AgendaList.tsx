@@ -26,15 +26,18 @@ export default function AgendaList({
   if (events.length === 0) {
     return (
       <div style={{
-        background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "3rem 1.5rem",
-        textAlign: "center", border: "1px solid var(--border-app)",
+        display: "flex", alignItems: "center", gap: ".65rem",
+        background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: ".85rem 1rem",
+        border: "1px solid var(--border-app)",
       }}>
-        <CalendarDays size={30} strokeWidth={1.5} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: ".75rem" }} />
-        <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: ".3rem" }}>
-          No events scheduled
-        </div>
-        <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
-          {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
+        <CalendarDays size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+            No Events Scheduled
+          </div>
+          <div style={{ fontSize: ".78rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>
+            {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
+          </div>
         </div>
       </div>
     );

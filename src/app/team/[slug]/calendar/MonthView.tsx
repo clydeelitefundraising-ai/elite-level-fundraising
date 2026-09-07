@@ -13,7 +13,7 @@ import {
   WEEKDAY_LABELS,
   type MonthKey,
 } from "@/lib/calendarShared";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import DateGroupCard from "./DateGroupCard";
 
 // Phase 4B refinement: cells are dot-only and uniform — no title
@@ -86,23 +86,30 @@ export default function MonthView({
         </button>
       </div>
 
-      {/* ── Weekday header row ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
-        {WEEKDAY_LABELS.map(w => (
-          <div key={w} style={{
-            textAlign: "center", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af",
-            textTransform: "uppercase", letterSpacing: ".04em", padding: ".2rem 0",
-          }}>
-            {w}
-          </div>
-        ))}
-      </div>
+      {/* ── Weekday header + grid: one bordered surface (Phase 7 visual
+          refinement) instead of a grid of individually-rounded cells, so
+          it reads as one calendar rather than a set of floating buttons.
+          Cell sizing (CELL_HEIGHT) is unchanged — mobile density was
+          already approved. ── */}
+      <div style={{ border: "1px solid var(--border-app)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+        <div style={{
+          display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+          background: "var(--surface-light-elevated)", borderBottom: "1px solid var(--border-app)",
+        }}>
+          {WEEKDAY_LABELS.map(w => (
+            <div key={w} style={{
+              textAlign: "center", fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)",
+              textTransform: "uppercase", letterSpacing: ".04em", padding: ".3rem 0",
+            }}>
+              {w}
+            </div>
+          ))}
+        </div>
 
-      {/* ── Grid: every cell is exactly CELL_HEIGHT, content never changes that ── */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2,
-        background: "var(--surface-light-elevated)", borderRadius: "var(--radius-lg)", padding: 2, overflow: "hidden",
-      }}>
+        <div style={{
+          display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1,
+          background: "var(--border-app)",
+        }}>
         {cells.map(cell => {
           const evs = byDate.get(cell.iso) ?? [];
           const dotCount = Math.min(evs.length, 2);
@@ -129,7 +136,6 @@ export default function MonthView({
                 cursor: "pointer",
                 background: isSelected ? "var(--team-primary)" : "var(--surface-light)",
                 opacity: cell.inCurrentMonth ? 1 : 0.45,
-                borderRadius: "var(--radius-sm)",
                 font: "inherit",
                 boxSizing: "border-box",
               }}
@@ -159,6 +165,7 @@ export default function MonthView({
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* ── Section below the grid: full-month list, or a selected-day override ── */}
@@ -180,10 +187,11 @@ export default function MonthView({
 
             {selectedEvents.length === 0 ? (
               <div style={{
-                background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1.5rem 1.25rem",
-                textAlign: "center", border: "1px solid var(--border-app)",
-                fontSize: ".82rem", color: "var(--text-muted-app)",
+                display: "flex", alignItems: "center", gap: ".55rem",
+                background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: ".7rem .9rem",
+                border: "1px solid var(--border-app)", fontSize: ".82rem", color: "var(--text-muted-app)",
               }}>
+                <CalendarDays size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
                 No events scheduled for this day.
               </div>
             ) : (
@@ -204,10 +212,11 @@ export default function MonthView({
 
             {monthEvents.length === 0 ? (
               <div style={{
-                background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1.5rem 1.25rem",
-                textAlign: "center", border: "1px solid var(--border-app)",
-                fontSize: ".82rem", color: "var(--text-muted-app)",
+                display: "flex", alignItems: "center", gap: ".55rem",
+                background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: ".7rem .9rem",
+                border: "1px solid var(--border-app)", fontSize: ".82rem", color: "var(--text-muted-app)",
               }}>
+                <CalendarDays size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
                 No events scheduled in {formatMonthYear(visibleMonth)}.
               </div>
             ) : (

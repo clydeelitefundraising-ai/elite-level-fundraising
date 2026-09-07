@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { arizonaTodayISO, arizonaTomorrowISO, formatFullDate, addMonths, formatMonthYear, groupEventsByDate } from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
 import ExportMenu from "./ExportMenu";
@@ -45,35 +45,37 @@ export default function DesktopCalendarView({
   const selectedEvents = selectedDate ? (byDate.get(selectedDate) ?? []) : [];
 
   return (
-    <div style={{ maxWidth: 1200 }}>
-      {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
-            Calendar
-          </h2>
-          {events.length > 0 && (
-            <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: "var(--radius-full)", fontSize: ".68rem", fontWeight: 700, padding: ".18rem .55rem" }}>
-              {events.length} event{events.length !== 1 ? "s" : ""}
-            </span>
-          )}
+    <div style={{ maxWidth: 1100 }}>
+      {/* ── Header ──
+          Phase 7 visual refinement: three stacked rows instead of one
+          wrapping flex row — title+count/Export+Add on top, the
+          Month/Agenda tabs on their own line, month navigation+Today
+          below that. Export was reading as disconnected from the rest of
+          the controls in the single-row layout; grouping it with Add
+          Event on the title row (the two actions that act ON the
+          calendar) and keeping navigation (moving THROUGH the calendar)
+          on its own row reads as one coherent control cluster instead of
+          a strip of unrelated buttons. */}
+      <div style={{ marginBottom: "1.1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: ".85rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
+            <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
+              Team Calendar
+            </h2>
+            {events.length > 0 && (
+              <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: "var(--radius-full)", fontSize: ".68rem", fontWeight: 700, padding: ".18rem .55rem" }}>
+                {events.length} event{events.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
+            <ExportMenu slug={slug} canManage={canManage} printRef={printRef} printFilename={printFilename} />
+            <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
-          {viewMode === "month" && (
-            <div style={{ display: "flex", alignItems: "center", gap: ".25rem" }}>
-              <button aria-label="Previous month" className="elf-focus-ring" onClick={() => changeVisibleMonth(addMonths(visibleMonth, -1))} style={navBtnStyle}><ChevronLeft size={17} strokeWidth={2.5} /></button>
-              <span style={{ fontSize: "1rem", fontWeight: 800, color: "var(--text-primary-app)", minWidth: 150, textAlign: "center" }}>
-                {formatMonthYear(visibleMonth)}
-              </span>
-              <button aria-label="Next month" className="elf-focus-ring" onClick={() => changeVisibleMonth(addMonths(visibleMonth, 1))} style={navBtnStyle}><ChevronRight size={17} strokeWidth={2.5} /></button>
-            </div>
-          )}
-
-          <button onClick={goToToday} className="elf-focus-ring" style={todayBtnStyle} aria-label="Go to today">
-            Today
-          </button>
-
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
           {/* Thin-underline treatment, matching RosterTabs.tsx's secondary-nav precedent — replaces the earlier pill/box style. */}
           <div role="tablist" aria-label="Calendar view" style={{ display: "flex", gap: "1.1rem", borderBottom: "1px solid var(--border-app)" }}>
             {(["month", "agenda"] as const).map(mode => (
@@ -97,8 +99,20 @@ export default function DesktopCalendarView({
             ))}
           </div>
 
-          <ExportMenu slug={slug} canManage={canManage} printRef={printRef} printFilename={printFilename} />
-          <CoachBar show={canManage} label="Add Event" onAdd={openAdd} />
+          {viewMode === "month" && (
+            <div style={{ display: "flex", alignItems: "center", gap: ".9rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: ".25rem" }}>
+                <button aria-label="Previous month" className="elf-focus-ring" onClick={() => changeVisibleMonth(addMonths(visibleMonth, -1))} style={navBtnStyle}><ChevronLeft size={17} strokeWidth={2.5} /></button>
+                <span style={{ fontSize: "1rem", fontWeight: 800, color: "var(--text-primary-app)", minWidth: 150, textAlign: "center" }}>
+                  {formatMonthYear(visibleMonth)}
+                </span>
+                <button aria-label="Next month" className="elf-focus-ring" onClick={() => changeVisibleMonth(addMonths(visibleMonth, 1))} style={navBtnStyle}><ChevronRight size={17} strokeWidth={2.5} /></button>
+              </div>
+              <button onClick={goToToday} className="elf-focus-ring" style={todayBtnStyle} aria-label="Go to today">
+                Today
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -130,10 +144,11 @@ export default function DesktopCalendarView({
 
               {selectedEvents.length === 0 ? (
                 <div style={{
-                  background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1.5rem 1.25rem",
-                  textAlign: "center", border: "1px solid var(--border-app)",
-                  fontSize: ".82rem", color: "var(--text-muted-app)",
+                  display: "flex", alignItems: "center", gap: ".55rem",
+                  background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: ".7rem .9rem",
+                  border: "1px solid var(--border-app)", fontSize: ".82rem", color: "var(--text-muted-app)",
                 }}>
+                  <CalendarDays size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
                   No events scheduled for this day.
                 </div>
               ) : (
