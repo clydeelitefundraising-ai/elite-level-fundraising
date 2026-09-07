@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Share2, Copy, QrCode, Check, Users, Trophy, HandCoins } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
+import styles from "./Fundraiser.module.css";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -90,7 +92,7 @@ function timeAgo(iso: string): string {
 
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div style={{ background: "#e5e7eb", borderRadius: 100, height: 10, overflow: "hidden" }}>
+    <div style={{ background: "var(--border-app)", borderRadius: 100, height: 10, overflow: "hidden" }}>
       <div style={{
         background: color, borderRadius: 100, height: "100%",
         width: `${Math.min(100, Math.max(0, pct))}%`,
@@ -128,42 +130,42 @@ function PeopleToContactCard({ slug, primary }: { slug: string; primary: string 
   return (
     <div style={{
       background: "#fff", borderRadius: 16, overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      border: "1px solid var(--border-app)",
       marginBottom: ".65rem",
       borderLeft: `4px solid ${primary}`,
     }}>
       <div style={{ padding: ".9rem 1.15rem .6rem" }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
           Next Action
         </div>
-        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", marginTop: ".1rem" }}>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", marginTop: ".1rem" }}>
           People to Contact
         </div>
       </div>
       <div style={{ padding: "0 1.15rem .9rem" }}>
         {count === null ? (
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Loading…</div>
         ) : (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".5rem" }}>
               <div>
-                <span style={{ fontWeight: 800, fontSize: "1.4rem", color: "#0b1e3d", lineHeight: 1 }}>{count}</span>
-                <span style={{ fontSize: ".78rem", color: "#6b7280", marginLeft: ".3rem" }}>of {goal} contacts added</span>
+                <span style={{ fontWeight: 800, fontSize: "1.4rem", color: "var(--text-primary-app)", lineHeight: 1 }}>{count}</span>
+                <span style={{ fontSize: ".78rem", color: "var(--text-secondary-app)", marginLeft: ".3rem" }}>of {goal} contacts added</span>
               </div>
               {goalMet && (
-                <span style={{ fontSize: ".65rem", fontWeight: 700, color: "#059669", background: "#ecfdf5", padding: ".15rem .5rem", borderRadius: 100 }}>
-                  ✓ Goal met
+                <span style={{ display: "inline-flex", alignItems: "center", gap: ".25rem", fontSize: ".65rem", fontWeight: 700, color: "var(--color-success)", background: "#ecfdf5", padding: ".15rem .5rem", borderRadius: 100 }}>
+                  <Check size={11} strokeWidth={3} /> Goal met
                 </span>
               )}
             </div>
-            <div style={{ background: "#e5e7eb", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".75rem" }}>
-              <div style={{ background: goalMet ? "#059669" : primary, borderRadius: 100, height: "100%", width: `${pct}%`, transition: "width .5s ease" }} />
+            <div style={{ background: "var(--border-app)", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".75rem" }}>
+              <div style={{ background: goalMet ? "var(--color-success)" : primary, borderRadius: 100, height: "100%", width: `${pct}%`, transition: "width .5s ease" }} />
             </div>
             <a
               href={`/team/${slug}/contacts`}
               style={{
                 display: "block", textAlign: "center", padding: ".65rem", width: "100%", boxSizing: "border-box",
-                background: goalMet ? "#f3f4f6" : primary, color: goalMet ? "#374151" : "#fff",
+                background: goalMet ? "var(--surface-light-elevated)" : primary, color: goalMet ? "var(--text-secondary-app)" : "#fff",
                 borderRadius: 10, fontSize: ".85rem", fontWeight: 700, textDecoration: "none",
               }}
             >
@@ -187,31 +189,40 @@ function LeaderboardSection({
   currentAthleteId:  string;
   primary:           string;
 }) {
-  if (leaderboard.length === 0) return null;
-
   return (
     <div style={{
       background: "#fff",
       borderRadius: 16,
       overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      border: "1px solid var(--border-app)",
       marginBottom: ".65rem",
     }}>
       <div style={{
         padding: ".875rem 1.25rem .6rem",
-        borderBottom: "1px solid #f3f4f6",
+        borderBottom: "1px solid var(--border-app)",
         display: "flex",
         alignItems: "center",
         gap: ".5rem",
       }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
           Team Leaderboard
         </div>
-        <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
-          {leaderboard.length}
-        </span>
+        {leaderboard.length > 0 && (
+          <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
+            {leaderboard.length}
+          </span>
+        )}
       </div>
 
+      {leaderboard.length === 0 ? (
+        <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem 1.25rem" }}>
+          <Trophy size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No leaderboard yet</div>
+            <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Athlete totals will appear here after donations are attributed.</div>
+          </div>
+        </div>
+      ) : (
       <div style={{ padding: ".2rem 0" }}>
         {leaderboard.map((entry, i) => {
           const isCurrent = entry.id === currentAthleteId;
@@ -230,13 +241,13 @@ function LeaderboardSection({
                 padding: ".6rem 1.25rem",
                 background: isCurrent ? `${primary}08` : "transparent",
                 borderLeft: isCurrent ? `3px solid ${primary}` : "3px solid transparent",
-                borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+                borderBottom: i < leaderboard.length - 1 ? "1px solid var(--border-app)" : "none",
               }}
             >
               {/* Rank */}
               <div style={{
                 width: 20, fontWeight: 800, fontSize: ".7rem",
-                color: entry.rank <= 3 ? "#0b1e3d" : "#c4c9d4",
+                color: entry.rank <= 3 ? "var(--text-primary-app)" : "#c4c9d4",
                 flexShrink: 0, paddingTop: ".25rem", textAlign: "center",
               }}>
                 #{entry.rank}
@@ -267,18 +278,18 @@ function LeaderboardSection({
                   <span style={{
                     fontWeight: isCurrent ? 800 : 700,
                     fontSize: ".84rem",
-                    color: isCurrent ? primary : "#0b1e3d",
+                    color: isCurrent ? primary : "var(--text-primary-app)",
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     maxWidth: "58%",
                   }}>
                     {entry.name}{isCurrent ? " (you)" : ""}
                   </span>
-                  <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d", flexShrink: 0 }}>
+                  <span style={{ fontWeight: 800, fontSize: ".92rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
                     {fmt(entry.raisedCents)}
                   </span>
                 </div>
 
-                <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: pct !== null ? ".3rem" : 0 }}>
+                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginBottom: pct !== null ? ".3rem" : 0 }}>
                   {entry.class_year ?? entry.event}
                   {entry.donorCount > 0
                     ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}`
@@ -287,10 +298,10 @@ function LeaderboardSection({
 
                 {pct !== null && (
                   <div>
-                    <div style={{ height: 5, background: "#f3f4f6", borderRadius: 100, overflow: "hidden", marginBottom: ".2rem" }}>
+                    <div style={{ height: 5, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden", marginBottom: ".2rem" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: isCurrent ? primary : "#d1d5db", borderRadius: 100 }} />
                     </div>
-                    <div style={{ fontSize: ".63rem", fontWeight: 700, color: isCurrent ? primary : "#9ca3af" }}>
+                    <div style={{ fontSize: ".63rem", fontWeight: 700, color: isCurrent ? primary : "var(--text-muted-app)" }}>
                       {pct}% of goal
                     </div>
                   </div>
@@ -300,6 +311,7 @@ function LeaderboardSection({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
@@ -313,22 +325,29 @@ function TeamDonationFeed({
   teamFeed:  FeedDonation[];
   secondary: string;
 }) {
-  if (teamFeed.length === 0) return null;
-
   return (
     <div style={{
       background: "#fff",
       borderRadius: 16,
       overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      border: "1px solid var(--border-app)",
       marginBottom: ".65rem",
     }}>
-      <div style={{ padding: ".875rem 1.25rem .6rem", borderBottom: "1px solid #f3f4f6" }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+      <div style={{ padding: ".875rem 1.25rem .6rem", borderBottom: "1px solid var(--border-app)" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
           Team Donations
         </div>
       </div>
 
+      {teamFeed.length === 0 ? (
+        <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem 1.25rem" }}>
+          <HandCoins size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No fundraising activity yet</div>
+            <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Donations will appear here once your fundraiser gets moving.</div>
+          </div>
+        </div>
+      ) : (
       <div style={{ padding: ".2rem 0" }}>
         {teamFeed.map((d, i) => (
           <div
@@ -337,7 +356,7 @@ function TeamDonationFeed({
               display: "flex",
               gap: ".65rem",
               padding: ".65rem 1.25rem",
-              borderBottom: i < teamFeed.length - 1 ? "1px solid #f9fafb" : "none",
+              borderBottom: i < teamFeed.length - 1 ? "1px solid var(--border-app)" : "none",
               alignItems: "flex-start",
             }}
           >
@@ -354,25 +373,25 @@ function TeamDonationFeed({
             <div style={{ flex: 1, minWidth: 0 }}>
               {/* Amount + time */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".18rem" }}>
-                <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "#059669" }}>
+                <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--color-success)" }}>
                   {fmt(d.amount_cents)}
                 </span>
-                <span style={{ fontSize: ".62rem", color: "#9ca3af", flexShrink: 0 }}>
+                <span style={{ fontSize: ".62rem", color: "var(--text-muted-app)", flexShrink: 0 }}>
                   {timeAgo(d.created_at)}
                 </span>
               </div>
 
               {/* Donor → athlete */}
-              <div style={{ fontSize: ".75rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {d.donor_name ?? "Anonymous"}
                 {d.athlete_label && (
-                  <span style={{ color: "#9ca3af" }}> → {d.athlete_label}</span>
+                  <span style={{ color: "var(--text-muted-app)" }}> → {d.athlete_label}</span>
                 )}
               </div>
 
               {/* Message */}
               {d.donation_message && (
-                <div style={{ fontSize: ".7rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
+                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
                   &ldquo;{d.donation_message}&rdquo;
                 </div>
               )}
@@ -380,18 +399,19 @@ function TeamDonationFeed({
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }
 
 // ── Claim flow ─────────────────────────────────────────────────────────────────
 
-function ClaimView({ slug, roster, settings }: ClaimMode) {
+function ClaimView({ slug, roster }: ClaimMode) {
   const router = useRouter();
   const [selected, setSelected] = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
-  const primary = settings?.primary_color ?? "#0b1e3d";
+  const primary = "var(--team-primary)";
 
   const handleSave = async () => {
     if (!selected) { setError("Please select your name from the roster."); return; }
@@ -416,29 +436,31 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       <div style={{ marginBottom: ".65rem" }}>
-        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Fundraiser
         </span>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
           My Dashboard
         </h2>
       </div>
 
       <div style={{
-        background: "#fff", borderRadius: 16, padding: "1.5rem 1.25rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        background: "var(--surface-light)", borderRadius: 16, padding: "1.5rem 1.25rem",
+        border: "1px solid var(--border-app)",
         borderTop: `4px solid ${primary}`,
       }}>
-        <div style={{ fontSize: "1.5rem", marginBottom: ".6rem", textAlign: "center" }}>🏃</div>
-        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", textAlign: "center", marginBottom: ".4rem" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: ".6rem" }}>
+          <Users size={22} strokeWidth={2} style={{ color: primary }} />
+        </div>
+        <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)", textAlign: "center", marginBottom: ".4rem" }}>
           Link your fundraising profile
         </div>
-        <p style={{ margin: "0 0 1.25rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.6, textAlign: "center" }}>
+        <p style={{ margin: "0 0 1.25rem", fontSize: ".82rem", color: "var(--text-muted-app)", lineHeight: 1.6, textAlign: "center" }}>
           Select your name from the roster to track your personal fundraising progress and share your page.
         </p>
 
         {roster.length === 0 ? (
-          <p style={{ textAlign: "center", fontSize: ".82rem", color: "#9ca3af" }}>
+          <p style={{ textAlign: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
             The roster is empty. Contact your coach to be added.
           </p>
         ) : (
@@ -448,9 +470,9 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
               onChange={e => { setSelected(e.target.value); setError(""); }}
               style={{
                 width: "100%", padding: ".6rem .75rem",
-                border: `1.5px solid ${selected ? primary : "#e5e7eb"}`,
+                border: `1.5px solid ${selected ? primary : "var(--border-app)"}`,
                 borderRadius: 10, fontSize: ".875rem",
-                color: selected ? "#111827" : "#9ca3af",
+                color: selected ? "#111827" : "var(--text-muted-app)",
                 background: "#fff", cursor: "pointer", boxSizing: "border-box",
               }}
             >
@@ -463,7 +485,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
             </select>
 
             {error && (
-              <p style={{ margin: 0, padding: ".4rem .6rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              <p style={{ margin: 0, padding: ".4rem .6rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "var(--color-error)", fontSize: ".82rem" }}>
                 {error}
               </p>
             )}
@@ -473,8 +495,8 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
               disabled={saving || !selected}
               style={{
                 padding: ".75rem",
-                background: selected ? primary : "#e5e7eb",
-                color: selected ? "#fff" : "#9ca3af",
+                background: selected ? primary : "var(--border-app)",
+                color: selected ? "#fff" : "var(--text-muted-app)",
                 border: "none", borderRadius: 12, fontWeight: 700, fontSize: ".95rem",
                 cursor: selected && !saving ? "pointer" : "not-allowed",
               }}
@@ -482,7 +504,7 @@ function ClaimView({ slug, roster, settings }: ClaimMode) {
               {saving ? "Linking…" : "Link My Profile"}
             </button>
 
-            <p style={{ margin: 0, textAlign: "center", fontSize: ".72rem", color: "#9ca3af" }}>
+            <p style={{ margin: 0, textAlign: "center", fontSize: ".72rem", color: "var(--text-muted-app)" }}>
               Not on the roster? Contact your coach to be added.
             </p>
           </div>
@@ -503,8 +525,8 @@ function AthleteView({
   const [showQr,    setShowQr]    = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
-  const primary   = settings?.primary_color   ?? "#0b1e3d";
-  const secondary = settings?.secondary_color ?? "#1d4ed8";
+  const primary   = "var(--team-primary)";
+  const secondary = "var(--team-secondary)";
   const bg        = avatarColor(athlete.name);
   const firstName = athlete.name.split(" ")[0];
   const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
@@ -521,7 +543,7 @@ function AthleteView({
 
   useEffect(() => {
     import("qrcode").then(QRCode => {
-      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#0b1e3d" } })
+      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#111318" } })
         .then(url => setQrDataUrl(url))
         .catch(() => { /* silently ignore */ });
     });
@@ -555,7 +577,7 @@ function AthleteView({
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Fundraiser
         </span>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
           Your Fundraiser
         </h2>
       </div>
@@ -575,25 +597,25 @@ function AthleteView({
             </div>
           )}
         </div>
-        <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "#0b1e3d", lineHeight: 1.15, marginBottom: ".25rem" }}>
+        <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "var(--text-primary-app)", lineHeight: 1.15, marginBottom: ".25rem" }}>
           {athlete.name}
         </div>
         {teamLabel && (
-          <div style={{ fontSize: ".75rem", color: "#6b7280", marginBottom: ".45rem" }}>{teamLabel}</div>
+          <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", marginBottom: ".45rem" }}>{teamLabel}</div>
         )}
         <div style={{ display: "flex", justifyContent: "center", gap: ".35rem", flexWrap: "wrap" }}>
           {(athlete.class_year || athlete.event) && (
-            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: "#f0f4ff", color: "#1d4ed8" }}>
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
               {athlete.class_year || athlete.event}
             </span>
           )}
           {athlete.class_year && athlete.event && (
-            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "#f3f4f6", color: "#6b7280" }}>
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
               {athlete.event}
             </span>
           )}
           {athlete.grad_year != null && (
-            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "#f3f4f6", color: "#6b7280" }}>
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
               Class of &apos;{String(athlete.grad_year).slice(-2)}
             </span>
           )}
@@ -603,31 +625,31 @@ function AthleteView({
       {/* ── Stats card ── */}
       <div style={{
         background: "#fff", borderRadius: 16, padding: "1.25rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
         marginBottom: ".65rem",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: "1.65rem", color: "#0b1e3d", lineHeight: 1 }}>
+            <div style={{ fontWeight: 800, fontSize: "1.65rem", color: "var(--text-primary-app)", lineHeight: 1 }}>
               {fmt(athleteRaisedCents)}
             </div>
-            <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".15rem" }}>raised</div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginTop: ".15rem" }}>raised</div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontWeight: 700, fontSize: "1rem", color: "#374151" }}>{fmt(goalCents)}</div>
-            <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".15rem" }}>goal</div>
+            <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-secondary-app)" }}>{fmt(goalCents)}</div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginTop: ".15rem" }}>goal</div>
           </div>
         </div>
 
         <ProgressBar pct={pct} color={primary} />
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          marginTop: ".5rem", paddingTop: ".5rem", borderTop: "1px solid #f3f4f6",
+          marginTop: ".5rem", paddingTop: ".5rem", borderTop: "1px solid var(--border-app)",
         }}>
-          <span style={{ fontSize: ".72rem", color: "#9ca3af" }}>
-            Rank <strong style={{ color: "#6b7280" }}>#{rank}</strong> of {totalAthletes} · {donorCount} {donorCount === 1 ? "donor" : "donors"}
+          <span style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
+            Rank <strong style={{ color: "var(--text-secondary-app)" }}>#{rank}</strong> of {totalAthletes} · {donorCount} {donorCount === 1 ? "donor" : "donors"}
           </span>
-          <span style={{ fontSize: ".72rem", color: "#6b7280", fontWeight: 600 }}>
+          <span style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", fontWeight: 600 }}>
             {Math.round(pct)}% complete
           </span>
         </div>
@@ -636,17 +658,17 @@ function AthleteView({
       {/* ── Share — the strongest action on the page ── */}
       <div style={{
         background: "#fff", borderRadius: 16, padding: "1.15rem 1.25rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
         marginBottom: ".65rem",
         borderLeft: `4px solid ${primary}`,
       }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
           Next Action
         </div>
-        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", margin: ".1rem 0 .2rem" }}>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", margin: ".1rem 0 .2rem" }}>
           Share Your Fundraiser
         </div>
-        <p style={{ margin: "0 0 .8rem", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
+        <p style={{ margin: "0 0 .8rem", fontSize: ".78rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
           Send your personal link to family and friends.
         </p>
         <button
@@ -655,16 +677,17 @@ function AthleteView({
             width: "100%", padding: ".8rem", background: primary, color: "#fff",
             border: "none", borderRadius: 12, fontSize: ".92rem", fontWeight: 700,
             cursor: "pointer", marginBottom: ".5rem",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
           }}
         >
-          Share My Fundraiser ↗
+          <Share2 size={15} strokeWidth={2} /> Share My Fundraiser
         </button>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".5rem" }}>
-          <button onClick={handleCopy} style={{ padding: ".6rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
-            {copied ? "✓ Copied" : "Copy Link"}
+          <button onClick={handleCopy} style={{ padding: ".6rem .25rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
+            {copied ? (<><Check size={13} strokeWidth={2.5} /> Copied</>) : (<><Copy size={13} strokeWidth={2} /> Copy Link</>)}
           </button>
-          <button onClick={() => setShowQr(true)} style={{ padding: ".6rem .25rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer" }}>
-            QR Code
+          <button onClick={() => setShowQr(true)} style={{ padding: ".6rem .25rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
+            <QrCode size={13} strokeWidth={2} /> QR Code
           </button>
         </div>
       </div>
@@ -676,10 +699,10 @@ function AthleteView({
       {recentDonations.length > 0 && (
         <div style={{
           background: "#fff", borderRadius: 16, padding: "1rem 1.25rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          border: "1px solid var(--border-app)",
           marginBottom: ".65rem",
         }}>
-          <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
+          <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
             My Recent Donations
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
@@ -689,27 +712,27 @@ function AthleteView({
                 style={{
                   display: "flex", alignItems: "center", gap: ".75rem",
                   paddingBottom: i < recentDonations.length - 1 ? ".55rem" : 0,
-                  borderBottom: i < recentDonations.length - 1 ? "1px solid #f3f4f6" : "none",
+                  borderBottom: i < recentDonations.length - 1 ? "1px solid var(--border-app)" : "none",
                 }}
               >
                 <div style={{ width: 34, height: 34, borderRadius: "50%", background: secondary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: ".65rem", color: "#fff", flexShrink: 0 }}>
                   {d.donor_name ? d.donor_name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("") : "?"}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: ".83rem", color: "#0b1e3d" }}>
+                  <div style={{ fontWeight: 700, fontSize: ".83rem", color: "var(--text-primary-app)" }}>
                     {d.donor_name ?? "Anonymous"}
                   </div>
                   {d.donation_message && (
-                    <div style={{ fontSize: ".72rem", color: "#6b7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       &ldquo;{d.donation_message}&rdquo;
                     </div>
                   )}
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: ".95rem", color: "#059669" }}>
+                  <div style={{ fontWeight: 800, fontSize: ".95rem", color: "var(--color-success)" }}>
                     {fmt(d.amount_cents)}
                   </div>
-                  <div style={{ fontSize: ".65rem", color: "#9ca3af" }}>
+                  <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)" }}>
                     {timeAgo(d.created_at)}
                   </div>
                 </div>
@@ -737,20 +760,20 @@ function AthleteView({
             {qrDataUrl ? (
               <img src={qrDataUrl} alt={`QR code for ${athlete.name}'s fundraising page`} style={{ width: 220, height: 220, borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,.10)" }} />
             ) : (
-              <div style={{ width: 220, height: 220, borderRadius: 12, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".82rem", color: "#9ca3af" }}>
+              <div style={{ width: 220, height: 220, borderRadius: 12, background: "var(--surface-light-elevated)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
                 Generating…
               </div>
             )}
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d", marginBottom: ".2rem" }}>
+              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)", marginBottom: ".2rem" }}>
                 Scan to donate to {firstName}
               </div>
-              <div style={{ fontSize: ".7rem", color: "#9ca3af", fontFamily: "monospace", wordBreak: "break-all" }}>
+              <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontFamily: "monospace", wordBreak: "break-all" }}>
                 {profilePath}
               </div>
             </div>
-            <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
-              {copied ? "✓ Link Copied!" : "Copy Link"}
+            <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem" }}>
+              {copied ? (<><Check size={14} strokeWidth={2.5} /> Link Copied!</>) : (<><Copy size={14} strokeWidth={2} /> Copy Link</>)}
             </button>
           </div>
         </Modal>
@@ -762,6 +785,9 @@ function AthleteView({
 // ── Root export ────────────────────────────────────────────────────────────────
 
 export default function FundraiserView(props: Props) {
-  if (props.mode === "claim") return <ClaimView {...props} />;
-  return <AthleteView {...props} />;
+  return (
+    <div className={styles.memberFundraiserDesktop}>
+      {props.mode === "claim" ? <ClaimView {...props} /> : <AthleteView {...props} />}
+    </div>
+  );
 }

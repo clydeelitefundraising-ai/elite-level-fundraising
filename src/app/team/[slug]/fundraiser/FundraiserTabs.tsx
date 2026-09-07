@@ -70,8 +70,8 @@ export default function FundraiserTabs({
             cursor: "pointer",
             fontSize: ".8rem",
             fontWeight: 700,
-            background: tab === id ? "#fff" : "transparent",
-            color: tab === id ? "#0b1e3d" : "#6b7280",
+            background: tab === id ? "var(--surface-light)" : "transparent",
+            color: tab === id ? "var(--text-primary-app)" : "var(--text-muted-app)",
             boxShadow: tab === id ? "0 1px 3px rgba(0,0,0,.1)" : "none",
           }}
         >
@@ -86,7 +86,7 @@ export default function FundraiserTabs({
       role="tablist"
       aria-label="Fundraiser section"
       className="elf-followups-noprint"
-      style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid #e5e7eb", marginBottom: "1rem" }}
+      style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid var(--border-app)", marginBottom: "1rem" }}
     >
       {TABS.map(({ id, label }) => (
         <button
@@ -97,12 +97,12 @@ export default function FundraiserTabs({
           style={{
             background: "none",
             border: "none",
-            borderBottom: tab === id ? "2px solid #0b1e3d" : "2px solid transparent",
+            borderBottom: tab === id ? "2px solid var(--team-primary)" : "2px solid transparent",
             cursor: "pointer",
             padding: ".6rem 0",
             fontSize: ".85rem",
             fontWeight: tab === id ? 700 : 500,
-            color: tab === id ? "#0b1e3d" : "#6b7280",
+            color: tab === id ? "var(--text-primary-app)" : "var(--text-muted-app)",
           }}
         >
           {label}

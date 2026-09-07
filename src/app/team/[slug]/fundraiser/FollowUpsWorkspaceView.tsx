@@ -18,11 +18,15 @@ import styles from "./Fundraiser.module.css";
 // new desktop workspace (DesktopFollowUpsView.tsx) — one authoritative
 // Follow-Ups workflow, two presentation surfaces.
 // shouldShowDesktopFundraiserFollowUps(actor) (isCoachOnly, NOT isStaff)
-// deliberately excludes boosters from the new desktop table, matching the
-// exact boundary D2/D3/D4/D5 already established — boosters keep the
-// existing Follow-Ups presentation, with their existing isStaff
-// view/update/export/print access (see the Step 0 permission audit), at
-// every width. permissions.ts is untouched.
+// deliberately excludes boosters from the new coach-only desktop table,
+// matching the exact boundary D2/D3/D4/D5 already established — boosters
+// keep their existing isStaff view/update/export/print access unchanged.
+// Phase 9B: previously the non-coach branch below rendered nothing at
+// desktop width (styles.mobileOnly is CSS-hidden at >=1024px for
+// everyone, with no replacement) — the same blank-workspace bug already
+// fixed for Roster/Communications/Calendar. Fixed the same way: reuse the
+// existing safe FollowUpsView (mobile-shaped, unmodified) inside a
+// constrained, centered desktop presentation instead of hiding it.
 //
 // The Update/History modals are mounted EXACTLY ONCE here, not by either
 // presentation individually — Modal.tsx renders via
@@ -77,7 +81,7 @@ export default function FollowUpsWorkspaceView({
       </div>
 
       <div className="elf-followups-noprint">
-        <div className={styles.mobileOnly}>
+        <div className={showDesktop ? styles.mobileOnly : styles.memberFollowUpsDesktop}>
           <FollowUpsView workspace={workspace} />
         </div>
         {showDesktop && (
