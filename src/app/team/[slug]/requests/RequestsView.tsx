@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { UserPlus, MessageSquare, CheckCircle } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import AthleteRequestsPanel from "./AthleteRequestsPanel";
 import CommentApprovalsPanel from "./CommentApprovalsPanel";
+import styles from "./Requests.module.css";
 
-// ── Section wrapper (Phase 3B-1) ────────────────────────────────────────────
+// ── Section wrapper (Phase 3B-1, retokenized Phase 8B) ──────────────────────
 //
 // Deliberately a plain presentational wrapper, not a request-type registry
 // or workflow engine — Phase 3B-2 (Comment Approvals) adds itself by
@@ -13,24 +15,23 @@ import CommentApprovalsPanel from "./CommentApprovalsPanel";
 // added. Nothing about this shape assumes "athlete requests" specifically.
 function RequestSection({
   title,
+  icon,
   count,
   children,
 }: {
   title: string;
+  icon: React.ReactNode;
   count: number;
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: "1.1rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".6rem" }}>
-        <h3 style={{ margin: 0, fontSize: ".78rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".06em" }}>
+    <div className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>
+          {icon}
           {title}
         </h3>
-        {count > 0 && (
-          <span style={{ background: "#fee2e2", color: "#b91c1c", borderRadius: 100, fontSize: ".6rem", fontWeight: 700, padding: ".1rem .42rem" }}>
-            {count}
-          </span>
-        )}
+        {count > 0 && <span className={styles.sectionBadge}>{count}</span>}
       </div>
       {children}
     </div>
@@ -38,15 +39,7 @@ function RequestSection({
 }
 
 function EmptyRow({ message }: { message: string }) {
-  return (
-    <div style={{
-      background: "#fff", borderRadius: 12, padding: "1rem .85rem",
-      textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      fontSize: ".82rem", color: "#9ca3af",
-    }}>
-      {message}
-    </div>
-  );
+  return <div className={styles.emptyRow}>{message}</div>;
 }
 
 export default function RequestsView({
@@ -56,41 +49,72 @@ export default function RequestsView({
   slug: string;
   rosterAthletes: TeamAthleteRow[];
 }) {
-  const [athleteRequestCount, setAthleteRequestCount] = useState(0);
-  const [commentApprovalCount, setCommentApprovalCount] = useState(0);
+  // null = not yet loaded (each panel calls onCountChange once its own
+  // fetch resolves, same as before Phase 8B). Distinguishing "not loaded
+  // yet" from "loaded and zero" is what lets the unified caught-up state
+  // below only appear once BOTH categories are confirmed empty, rather
+  // than flashing on the initial render before either panel has fetched.
+  const [athleteRequestCount, setAthleteRequestCount] = useState<number | null>(null);
+  const [commentApprovalCount, setCommentApprovalCount] = useState<number | null>(null);
+
+  const bothLoaded = athleteRequestCount !== null && commentApprovalCount !== null;
+  const bothEmpty = bothLoaded && athleteRequestCount === 0 && commentApprovalCount === 0;
+  const totalCount = (athleteRequestCount ?? 0) + (commentApprovalCount ?? 0);
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{ marginBottom: "1rem" }}>
-        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
-          Head Coach
-        </span>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-          Requests
-        </h2>
-        <p style={{ margin: ".25rem 0 0", fontSize: ".82rem", color: "#6b7280" }}>
-          Review items that need your approval.
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <span className={styles.eyebrow}>Head Coach</span>
+        <h2 className={styles.title}>Requests</h2>
+        <p className={styles.subtitle}>
+          {bothLoaded
+            ? totalCount > 0
+              ? `${totalCount} need${totalCount === 1 ? "s" : ""} your attention`
+              : "You're all caught up."
+            : "Review items that need your approval."}
         </p>
+        <div className={styles.chipRow}>
+          <span className={styles.chip}>
+            <UserPlus size={13} strokeWidth={2} />
+            Athletes
+            <span className={styles.chipCount}>{athleteRequestCount ?? 0}</span>
+          </span>
+          <span className={styles.chip}>
+            <MessageSquare size={13} strokeWidth={2} />
+            Comments
+            <span className={styles.chipCount}>{commentApprovalCount ?? 0}</span>
+          </span>
+        </div>
       </div>
 
-      <RequestSection title="Athlete Requests" count={athleteRequestCount}>
-        <AthleteRequestsPanel
-          slug={slug}
-          rosterAthletes={rosterAthletes}
-          onCountChange={setAthleteRequestCount}
-          emptyState={<EmptyRow message="No pending athlete requests." />}
-          hideHeader
-        />
-      </RequestSection>
+      {bothEmpty ? (
+        <div className={styles.unifiedEmpty}>
+          <CheckCircle size={28} strokeWidth={1.75} className={styles.unifiedEmptyIcon} />
+          <div className={styles.unifiedEmptyTitle}>All Caught Up</div>
+          <p className={styles.unifiedEmptyBody}>No athlete requests or comments need review.</p>
+        </div>
+      ) : (
+        <>
+          <RequestSection title="Athlete Requests" icon={<UserPlus size={13} strokeWidth={2} />} count={athleteRequestCount ?? 0}>
+            <AthleteRequestsPanel
+              slug={slug}
+              rosterAthletes={rosterAthletes}
+              onCountChange={setAthleteRequestCount}
+              emptyState={<EmptyRow message="No pending athlete requests." />}
+              hideHeader
+            />
+          </RequestSection>
 
-      <RequestSection title="Comment Approvals" count={commentApprovalCount}>
-        <CommentApprovalsPanel
-          slug={slug}
-          onCountChange={setCommentApprovalCount}
-          emptyState={<EmptyRow message="No pending comment approvals." />}
-          hideHeader
-        />
-      </RequestSection>
+          <RequestSection title="Comment Approvals" icon={<MessageSquare size={13} strokeWidth={2} />} count={commentApprovalCount ?? 0}>
+            <CommentApprovalsPanel
+              slug={slug}
+              onCountChange={setCommentApprovalCount}
+              emptyState={<EmptyRow message="No pending comment approvals." />}
+              hideHeader
+            />
+          </RequestSection>
+        </>
+      )}
     </div>
   );
 }

@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import { Lock } from "lucide-react";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getTeamAthletes } from "@/lib/teamData";
 import RequestsView from "./RequestsView";
+import styles from "./Requests.module.css";
 
 // Head-Coach-only, same gating pattern as /staff/page.tsx — server-side,
 // not just a hidden UI entry point. isHeadCoach(actor) is already scoped to
@@ -27,34 +29,14 @@ export default async function RequestsPage({
 
 function HeadCoachOnlyGate({ slug }: { slug: string }) {
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: 14,
-        padding: "2.5rem 1.5rem",
-        textAlign: "center",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      }}>
-        <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>🔒</div>
-        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
-          Head Coach Access Only
-        </div>
-        <p style={{ margin: "0 0 1.25rem", fontSize: ".85rem", color: "#6b7280", lineHeight: 1.5 }}>
+    <div className={styles.gateWrap}>
+      <div className={styles.gateCard}>
+        <Lock size={28} strokeWidth={1.75} className={styles.gateIcon} />
+        <div className={styles.gateTitle}>Head Coach Access Only</div>
+        <p className={styles.gateBody}>
           The Requests Center is only available to this team&rsquo;s Head Coach.
         </p>
-        <a
-          href={`/team/${slug}/home`}
-          style={{
-            display: "inline-block",
-            padding: ".55rem 1.25rem",
-            background: "#0b1e3d",
-            color: "#fff",
-            borderRadius: 9,
-            fontSize: ".875rem",
-            fontWeight: 700,
-            textDecoration: "none",
-          }}
-        >
+        <a href={`/team/${slug}/home`} className={styles.gateLink}>
           Back to Home
         </a>
       </div>

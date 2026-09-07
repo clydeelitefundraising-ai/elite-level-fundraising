@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
+import styles from "./Requests.module.css";
 
 type PossibleMatch = {
   athlete: { id: string; name: string; event: string | null; class_year: string | null };
@@ -26,6 +28,11 @@ function timeAgo(iso: string): string {
   if (hours < 1) return "just now";
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
 function RequestCard({
@@ -82,21 +89,20 @@ function RequestCard({
   }
 
   return (
-    <div style={{
-      background: "#fff", borderRadius: 12, padding: ".85rem",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      display: "flex", flexDirection: "column", gap: ".6rem",
-    }}>
-      <div>
-        <div style={{ fontWeight: 700, fontSize: ".92rem", color: "#111827" }}>{request.full_name}</div>
-        <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".15rem" }}>
-          {request.class_year}{request.event ? ` · ${request.event}` : ""} · Requested {timeAgo(request.created_at)}
+    <div className={styles.row}>
+      <div className={styles.rowTop}>
+        <div className={styles.avatarFallback}>{initials(request.full_name)}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className={styles.rowName}>{request.full_name}</div>
+          <div className={styles.rowMeta}>
+            {request.class_year}{request.event ? ` · ${request.event}` : ""} · Requested {timeAgo(request.created_at)}
+          </div>
         </div>
       </div>
 
       {request.possibleMatches.length > 0 && (
-        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: ".55rem .65rem" }}>
-          <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#92400e", marginBottom: ".3rem" }}>
+        <div className={styles.matchBox}>
+          <div className={styles.matchLabel}>
             Suggested match{request.possibleMatches.length > 1 ? "es" : ""} — a convenience shortcut only, not automatic. Review before linking:
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".2rem" }}>
@@ -105,11 +111,7 @@ function RequestCard({
                 key={m.athlete.id}
                 type="button"
                 onClick={() => setLinkAthleteId(m.athlete.id)}
-                style={{
-                  textAlign: "left", background: linkAthleteId === m.athlete.id ? "#fef3c7" : "transparent",
-                  border: "none", borderRadius: 6, padding: ".2rem .35rem", cursor: "pointer",
-                  fontSize: ".78rem", color: "#78350f",
-                }}
+                className={`${styles.matchButton} ${linkAthleteId === m.athlete.id ? styles.matchButtonActive : ""}`}
               >
                 {m.athlete.name}{m.athlete.class_year ? ` · ${m.athlete.class_year}` : ""} — click to select below
               </button>
@@ -119,33 +121,30 @@ function RequestCard({
       )}
 
       {collision && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: ".55rem .65rem", fontSize: ".78rem", color: "#991b1b" }}>
+        <div className={styles.collisionBox}>
           An athlete named &quot;{collision.existing.name}&quot; already exists on this team. Link to them instead, or override to create a new athlete anyway.
         </div>
       )}
 
-      {error && (
-        <div style={{ fontSize: ".78rem", color: "#dc2626" }}>{error}</div>
-      )}
+      {error && <div className={styles.errorText}>{error}</div>}
 
       {!showDecline ? (
         <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: ".3rem" }}>
-            <div style={{ fontSize: ".7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".04em" }}>
-              Link to Existing Athlete
-            </div>
+            <div className={styles.fieldLabel}>Link to Existing Athlete</div>
             <input
               type="text"
               placeholder="Search full roster by name…"
               value={rosterSearch}
               onChange={e => setRosterSearch(e.target.value)}
-              style={{ padding: ".4rem .5rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".78rem" }}
+              className={styles.input}
             />
             <div style={{ display: "flex", gap: ".4rem" }}>
               <select
                 value={linkAthleteId}
                 onChange={e => setLinkAthleteId(e.target.value)}
-                style={{ flex: 1, padding: ".4rem .5rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".78rem" }}
+                className={styles.select}
+                style={{ flex: 1 }}
               >
                 <option value="">
                   {rosterAthletes.length === 0 ? "— No athletes on this roster yet —" : "— Choose an athlete —"}
@@ -159,25 +158,27 @@ function RequestCard({
               <button
                 disabled={busy || !linkAthleteId}
                 onClick={() => act({ action: "approve", linkAthleteId })}
-                style={{ padding: ".4rem .7rem", borderRadius: 7, border: "1.5px solid #0b1e3d", background: "#fff", color: "#0b1e3d", fontWeight: 700, fontSize: ".76rem", cursor: busy || !linkAthleteId ? "not-allowed" : "pointer" }}
+                className={styles.linkBtn}
               >
                 Link
               </button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: ".4rem" }}>
+          <div className={styles.actionsRow}>
             <button
               disabled={busy}
               onClick={() => act({ action: "approve", overrideCollision: collision != null })}
-              style={{ flex: 1, padding: ".5rem", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
+              className={styles.approveBtn}
             >
+              <Check size={14} strokeWidth={2.5} />
               {collision ? "Create Anyway" : "Approve — Create New Athlete"}
             </button>
             <button
               disabled={busy}
               onClick={() => setShowDecline(true)}
-              style={{ padding: ".5rem .8rem", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", color: "#6b7280", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
+              className={styles.declineBtn}
             >
+              <X size={14} strokeWidth={2.5} />
               Decline
             </button>
           </div>
@@ -189,20 +190,21 @@ function RequestCard({
             placeholder="Reason (optional)"
             value={declineReason}
             onChange={e => setDeclineReason(e.target.value)}
-            style={{ padding: ".45rem .6rem", borderRadius: 7, border: "1.5px solid #e5e7eb", fontSize: ".8rem" }}
+            className={styles.declineInput}
           />
-          <div style={{ display: "flex", gap: ".4rem" }}>
+          <div className={styles.actionsRow}>
             <button
               disabled={busy}
               onClick={() => act({ action: "decline", declineReason })}
-              style={{ flex: 1, padding: ".5rem", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
+              className={styles.confirmDeclineBtn}
             >
+              <X size={14} strokeWidth={2.5} />
               Confirm Decline
             </button>
             <button
               disabled={busy}
               onClick={() => setShowDecline(false)}
-              style={{ padding: ".5rem .8rem", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", color: "#6b7280", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
+              className={styles.cancelBtn}
             >
               Cancel
             </button>
@@ -270,16 +272,12 @@ export default function AthleteRequestsPanel({
   return (
     <div style={{ marginBottom: "1rem" }}>
       {!hideHeader && (
-        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".55rem" }}>
-          <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
-            Pending Athlete Requests
-          </h3>
-          <span style={{ background: "#fee2e2", color: "#b91c1c", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".12rem .48rem" }}>
-            {requests.length}
-          </span>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>Pending Athlete Requests</h3>
+          <span className={styles.sectionBadge}>{requests.length}</span>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
+      <div className={styles.rowList}>
         {requests.map(r => (
           <RequestCard key={r.id} slug={slug} request={r} rosterAthletes={rosterAthletes} onActionComplete={() => load()} />
         ))}
