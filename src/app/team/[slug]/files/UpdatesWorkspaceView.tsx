@@ -55,7 +55,15 @@ export default function UpdatesWorkspaceView({
 
   return (
     <>
-      <div className={styles.mobileOnly}>
+      {/* Coach-only actors: hidden at desktop width (DesktopUpdatesView
+          takes over below). Non-coach actors (Parent/Athlete/Booster):
+          showDesktop is false and DesktopUpdatesView never mounts, so this
+          stays visible at every width instead — same component, same
+          internal role gates (canEdit/canDelete from useUpdatesWorkspace),
+          just no longer CSS-hidden with nothing to replace it. Exact same
+          fix as TeamView.tsx's mobileOnly/memberRosterDesktop split — see
+          Communications.module.css. */}
+      <div className={showDesktop ? styles.mobileOnly : styles.memberUpdatesDesktop}>
         <UpdatesView workspace={workspace} />
       </div>
       {showDesktop && (

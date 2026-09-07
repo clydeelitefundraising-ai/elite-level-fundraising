@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MessageCircle } from "lucide-react";
 import Avatar from "../messages/_shared/Avatar";
 
 type Comment = {
@@ -93,17 +94,19 @@ export default function CommentsSection({
   };
 
   return (
-    <div style={{ marginTop: ".55rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
+    <div style={{ marginTop: ".55rem", paddingTop: ".55rem", borderTop: "1px solid var(--border-app)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: ".35rem", marginBottom: approvedCount > 0 || list.length > 0 ? ".5rem" : ".4rem" }}>
-        <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280" }}>
-          {approvedCount > 0 ? `💬 ${approvedCount} comment${approvedCount !== 1 ? "s" : ""}` : "Comments"}
+        <MessageCircle size={12} aria-hidden="true" style={{ color: "var(--text-muted-app)" }} />
+        <span style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)" }}>
+          {approvedCount > 0 ? `${approvedCount} comment${approvedCount !== 1 ? "s" : ""}` : "Comments"}
         </span>
       </div>
 
       {hiddenCount > 0 && (
         <button
           onClick={() => setExpanded(true)}
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: ".45rem", fontSize: ".72rem", fontWeight: 600, color: "#9ca3af" }}
+          className="elf-focus-ring"
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: ".45rem", fontSize: ".72rem", fontWeight: 600, color: "var(--text-muted-app)" }}
         >
           View {hiddenCount} earlier comment{hiddenCount !== 1 ? "s" : ""}
         </button>
@@ -116,31 +119,32 @@ export default function CommentsSection({
               <Avatar name={c.author_name} photoUrl={c.author_photo_url} size={26} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: ".35rem", flexWrap: "wrap" }}>
-                  <span style={{ fontSize: ".78rem", fontWeight: 700, color: "#111827" }}>{c.author_name}</span>
+                  <span style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)" }}>{c.author_name}</span>
                   {ROLE_LABELS[c.author_role] && (
-                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".03em" }}>
+                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".03em" }}>
                       {ROLE_LABELS[c.author_role]}
                     </span>
                   )}
-                  <span style={{ fontSize: ".64rem", color: "#c1c7d0" }}>{relativeTime(c.created_at)}</span>
+                  <span style={{ fontSize: ".64rem", color: "var(--text-muted-app)" }}>{relativeTime(c.created_at)}</span>
                   {c.status === "pending" && (
-                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", borderRadius: 100, padding: ".05rem .4rem" }}>
+                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", borderRadius: "var(--radius-full)", padding: ".05rem .4rem" }}>
                       Awaiting approval
                     </span>
                   )}
                   {c.status === "declined" && (
-                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", background: "#f3f4f6", borderRadius: 100, padding: ".05rem .4rem" }}>
+                    <span style={{ fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)", background: "var(--surface-light-elevated)", borderRadius: "var(--radius-full)", padding: ".05rem .4rem" }}>
                       Not approved
                     </span>
                   )}
                 </div>
-                <p style={{ margin: ".1rem 0 0", fontSize: ".8rem", color: "#374151", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                <p style={{ margin: ".1rem 0 0", fontSize: ".8rem", color: "var(--text-muted-app)", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                   {c.body}
                 </p>
                 {c.is_own && (
                   <button
                     onClick={() => handleDelete(c.id)}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: ".15rem", fontSize: ".64rem", fontWeight: 600, color: "#fca5a5" }}
+                    className="elf-focus-ring"
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: ".15rem", fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
                   >
                     Delete
                   </button>
@@ -165,8 +169,8 @@ export default function CommentsSection({
           rows={1}
           style={{
             flex: 1, resize: "none", padding: ".5rem .65rem",
-            borderRadius: 9, border: "1.5px solid #e5e7eb",
-            fontSize: "1rem", lineHeight: 1.4, color: "#111827",
+            borderRadius: "var(--radius-md)", border: "1.5px solid var(--border-app)",
+            fontSize: "1rem", lineHeight: 1.4, color: "var(--text-primary-app)",
             fontFamily: "inherit", boxSizing: "border-box",
           }}
         />
@@ -174,10 +178,11 @@ export default function CommentsSection({
           onClick={handleSubmit}
           disabled={sending || !body.trim()}
           aria-label="Post comment"
+          className="elf-focus-ring"
           style={{
-            padding: ".5rem .8rem", borderRadius: 9, border: "none",
-            background: sending || !body.trim() ? "#e5e7eb" : "#0b1e3d",
-            color: sending || !body.trim() ? "#9ca3af" : "#fff",
+            padding: ".5rem .8rem", borderRadius: "var(--radius-md)", border: "none",
+            background: sending || !body.trim() ? "var(--surface-light-elevated)" : "var(--team-primary)",
+            color: sending || !body.trim() ? "var(--text-muted-app)" : "var(--team-primary-foreground)",
             fontSize: ".78rem", fontWeight: 700,
             cursor: sending || !body.trim() ? "default" : "pointer",
             flexShrink: 0,

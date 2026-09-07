@@ -1,5 +1,6 @@
 "use client";
 
+import { Megaphone, Pin } from "lucide-react";
 import CoachBar from "../_components/CoachBar";
 import { FILTER_CHIPS, SectionLabel, UpdateCard } from "./UpdateCard";
 import type { UpdatesWorkspaceState } from "./useUpdatesWorkspace";
@@ -33,15 +34,15 @@ export default function UpdatesView({
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".5rem" }}>
-        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Updates
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Team Updates
           </h2>
           {items.length > 0 && (
-            <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
+            <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: "var(--radius-full)", fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
               {items.length} post{items.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -68,11 +69,12 @@ export default function UpdatesView({
             <button
               key={chip.id}
               onClick={() => setFilterCat(chip.id)}
+              className="elf-focus-ring"
               style={{
-                flexShrink: 0, padding: ".3rem .75rem", borderRadius: 100,
-                border: active ? "none" : "1px solid #e5e7eb",
-                background: active ? "#0b1e3d" : "#fff",
-                color: active ? "#fff" : "#6b7280",
+                flexShrink: 0, padding: ".3rem .75rem", borderRadius: "var(--radius-full)",
+                border: active ? "none" : "1px solid var(--border-app)",
+                background: active ? "var(--team-primary)" : "var(--surface-light)",
+                color: active ? "var(--team-primary-foreground)" : "var(--text-muted-app)",
                 fontSize: ".7rem", fontWeight: 600, cursor: "pointer",
                 whiteSpace: "nowrap", lineHeight: 1.4,
                 transition: "background .13s ease, color .13s ease, border-color .13s ease",
@@ -87,14 +89,14 @@ export default function UpdatesView({
       {/* ── Feed ── */}
       {filtered.length === 0 ? (
         <div style={{
-          background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
-          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: "2.5rem 1.5rem",
+          textAlign: "center", border: "1px solid var(--border-app)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📢</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+          <Megaphone size={26} strokeWidth={1.5} aria-hidden="true" style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: ".65rem" }} />
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: ".3rem" }}>
             {filterCat === "all" ? "No updates yet" : `No ${filterCat} posts yet`}
           </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
             {canEdit ? "Post your first update above." : "Check back soon."}
           </div>
         </div>
@@ -102,7 +104,7 @@ export default function UpdatesView({
         <>
           {pinned.length > 0 && (
             <>
-              <SectionLabel label="📌 Pinned" />
+              <SectionLabel label="Pinned" icon={Pin} />
               {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
             </>
           )}

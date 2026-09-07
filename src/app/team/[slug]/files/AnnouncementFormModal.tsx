@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Paperclip, X } from "lucide-react";
 import Modal from "../_components/Modal";
 import { FILE_STYLE, formatSize } from "./UpdateCard";
 import { SCOPE_OPTIONS, type UForm, type UpdatesWorkspaceState } from "./useUpdatesWorkspace";
@@ -19,15 +20,15 @@ import { SCOPE_OPTIONS, type UForm, type UpdatesWorkspaceState } from "./useUpda
 
 const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
-  border: "1.5px solid #e5e7eb",
-  borderRadius: 9,
+  border: "1.5px solid var(--border-app)",
+  borderRadius: "var(--radius-md)",
   // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
   // control smaller than this (Phase 8).
   fontSize: "1rem",
   width: "100%",
   boxSizing: "border-box",
-  color: "#111827",
-  background: "#fff",
+  color: "var(--text-primary-app)",
+  background: "var(--surface-light)",
 };
 
 const lbl: React.CSSProperties = {
@@ -36,7 +37,7 @@ const lbl: React.CSSProperties = {
   gap: ".3rem",
   fontSize: ".72rem",
   fontWeight: 700,
-  color: "#374151",
+  color: "var(--text-muted-app)",
   textTransform: "uppercase",
   letterSpacing: ".05em",
 };
@@ -104,7 +105,7 @@ export default function AnnouncementFormModal({
         {/* ── Recipient scope — only shown when composing, not editing ── */}
         {!isEditing && (
           <div>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".45rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".45rem" }}>
               Send To
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
@@ -119,11 +120,12 @@ export default function AnnouncementFormModal({
                       recipient_scope:      opt.value,
                       recipient_athlete_id: opt.value !== "athlete_specific" ? null : f.recipient_athlete_id,
                     }))}
+                    className="elf-focus-ring"
                     style={{
-                      padding: ".3rem .7rem", borderRadius: 100,
-                      border: active ? "none" : "1.5px solid #e5e7eb",
-                      background: active ? "#0b1e3d" : "#fff",
-                      color: active ? "#fff" : "#374151",
+                      padding: ".3rem .7rem", borderRadius: "var(--radius-full)",
+                      border: active ? "none" : "1.5px solid var(--border-app)",
+                      background: active ? "var(--team-primary)" : "var(--surface-light)",
+                      color: active ? "var(--team-primary-foreground)" : "var(--text-muted-app)",
                       fontSize: ".75rem", fontWeight: 600,
                       cursor: "pointer", lineHeight: 1.4,
                       transition: "background .12s, color .12s",
@@ -158,7 +160,7 @@ export default function AnnouncementFormModal({
                 onChange={e => setForm(f => ({ ...f, push_enabled: e.target.checked }))}
                 style={{ width: 16, height: 16, cursor: "pointer" }}
               />
-              <span style={{ fontSize: ".78rem", color: "#374151", fontWeight: 600 }}>
+              <span style={{ fontSize: ".78rem", color: "var(--text-muted-app)", fontWeight: 600 }}>
                 Send push notification
               </span>
             </label>
@@ -167,50 +169,54 @@ export default function AnnouncementFormModal({
 
         {/* Attachment */}
         <div>
-          <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".4rem" }}>
+          <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".4rem" }}>
             Attachment
           </div>
           {form.attachmentPreview && previewStyle ? (
-            <div style={{ display: "flex", alignItems: "center", gap: ".55rem", padding: ".6rem .75rem", background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: previewStyle.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".9rem", flexShrink: 0 }}>
-                {previewStyle.icon}
+            <div style={{ display: "flex", alignItems: "center", gap: ".55rem", padding: ".6rem .75rem", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", borderRadius: "var(--radius-md)" }}>
+              <div style={{ width: 32, height: 32, borderRadius: "var(--radius-sm)", background: previewStyle.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <previewStyle.icon size={15} aria-hidden="true" style={{ color: previewStyle.color }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: ".82rem", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontWeight: 600, fontSize: ".82rem", color: "var(--text-primary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {form.attachmentPreview.name}
                 </div>
-                <div style={{ fontSize: ".65rem", color: "#9ca3af" }}>{formatSize(form.attachmentPreview.size_bytes)}</div>
+                <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)" }}>{formatSize(form.attachmentPreview.size_bytes)}</div>
               </div>
               <button
                 onClick={clearAttachment}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".75rem", color: "#9ca3af", padding: ".25rem", lineHeight: 1, flexShrink: 0 }}
+                className="elf-focus-ring"
+                aria-label="Remove attachment"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted-app)", padding: ".25rem", lineHeight: 1, flexShrink: 0 }}
               >
-                ✕
+                <X size={13} aria-hidden="true" />
               </button>
             </div>
           ) : attUploading ? (
-            <div style={{ background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".65rem .75rem" }}>
+            <div style={{ background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", borderRadius: "var(--radius-md)", padding: ".65rem .75rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: ".35rem" }}>
-                <span style={{ fontSize: ".75rem", fontWeight: 600, color: "#374151" }}>Uploading…</span>
-                <span style={{ fontSize: ".7rem", color: "#6b7280" }}>{attProgress}%</span>
+                <span style={{ fontSize: ".75rem", fontWeight: 600, color: "var(--text-muted-app)" }}>Uploading…</span>
+                <span style={{ fontSize: ".7rem", color: "var(--text-muted-app)" }}>{attProgress}%</span>
               </div>
-              <div style={{ background: "#e5e7eb", borderRadius: 100, height: 5, overflow: "hidden" }}>
-                <div style={{ background: "linear-gradient(90deg, #0b1e3d, #1e4d7b)", height: "100%", width: `${attProgress}%`, borderRadius: 100, transition: "width .1s" }} />
+              <div style={{ background: "var(--border-app)", borderRadius: "var(--radius-full)", height: 5, overflow: "hidden" }}>
+                <div style={{ background: "var(--team-primary)", height: "100%", width: `${attProgress}%`, borderRadius: "var(--radius-full)", transition: "width .1s" }} />
               </div>
             </div>
           ) : (
             <button
               onClick={() => attachInputRef.current?.click()}
+              className="elf-focus-ring"
               style={{
                 display: "flex", alignItems: "center", gap: ".4rem",
-                padding: ".55rem .75rem", background: "#f8f9fb",
-                border: "1.5px dashed #d1d5db", borderRadius: 10,
+                padding: ".55rem .75rem", background: "var(--surface-light-elevated)",
+                border: "1.5px dashed var(--border-app)", borderRadius: "var(--radius-md)",
                 cursor: "pointer", fontSize: ".78rem", fontWeight: 600,
-                color: "#6b7280", width: "100%", justifyContent: "center",
+                color: "var(--text-muted-app)", width: "100%", justifyContent: "center",
                 transition: "border-color .12s, background .12s",
               }}
             >
-              📎 Attach a file
+              <Paperclip size={14} aria-hidden="true" />
+              Attach a file
             </button>
           )}
           {attError && <p style={{ margin: ".3rem 0 0", color: "#dc2626", fontSize: ".75rem" }}>{attError}</p>}
@@ -229,13 +235,14 @@ export default function AnnouncementFormModal({
           </p>
         )}
         <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", paddingTop: ".25rem" }}>
-          <button onClick={closeModal} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={closeModal} className="elf-focus-ring" style={{ padding: ".5rem 1rem", background: "var(--surface-light-elevated)", color: "var(--text-primary-app)", border: "none", borderRadius: "var(--radius-md)", fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
             Cancel
           </button>
           <button
             onClick={isEditing ? handleEdit : handleAdd}
             disabled={saving || attUploading}
-            style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: (saving || attUploading) ? "not-allowed" : "pointer", opacity: (saving || attUploading) ? .7 : 1 }}
+            className="elf-focus-ring"
+            style={{ padding: ".5rem 1rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: "var(--radius-md)", fontSize: ".85rem", fontWeight: 600, cursor: (saving || attUploading) ? "not-allowed" : "pointer", opacity: (saving || attUploading) ? .7 : 1 }}
           >
             {saving ? "Posting…" : isEditing ? "Save Changes" : "Post Update"}
           </button>
