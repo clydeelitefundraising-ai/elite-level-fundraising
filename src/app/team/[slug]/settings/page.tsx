@@ -36,6 +36,13 @@ export default async function SettingsPage({
         season:        settings?.season ?? null,
         primary_color: settings?.primary_color ?? "#0b1e3d",
       }}
+      branding={{
+        school_name:          settings?.school_name ?? "",
+        logo_url:             settings?.logo_url ?? "",
+        primary_color:        settings?.primary_color ?? null,
+        secondary_color:      settings?.secondary_color ?? null,
+        branding_customized:  settings?.branding_customized ?? false,
+      }}
     />
   );
 }

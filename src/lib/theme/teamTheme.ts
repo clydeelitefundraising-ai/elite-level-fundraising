@@ -1,7 +1,7 @@
 import { getForegroundForBackground } from "./contrast.ts";
 
-const ELF_ORANGE = "#FF5A1F";
-const ELF_YELLOW = "#FFC93C";
+export const ELF_ORANGE = "#FF5A1F";
+export const ELF_YELLOW = "#FFC93C";
 
 export type TeamThemeVars = {
   "--team-primary": string;

@@ -10,6 +10,7 @@ import TeamQrModal from "../_components/TeamQrModal";
 import PrintSignupSheet from "../_components/PrintSignupSheet";
 import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJoinCode";
 import { performNativeAwareLogout } from "@/lib/nativePushDevice";
+import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
 
 type Props = {
   slug: string;
@@ -18,9 +19,12 @@ type Props = {
   // Phase 5: team branding needed for the QR/join-code modal + printable
   // signup sheet, relocated here from the Team page per product decision.
   joinCodeSettings: JoinCodeSettings;
+  // Phase A34: Team Branding Settings (logo + colors) — separate from the
+  // above, which only feeds the join-code QR/print flow.
+  branding: TeamBrandingSettings;
 };
 
-export default function SettingsView({ slug, coach, initialCode, joinCodeSettings }: Props) {
+export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding }: Props) {
   const router = useRouter();
   const [code, setCode]       = useState<ActiveJoinCode | null>(initialCode);
   const [working, setWorking] = useState(false);
@@ -341,6 +345,18 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           <strong style={{ color: "var(--text-secondary-app)" }}>How it works:</strong> Anyone with this link can join your team hub as an athlete or parent. They choose their own role during sign-up. Revoke to immediately invalidate the current link.
         </div>
       </div>
+
+      {/* ── Team Branding section (Head Coach only) ── */}
+      {coach.role === "head_coach" && (
+        <>
+          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+              Team Branding
+            </span>
+          </div>
+          <TeamBrandingSection slug={slug} branding={branding} />
+        </>
+      )}
 
       {/* ── Team Management section ── */}
       <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
