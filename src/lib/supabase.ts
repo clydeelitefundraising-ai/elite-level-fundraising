@@ -59,6 +59,14 @@ export type CampaignSettings = {
   deadline: string;
   primary_color: string;
   secondary_color: string;
+  // Team App Phase 3: explicit signal that a coach has intentionally
+  // customized team branding (see supabase/migrations/
+  // phase_a32_team_branding_customized.sql). primary_color/secondary_color
+  // above cannot be trusted alone — real rows carry historical
+  // placeholder/backfill values. false (including when the migration
+  // hasn't run yet and this key is simply absent from the row) means the
+  // Team App renders the ELF default theme regardless of what's stored.
+  branding_customized?: boolean;
   // Campaign (page theme) colors — independent of the team colors above.
   // Null/unset means "not customized yet"; callers fall back to
   // primary_color/secondary_color so existing campaigns are unaffected.

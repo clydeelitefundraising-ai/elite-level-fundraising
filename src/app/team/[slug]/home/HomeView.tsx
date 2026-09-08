@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Calendar as CalendarIcon, Activity } from "lucide-react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calendarShared";
@@ -10,23 +11,24 @@ import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
-import { shouldShowCoachDashboard } from "./coachDashboardHelpers";
+import { shouldShowCoachDashboard, buildQuickActions } from "./coachDashboardHelpers";
 import CoachDashboard from "./CoachDashboard";
+import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
 const inp: React.CSSProperties = {
   padding: ".5rem .75rem",
-  border: "1.5px solid #e5e7eb",
+  border: "1.5px solid var(--border-app)",
   borderRadius: 9,
   // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
   // control smaller than this (Phase 8).
   fontSize: "1rem",
   width: "100%",
   boxSizing: "border-box",
-  color: "#111827",
-  background: "#fff",
+  color: "var(--text-primary-app)",
+  background: "var(--surface-light)",
 };
 
 const lbl: React.CSSProperties = {
@@ -35,7 +37,7 @@ const lbl: React.CSSProperties = {
   gap: ".3rem",
   fontSize: ".72rem",
   fontWeight: 700,
-  color: "#374151",
+  color: "var(--text-secondary-app)",
   textTransform: "uppercase",
   letterSpacing: ".05em",
 };
@@ -89,12 +91,10 @@ function AnnouncementCard({
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
   const isHigh      = a.priority === "high";
-  const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
-  const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
+  const accentColor = isPinned ? "#6366f1" : isHigh ? "var(--color-error)" : cat.accent;
   const role        = staffRoleLabel(a.author_role ?? "");
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
@@ -107,25 +107,17 @@ function AnnouncementCard({
   return (
     <div
       ref={cardRef}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="elf-surface-card"
       style={{
-        background: cardBg,
-        borderRadius: 13,
         padding: ".8rem .95rem .75rem .85rem",
-        boxShadow: hovered
-          ? "0 4px 18px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.05)"
-          : "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         borderLeft: `4px solid ${accentColor}`,
         marginBottom: ".55rem",
-        transform: hovered ? "translateY(-1px)" : "none",
-        transition: "transform .14s ease, box-shadow .14s ease",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".35rem" }}>
         <Avatar name={a.author_name} photoUrl={a.author_photo_url} size={30} />
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: ".3rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontWeight: 700, fontSize: ".84rem", color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {a.author_name}
           </span>
           {role && (
@@ -133,17 +125,14 @@ function AnnouncementCard({
               padding: ".06rem .34rem", borderRadius: 100, fontSize: ".52rem", fontWeight: 700,
               textTransform: "uppercase", letterSpacing: ".04em",
               background: isHead ? "#dbeafe" : "#f3f4f6",
-              color:      isHead ? "#1d4ed8" : "#6b7280",
+              color:      isHead ? "#1d4ed8" : "var(--text-secondary-app)",
               flexShrink: 0, whiteSpace: "nowrap",
             }}>
               {role}
             </span>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: ".28rem", flexShrink: 0 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#93c5fd" }} />
-          <span style={{ fontSize: ".66rem", color: "#9ca3af" }}>{relativeTime(a.created_at)}</span>
-        </div>
+        <span style={{ fontSize: ".66rem", color: "var(--text-muted-app)", flexShrink: 0 }}>{relativeTime(a.created_at)}</span>
       </div>
 
       <div style={{ display: "flex", gap: ".28rem", marginBottom: ".42rem", flexWrap: "wrap" }}>
@@ -152,22 +141,22 @@ function AnnouncementCard({
         </span>
         {isPinned && (
           <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ede9fe", color: "#4338ca" }}>
-            📌 Pinned
+            Pinned
           </span>
         )}
         {isHigh && !isPinned && (
-          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#fee2e2", color: "#dc2626" }}>
-            ⚠️ Important
+          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#fee2e2", color: "var(--color-error)" }}>
+            Important
           </span>
         )}
       </div>
 
-      <p style={{ margin: "0 0 .22rem", fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", lineHeight: 1.3 }}>
+      <p style={{ margin: "0 0 .22rem", fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)", lineHeight: 1.3 }}>
         {a.title}
       </p>
 
       {a.body && (
-        <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280", lineHeight: 1.62 }}>
+        <p style={{ margin: 0, fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.62 }}>
           {a.body}
         </p>
       )}
@@ -177,13 +166,13 @@ function AnnouncementCard({
           href={`/api/team/${a.campaign_slug}/files/${att.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".5rem", padding: ".45rem .65rem", background: "#f8f9fb", border: "1px solid #e5e7eb", borderRadius: 9, textDecoration: "none" }}
+          className="elf-focus-ring"
+          style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".5rem", padding: ".45rem .65rem", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", borderRadius: 9, textDecoration: "none" }}
         >
-          <span style={{ fontSize: ".8rem" }}>📎</span>
-          <span style={{ fontSize: ".75rem", fontWeight: 600, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: ".75rem", fontWeight: 600, color: "var(--text-primary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
             {att.name}
           </span>
-          <span style={{ fontSize: ".7rem", color: "#9ca3af", flexShrink: 0 }}>↓</span>
+          <span style={{ fontSize: ".7rem", color: "var(--text-muted-app)", flexShrink: 0 }}>↓</span>
         </a>
       )}
 
@@ -191,13 +180,15 @@ function AnnouncementCard({
         <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end", marginTop: ".38rem" }}>
           <button
             onClick={() => onEdit(a)}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+            className="elf-focus-ring"
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "var(--text-muted-app)", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
           >
             Edit
           </button>
           {canDelete && (
             <button
               onClick={() => onDelete(a.id)}
+              className="elf-focus-ring"
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
             >
               Delete
@@ -218,34 +209,65 @@ export function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen:
   return (
     <button
       onClick={() => onOpen(ev)}
+      className="elf-list-row elf-focus-ring"
       style={{
-        display: "flex", alignItems: "flex-start", gap: ".75rem", padding: ".7rem 0",
-        width: "100%", border: "none", borderBottom: "1px solid #f3f4f6",
+        width: "100%", border: "none", borderBottom: "1px solid var(--border-app)",
         background: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit",
       }}
     >
-      <div style={{ flexShrink: 0, width: 44, textAlign: "center", paddingTop: ".1rem" }}>
-        <div style={{ fontSize: ".62rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em" }}>
+      <div style={{ flexShrink: 0, width: 44, textAlign: "center" }}>
+        <div style={{ fontSize: ".62rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".06em" }}>
           {formatDateLabel(ev.event_date).slice(0, 3)}
         </div>
-        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>
+        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--text-primary-app)", lineHeight: 1.1 }}>
           {ev.event_date.split("-")[2]}
         </div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".18rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{ev.title}</span>
+          <span style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{ev.title}</span>
           <span style={{ padding: ".08rem .42rem", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: s.bg, color: s.color, flexShrink: 0 }}>
             {ev.type}
           </span>
         </div>
         {(time || ev.location) && (
-          <div style={{ fontSize: ".78rem", color: "#6b7280" }}>
+          <div style={{ fontSize: ".78rem", color: "var(--text-muted-app)" }}>
             {[time, ev.location].filter(Boolean).join(" · ")}
           </div>
         )}
       </div>
     </button>
+  );
+}
+
+// ── Recent Activity row (Phase 4 final revision) ────────────────────────────
+//
+// Deliberately a small, local, non-exported twin of CoachDashboard's
+// CompactAnnouncementRow rather than a shared import — HomeView.tsx and
+// CoachDashboard.tsx already import FROM HomeView.tsx (UpcomingEventRow,
+// CATEGORY_STYLE, etc.); importing the other direction here would create
+// a circular module dependency between the two files. Same flat-row
+// treatment (category badge, timestamp, title, author), reusing
+// CATEGORY_STYLE/relativeTime already defined above in this file.
+function MobileActivityRow({ a }: { a: AnnouncementRow }) {
+  const cat = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
+  return (
+    <div className="elf-list-row">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".3rem", marginBottom: ".2rem" }}>
+          <span style={{
+            background: cat.bg, color: cat.color, borderRadius: 100,
+            fontSize: ".52rem", fontWeight: 700, padding: ".05rem .32rem",
+            textTransform: "uppercase", letterSpacing: ".03em",
+          }}>
+            {a.category.replace("-", " ")}
+          </span>
+          <span style={{ fontSize: ".66rem", color: "var(--text-muted-app)" }}>{relativeTime(a.created_at)}</span>
+        </div>
+        <div style={{ fontWeight: 700, fontSize: ".82rem", color: "var(--text-primary-app)", marginBottom: 1 }}>{a.title}</div>
+        <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>{a.author_name}</div>
+      </div>
+    </div>
   );
 }
 
@@ -256,83 +278,85 @@ export function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen:
 // product requirement that Home never render approve/decline controls
 // directly. Stays visible at zero (not hidden/collapsed) so the feature
 // remains discoverable, but drops the alarming red badge when there's
-// nothing pending.
+// nothing pending. Flat list row, not a floating card — an approvals
+// count is a status line, not content that needs its own visual grouping.
 function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
   const hasPending = count > 0;
   return (
     <a
       href={`/team/${slug}/requests`}
+      className="elf-list-row elf-focus-ring"
       style={{
-        display: "flex", alignItems: "center", gap: ".7rem",
-        background: "#fff", borderRadius: 14, padding: ".9rem 1rem",
-        marginBottom: ".8rem", textDecoration: "none",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        borderLeft: hasPending ? "4px solid #dc2626" : "4px solid transparent",
+        textDecoration: "none", color: "inherit",
+        background: "var(--surface-light)", borderRadius: "var(--radius-lg)",
+        padding: ".7rem .9rem", marginBottom: ".8rem",
+        border: "1px solid var(--border-app)",
+        borderLeft: hasPending ? "3px solid var(--color-error)" : "3px solid transparent",
       }}
     >
-      <div style={{
-        width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "1.1rem",
-        background: hasPending ? "#fee2e2" : "#f3f4f6",
-      }}>
-        📋
-      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".4rem" }}>
-          <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d" }}>Requests</span>
+          <span style={{ fontWeight: 800, fontSize: ".92rem", color: "var(--text-primary-app)" }}>Requests</span>
           {hasPending && (
-            <span style={{
-              background: "#dc2626", color: "#fff", borderRadius: 100,
-              fontSize: ".62rem", fontWeight: 700, padding: ".08rem .44rem", lineHeight: 1.4,
-            }}>
+            <span className="elf-badge" style={{ background: "var(--color-error)", color: "#fff" }}>
               {count}
             </span>
           )}
         </div>
-        <div style={{ fontSize: ".76rem", color: hasPending ? "#6b7280" : "#9ca3af", marginTop: ".1rem" }}>
+        <div style={{ fontSize: ".76rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>
           {hasPending
             ? `Athlete and team approval${count !== 1 ? "s" : ""} waiting`
-            : "No pending requests"}
+            : "You're all caught up — no approvals waiting."}
         </div>
       </div>
-      <span style={{ fontSize: ".9rem", color: "#c1c7d0", flexShrink: 0 }}>→</span>
+      <span style={{ fontSize: ".9rem", color: "var(--text-muted-app)", flexShrink: 0 }}>→</span>
     </a>
   );
 }
 
+/** Phase 4: color now comes from var(--team-primary) instead of the raw
+ *  primaryColor prop — see the identical note on CoachDashboard's
+ *  FundraisingCard. This keeps the mobile and desktop fundraising
+ *  snapshots consistent with the branding_customized theming pipeline
+ *  instead of one of them silently bypassing it. This is the strongest
+ *  single visual emphasis point on mobile Home, per the design brief.
+ *
+ *  Phase 4 final revision: the `if (raisedCents === 0) return null`
+ *  early-return that used to hide this entire module at $0 has been
+ *  removed — this was the root cause identified in the Home diagnostic
+ *  for the dashboard collapsing on sparse-data teams. The module is now
+ *  ALWAYS rendered; at $0 it shows the same $0/goal/0%-progress layout
+ *  plus a short role-appropriate line ("Ready to start raising?" for
+ *  staff, "Fundraising is just getting started." for everyone else)
+ *  instead of disappearing. Presentation only — raisedCents/goalCents
+ *  themselves are untouched, still the exact values page.tsx already
+ *  computes (including the dynamic display-goal logic). */
 function FundraiserSnapshot({
   slug,
   raisedCents,
   goalCents,
-  primaryColor,
+  isStaffViewer,
 }: {
   slug: string;
   raisedCents: number;
   goalCents: number;
   topAthleteName: string | null;
-  primaryColor: string;
+  isStaffViewer: boolean;
 }) {
-  if (raisedCents === 0) return null;
-
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
+  const hasRaised = raisedCents > 0;
 
   return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 14,
-      overflow: "hidden",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      marginBottom: ".8rem",
-    }}>
-      <div style={{ padding: ".75rem 1rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div className="elf-surface-card" style={{ overflow: "hidden", padding: 0, marginBottom: ".8rem" }}>
+      <div style={{ padding: ".75rem 1rem", borderBottom: "1px solid var(--border-app)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: ".1rem" }}>Fundraiser</div>
-          <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d" }}>Team Progress</div>
+          <div className={styles.sectionKicker}>Fundraiser</div>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)" }}>Team Progress</div>
         </div>
         <a
           href={`/team/${slug}/fundraiser`}
-          style={{ padding: ".4rem .9rem", background: primaryColor, color: "#fff", borderRadius: 20, fontSize: ".75rem", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
+          className="elf-btn-primary elf-focus-ring"
+          style={{ padding: ".4rem .9rem", borderRadius: 20, fontSize: ".75rem", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}
         >
           View Fundraiser →
         </a>
@@ -341,23 +365,29 @@ function FundraiserSnapshot({
       <div style={{ padding: ".85rem 1rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: "1.5rem", color: "#0b1e3d", lineHeight: 1 }}>{fmtMoney(raisedCents)}</div>
-            <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>raised</div>
+            <div style={{ fontWeight: 800, fontSize: "1.5rem", color: "var(--text-primary-app)", lineHeight: 1 }}>{fmtMoney(raisedCents)}</div>
+            <div style={{ fontSize: ".62rem", color: "var(--text-muted-app)", marginTop: ".12rem" }}>raised</div>
           </div>
           {goalCents > 0 && (
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 700, fontSize: ".95rem", color: "#374151" }}>{fmtMoney(goalCents)}</div>
-              <div style={{ fontSize: ".62rem", color: "#9ca3af", marginTop: ".12rem" }}>goal</div>
+              <div style={{ fontWeight: 700, fontSize: ".95rem", color: "var(--text-secondary-app)" }}>{fmtMoney(goalCents)}</div>
+              <div style={{ fontSize: ".62rem", color: "var(--text-muted-app)", marginTop: ".12rem" }}>goal</div>
             </div>
           )}
         </div>
 
         {goalCents > 0 && (
           <div>
-            <div style={{ background: "#eaecef", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".3rem" }}>
-              <div style={{ background: primaryColor, height: "100%", width: `${pct}%`, borderRadius: 100, transition: "width .5s ease" }} />
+            <div style={{ background: "var(--border-app)", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".3rem" }}>
+              <div style={{ background: "var(--team-primary)", height: "100%", width: `${pct}%`, borderRadius: 100, transition: "width .5s ease" }} />
             </div>
-            <div style={{ fontSize: ".65rem", color: "#9ca3af", textAlign: "right" }}>{pct}% of goal</div>
+            <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)", textAlign: "right" }}>{pct}% of goal</div>
+          </div>
+        )}
+
+        {!hasRaised && (
+          <div style={{ marginTop: ".65rem", fontSize: ".8rem", fontWeight: 600, color: "var(--text-secondary-app)" }}>
+            {isStaffViewer ? "Ready to start raising?" : "Fundraising is just getting started."}
           </div>
         )}
       </div>
@@ -397,6 +427,10 @@ type HomeViewProps = {
   schoolName?: string;
   sportName?: string;
   season?: string;
+  // Phase 4 revision: already fetched by page.tsx's getCampaignSettings
+  // call — threaded through for the compact identity block on both the
+  // desktop dashboard and mobile Home. No new query.
+  logoUrl?: string | null;
 };
 
 // ── Role-based entry point ──────────────────────────────────────────────────
@@ -425,7 +459,12 @@ export default function HomeView(props: HomeViewProps) {
 }
 
 // ── Main content ──────────────────────────────────────────────────────────────
-
+//
+// Serves Athlete, Parent, and Booster alike (plus any coach below the
+// desktop-dashboard breakpoint) — the existing production code has never
+// branched their module set apart from the isStaff()/isHeadCoach() edit
+// and Requests-visibility gates preserved below; Phase 4 does not invent
+// new role-specific modules that don't already exist.
 function HomeContent({
   slug,
   initialAnnouncements,
@@ -435,7 +474,6 @@ function HomeContent({
   raisedCents = 0,
   goalCents = 0,
   topAthleteName = null,
-  primaryColor = "#0b1e3d",
   pendingRequestCount = 0,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
@@ -510,52 +548,104 @@ function HomeContent({
 
   const pinned    = items.filter(a => a.priority === "pinned");
   const nonPinned = items.filter(a => a.priority !== "pinned");
-  const preview   = [...pinned, ...nonPinned].slice(0, 3);
+  const ordered   = [...pinned, ...nonPinned];
+  // Phase 4 final revision: split into a single "Team Update" (full
+  // AnnouncementCard treatment, unchanged) plus a dense "Recent Activity"
+  // list (see #6 in the Home diagnostic — activity was effectively
+  // desktop-only before this) instead of one flat preview list of up to 3
+  // identically-weighted cards.
+  const latestAnnouncement   = ordered[0] ?? null;
+  const recentAnnouncements  = ordered.slice(1, 5);
 
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
 
+  // Phase 4 revision: every actor who reaches Home (coach or otherwise)
+  // already gets a role-appropriate action list from the existing,
+  // unmodified buildQuickActions() helper — booster/athlete/parent get
+  // Send Message + Manage Team only, since Post/Add Event stay
+  // isStaff()-gated inside the helper itself. This just renders that
+  // existing, already-role-aware helper on mobile too (it was previously
+  // only mounted in the separate desktop CoachDashboard).
+  const quickActions = buildQuickActions(slug, actor);
+
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
 
-      {/* 0 — Requests entry point (Head Coach only, Phase 3B-1) */}
-      {isHeadCoachViewer && <RequestsEntryCard slug={slug} count={pendingRequestCount} />}
+      {/* Team identity lives in the shell header (TeamHeader.tsx) only —
+          Phase 4 final revision removed the near-identical block that used
+          to repeat name/sport/season here immediately below it. Home
+          content now begins directly with actual dashboard content. */}
 
-      {/* 1 — Upcoming Events */}
-      {next3.length > 0 && (
-        <div style={{
-          background: "#fff",
-          borderRadius: 14,
-          padding: ".9rem 1rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          marginBottom: ".8rem",
-        }}>
-          <h2 style={{ margin: "0 0 .2rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
-            Upcoming
-          </h2>
-          {next3.map((ev, i) => (
-            <div key={ev.id} style={i === next3.length - 1 ? { borderBottom: "none" } : {}}>
-              <UpcomingEventRow ev={ev} onOpen={setViewingEvent} />
-            </div>
-          ))}
+      {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile,
+             never collapses at $0 — see FundraiserSnapshot) */}
+      <FundraiserSnapshot
+        slug={slug}
+        raisedCents={raisedCents}
+        goalCents={goalCents}
+        topAthleteName={topAthleteName}
+        isStaffViewer={canEdit}
+      />
+
+      {/* 2 — Quick Actions */}
+      {quickActions.length > 0 && (
+        <div style={{ marginBottom: ".8rem" }}>
+          <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".4rem" }}>
+            Quick Actions
+          </span>
+          <QuickActions actions={quickActions} />
         </div>
       )}
 
-      {/* 2 — Team Communications */}
+      {/* 3 — Needs attention (Head Coach only) */}
+      {isHeadCoachViewer && <RequestsEntryCard slug={slug} count={pendingRequestCount} />}
+
+      {/* 4 — Next Up (never vanishes — see Home diagnostic: an empty
+             calendar used to make this whole section disappear instead of
+             showing an intentional empty state) */}
+      <div className="elf-section-flat" style={{ padding: ".2rem 0 .5rem", marginBottom: ".8rem" }}>
+        <h2 className={styles.sectionKicker} style={{ display: "block", marginBottom: ".2rem" }}>
+          Next Up
+        </h2>
+        {next3.length > 0 ? (
+          next3.map((ev, i) => (
+            <div key={ev.id} style={i === next3.length - 1 ? { borderBottom: "none" } : {}}>
+              <UpcomingEventRow ev={ev} onOpen={setViewingEvent} />
+            </div>
+          ))
+        ) : (
+          <div className="elf-empty-state" style={{ padding: "var(--space-6, 1.25rem) var(--space-4, .75rem)" }}>
+            <CalendarIcon aria-hidden="true" size={22} strokeWidth={1.75} />
+            <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-secondary-app)" }}>
+              No upcoming events
+            </div>
+            <div style={{ fontSize: ".78rem", color: "var(--text-muted-app)" }}>
+              Nothing scheduled yet.
+            </div>
+            {canEdit && (
+              <a
+                href={`/team/${slug}/calendar`}
+                className="elf-btn elf-btn-secondary elf-focus-ring"
+                style={{ marginTop: ".4rem", padding: ".4rem .9rem", fontSize: ".78rem", textDecoration: "none" }}
+              >
+                + Add Event
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 2 — Team Update (latest announcement, full treatment) */}
       <div style={{ marginBottom: ".5rem" }}>
-        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
-          Updates
+        <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".1rem" }}>
+          Team Update
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Team Communications
           </h2>
           {unread > 0 && (
-            <span style={{
-              background: "#dc2626", color: "#fff", borderRadius: 100,
-              fontSize: ".55rem", fontWeight: 700, padding: ".14rem .48rem",
-              lineHeight: 1.4, whiteSpace: "nowrap",
-            }}>
+            <span className="elf-badge" style={{ background: "var(--color-error)", color: "#fff" }}>
               {unread} new
             </span>
           )}
@@ -565,26 +655,22 @@ function HomeContent({
       </div>
 
       {items.length === 0 ? (
-        <div style={{
-          background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
-          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          marginBottom: ".8rem",
-        }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📣</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+        <div className="elf-empty-state" style={{ marginBottom: ".8rem" }}>
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-secondary-app)" }}>
             No announcements yet
           </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
             {canEdit ? "Use the Post button to get started." : "Check back soon."}
           </div>
         </div>
       ) : (
         <>
-          {preview.map(a => (
-            <AnnouncementCard key={a.id} a={a} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />
-          ))}
+          {latestAnnouncement && (
+            <AnnouncementCard a={latestAnnouncement} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />
+          )}
           <a
             href={`/team/${slug}/communications?tab=updates`}
+            className="elf-focus-ring"
             style={{
               display: "block",
               textAlign: "center",
@@ -593,9 +679,8 @@ function HomeContent({
               marginBottom: ".8rem",
               fontSize: ".75rem",
               fontWeight: 700,
-              color: "#0b1e3d",
+              color: "var(--text-secondary-app)",
               textDecoration: "none",
-              opacity: .7,
             }}
           >
             View all updates →
@@ -603,16 +688,38 @@ function HomeContent({
         </>
       )}
 
+      {/* 2b — Recent Activity (dense rows, brought to mobile — see Home
+             diagnostic #6: this used to be effectively desktop-only) */}
+      <div style={{ marginTop: ".3rem", marginBottom: ".8rem" }}>
+        <span className={styles.sectionKicker} style={{ display: "block", marginBottom: ".3rem" }}>
+          Recent Activity
+        </span>
+        {recentAnnouncements.length === 0 ? (
+          <div className="elf-empty-state" style={{ padding: "var(--space-6, 1.25rem) var(--space-4, .75rem)" }}>
+            <Activity aria-hidden="true" size={20} strokeWidth={1.75} />
+            <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
+              Team activity will appear here.
+            </div>
+          </div>
+        ) : (
+          <div className="elf-section-flat" style={{ padding: 0 }}>
+            {recentAnnouncements.map(a => (
+              <MobileActivityRow key={a.id} a={a} />
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* 3 — Sponsors */}
       {sponsors.length > 0 && (
         <div style={{ marginTop: ".25rem" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em" }}>
+            <span className={styles.sectionKicker}>
               Our Sponsors
             </span>
             <a
               href={`/team/${slug}/sponsors`}
-              style={{ fontSize: ".7rem", fontWeight: 700, color: "#0b1e3d", textDecoration: "none" }}
+              className={`${styles.sectionLink} elf-focus-ring`}
             >
               View All →
             </a>
@@ -624,13 +731,14 @@ function HomeContent({
                 href={s.url || `/team/${slug}/sponsors`}
                 target={s.url ? "_blank" : undefined}
                 rel={s.url ? "noopener noreferrer" : undefined}
+                className="elf-focus-ring"
                 style={{
                   flexShrink: 0,
                   width: 80,
-                  background: "#fff",
+                  background: "var(--surface-light)",
+                  border: "1px solid var(--border-app)",
                   borderRadius: 12,
                   padding: ".6rem .4rem .5rem",
-                  boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -647,15 +755,15 @@ function HomeContent({
                 ) : (
                   <div style={{
                     width: 44, height: 44, borderRadius: 6,
-                    background: "#f0f4ff",
+                    background: "var(--surface-light-elevated)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: ".9rem", color: "#1d4ed8",
+                    fontWeight: 800, fontSize: ".9rem", color: "var(--team-primary)",
                   }}>
                     {s.name.trim()[0]?.toUpperCase() ?? "S"}
                   </div>
                 )}
                 <span style={{
-                  fontSize: ".58rem", fontWeight: 700, color: "#374151",
+                  fontSize: ".58rem", fontWeight: 700, color: "var(--text-secondary-app)",
                   textAlign: "center", lineHeight: 1.25,
                   overflow: "hidden", display: "-webkit-box",
                   WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
@@ -667,15 +775,6 @@ function HomeContent({
           </div>
         </div>
       )}
-
-      {/* 4 — Fundraiser Snapshot (compact, secondary) */}
-      <FundraiserSnapshot
-        slug={slug}
-        raisedCents={raisedCents}
-        goalCents={goalCents}
-        topAthleteName={topAthleteName}
-        primaryColor={primaryColor}
-      />
 
       {/* Event details — same shared component the Calendar page uses, so
           Home can never show different information than Calendar for the
@@ -724,15 +823,15 @@ function HomeContent({
               </label>
             </div>
             {error && (
-              <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "var(--color-error)", fontSize: ".82rem" }}>
                 {error}
               </p>
             )}
             <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end", paddingTop: ".25rem" }}>
-              <button onClick={closeModal} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+              <button onClick={closeModal} className="elf-btn elf-btn-ghost elf-focus-ring" style={{ padding: ".5rem 1rem", fontSize: ".85rem" }}>
                 Cancel
               </button>
-              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
+              <button onClick={isEditing ? handleEdit : handleAdd} disabled={saving} className="elf-btn elf-btn-primary elf-focus-ring" style={{ padding: ".5rem 1rem", fontSize: ".85rem", opacity: saving ? .7 : 1, cursor: saving ? "not-allowed" : "pointer" }}>
                 {saving ? "Saving…" : isEditing ? "Save Changes" : "Post"}
               </button>
             </div>

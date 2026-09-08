@@ -19,7 +19,15 @@ import { DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY, splitDayEvents } from "./calendarHe
 // desktop has the space to show them. Overflow beyond
 // DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY is handled by the tested, pure
 // splitDayEvents() helper — never inline truncation logic in this JSX.
-const CELL_MIN_HEIGHT = 128;
+//
+// Phase 7 visual refinement: taller cells (scheduling-workspace feel, not
+// a compact date-picker) wrapped in a single bordered/rounded surface
+// (weekday header + grid share one outer edge) instead of each cell
+// carrying its own radius — the individual-rounded-chip look was the
+// "floating card" impression the user asked to remove. Internal dividers
+// are now 1px hairlines instead of a 2px gutter, for a single cohesive
+// grid rather than a set of separated tiles.
+const CELL_MIN_HEIGHT = 156;
 
 export default function DesktopMonthGrid({
   events,
@@ -39,18 +47,21 @@ export default function DesktopMonthGrid({
   const byDate = groupEventsByDate(events);
 
   return (
-    <div>
+    <div style={{ border: "1px solid var(--border-app)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
       {/* ── Weekday header row ── */}
       {/* minmax(0, 1fr), not bare 1fr: a bare 1fr track's minimum width
           defaults to its content's min-content size. The header labels
           are short and never triggered this, but the day grid below
           shares this same column definition, so both use minmax(0, 1fr)
           to stay visually aligned. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2, marginBottom: 2 }}>
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+        background: "var(--surface-light-elevated)", borderBottom: "1px solid var(--border-app)",
+      }}>
         {WEEKDAY_LABELS.map(w => (
           <div key={w} style={{
-            textAlign: "center", fontSize: ".68rem", fontWeight: 700, color: "#9ca3af",
-            textTransform: "uppercase", letterSpacing: ".04em", padding: ".35rem 0",
+            textAlign: "center", fontSize: ".68rem", fontWeight: 700, color: "var(--text-muted-app)",
+            textTransform: "uppercase", letterSpacing: ".04em", padding: ".5rem 0",
           }}>
             {w}
           </div>
@@ -59,10 +70,13 @@ export default function DesktopMonthGrid({
 
       {/* ── Grid ── */}
       {/* Same minmax(0, 1fr) track definition as the weekday header above
-          so the two rows stay aligned column-for-column. */}
+          so the two rows stay aligned column-for-column. 1px hairline
+          dividers (gap + border-app background) instead of a thicker
+          gutter, and no per-cell border-radius — the outer wrapper above
+          owns the rounded corners so the whole grid reads as one surface. */}
       <div style={{
-        display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 2,
-        background: "#e5e7eb", borderRadius: 12, padding: 2, overflow: "hidden",
+        display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 1,
+        background: "var(--border-app)",
       }}>
         {cells.map(cell => {
           const evs = byDate.get(cell.iso) ?? [];
@@ -79,6 +93,7 @@ export default function DesktopMonthGrid({
               aria-label={`${cell.iso}${isToday ? ", today" : ""}${evs.length ? `, ${evs.length} event${evs.length !== 1 ? "s" : ""}` : ""}`}
               aria-current={isToday ? "date" : undefined}
               aria-pressed={isSelected}
+              className="elf-focus-ring"
               style={{
                 minHeight: CELL_MIN_HEIGHT,
                 // Grid items default to min-width: auto, which is based on
@@ -90,24 +105,23 @@ export default function DesktopMonthGrid({
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
-                gap: ".25rem",
-                padding: ".4rem",
+                gap: ".3rem",
+                padding: ".5rem .45rem",
                 cursor: "pointer",
-                background: isSelected ? "#eef2ff" : "#fff",
+                background: isSelected ? "var(--surface-light-elevated)" : "var(--surface-light)",
                 opacity: cell.inCurrentMonth ? 1 : 0.5,
                 boxSizing: "border-box",
-                outline: isSelected ? "2px solid #0b1e3d" : "none",
+                outline: isSelected ? "2px solid var(--team-primary)" : "none",
                 outlineOffset: -2,
-                borderRadius: 6,
               }}
             >
               <span style={{
                 fontSize: ".8rem",
                 fontWeight: isToday ? 800 : 600,
-                color: isToday ? "#fff" : "#111827",
+                color: isToday ? "var(--team-primary-foreground)" : "var(--text-primary-app)",
                 width: 24, height: 24, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: isToday ? "#0b1e3d" : "transparent",
+                background: isToday ? "var(--team-primary)" : "transparent",
                 flexShrink: 0, alignSelf: "flex-start",
               }}>
                 {cell.day}
@@ -141,7 +155,7 @@ export default function DesktopMonthGrid({
                     style={{
                       display: "block", width: "100%", textAlign: "left",
                       border: "none", background: "none", cursor: "pointer",
-                      padding: ".1rem .35rem", fontSize: ".66rem", fontWeight: 700, color: "#6b7280",
+                      padding: ".1rem .35rem", fontSize: ".66rem", fontWeight: 700, color: "var(--text-muted-app)",
                     }}
                   >
                     +{overflowCount} more

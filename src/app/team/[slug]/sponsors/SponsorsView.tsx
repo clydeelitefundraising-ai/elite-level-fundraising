@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowUpRight, ChevronUp, ChevronDown, Handshake } from "lucide-react";
 import type { SponsorRow } from "@/lib/teamData";
 import { isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
@@ -154,10 +155,10 @@ function CoachCard({
 
   return (
     <div style={{
-      background: "#fff",
-      borderRadius: 14,
+      background: "var(--surface-light)",
+      borderRadius: "var(--radius-lg)",
       padding: ".85rem",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      border: "1px solid var(--border-app)",
       borderLeft: `3px solid ${TIER_META[s.tier].color}`,
       opacity: s.visible ? 1 : 0.6,
     }}>
@@ -175,10 +176,10 @@ function CoachCard({
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".2rem" }}>
-            <span style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{s.name}</span>
+            <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)" }}>{s.name}</span>
             <TierBadge tier={s.tier} />
             {!s.visible && (
-              <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#9ca3af", background: "#f3f4f6", padding: ".1rem .35rem", borderRadius: 100, textTransform: "uppercase", letterSpacing: ".04em" }}>
+              <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", background: "var(--surface-light-elevated)", padding: ".1rem .35rem", borderRadius: 100, textTransform: "uppercase", letterSpacing: ".04em" }}>
                 Hidden
               </span>
             )}
@@ -210,27 +211,27 @@ function CoachCard({
 
       {/* Action row — booster/viewer staff see the card but not these controls */}
       {canManage && (
-        <div style={{ display: "flex", alignItems: "center", gap: ".25rem", marginTop: ".65rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: ".25rem", marginTop: ".65rem", paddingTop: ".55rem", borderTop: "1px solid var(--border-app)" }}>
           <button
             disabled={isFirst}
             onClick={() => onMove(s.id, "up")}
-            style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", fontSize: ".75rem", color: isFirst ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
-          >↑</button>
+            style={{ background: "none", border: "none", display: "flex", cursor: isFirst ? "default" : "pointer", color: isFirst ? "#d1d5db" : "var(--text-muted-app)", padding: ".2rem .3rem", borderRadius: 5 }}
+          ><ChevronUp size={15} /></button>
           <button
             disabled={isLast}
             onClick={() => onMove(s.id, "down")}
-            style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", fontSize: ".75rem", color: isLast ? "#d1d5db" : "#9ca3af", padding: ".2rem .3rem", borderRadius: 5 }}
-          >↓</button>
+            style={{ background: "none", border: "none", display: "flex", cursor: isLast ? "default" : "pointer", color: isLast ? "#d1d5db" : "var(--text-muted-app)", padding: ".2rem .3rem", borderRadius: 5 }}
+          ><ChevronDown size={15} /></button>
           <div style={{ flex: 1 }} />
           <button
             onClick={() => onEdit(s)}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#6b7280", padding: ".2rem .5rem", borderRadius: 6 }}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "var(--text-secondary-app)", padding: ".2rem .5rem", borderRadius: 6 }}
           >
             Edit
           </button>
           <button
             onClick={() => onDelete(s.id)}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "#fca5a5", padding: ".2rem .5rem", borderRadius: 6 }}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 600, color: "var(--color-error)", padding: ".2rem .5rem", borderRadius: 6 }}
           >
             Remove
           </button>
@@ -252,10 +253,10 @@ function PublicCard({ s }: { s: SponsorRow }) {
         display: "flex",
         gap: ".75rem",
         alignItems: "center",
-        background: "#fff",
-        borderRadius: 14,
+        background: "var(--surface-light)",
+        borderRadius: "var(--radius-lg)",
         padding: ".85rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
         textDecoration: "none",
         borderLeft: `3px solid ${TIER_META[s.tier].color}`,
       }}
@@ -272,17 +273,17 @@ function PublicCard({ s }: { s: SponsorRow }) {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".15rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{s.name}</span>
+          <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)" }}>{s.name}</span>
           <TierBadge tier={s.tier} />
         </div>
         {s.description && (
-          <div style={{ fontSize: ".75rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {s.description}
           </div>
         )}
       </div>
 
-      <span style={{ fontSize: ".72rem", color: "#9ca3af", flexShrink: 0 }}>↗</span>
+      <ArrowUpRight size={15} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
     </a>
   );
 }
@@ -469,18 +470,18 @@ export default function SponsorsView({
   }, {});
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".65rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Community
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Sponsors
           </h2>
           {sponsors.length > 0 && (
-            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
+            <span style={{ background: "var(--team-primary)", color: "var(--team-primary-foreground)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
               {visibleSponsors.length} sponsor{visibleSponsors.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -492,14 +493,15 @@ export default function SponsorsView({
       {/* ── Content ── */}
       {visibleSponsors.length === 0 ? (
         <div style={{
-          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
-          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "2.25rem 1.5rem",
+          textAlign: "center", border: "1px solid var(--border-app)",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: ".5rem",
         }}>
-          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>🤝</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+          <Handshake size={28} style={{ color: "var(--text-muted-app)", opacity: .6 }} />
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-secondary-app)" }}>
             No sponsors yet
           </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
             {canManage ? "Add your first sponsor above." : "Sponsors coming soon."}
           </div>
         </div>
@@ -664,7 +666,7 @@ export default function SponsorsView({
                 onClick={() => setForm(f => ({ ...f, visible: !f.visible }))}
                 style={{
                   width: 44, height: 24, borderRadius: 100, border: "none",
-                  background: form.visible ? "#0b1e3d" : "#e5e7eb",
+                  background: form.visible ? "var(--team-primary)" : "#e5e7eb",
                   cursor: "pointer", position: "relative", flexShrink: 0, transition: "background .15s",
                 }}
               >
@@ -752,7 +754,7 @@ export default function SponsorsView({
               <button
                 onClick={isEditing ? handleEdit : handleAdd}
                 disabled={saving || logoUploading}
-                style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving || logoUploading ? "not-allowed" : "pointer", opacity: saving || logoUploading ? .7 : 1 }}
+                style={{ padding: ".5rem 1rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving || logoUploading ? "not-allowed" : "pointer", opacity: saving || logoUploading ? .7 : 1 }}
               >
                 {saving ? "Saving…" : isEditing ? "Save Changes" : "Add Sponsor"}
               </button>

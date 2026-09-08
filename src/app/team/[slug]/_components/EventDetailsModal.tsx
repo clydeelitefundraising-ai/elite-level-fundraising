@@ -1,5 +1,6 @@
 "use client";
 
+import { MapPin, Navigation } from "lucide-react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import {
   eventTypeStyle,
@@ -52,7 +53,7 @@ export default function EventDetailsModal({
           </button>
           <button
             onClick={() => onEdit?.(ev)}
-            style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}
+            style={{ padding: ".5rem 1rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}
           >
             Edit Event
           </button>
@@ -68,7 +69,7 @@ export default function EventDetailsModal({
           }}>
             {EVENT_TYPE_LABELS[ev.type] ?? ev.type}
           </span>
-          <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "#0b1e3d", lineHeight: 1.25 }}>
+          <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)", lineHeight: 1.25 }}>
             {ev.title}
           </h3>
         </div>
@@ -88,20 +89,21 @@ export default function EventDetailsModal({
         {ev.location && (
           <div>
             <div style={lbl}>Where</div>
-            <div style={{ fontSize: ".9rem", fontWeight: 600, color: "#111827", marginBottom: ".4rem" }}>
-              📍 {ev.location}
+            <div style={{ fontSize: ".9rem", fontWeight: 600, color: "var(--text-primary-app)", marginBottom: ".4rem", display: "flex", alignItems: "center", gap: ".35rem" }}>
+              <MapPin size={14} strokeWidth={2} style={{ flexShrink: 0, color: "var(--text-muted-app)" }} /> {ev.location}
             </div>
             <a
               href={directionsUrl(ev.location)}
               target="_blank"
               rel="noopener noreferrer"
+              className="elf-focus-ring"
               style={{
                 display: "inline-flex", alignItems: "center", gap: ".35rem",
-                padding: ".45rem .8rem", background: "#f0f4ff", color: "#1d4ed8",
+                padding: ".45rem .8rem", background: "var(--surface-light-elevated)", color: "var(--team-primary)",
                 borderRadius: 9, fontSize: ".8rem", fontWeight: 700, textDecoration: "none",
               }}
             >
-              🧭 Get Directions
+              <Navigation size={13} strokeWidth={2} /> Get Directions
             </a>
           </div>
         )}

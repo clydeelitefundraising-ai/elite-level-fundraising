@@ -36,16 +36,29 @@ export async function POST(req: NextRequest) {
   );
   if (!res.ok) return NextResponse.json({ error: "Login failed." }, { status: 500 });
 
+  // Both failure branches below (no matching elf_accounts row at all, vs a
+  // row found but the password doesn't match) return the exact same message
+  // and status — this is deliberate, not an oversight. Distinguishing them
+  // would let a caller enumerate which emails have a modern ELF account.
+  // The copy is intentionally broader than "wrong password": a legacy
+  // coach/member who authenticated fine via /coach-login or a join-code
+  // link but never went through /coach-activate (or the member-activate
+  // equivalent) has NO elf_accounts row at all, so they land in the same
+  // "row not found" branch as a genuine typo — see the identity-linking
+  // audit this copy was written for.
+  const NOT_SIGNED_IN =
+    "We couldn't sign you in. Check your email and password, or activate your ELF account if you previously used a team-specific login.";
+
   const rows = await res.json();
   if (!Array.isArray(rows) || rows.length === 0) {
     await recordFailure(key, LIMIT);
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: NOT_SIGNED_IN }, { status: 401 });
   }
 
   const acct = rows[0];
   if (hashAccountPassword(password, acct.salt) !== acct.password_hash) {
     await recordFailure(key, LIMIT);
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: NOT_SIGNED_IN }, { status: 401 });
   }
 
   await clearRateLimit(req, "account-login");

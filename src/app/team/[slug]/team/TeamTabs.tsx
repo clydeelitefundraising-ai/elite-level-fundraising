@@ -53,7 +53,7 @@ export default function TeamTabs({
       role="tablist"
       aria-label="Team section"
       style={{
-        display: "flex", background: "#f3f4f6", borderRadius: 10, padding: 3,
+        display: "flex", background: "var(--surface-light-elevated)", borderRadius: "var(--radius-md)", padding: 3,
         marginBottom: ".85rem", gap: 2,
       }}
     >
@@ -63,16 +63,17 @@ export default function TeamTabs({
           role="tab"
           aria-selected={tab === id}
           onClick={() => setTab(id)}
+          className="elf-focus-ring"
           style={{
             flex: 1,
             padding: ".4rem .5rem",
-            borderRadius: 8,
+            borderRadius: "var(--radius-sm)",
             border: "none",
             cursor: "pointer",
             fontSize: ".8rem",
             fontWeight: 700,
-            background: tab === id ? "#fff" : "transparent",
-            color: tab === id ? "#0b1e3d" : "#6b7280",
+            background: tab === id ? "var(--surface-light)" : "transparent",
+            color: tab === id ? "var(--text-primary-app)" : "var(--text-muted-app)",
             boxShadow: tab === id ? "0 1px 3px rgba(0,0,0,.1)" : "none",
             whiteSpace: "nowrap",
           }}
@@ -87,7 +88,7 @@ export default function TeamTabs({
     <div
       role="tablist"
       aria-label="Team section"
-      style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid #e5e7eb", marginBottom: "1rem" }}
+      style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid var(--border-app)", marginBottom: "1rem" }}
     >
       {TABS.map(({ id, label }) => (
         <button
@@ -95,15 +96,16 @@ export default function TeamTabs({
           role="tab"
           aria-selected={tab === id}
           onClick={() => setTab(id)}
+          className="elf-focus-ring"
           style={{
             background: "none",
             border: "none",
-            borderBottom: tab === id ? "2px solid #0b1e3d" : "2px solid transparent",
+            borderBottom: tab === id ? "2px solid var(--team-primary)" : "2px solid transparent",
             cursor: "pointer",
             padding: ".6rem 0",
             fontSize: ".85rem",
             fontWeight: tab === id ? 700 : 500,
-            color: tab === id ? "#0b1e3d" : "#6b7280",
+            color: tab === id ? "var(--text-primary-app)" : "var(--text-muted-app)",
           }}
         >
           {label}

@@ -17,11 +17,37 @@ export default function AccountMenu({
   teams,
   accountName,
   profilePhotoUrl,
+  onDark = false,
+  hasAccountSession = false,
+  isMember = false,
 }: {
   currentSlug:     string;
   teams:           TeamSummary[];
   accountName?:    string;
   profilePhotoUrl?: string | null;
+  /** Phase 3: this component is mounted on two different backgrounds —
+   *  TeamHeader (now white/warm-white after the Phase 3 redesign) and
+   *  DesktopSidebar (near-black --shell-backdrop). The toggle button's
+   *  own colors need to invert between those two contexts to stay legible
+   *  — everything else (the dropdown panel itself) is always white
+   *  regardless of onDark, since it's an overlay, not part of either
+   *  shell surface. */
+  onDark?: boolean;
+  /** Identity Compatibility follow-up: true only when an elf_session
+   *  (accountSession) exists — false for a legacy team_coach/team_member
+   *  cookie-only session, even though isAuthenticated (this component only
+   *  mounts at all when isAuthenticated) is true for both. Threaded down
+   *  from layout.tsx's already-resolved accountSession, not a new check.
+   *  Governs whether "My Profile" is offered — /team/[slug]/profile
+   *  requires getAccountSession() and must keep doing so; a legacy-only
+   *  session clicking "My Profile" would otherwise bounce straight to
+   *  /login with no context, a confusing dead end. */
+  hasAccountSession?: boolean;
+  /** Distinguishes a legacy team_member session (self-serve activation
+   *  exists at /team/[slug]/activate-account) from a legacy team_coach
+   *  session (activation requires an admin-issued invite token — no
+   *  generic self-serve route exists, so no link is offered for coaches). */
+  isMember?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -50,13 +76,16 @@ export default function AccountMenu({
         onClick={() => setOpen(o => !o)}
         aria-label="Account menu"
         aria-expanded={open}
+        className="elf-focus-ring"
         style={{
-          width: 32,
-          height: 32,
+          width: 34,
+          height: 34,
           borderRadius: "50%",
-          background: profilePhotoUrl ? "transparent" : "rgba(255,255,255,.2)",
-          border: "1.5px solid rgba(255,255,255,.35)",
-          color: "#fff",
+          background: profilePhotoUrl
+            ? "transparent"
+            : onDark ? "rgba(255,255,255,.16)" : "var(--surface-light-elevated)",
+          border: onDark ? "1.5px solid rgba(255,255,255,.32)" : "1.5px solid var(--border-app)",
+          color: onDark ? "#fff" : "var(--text-primary-app)",
           fontWeight: 800,
           fontSize: initial ? ".65rem" : ".9rem",
           cursor: "pointer",
@@ -98,11 +127,12 @@ export default function AccountMenu({
             {/* Account identity */}
             {accountName && (
               <div style={{ padding: ".85rem 1rem .7rem", borderBottom: "1px solid #f0f0f0" }}>
-                <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#0b1e3d" }}>{accountName}</div>
+                <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{accountName}</div>
                 <a
                   href="/teams"
                   onClick={() => setOpen(false)}
-                  style={{ fontSize: ".72rem", color: "#6b7280", textDecoration: "none" }}
+                  className="elf-focus-ring"
+                  style={{ fontSize: ".72rem", color: "var(--text-muted-app)", textDecoration: "none" }}
                 >
                   My Account →
                 </a>
@@ -117,6 +147,16 @@ export default function AccountMenu({
                 </div>
                 {teams.map(team => {
                   const isCurrent = team.campaign_slug === currentSlug;
+                  // Only shows this team's own color when IT has customized
+                  // branding — otherwise every team in the switcher gets
+                  // the same ELF-orange dot, consistent with the shell's
+                  // own default-theme rule (never infer customization from
+                  // the stored color alone).
+                  const dotColor = team.branding_customized && team.primary_color
+                    ? team.primary_color
+                    : "var(--elf-orange)";
+                  const subtitle = [team.sport_name, team.season].filter(Boolean).join(" · ");
+
                   return (
                     <button
                       key={team.campaign_slug}
@@ -124,34 +164,58 @@ export default function AccountMenu({
                         setOpen(false);
                         if (!isCurrent) router.push(`/team/${team.campaign_slug}/home`);
                       }}
+                      className="elf-focus-ring"
                       style={{
                         width: "100%",
                         display: "flex",
                         alignItems: "center",
-                        gap: ".65rem",
-                        padding: ".6rem 1rem",
+                        gap: ".7rem",
+                        padding: ".65rem 1rem",
                         border: "none",
+                        borderLeft: isCurrent ? "3px solid var(--elf-orange)" : "3px solid transparent",
                         borderBottom: "1px solid #f8f8f8",
-                        background: isCurrent ? "#f5f6f8" : "#fff",
+                        background: isCurrent ? "var(--surface-light-elevated)" : "#fff",
                         cursor: isCurrent ? "default" : "pointer",
                         textAlign: "left",
                       }}
                     >
-                      <div style={{
-                        width: 26, height: 26, borderRadius: "50%",
-                        background: team.primary_color || "#0b1e3d",
-                        flexShrink: 0, display: "flex", alignItems: "center",
-                        justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: ".68rem",
-                      }}>
-                        {team.school_name.charAt(0).toUpperCase()}
-                      </div>
+                      {team.logo_url ? (
+                        <img
+                          src={team.logo_url}
+                          alt=""
+                          style={{
+                            width: 28, height: 28, borderRadius: "50%", objectFit: "contain",
+                            flexShrink: 0, background: "#fff", border: "1px solid var(--border-app)",
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 28, height: 28, borderRadius: "50%",
+                          background: dotColor,
+                          flexShrink: 0, display: "flex", alignItems: "center",
+                          justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: ".68rem",
+                        }}>
+                          {team.school_name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: ".84rem", fontWeight: 700, color: "#0b1e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontSize: ".84rem", fontWeight: 700, color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {team.school_name}
                         </div>
-                        <div style={{ fontSize: ".68rem", color: "#6b7280" }}>{team.sport_name}</div>
+                        {subtitle && (
+                          <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {subtitle}
+                          </div>
+                        )}
                       </div>
-                      {isCurrent && <span style={{ fontSize: ".68rem", color: "#22c55e", fontWeight: 800, flexShrink: 0 }}>✓</span>}
+                      {isCurrent && (
+                        <span
+                          aria-label="Current team"
+                          style={{ fontSize: ".68rem", color: "var(--color-success)", fontWeight: 800, flexShrink: 0 }}
+                        >
+                          ✓
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -165,20 +229,58 @@ export default function AccountMenu({
               <PushOptIn slug={currentSlug} />
             </div>
 
-            {/* My Profile */}
-            <a
-              href={`/team/${currentSlug}/profile`}
-              onClick={() => setOpen(false)}
-              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
-            >
-              <span style={{ fontSize: ".9rem" }}>👤</span>
-              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
-            </a>
+            {/* My Profile — only offered when a real elf_session exists.
+                /team/[slug]/profile requires getAccountSession() and always
+                will; a legacy team_coach/team_member-cookie-only session
+                clicking this would just bounce to /login with no context.
+                Instead show the real supported next step for that session
+                type (see hasAccountSession/isMember above). */}
+            {hasAccountSession && (
+              <a
+                href={`/team/${currentSlug}/profile`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
+              </a>
+            )}
+            {!hasAccountSession && isMember && (
+              // Legacy team_member session: self-serve activation genuinely
+              // exists and is safe to link to (verifies via the member's own
+              // team_member cookie, on-file-email-only linking — see
+              // members/activate/route.ts).
+              <a
+                href={`/team/${currentSlug}/activate-account`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Activate ELF Account</span>
+              </a>
+            )}
+            {!hasAccountSession && !isMember && (
+              // Legacy team_coach session: no generic self-serve activation
+              // exists (requires an admin-issued single-use invite token) —
+              // showing a fake/broken link here would be worse than no link.
+              // Informational only, not clickable, so it can't dead-end.
+              <div
+                style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", padding: ".7rem 1rem", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".78rem", color: "#9ca3af", lineHeight: 1.45 }}>
+                  Set up your ELF account to manage your profile and access multiple teams. Ask your administrator for an activation link.
+                </span>
+              </div>
+            )}
 
             {/* Settings */}
             <a
               href={`/team/${currentSlug}/settings`}
               onClick={() => setOpen(false)}
+              className="elf-focus-ring"
               style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
             >
               <span style={{ fontSize: ".9rem" }}>⚙️</span>
@@ -201,6 +303,7 @@ export default function AccountMenu({
             >
               <button
                 type="submit"
+                className="elf-focus-ring"
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
                 <span style={{ fontSize: ".9rem" }}>↩</span>

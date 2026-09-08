@@ -55,7 +55,15 @@ export default function UpdatesWorkspaceView({
 
   return (
     <>
-      <div className={styles.mobileOnly}>
+      {/* Coach-only actors: hidden at desktop width (DesktopUpdatesView
+          takes over below). Non-coach actors (Parent/Athlete/Booster):
+          showDesktop is false and DesktopUpdatesView never mounts, so this
+          stays visible at every width instead — same component, same
+          internal role gates (canEdit/canDelete from useUpdatesWorkspace),
+          just no longer CSS-hidden with nothing to replace it. Exact same
+          fix as TeamView.tsx's mobileOnly/memberRosterDesktop split — see
+          Communications.module.css. */}
+      <div className={showDesktop ? styles.mobileOnly : styles.memberUpdatesDesktop}>
         <UpdatesView workspace={workspace} />
       </div>
       {showDesktop && (
@@ -68,11 +76,15 @@ export default function UpdatesWorkspaceView({
           regardless of which is CSS-visible. */}
       <AnnouncementFormModal workspace={workspace} athletes={athletes} />
 
-      {/* Rendered exactly once — see comment above. filesWrapDesktop only
-          applies (at >=1024px) when this actor is desktop-eligible, so it
-          lines up under DesktopUpdatesView's constrained feed; ineligible
-          actors keep the existing full-width Files section unchanged. */}
-      <div className={showDesktop ? styles.filesWrapDesktop : undefined} style={{ marginTop: "1.75rem" }}>
+      {/* Rendered exactly once — see comment above. filesWrapDesktop applies
+          (at >=1024px) when this actor is desktop-eligible, lining Files up
+          under DesktopUpdatesView's constrained feed. filesWrapMember gives
+          non-coach actors the SAME ~760px constraint as memberUpdatesDesktop
+          above, so Files no longer stretches full-width beneath a narrow
+          Updates feed — the visual seam a Parent/Athlete/Booster saw before
+          this fix. Both classes are desktop-only (min-width:1024px); at
+          mobile widths Files is always full-width, unchanged. */}
+      <div className={showDesktop ? styles.filesWrapDesktop : styles.filesWrapMember} style={{ marginTop: "1.75rem" }}>
         <FilesView slug={slug} initialFiles={initialFiles} actor={actor} />
       </div>
     </>

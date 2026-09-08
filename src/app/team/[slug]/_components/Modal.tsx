@@ -138,7 +138,7 @@ export default function Modal({
           borderBottom: "1px solid #f3f4f6",
           flexShrink: 0,
         }}>
-          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em" }}>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
             {title}
           </h3>
           <button

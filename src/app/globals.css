@@ -112,6 +112,59 @@
   --ease-enter:   cubic-bezier(0.0, 0.0, 0.2, 1);
   --ease-exit:    cubic-bezier(0.4, 0.0, 1.0, 1);
   --ease-bounce:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── GROUP I: TEAM APP PHASE 2 — LIGHT-FIRST TOKENS + DYNAMIC TEAM THEME ──
+     Additive only. Nothing above this block is modified or renamed —
+     existing consumers of --navy/--gold/--color-success etc. are
+     unaffected. These tokens back the authenticated Team App's light,
+     utility-first surface system (see design-system.css primitives) and
+     the per-team theme variables set at runtime in
+     src/app/team/[slug]/layout.tsx via resolveTeamTheme().
+
+     --team-primary / --team-secondary / --team-primary-foreground are
+     PLACEHOLDER defaults here (ELF orange/yellow) — they are always
+     overridden per-request by an inline style on the team layout's root
+     element once a team's campaign_settings are known. The fallback
+     values below only apply outside that tree (e.g. this stylesheet's
+     other non-team consumers), and mirror the "no customization" default
+     described in the Team App design brief. */
+  --elf-orange: #FF5A1F;
+  --elf-orange-dark: #DE4712;
+  --elf-yellow: #FFC93C;
+
+  --team-primary: var(--elf-orange);
+  --team-secondary: var(--elf-yellow);
+  --team-primary-foreground: #ffffff;
+
+  --canvas: #ffffff;
+  --surface-light: #ffffff;
+  --surface-light-elevated: #f7f5f0;
+  --text-primary-app: #111318;
+  --text-secondary-app: #4b5563;
+  --text-muted-app: #6b7280;
+  --border-app: #e5e7eb;
+
+  /* Phase 3: the ELF-owned structural chrome color (desktop sidebar,
+     the shell's outer backdrop). Deliberately NOT team-colored — "the
+     layout belongs to ELF, the accents belong to the team." Replaces
+     the old hardcoded #0b1e3d navy used in both spots pre-Phase-3. */
+  --shell-backdrop: #15171c;
+
+  /* Semantic colors are intentionally NOT redefined here — they remain
+     the existing --color-success/warning/error/info values above,
+     independent of --team-primary/--team-secondary by design. */
+
+  /* Phase 3: two-tone ring (white moat + team-color ring) so focus stays
+     visible on white, cream, near-black (--shell-backdrop), AND on a
+     filled team-color surface — a single-tone ring can disappear against
+     a similarly-colored background, which is what Phase-2 live QA found
+     ("present but faint/generic") with the old single rgba(255,90,31,.35)
+     glow. Consumed via the .elf-focus-ring utility (design-system.css). */
+  --focus-ring: 0 0 0 2px #fff, 0 0 0 4px var(--team-primary);
+  --control-height-sm: 36px;
+  --control-height-md: 44px;
+  --control-height-lg: 52px;
+  --tap-target-min: 44px;
 }
 
 * {

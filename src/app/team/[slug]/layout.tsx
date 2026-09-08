@@ -7,6 +7,7 @@ import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
 import { isPlatformAdmin } from "@/lib/permissions";
+import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 import TeamHeader from "./_components/TeamHeader";
 import PlatformAdminBanner from "./_components/PlatformAdminBanner";
 import TeamChrome from "./_components/TeamChrome";
@@ -41,8 +42,16 @@ export default async function TeamLayout({
 
   if (!settings) notFound();
 
-  const isMember         = actor.kind === "member";
-  const isAuthenticated  = actor.kind !== "public";
+  const isMember          = actor.kind === "member";
+  const isAuthenticated   = actor.kind !== "public";
+  // Identity Compatibility follow-up: distinguishes a real elf_session
+  // (accountSession truthy) from a legacy team_coach/team_member-cookie-only
+  // session (isAuthenticated true, accountSession null) — reuses the value
+  // already resolved above, no new session check. AccountMenu needs this to
+  // avoid offering "My Profile" as a dead-end that bounces to /login for
+  // legacy sessions (/profile itself still correctly requires
+  // getAccountSession() — this only changes what the menu offers).
+  const hasAccountSession = Boolean(accountSession);
   const unreadNotifCount = isMember && settings.team_id
     ? await getUnreadCount(settings.team_id, {
         kind:       "member",
@@ -62,6 +71,19 @@ export default async function TeamLayout({
   const showRequests = isHeadCoach(actor);
   const pendingAthleteRequestCount = showRequests ? await getPendingRequestCount(slug) : 0;
 
+  // Phase 2/3: dynamic team theming. Resolves to ELF-orange defaults
+  // whenever branding_customized is false (the default for every team
+  // today — see phase_a32_team_branding_customized.sql; `?? false` also
+  // covers the transition window before that migration has been run, when
+  // the column is simply absent from `settings`). Set once here as CSS
+  // custom properties on the shell root so any descendant can opt into
+  // var(--team-primary) etc. without prop drilling.
+  const teamThemeVars = resolveTeamTheme(
+    settings.primary_color,
+    settings.secondary_color,
+    settings.branding_customized ?? false
+  );
+
   return (
     <>
     <style>{`
@@ -75,11 +97,16 @@ export default async function TeamLayout({
     `}</style>
     <div className="elf-shell" style={{
       minHeight: "100vh",
-      background: "#0b1e3d",
+      // Phase 3: was hardcoded #0b1e3d (old navy). This backdrop sits
+      // outside the white shell panel (visible as letterboxing on wide
+      // viewports) — it's ELF structural chrome, not team identity, so it
+      // uses the shared --shell-backdrop token rather than any team color.
+      background: "var(--shell-backdrop)",
       fontFamily: "system-ui, -apple-system, sans-serif",
       display: "flex",
       justifyContent: "center",
       alignItems: "flex-start",
+      ...(teamThemeVars as React.CSSProperties),
     }}>
       <div className={styles.shellPanel} style={{
         minHeight: "100vh",
@@ -108,6 +135,8 @@ export default async function TeamLayout({
           accountName={accountSession?.name}
           profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
+          hasAccountSession={hasAccountSession}
+          isMember={isMember}
         />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -120,6 +149,8 @@ export default async function TeamLayout({
               accountName={accountSession?.name}
               profilePhotoUrl={accountSession?.profile_photo_url}
               isAuthenticated={isAuthenticated}
+              hasAccountSession={hasAccountSession}
+              isMember={isMember}
             />
           </div>
           {isPlatformAdmin(actor) && (

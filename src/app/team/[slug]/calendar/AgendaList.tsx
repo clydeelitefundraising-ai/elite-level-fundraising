@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarDays } from "lucide-react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { arizonaTodayISO, arizonaTomorrowISO, groupEventsByDate } from "@/lib/calendarShared";
 import DateGroupCard from "./DateGroupCard";
@@ -25,15 +26,18 @@ export default function AgendaList({
   if (events.length === 0) {
     return (
       <div style={{
-        background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
-        textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        display: "flex", alignItems: "center", gap: ".65rem",
+        background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: ".85rem 1rem",
+        border: "1px solid var(--border-app)",
       }}>
-        <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📅</div>
-        <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-          No events scheduled
-        </div>
-        <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-          {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
+        <CalendarDays size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+            No Events Scheduled
+          </div>
+          <div style={{ fontSize: ".78rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>
+            {canManage ? "Add the first event above." : "Check back soon for schedule updates."}
+          </div>
         </div>
       </div>
     );

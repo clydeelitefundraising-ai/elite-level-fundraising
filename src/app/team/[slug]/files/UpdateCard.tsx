@@ -1,6 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import {
+  Pin, AlertTriangle, FileText, Image as ImageIcon, File as FileTypeIcon,
+  Paperclip, Download, Eye, ChevronUp, ChevronDown, type LucideIcon,
+} from "lucide-react";
 import type { AnnouncementRow } from "@/lib/teamData";
 import { staffRoleLabel } from "@/lib/permissions";
 import type { ReadReceiptsResult } from "@/lib/notifications";
@@ -28,11 +32,11 @@ export const CATEGORY_STYLE: Record<string, { bg: string; color: string; accent:
   "team":       { bg: "#f3f4f6", color: "#374151", accent: "#9ca3af" },
 };
 
-export const FILE_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
-  pdf:   { bg: "#fee2e2", color: "#dc2626", icon: "📄" },
-  image: { bg: "#dbeafe", color: "#1d4ed8", icon: "🖼️" },
-  doc:   { bg: "#ede9fe", color: "#6d28d9", icon: "📝" },
-  other: { bg: "#f3f4f6", color: "#374151", icon: "📎" },
+export const FILE_STYLE: Record<string, { bg: string; color: string; icon: LucideIcon }> = {
+  pdf:   { bg: "#fee2e2", color: "#dc2626", icon: FileText   },
+  image: { bg: "#dbeafe", color: "#1d4ed8", icon: ImageIcon  },
+  doc:   { bg: "#ede9fe", color: "#6d28d9", icon: FileTypeIcon },
+  other: { bg: "#f3f4f6", color: "#374151", icon: Paperclip  },
 };
 
 export const FILTER_CHIPS = [
@@ -75,13 +79,14 @@ export function formatSize(bytes: number): string {
 
 // ── Section divider ───────────────────────────────────────────────────────────
 
-export function SectionLabel({ label }: { label: string }) {
+export function SectionLabel({ label, icon: Icon }: { label: string; icon?: LucideIcon }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: ".55rem", margin: ".1rem 0 .55rem" }}>
-      <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#c0c8d4", textTransform: "uppercase", letterSpacing: ".09em", whiteSpace: "nowrap" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: ".4rem", margin: ".1rem 0 .55rem" }}>
+      {Icon && <Icon size={11} aria-hidden="true" style={{ color: "var(--text-muted-app)" }} />}
+      <span style={{ fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em", whiteSpace: "nowrap" }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, #ebebeb, transparent)" }} />
+      <div style={{ flex: 1, height: 1, background: "var(--border-app)" }} />
     </div>
   );
 }
@@ -112,13 +117,15 @@ function ReadReceiptPanel({ slug, announcementId }: { slug: string; announcement
         onClick={e => { e.stopPropagation(); toggle(); }}
         style={{
           background: "none", border: "none", cursor: "pointer",
-          fontSize: ".66rem", fontWeight: 600, color: "#9ca3af", padding: 0, lineHeight: 1.4,
+          fontSize: ".66rem", fontWeight: 600, color: "var(--text-muted-app)", padding: 0, lineHeight: 1.4,
           display: "flex", alignItems: "center", gap: ".25rem",
         }}
       >
-        <span style={{ fontSize: ".7rem" }}>👁</span>
+        <Eye size={12} aria-hidden="true" />
         {loading ? "Loading…" : data ? `${readCount} / ${total} Seen` : "Check Seen"}
-        <span style={{ fontSize: ".6rem", opacity: .6 }}>{open ? "▲" : "▼"}</span>
+        {open
+          ? <ChevronUp size={11} aria-hidden="true" style={{ opacity: .6 }} />
+          : <ChevronDown size={11} aria-hidden="true" style={{ opacity: .6 }} />}
       </button>
 
       {open && data && (
@@ -170,12 +177,11 @@ export function UpdateCard({
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
   const isHigh      = a.priority === "high";
   const accentColor = isPinned ? "#6366f1" : isHigh ? "#dc2626" : cat.accent;
-  const cardBg      = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "#fff";
+  const rowBg       = isPinned ? "#faf8ff" : isHigh ? "#fff9f8" : "transparent";
   const role        = staffRoleLabel(a.author_role ?? "");
   const isHead      = (a.author_role ?? "").includes("head");
   const att         = a.attachment ?? null;
@@ -193,76 +199,67 @@ export function UpdateCard({
   return (
     <div
       ref={cardRef}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
-        background: cardBg,
-        borderRadius: 13,
-        padding: ".8rem .95rem .75rem .85rem",
-        boxShadow: hovered
-          ? "0 4px 18px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.05)"
-          : "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        borderLeft: `4px solid ${accentColor}`,
-        marginBottom: ".55rem",
-        transform: hovered ? "translateY(-1px)" : "none",
-        transition: "transform .14s ease, box-shadow .14s ease",
+        background: rowBg,
+        borderLeft: `3px solid ${accentColor}`,
+        borderBottom: "1px solid var(--border-app)",
+        padding: ".75rem .85rem .75rem .75rem",
       }}
     >
       {/* Row 1: avatar + name + role badge + timestamp */}
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".35rem" }}>
-        <Avatar name={a.author_name} photoUrl={a.author_photo_url} size={30} />
+        <Avatar name={a.author_name} photoUrl={a.author_photo_url} size={28} />
         <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: ".3rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontWeight: 700, fontSize: ".84rem", color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {a.author_name}
           </span>
           {role && (
             <span style={{
-              padding: ".06rem .34rem", borderRadius: 100, fontSize: ".52rem", fontWeight: 700,
+              padding: ".06rem .34rem", borderRadius: "var(--radius-sm)", fontSize: ".52rem", fontWeight: 700,
               textTransform: "uppercase", letterSpacing: ".04em",
-              background: isHead ? "#dbeafe" : "#f3f4f6",
-              color:      isHead ? "#1d4ed8" : "#6b7280",
+              background: isHead ? "#dbeafe" : "var(--surface-light-elevated)",
+              color:      isHead ? "#1d4ed8" : "var(--text-muted-app)",
               flexShrink: 0, whiteSpace: "nowrap",
             }}>
               {role}
             </span>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: ".28rem", flexShrink: 0 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#93c5fd" }} />
-          <span style={{ fontSize: ".66rem", color: "#9ca3af" }}>{relativeTime(a.created_at)}</span>
-        </div>
+        <span style={{ fontSize: ".66rem", color: "var(--text-muted-app)", flexShrink: 0 }}>{relativeTime(a.created_at)}</span>
       </div>
 
       {/* Row 2: category + priority + scope chips */}
       <div style={{ display: "flex", gap: ".28rem", marginBottom: ".42rem", flexWrap: "wrap" }}>
-        <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: cat.bg, color: cat.color }}>
+        <span style={{ padding: ".07rem .38rem", borderRadius: "var(--radius-sm)", fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: cat.bg, color: cat.color }}>
           {a.category.replace("-", " ")}
         </span>
         {isPinned && (
-          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ede9fe", color: "#4338ca" }}>
-            📌 Pinned
+          <span style={{ display: "inline-flex", alignItems: "center", gap: ".2rem", padding: ".07rem .38rem", borderRadius: "var(--radius-sm)", fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ede9fe", color: "#4338ca" }}>
+            <Pin size={9} aria-hidden="true" />
+            Pinned
           </span>
         )}
         {isHigh && !isPinned && (
-          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#fee2e2", color: "#dc2626" }}>
-            ⚠️ Important
+          <span style={{ display: "inline-flex", alignItems: "center", gap: ".2rem", padding: ".07rem .38rem", borderRadius: "var(--radius-sm)", fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#fee2e2", color: "#dc2626" }}>
+            <AlertTriangle size={9} aria-hidden="true" />
+            Important
           </span>
         )}
         {canEdit && scope !== "everyone" && (
-          <span style={{ padding: ".07rem .38rem", borderRadius: 100, fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ecfdf5", color: "#065f46" }}>
+          <span style={{ padding: ".07rem .38rem", borderRadius: "var(--radius-sm)", fontSize: ".53rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: "#ecfdf5", color: "#065f46" }}>
             → {SCOPE_LABELS[scope as RecipientScope] ?? scope}
           </span>
         )}
       </div>
 
       {/* Title */}
-      <p style={{ margin: "0 0 .22rem", fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", lineHeight: 1.3 }}>
+      <p style={{ margin: "0 0 .22rem", fontWeight: 700, fontSize: ".95rem", color: "var(--text-primary-app)", lineHeight: 1.3 }}>
         {a.title}
       </p>
 
       {/* Body */}
       {a.body && (
-        <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280", lineHeight: 1.62 }}>
+        <p style={{ margin: 0, fontSize: ".82rem", color: "var(--text-muted-app)", lineHeight: 1.62 }}>
           {a.body}
         </p>
       )}
@@ -275,25 +272,25 @@ export function UpdateCard({
           rel="noopener noreferrer"
           style={{
             display: "flex", alignItems: "center", gap: ".55rem",
-            marginTop: ".6rem", padding: ".55rem .7rem",
-            background: "#f8f9fb", border: "1px solid #e5e7eb",
-            borderRadius: 10, textDecoration: "none",
+            marginTop: ".6rem", padding: ".5rem .65rem",
+            background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)",
+            borderRadius: "var(--radius-md)", textDecoration: "none",
           }}
         >
           <div style={{
-            width: 30, height: 30, borderRadius: 8, background: attStyle.bg,
+            width: 28, height: 28, borderRadius: "var(--radius-sm)", background: attStyle.bg,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: ".9rem", flexShrink: 0,
+            flexShrink: 0,
           }}>
-            {attStyle.icon}
+            <attStyle.icon size={14} aria-hidden="true" style={{ color: attStyle.color }} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: ".8rem", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div style={{ fontWeight: 600, fontSize: ".8rem", color: "var(--text-primary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {att.name}
             </div>
-            <div style={{ fontSize: ".64rem", color: "#9ca3af" }}>{formatSize(att.size_bytes)}</div>
+            <div style={{ fontSize: ".64rem", color: "var(--text-muted-app)" }}>{formatSize(att.size_bytes)}</div>
           </div>
-          <span style={{ fontSize: ".75rem", color: "#0b1e3d", fontWeight: 700, flexShrink: 0 }}>↓</span>
+          <Download size={14} aria-hidden="true" style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
         </a>
       )}
 
@@ -303,14 +300,16 @@ export function UpdateCard({
           <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end" }}>
             <button
               onClick={() => onEdit(a)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+              className="elf-focus-ring"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "var(--text-muted-app)", padding: ".1rem .35rem", borderRadius: "var(--radius-sm)", lineHeight: 1.4 }}
             >
               Edit
             </button>
             {canDelete && (
               <button
                 onClick={() => onDelete(a.id)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#fca5a5", padding: ".1rem .35rem", borderRadius: 5, lineHeight: 1.4 }}
+                className="elf-focus-ring"
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".67rem", fontWeight: 600, color: "#dc2626", padding: ".1rem .35rem", borderRadius: "var(--radius-sm)", lineHeight: 1.4 }}
               >
                 Delete
               </button>

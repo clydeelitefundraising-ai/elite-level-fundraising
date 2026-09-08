@@ -34,6 +34,8 @@ export default function DesktopSidebar({
   accountName,
   profilePhotoUrl,
   isAuthenticated,
+  hasAccountSession,
+  isMember,
 }: {
   slug: string;
   settings: CampaignSettings;
@@ -46,6 +48,8 @@ export default function DesktopSidebar({
   accountName?: string;
   profilePhotoUrl?: string | null;
   isAuthenticated: boolean;
+  hasAccountSession: boolean;
+  isMember: boolean;
 }) {
   const pathname = usePathname();
   const sport = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
@@ -76,7 +80,13 @@ export default function DesktopSidebar({
         width: 268,
         flexShrink: 0,
         minHeight: "100vh",
-        background: "#0b1e3d",
+        // Phase 3: was hardcoded #0b1e3d (old navy) — retired as "the
+        // dominant visual language" per the design brief. --shell-backdrop
+        // is ELF's own near-black structural color, not a team color;
+        // team identity now shows up only as the restrained per-item
+        // accent below (active nav left-border + brighter text), never as
+        // a large color field.
+        background: "var(--shell-backdrop)",
         color: "#fff",
         display: "flex",
         flexDirection: "column",
@@ -137,6 +147,9 @@ export default function DesktopSidebar({
             teams={accountTeams}
             accountName={accountName}
             profilePhotoUrl={profilePhotoUrl}
+            hasAccountSession={hasAccountSession}
+            isMember={isMember}
+            onDark
           />
         )}
       </div>
@@ -154,18 +167,29 @@ export default function DesktopSidebar({
               key={item.key}
               href={href}
               aria-current={active ? "page" : undefined}
+              className="elf-focus-ring"
               style={{
                 display: "flex", alignItems: "center", gap: ".65rem",
-                padding: ".78rem .7rem", borderRadius: ".55rem", minHeight: 44,
+                // Phase 3: active state was a full white pill fill with
+                // navy text — replaced with a restrained left-border
+                // accent (team color) + brighter text, per "restrained
+                // team accent for selected nav only, no huge color
+                // field." Text color never uses --team-primary directly
+                // here (a dark school color would be near-invisible on
+                // this near-black sidebar) — only the border does.
+                padding: ".78rem .7rem .78rem .6rem",
+                borderRadius: ".4rem",
+                borderLeft: active ? "3px solid var(--team-primary)" : "3px solid transparent",
+                minHeight: 44,
                 textDecoration: "none",
-                color: active ? "#0b1e3d" : "rgba(255,255,255,.85)",
-                background: active ? "#fff" : "transparent",
+                color: active ? "#ffffff" : "rgba(255,255,255,.68)",
+                background: "transparent",
                 fontWeight: active ? 700 : 500,
                 fontSize: ".88rem",
               }}
             >
-              <span aria-hidden="true" style={{ fontSize: "1.05rem", width: 20, textAlign: "center", flexShrink: 0 }}>
-                {item.icon}
+              <span aria-hidden="true" style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <item.icon size={18} strokeWidth={active ? 2.3 : 2} />
               </span>
               <span style={{ flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {item.label}
@@ -174,7 +198,7 @@ export default function DesktopSidebar({
                 <span
                   aria-label={`${badge} unread`}
                   style={{
-                    background: "#dc2626", color: "#fff", borderRadius: 100,
+                    background: "var(--color-error)", color: "#fff", borderRadius: 100,
                     fontSize: ".68rem", fontWeight: 700, padding: ".08rem .4rem",
                     lineHeight: 1.5, minWidth: 18, textAlign: "center", flexShrink: 0,
                   }}

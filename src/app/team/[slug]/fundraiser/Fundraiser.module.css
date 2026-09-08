@@ -21,6 +21,21 @@
   display: none;
 }
 
+/* Phase 9B: Booster and Parent/Athlete desktop presentations. Never
+ * display:none — these reuse the existing safe mobile-shaped components
+ * (FollowUpsView, FundraiserView) inside a constrained, centered desktop
+ * treatment instead of leaving them CSS-hidden with nothing replacing
+ * them (the bug this phase fixes, same pattern as Team.module.css's
+ * .memberRosterDesktop / Communications' .memberUpdatesDesktop /
+ * Calendar's .memberCalendarDesktop). */
+.memberFollowUpsDesktop {
+  display: block;
+}
+
+.memberFundraiserDesktop {
+  display: block;
+}
+
 @media screen and (min-width: 1024px) {
   .mobileOnly {
     display: none;
@@ -28,6 +43,18 @@
 
   .desktopOnly {
     display: block;
+  }
+
+  .memberFollowUpsDesktop {
+    max-width: 800px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
+  }
+
+  .memberFundraiserDesktop {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
   }
 }
 
@@ -40,4 +67,30 @@
 
 .tableWrap {
   overflow-x: auto;
+}
+
+/* Phase 9B: coach desktop Overview — reflows TeamCampaignView's existing
+ * content (progress/leaderboard as main, share/activity as secondary)
+ * into a command-center layout without touching AnalyticsView's internal
+ * component tree; AnalyticsView renders full-width below, unchanged. */
+.overviewDesktopWrap {
+  display: block;
+}
+
+.overviewGrid {
+  display: block;
+}
+
+@media screen and (min-width: 1024px) {
+  .overviewDesktopWrap {
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+
+  .overviewGrid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
 }

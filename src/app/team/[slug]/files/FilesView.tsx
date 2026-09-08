@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Paperclip } from "lucide-react";
 import type { TeamFileRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
@@ -274,18 +275,24 @@ export default function FilesView({
         </p>
       )}
 
-      {/* File list */}
+      {/* File list — empty state kept compact/row-scale (Phase 6 refinement):
+          previously a 3rem-padded full card, visually heavier than an
+          announcement above it. Copy also previously read "Files coming
+          soon.", which incorrectly implied the feature wasn't built yet. */}
       {files.length === 0 ? (
         <div style={{
-          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
-          textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          display: "flex", alignItems: "center", gap: ".65rem",
+          background: "#fafbfc", borderRadius: 10, padding: ".85rem 1rem",
+          border: "1px solid #f0f1f3",
         }}>
-          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>📎</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
-            No files uploaded yet
-          </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            {canUpload ? "Upload your first file above." : "Files coming soon."}
+          <Paperclip size={16} strokeWidth={2} color="#9ca3af" style={{ flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: ".78rem", color: "#374151", textTransform: "uppercase", letterSpacing: ".04em" }}>
+              No Team Files Yet
+            </div>
+            <div style={{ fontSize: ".78rem", color: "#9ca3af", marginTop: ".1rem" }}>
+              {canUpload ? "Upload your first file above." : "Files shared with your team will appear here."}
+            </div>
           </div>
         </div>
       ) : (

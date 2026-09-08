@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Link2, QrCode, LogOut, Users, ArrowLeftRight, Plus } from "lucide-react";
 import type { CoachSession } from "@/lib/teamSession";
 import type { ActiveJoinCode } from "@/lib/teamData";
 import { staffRoleLabel } from "@/lib/permissions";
@@ -110,14 +111,14 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         </div>
       )}
 
-    <div className="elf-settings-noprint" style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <div className="elf-settings-noprint" style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 700, margin: "0 auto" }}>
 
-      {/* ── Coach badge ── */}
+      {/* ── Coach identity strip ── */}
       <div style={{
-        background: "#fff",
-        borderRadius: 13,
+        background: "var(--surface-light)",
+        borderRadius: "var(--radius-lg)",
         padding: ".75rem 1rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
         marginBottom: ".75rem",
         display: "flex",
         alignItems: "center",
@@ -127,52 +128,38 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           width: 38,
           height: 38,
           borderRadius: "50%",
-          background: "#0b1e3d",
+          background: "var(--team-primary)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           fontSize: ".7rem",
           fontWeight: 800,
-          color: "#fff",
+          color: "var(--team-primary-foreground)",
           flexShrink: 0,
           letterSpacing: ".02em",
         }}>
           {coach.name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")}
         </div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#111827" }}>{coach.name}</div>
-          <div style={{ fontSize: ".72rem", color: "#6b7280", marginTop: ".05rem" }}>{staffRoleLabel(coach.role)}</div>
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{coach.name}</div>
+          <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".05rem" }}>{staffRoleLabel(coach.role)}</div>
         </div>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={handleSignOut}
-          style={{
-            fontSize: ".72rem",
-            fontWeight: 600,
-            color: "#9ca3af",
-            background: "none",
-            padding: ".3rem .6rem",
-            borderRadius: 7,
-            border: "1px solid #e5e7eb",
-            cursor: "pointer",
-          }}
-        >
-          Sign out
-        </button>
       </div>
 
       {/* ── Team Access section ── */}
+      <div style={{ marginBottom: ".4rem", marginTop: "1rem" }}>
+        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+          Team Access
+        </span>
+      </div>
       <div style={{
-        background: "#fff",
-        borderRadius: 13,
+        background: "var(--surface-light)",
+        borderRadius: "var(--radius-lg)",
         padding: "1rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
       }}>
         <div style={{ marginBottom: ".8rem" }}>
-          <h2 style={{ margin: "0 0 .18rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
-            Team Access
-          </h2>
-          <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
             Share this link with parents and athletes so they can join your team hub.
           </p>
         </div>
@@ -181,8 +168,8 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           <>
             {/* Code display */}
             <div style={{
-              background: "#f8f9fb",
-              border: "1.5px solid #e5e7eb",
+              background: "var(--surface-light-elevated)",
+              border: "1.5px solid var(--border-app)",
               borderRadius: 10,
               padding: ".75rem 1rem",
               marginBottom: ".65rem",
@@ -192,7 +179,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                   fontFamily: "monospace",
                   fontSize: "1.5rem",
                   fontWeight: 800,
-                  color: "#0b1e3d",
+                  color: "var(--text-primary-app)",
                   letterSpacing: ".18em",
                 }}>
                   {code.code}
@@ -200,7 +187,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                 <span style={{
                   padding: ".1rem .5rem",
                   background: "#dcfce7",
-                  color: "#16a34a",
+                  color: "var(--color-success)",
                   borderRadius: 100,
                   fontSize: ".58rem",
                   fontWeight: 700,
@@ -213,7 +200,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               </div>
               <div style={{
                 fontSize: ".75rem",
-                color: "#6b7280",
+                color: "var(--text-secondary-app)",
                 wordBreak: "break-all",
                 lineHeight: 1.4,
               }}>
@@ -228,9 +215,10 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                 disabled={working}
                 style={{
                   flex: 1,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem",
                   padding: ".55rem .75rem",
-                  background: copied ? "#16a34a" : "#0b1e3d",
-                  color: "#fff",
+                  background: copied ? "var(--color-success)" : "var(--team-primary)",
+                  color: copied ? "#fff" : "var(--team-primary-foreground)",
                   border: "none",
                   borderRadius: 9,
                   fontSize: ".82rem",
@@ -239,7 +227,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                   transition: "background .15s",
                 }}
               >
-                {copied ? "✓ Copied!" : "Copy Join Link"}
+                {copied ? <><Check size={14} /> Copied</> : "Copy Join Link"}
               </button>
               {/* Regenerating/revoking is Head-Coach-only (an Assistant
                   Coach or Booster could otherwise break the team's join
@@ -255,9 +243,9 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                     title="Generate a new code (old code stops working)"
                     style={{
                       padding: ".55rem .75rem",
-                      background: "#fff",
-                      color: "#374151",
-                      border: "1.5px solid #e5e7eb",
+                      background: "var(--surface-light)",
+                      color: "var(--text-secondary-app)",
+                      border: "1.5px solid var(--border-app)",
                       borderRadius: 9,
                       fontSize: ".82rem",
                       fontWeight: 600,
@@ -273,7 +261,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                     style={{
                       padding: ".55rem .75rem",
                       background: "#fff",
-                      color: "#dc2626",
+                      color: "var(--color-error)",
                       border: "1.5px solid #fecaca",
                       borderRadius: 9,
                       fontSize: ".82rem",
@@ -296,23 +284,24 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               style={{
                 width: "100%",
                 marginTop: ".5rem",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
                 padding: ".55rem .75rem",
-                background: "#f0f4ff",
-                color: "#1d4ed8",
-                border: "1.5px solid #dbeafe",
+                background: "var(--surface-light-elevated)",
+                color: "var(--text-secondary-app)",
+                border: "1.5px solid var(--border-app)",
                 borderRadius: 9,
                 fontSize: ".82rem",
                 fontWeight: 700,
                 cursor: "pointer",
               }}
             >
-              Team QR &amp; Signup Sheet
+              <QrCode size={15} /> Team QR &amp; Signup Sheet
             </button>
           </>
         ) : (
-          <div style={{ textAlign: "center", padding: "1.25rem 0 .5rem" }}>
-            <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .35 }}>🔗</div>
-            <p style={{ margin: "0 0 1rem", fontSize: ".82rem", color: "#9ca3af" }}>
+          <div style={{ textAlign: "center", padding: "1.25rem 0 .5rem", display: "flex", flexDirection: "column", alignItems: "center", gap: ".5rem" }}>
+            <Link2 size={26} style={{ color: "var(--text-muted-app)", opacity: .6 }} />
+            <p style={{ margin: "0 0 .5rem", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
               No join code yet. Generate one to let parents and athletes join.
             </p>
             <button
@@ -320,8 +309,8 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               disabled={working}
               style={{
                 padding: ".6rem 1.5rem",
-                background: working ? "#9ca3af" : "#0b1e3d",
-                color: "#fff",
+                background: working ? "#9ca3af" : "var(--team-primary)",
+                color: working ? "#fff" : "var(--team-primary-foreground)",
                 border: "none",
                 borderRadius: 9,
                 fontSize: ".875rem",
@@ -335,7 +324,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         )}
 
         {error && (
-          <p style={{ margin: ".65rem 0 0", padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".8rem" }}>
+          <p style={{ margin: ".65rem 0 0", padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "var(--color-error)", fontSize: ".8rem" }}>
             {error}
           </p>
         )}
@@ -344,67 +333,98 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         <div style={{
           marginTop: ".9rem",
           paddingTop: ".75rem",
-          borderTop: "1px solid #f3f4f6",
+          borderTop: "1px solid var(--border-app)",
           fontSize: ".75rem",
-          color: "#9ca3af",
+          color: "var(--text-muted-app)",
           lineHeight: 1.55,
         }}>
-          <strong style={{ color: "#6b7280" }}>How it works:</strong> Anyone with this link can join your team hub as an athlete or parent. They choose their own role during sign-up. Revoke to immediately invalidate the current link.
+          <strong style={{ color: "var(--text-secondary-app)" }}>How it works:</strong> Anyone with this link can join your team hub as an athlete or parent. They choose their own role during sign-up. Revoke to immediately invalidate the current link.
         </div>
       </div>
 
-      {/* ── Team Staff section (Head Coach only) ── */}
-      {coach.role === "head_coach" && (
-        <div style={{
-          background: "#fff",
-          borderRadius: 13,
-          padding: "1rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-          marginTop: ".75rem",
-        }}>
-          <h2 style={{ margin: "0 0 .18rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
-            Team Staff
-          </h2>
-          <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
-            Manage the assistant coaches and boosters who help run your team.
-          </p>
-          <button
-            onClick={() => router.push(`/team/${slug}/staff`)}
-            style={{ width: "100%", padding: ".6rem .75rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
-          >
-            Manage Team Staff
-          </button>
-        </div>
-      )}
+      {/* ── Team Management section ── */}
+      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+          Team Management
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
+        {/* Staff (Head Coach only) */}
+        {coach.role === "head_coach" && (
+          <div style={{
+            background: "var(--surface-light)",
+            borderRadius: "var(--radius-lg)",
+            padding: "1rem",
+            border: "1px solid var(--border-app)",
+          }}>
+            <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
+              Manage the assistant coaches and boosters who help run your team.
+            </p>
+            <button
+              onClick={() => router.push(`/team/${slug}/staff`)}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem", padding: ".6rem .75rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
+            >
+              <Users size={15} /> Manage Team Staff
+            </button>
+          </div>
+        )}
 
-      {/* ── Your Teams section ── */}
-      <div style={{
-        background: "#fff",
-        borderRadius: 13,
-        padding: "1rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        marginTop: ".75rem",
-      }}>
-        <h2 style={{ margin: "0 0 .18rem", fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Your Teams
-        </h2>
-        <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
-          Coaching more than one team? Switch between them or link a new one.
-        </p>
-        <div style={{ display: "flex", gap: ".5rem" }}>
-          <button
-            onClick={() => router.push("/teams")}
-            style={{ flex: 1, padding: ".6rem .75rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
-          >
-            Switch Team
-          </button>
-          <button
-            onClick={() => router.push("/enter-code")}
-            style={{ flex: 1, padding: ".6rem .75rem", background: "#fff", color: "#374151", border: "1.5px solid #e5e7eb", borderRadius: 9, fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
-          >
-            + Add Team
-          </button>
+        {/* Your Teams */}
+        <div style={{
+          background: "var(--surface-light)",
+          borderRadius: "var(--radius-lg)",
+          padding: "1rem",
+          border: "1px solid var(--border-app)",
+        }}>
+          <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
+            Coaching more than one team? Switch between them or link a new one.
+          </p>
+          <div style={{ display: "flex", gap: ".5rem" }}>
+            <button
+              onClick={() => router.push("/teams")}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem", padding: ".6rem .75rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
+            >
+              <ArrowLeftRight size={14} /> Switch Team
+            </button>
+            <button
+              onClick={() => router.push("/enter-code")}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem", padding: ".6rem .75rem", background: "#fff", color: "var(--text-secondary-app)", border: "1.5px solid var(--border-app)", borderRadius: 9, fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
+            >
+              <Plus size={14} /> Add Team
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* ── Account section ── */}
+      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+          Account
+        </span>
+      </div>
+      <div style={{
+        background: "var(--surface-light)",
+        borderRadius: "var(--radius-lg)",
+        padding: ".5rem",
+        border: "1px solid var(--border-app)",
+      }}>
+        <button
+          onClick={handleSignOut}
+          style={{
+            width: "100%",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
+            fontSize: ".82rem",
+            fontWeight: 700,
+            color: "var(--color-error)",
+            background: "none",
+            padding: ".6rem .75rem",
+            borderRadius: 7,
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          <LogOut size={15} /> Sign Out
+        </button>
       </div>
 
       {qrModalOpen && (

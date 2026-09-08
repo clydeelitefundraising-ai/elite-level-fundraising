@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ArrowUpRight, Trophy, HandCoins } from "lucide-react";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap, getContactCountsByAthlete } from "@/lib/teamData";
@@ -14,6 +15,7 @@ import AnalyticsView from "../analytics/AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
 import FundraiserTabs from "./FundraiserTabs";
 import FollowUpsWorkspaceView from "./FollowUpsWorkspaceView";
+import styles from "./Fundraiser.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -126,17 +128,17 @@ function TeamCampaignView({
     <div>
       {/* ── Section header ── */}
       <div style={{ marginBottom: ".625rem" }}>
-        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
+        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
           Fundraiser
         </span>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
           Campaign Progress
         </h2>
       </div>
 
       {/* ── Progress card ── */}
-      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
-        <div style={{ background: settings.primary_color, padding: "1.25rem 1.25rem .875rem", color: "#fff" }}>
+      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
+        <div style={{ background: "var(--team-primary)", padding: "1.25rem 1.25rem .875rem", color: "var(--team-primary-foreground)" }}>
           {settings.season && (
             <div style={{ fontSize: ".65rem", opacity: .75, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".25rem" }}>
               {settings.season}
@@ -148,16 +150,16 @@ function TeamCampaignView({
               {[settings.mascot, settings.sport_name].filter(Boolean).join(" · ")}
             </div>
           )}
-          <div style={{ background: settings.secondary_color || "rgba(255,255,255,.25)", height: 3, borderRadius: 2, marginTop: ".875rem", marginLeft: "-1.25rem", marginRight: "-1.25rem", marginBottom: "-.875rem" }} />
+          <div style={{ background: "var(--team-secondary)", height: 3, borderRadius: 2, marginTop: ".875rem", marginLeft: "-1.25rem", marginRight: "-1.25rem", marginBottom: "-.875rem" }} />
         </div>
 
         <div style={{ padding: "1.25rem" }}>
           <div style={{ marginBottom: ".875rem" }}>
-            <span style={{ fontSize: "2rem", fontWeight: 800, color: "#111827" }}>
+            <span style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-primary-app)" }}>
               {fmt(raisedCents)}
             </span>
             {displayGoalCents > 0 && (
-              <span style={{ fontSize: ".9rem", color: "#6b7280", marginLeft: ".35rem" }}>
+              <span style={{ fontSize: ".9rem", color: "var(--text-muted-app)", marginLeft: ".35rem" }}>
                 of {fmt(displayGoalCents)} goal
               </span>
             )}
@@ -165,76 +167,65 @@ function TeamCampaignView({
 
           {displayGoalCents > 0 && (
             <div style={{ marginBottom: "1rem" }}>
-              <div style={{ height: 12, background: "#f3f4f6", borderRadius: 100, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${settings.primary_color}, ${settings.primary_color}cc)`, borderRadius: 100, transition: "width .4s ease" }} />
+              <div style={{ height: 12, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: "var(--team-primary)", borderRadius: 100, transition: "width .4s ease" }} />
               </div>
-              <div style={{ marginTop: ".4rem", fontSize: ".75rem", fontWeight: 700, color: settings.primary_color }}>
+              <div style={{ marginTop: ".4rem", fontSize: ".75rem", fontWeight: 700, color: "var(--team-primary)" }}>
                 {pct}% funded
               </div>
             </div>
           )}
 
-          <div style={{ display: "flex", gap: "1rem", paddingTop: ".875rem", borderTop: "1px solid #f3f4f6" }}>
+          <div style={{ display: "flex", gap: "1rem", paddingTop: ".875rem", borderTop: "1px solid var(--border-app)" }}>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{donorCount}</div>
-              <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>donor{donorCount !== 1 ? "s" : ""}</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{donorCount}</div>
+              <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>donor{donorCount !== 1 ? "s" : ""}</div>
             </div>
             {avgDonation !== null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(avgDonation)}</div>
-                <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>avg donation</div>
+              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
+                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(avgDonation)}</div>
+                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>avg donation</div>
               </div>
             )}
             {displayGoalCents > 0 && avgDonation === null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#111827" }}>{fmt(Math.max(0, displayGoalCents - raisedCents))}</div>
-                <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>still needed</div>
+              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
+                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(Math.max(0, displayGoalCents - raisedCents))}</div>
+                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>still needed</div>
               </div>
             )}
             {remaining !== null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid #f3f4f6" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: remaining <= 7 ? "#dc2626" : "#111827" }}>{remaining}</div>
-                <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".1rem" }}>day{remaining !== 1 ? "s" : ""} left</div>
+              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
+                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: remaining <= 7 ? "var(--color-error, #dc2626)" : "var(--text-primary-app)" }}>{remaining}</div>
+                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>day{remaining !== 1 ? "s" : ""} left</div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Share link ── */}
-      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
-        <div style={{ padding: "1rem 1.1rem .875rem" }}>
-          <div style={{ fontSize: ".68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".5rem" }}>
-            Share Campaign
-          </div>
-          <a
-            href={`/campaign/${settings.campaign_slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e5e7eb", textDecoration: "none" }}
-          >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: ".78rem", fontWeight: 700, color: "#0b1e3d", marginBottom: ".1rem" }}>Donation Page</div>
-              <div style={{ fontSize: ".68rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                /campaign/{settings.campaign_slug}
-              </div>
-            </div>
-            <span style={{ fontSize: ".75rem", color: "#9ca3af", flexShrink: 0 }}>↗</span>
-          </a>
-        </div>
-      </div>
-
-      {/* ── Team leaderboard ── */}
-      {leaderboard.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
-          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+      <div className={styles.overviewGrid}>
+      <div>
+      {/* ── Team leaderboard (main content) ── */}
+      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
+          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid var(--border-app)", display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
               Team Leaderboard
             </div>
-            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
-              {leaderboard.length}
-            </span>
+            {leaderboard.length > 0 && (
+              <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
+                {leaderboard.length}
+              </span>
+            )}
           </div>
+          {leaderboard.length === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem" }}>
+              <Trophy size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No leaderboard yet</div>
+                <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Athlete totals will appear here after donations are attributed.</div>
+              </div>
+            </div>
+          ) : (
           <div style={{ padding: ".25rem 0" }}>
             {leaderboard.map((entry, i) => {
               const pctEntry = entry.goalCents && entry.goalCents > 0
@@ -249,10 +240,10 @@ function TeamCampaignView({
                     alignItems: "flex-start",
                     gap: ".65rem",
                     padding: ".6rem 1rem",
-                    borderBottom: i < leaderboard.length - 1 ? "1px solid #f9fafb" : "none",
+                    borderBottom: i < leaderboard.length - 1 ? "1px solid var(--border-app)" : "none",
                   }}
                 >
-                  <div style={{ width: 22, fontWeight: 800, fontSize: ".72rem", color: entry.rank <= 3 ? "#0b1e3d" : "#9ca3af", flexShrink: 0, paddingTop: ".2rem", textAlign: "center" }}>
+                  <div style={{ width: 22, fontWeight: 800, fontSize: ".72rem", color: entry.rank <= 3 ? "var(--text-primary-app)" : "var(--text-muted-app)", flexShrink: 0, paddingTop: ".2rem", textAlign: "center" }}>
                     #{entry.rank}
                   </div>
                   <div style={{ flexShrink: 0 }}>
@@ -266,24 +257,24 @@ function TeamCampaignView({
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
-                      <span style={{ fontWeight: 700, fontSize: ".83rem", color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "55%" }}>
+                      <span style={{ fontWeight: 700, fontSize: ".83rem", color: "var(--text-primary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "55%" }}>
                         {entry.name}
                       </span>
-                      <span style={{ fontWeight: 800, fontSize: ".92rem", color: "#0b1e3d", flexShrink: 0 }}>
+                      <span style={{ fontWeight: 800, fontSize: ".92rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
                         {fmt(entry.raisedCents)}
                       </span>
                     </div>
                     {(entry.class_year || entry.event) && (
-                      <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: ".25rem" }}>
+                      <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginBottom: ".25rem" }}>
                         {entry.class_year ?? entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
                       </div>
                     )}
                     {pctEntry !== null && (
                       <div>
-                        <div style={{ height: 5, background: "#f3f4f6", borderRadius: 100, overflow: "hidden", marginBottom: ".18rem" }}>
-                          <div style={{ height: "100%", width: `${pctEntry}%`, background: settings.primary_color, borderRadius: 100 }} />
+                        <div style={{ height: 5, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden", marginBottom: ".18rem" }}>
+                          <div style={{ height: "100%", width: `${pctEntry}%`, background: "var(--team-primary)", borderRadius: 100 }} />
                         </div>
-                        <div style={{ fontSize: ".63rem", color: settings.primary_color, fontWeight: 700 }}>
+                        <div style={{ fontSize: ".63rem", color: "var(--team-primary)", fontWeight: 700 }}>
                           {pctEntry}% of goal
                         </div>
                       </div>
@@ -293,20 +284,30 @@ function TeamCampaignView({
               );
             })}
           </div>
+          )}
         </div>
-      )}
 
       {/* ── Team donation feed ── */}
-      {teamFeed.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".875rem" }}>
-          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
+          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid var(--border-app)", display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
               Recent Donations
             </div>
-            <span style={{ background: "#f0f4ff", color: "#1d4ed8", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
-              {donorCount}
-            </span>
+            {teamFeed.length > 0 && (
+              <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
+                {donorCount}
+              </span>
+            )}
           </div>
+          {teamFeed.length === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem" }}>
+              <HandCoins size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No fundraising activity yet</div>
+                <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Donations will appear here once your fundraiser gets moving.</div>
+              </div>
+            </div>
+          ) : (
           <div style={{ padding: ".25rem 0" }}>
             {teamFeed.map((d, i) => (
               <div
@@ -315,13 +316,13 @@ function TeamCampaignView({
                   display: "flex",
                   gap: ".65rem",
                   padding: ".6rem 1rem",
-                  borderBottom: i < teamFeed.length - 1 ? "1px solid #f9fafb" : "none",
+                  borderBottom: i < teamFeed.length - 1 ? "1px solid var(--border-app)" : "none",
                   alignItems: "flex-start",
                 }}
               >
                 <div style={{
                   width: 34, height: 34, borderRadius: "50%",
-                  background: settings.secondary_color || "#1d4ed8",
+                  background: "var(--team-secondary)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontWeight: 700, fontSize: ".62rem", color: "#fff", flexShrink: 0,
                 }}>
@@ -329,21 +330,21 @@ function TeamCampaignView({
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
-                    <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669" }}>
+                    <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--color-success, #059669)" }}>
                       {fmt(d.amount_cents)}
                     </span>
-                    <span style={{ fontSize: ".62rem", color: "#9ca3af", flexShrink: 0 }}>
+                    <span style={{ fontSize: ".62rem", color: "var(--text-muted-app)", flexShrink: 0 }}>
                       {timeAgo(d.created_at)}
                     </span>
                   </div>
-                  <div style={{ fontSize: ".75rem", color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {d.donor_name ?? "Anonymous"}
                     {d.athlete_label && (
-                      <span style={{ color: "#9ca3af" }}> → {d.athlete_label}</span>
+                      <span style={{ color: "var(--text-muted-app)" }}> → {d.athlete_label}</span>
                     )}
                   </div>
                   {d.donation_message && (
-                    <div style={{ fontSize: ".7rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
+                    <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
                       &ldquo;{d.donation_message}&rdquo;
                     </div>
                   )}
@@ -351,8 +352,35 @@ function TeamCampaignView({
               </div>
             ))}
           </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <div>
+        {/* ── Share link (secondary column) ── */}
+        <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
+          <div style={{ padding: "1rem 1.1rem .875rem" }}>
+            <div style={{ fontSize: ".68rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".5rem" }}>
+              Share Campaign
+            </div>
+            <a
+              href={`/campaign/${settings.campaign_slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "var(--surface-light-elevated)", borderRadius: 10, border: "1px solid var(--border-app)", textDecoration: "none" }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)", marginBottom: ".1rem" }}>Donation Page</div>
+                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  /campaign/{settings.campaign_slug}
+                </div>
+              </div>
+              <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+            </a>
+          </div>
+        </div>
+      </div>
+      </div>
 
     </div>
   );
@@ -508,7 +536,7 @@ export default async function FundraiserPage({
       <FundraiserTabs
         actor={actor}
         overview={
-          <>
+          <div className={styles.overviewDesktopWrap}>
             <TeamCampaignView
               settings={settings}
               raisedCents={raisedCents}
@@ -525,7 +553,7 @@ export default async function FundraiserPage({
               athleteProgress={athleteProgress}
               topDonors={topDonors}
             />
-          </>
+          </div>
         }
         followUps={
           <FollowUpsWorkspaceView slug={slug} settings={settings} initialRows={followUpRows} actor={actor} />
@@ -556,14 +584,16 @@ export default async function FundraiserPage({
       <FundraiserTabs
         actor={actor}
         overview={
-          <TeamCampaignView
-            settings={settings}
-            raisedCents={raisedCents}
-            donorCount={donations.length}
-            leaderboard={leaderboard}
-            teamFeed={teamFeed}
-            displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
-          />
+          <div className={styles.overviewDesktopWrap}>
+            <TeamCampaignView
+              settings={settings}
+              raisedCents={raisedCents}
+              donorCount={donations.length}
+              leaderboard={leaderboard}
+              teamFeed={teamFeed}
+              displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
+            />
+          </div>
         }
         followUps={
           <FollowUpsWorkspaceView slug={slug} settings={settings} initialRows={followUpRows} actor={actor} />

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 import Avatar from "../messages/_shared/Avatar";
+import styles from "./Requests.module.css";
 
 type PendingCommentApproval = {
   id:                  string;
@@ -58,52 +60,34 @@ function ApprovalCard({
   }
 
   return (
-    <div style={{
-      background: "#fff", borderRadius: 12, padding: ".85rem",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      display: "flex", flexDirection: "column", gap: ".55rem",
-    }}>
-      <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-start" }}>
+    <div className={styles.row}>
+      <div className={styles.rowTop}>
         <Avatar name={approval.author_name} photoUrl={approval.author_photo_url} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: ".35rem", flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 700, fontSize: ".84rem", color: "#111827" }}>{approval.author_name}</span>
+          <div className={styles.rowMeta} style={{ marginTop: 0 }}>
+            <span className={styles.rowName}>{approval.author_name}</span>
             {ROLE_LABELS[approval.author_role] && (
-              <span style={{ fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".03em" }}>
-                {ROLE_LABELS[approval.author_role]}
-              </span>
+              <span className={styles.roleLabel}>{ROLE_LABELS[approval.author_role]}</span>
             )}
-            <span style={{ fontSize: ".64rem", color: "#9ca3af" }}>· {timeAgo(approval.created_at)}</span>
+            <span style={{ fontSize: ".64rem", color: "var(--text-muted-app)" }}>· {timeAgo(approval.created_at)}</span>
           </div>
-          <div style={{ fontSize: ".7rem", color: "#9ca3af", marginTop: ".05rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className={styles.contextLine}>
             On &ldquo;{approval.announcement_title}&rdquo;
           </div>
         </div>
       </div>
 
-      <p style={{
-        margin: 0, fontSize: ".82rem", color: "#374151", lineHeight: 1.55,
-        background: "#f8f9fb", borderRadius: 8, padding: ".55rem .65rem",
-        whiteSpace: "pre-wrap", wordBreak: "break-word",
-      }}>
-        {approval.body}
-      </p>
+      <p className={styles.commentBody}>{approval.body}</p>
 
-      {error && <div style={{ fontSize: ".78rem", color: "#dc2626" }}>{error}</div>}
+      {error && <div className={styles.errorText}>{error}</div>}
 
-      <div style={{ display: "flex", gap: ".4rem" }}>
-        <button
-          disabled={busy}
-          onClick={() => act("approve")}
-          style={{ flex: 1, padding: ".5rem", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
-        >
+      <div className={styles.actionsRow}>
+        <button disabled={busy} onClick={() => act("approve")} className={styles.approveBtn}>
+          <Check size={14} strokeWidth={2.5} />
           Approve
         </button>
-        <button
-          disabled={busy}
-          onClick={() => act("decline")}
-          style={{ padding: ".5rem .9rem", borderRadius: 8, border: "1.5px solid #e5e7eb", background: "#fff", color: "#6b7280", fontWeight: 700, fontSize: ".8rem", cursor: busy ? "not-allowed" : "pointer" }}
-        >
+        <button disabled={busy} onClick={() => act("decline")} className={styles.declineBtn}>
+          <X size={14} strokeWidth={2.5} />
           Decline
         </button>
       </div>
@@ -149,16 +133,12 @@ export default function CommentApprovalsPanel({
   return (
     <div style={{ marginBottom: "1rem" }}>
       {!hideHeader && (
-        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".55rem" }}>
-          <h3 style={{ margin: 0, fontSize: ".92rem", fontWeight: 800, color: "#0b1e3d" }}>
-            Comment Approvals
-          </h3>
-          <span style={{ background: "#fee2e2", color: "#b91c1c", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".12rem .48rem" }}>
-            {approvals.length}
-          </span>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>Comment Approvals</h3>
+          <span className={styles.sectionBadge}>{approvals.length}</span>
         </div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
+      <div className={styles.rowList}>
         {approvals.map(a => (
           <ApprovalCard key={a.id} slug={slug} approval={a} onActionComplete={() => load()} />
         ))}

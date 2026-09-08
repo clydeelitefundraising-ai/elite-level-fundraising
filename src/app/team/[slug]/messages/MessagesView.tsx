@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { MessageCircle, Plus } from "lucide-react";
 import type { ThreadWithDetails } from "@/lib/messages";
 import {
   roleLabel, otherParticipants, conversationDisplayName, isFamilyThread, selfParticipantRow,
@@ -27,16 +28,13 @@ function ThreadCard({
   thread,
   actorKind,
   actorId,
-  primaryColor,
   onClick,
 }: {
   thread: ThreadWithDetails;
   actorKind: string;
   actorId: string;
-  primaryColor: string;
   onClick: () => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   const isUnread = thread.unread_count > 0;
   const others = otherParticipants(thread.participants, actorKind as "coach" | "member", actorId);
   const displayName = conversationDisplayName(thread.participants, actorKind as "coach" | "member", actorId);
@@ -46,40 +44,38 @@ function ThreadCard({
   // participants resolving (shouldn't normally happen).
   const primaryOther = others[0];
 
+  // Phase 6: flattened from a floating card to a row + bottom divider, same
+  // treatment as UpdateCard.tsx. The `primaryColor` prop (threaded raw from
+  // settings.primary_color, not the branding-aware var(--team-primary) CSS
+  // variable) is no longer used for the unread accent/badge here — switched
+  // to the token so this respects branding_customized like every other
+  // surface already does (Home's fundraising-bar fix, same class of issue).
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+      className="elf-focus-ring"
       style={{
-        background:   isUnread ? "#fff" : "#f9fafb",
-        borderRadius: 12,
-        padding:      ".7rem .9rem",
-        marginBottom: ".45rem",
-        boxShadow:    hovered
-          ? "0 4px 14px rgba(0,0,0,.09), 0 0 0 1px rgba(0,0,0,.05)"
-          : "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        borderLeft:   `3px solid ${isUnread ? primaryColor : "#e5e7eb"}`,
+        borderLeft:   `3px solid ${isUnread ? "var(--team-primary)" : "transparent"}`,
+        borderBottom: "1px solid var(--border-app)",
+        padding:      ".75rem .85rem .75rem .75rem",
         cursor:       "pointer",
-        transform:    hovered ? "translateY(-1px)" : "none",
-        transition:   "transform .13s ease, box-shadow .13s ease",
         display:      "flex",
         gap:          ".7rem",
         alignItems:   "flex-start",
       }}
     >
       {primaryOther ? (
-        <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={40} />
+        <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={36} />
       ) : (
         <div style={{
-          width: 40, height: 40, borderRadius: "50%",
-          background: "#d1d5db", display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "1rem", flexShrink: 0, color: "#fff", fontWeight: 700,
+          width: 36, height: 36, borderRadius: "50%",
+          background: "var(--surface-light-elevated)", display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, color: "var(--text-muted-app)",
         }}>
-          💬
+          <MessageCircle size={16} aria-hidden="true" />
         </div>
       )}
 
@@ -91,7 +87,7 @@ function ThreadCard({
           <span style={{
             fontWeight: isUnread ? 800 : 600,
             fontSize:   ".88rem",
-            color:      "#0b1e3d",
+            color:      "var(--text-primary-app)",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -99,19 +95,19 @@ function ThreadCard({
           }}>
             {displayName}
           </span>
-          <span style={{ fontSize: ".65rem", color: "#9ca3af", flexShrink: 0 }}>
+          <span style={{ fontSize: ".65rem", color: "var(--text-muted-app)", flexShrink: 0 }}>
             {relativeTime(thread.last_message_at)}
           </span>
         </div>
         {thread.subject && (
-          <span style={{ fontSize: ".68rem", color: "#9ca3af", display: "block", marginBottom: ".1rem", fontStyle: "italic" }}>
+          <span style={{ fontSize: ".68rem", color: "var(--text-muted-app)", display: "block", marginBottom: ".1rem", fontStyle: "italic" }}>
             {thread.subject}
           </span>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: ".35rem" }}>
           <span style={{
             fontSize: ".77rem",
-            color: isUnread ? "#374151" : "#9ca3af",
+            color: isUnread ? "var(--text-primary-app)" : "var(--text-muted-app)",
             fontWeight: isUnread ? 500 : 400,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -124,7 +120,7 @@ function ThreadCard({
             <span style={{
               fontSize: ".55rem", fontWeight: 700, textTransform: "uppercase",
               letterSpacing: ".04em", background: "#ecfdf5", color: "#065f46",
-              padding: ".05rem .28rem", borderRadius: 100, flexShrink: 0,
+              padding: ".05rem .28rem", borderRadius: "var(--radius-full)", flexShrink: 0,
             }}>
               Family
             </span>
@@ -133,8 +129,8 @@ function ThreadCard({
             <span
               aria-label={`${thread.unread_count} unread message${thread.unread_count !== 1 ? "s" : ""}`}
               style={{
-                background: primaryColor, color: "#fff",
-                borderRadius: 100, fontSize: ".55rem", fontWeight: 700,
+                background: "var(--team-primary)", color: "var(--team-primary-foreground)",
+                borderRadius: "var(--radius-full)", fontSize: ".55rem", fontWeight: 700,
                 padding: ".1rem .3rem", minWidth: 16, textAlign: "center", flexShrink: 0,
               }}
             >
@@ -682,14 +678,14 @@ export default function MessagesView({
       <div style={{ display: "flex", alignItems: "center", marginBottom: ".75rem" }}>
         <div style={{ flex: 1 }}>
           <span style={{
-            fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3",
+            fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)",
             textTransform: "uppercase", letterSpacing: ".1em", display: "block",
           }}>
             Private
           </span>
           <h2 style={{
             margin: 0, fontSize: "1.1rem", fontWeight: 800,
-            color: "#0b1e3d", letterSpacing: "-.01em",
+            color: "var(--text-primary-app)", letterSpacing: "-.01em",
           }}>
             Messages
           </h2>
@@ -697,16 +693,17 @@ export default function MessagesView({
         <button
           onClick={() => setShowCompose(true)}
           aria-label="Start a new message"
+          className="elf-focus-ring"
           style={{
-            background: primaryColor, color: "#fff",
-            border: "none", borderRadius: 10,
+            background: "var(--team-primary)", color: "var(--team-primary-foreground)",
+            border: "none", borderRadius: "var(--radius-md)",
             padding: ".4rem .85rem",
             fontSize: ".78rem", fontWeight: 700,
             cursor: "pointer",
             display: "flex", alignItems: "center", gap: ".3rem",
           }}
         >
-          <span aria-hidden="true">+</span> New
+          <Plus size={14} aria-hidden="true" /> New
         </button>
       </div>
 
@@ -715,9 +712,9 @@ export default function MessagesView({
           auto-included on for oversight. Never shown to non-Head-Coach
           users, who keep the plain list below. */}
       {isHeadCoach && threads.length > 0 && (
-        <div style={{
-          display: "flex", gap: ".4rem", marginBottom: ".75rem",
-          background: "#eef0f4", padding: ".25rem", borderRadius: 12,
+        <div role="tablist" aria-label="Message ownership" style={{
+          display: "flex", gap: "1.1rem", marginBottom: ".9rem",
+          borderBottom: "1px solid var(--border-app)",
         }}>
           {([
             { id: "forMe" as const, label: "For Me", count: forMeUnread },
@@ -727,25 +724,26 @@ export default function MessagesView({
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={active}
                 onClick={() => setHcTab(tab.id)}
+                className="elf-focus-ring"
                 style={{
-                  flex: 1,
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem",
-                  padding: ".5rem .5rem",
-                  background: active ? "#fff" : "transparent",
-                  boxShadow: active ? "0 1px 4px rgba(0,0,0,.1)" : "none",
-                  border: "none", borderRadius: 9,
-                  fontSize: ".78rem", fontWeight: 700,
-                  color: active ? "#0b1e3d" : "#6b7280",
+                  display: "flex", alignItems: "center", gap: ".35rem",
+                  background: "none",
+                  border: "none",
+                  borderBottom: active ? "2px solid var(--team-primary)" : "2px solid transparent",
+                  padding: "0 0 .5rem",
+                  fontSize: ".78rem", fontWeight: active ? 700 : 500,
+                  color: active ? "var(--text-primary-app)" : "var(--text-muted-app)",
                   cursor: "pointer",
-                  transition: "background .15s ease, box-shadow .15s ease",
                 }}
               >
                 {tab.label}
                 {tab.count > 0 && (
                   <span style={{
-                    background: active ? primaryColor : "#9ca3af", color: "#fff",
-                    borderRadius: 100, fontSize: ".62rem", fontWeight: 700,
+                    background: active ? "var(--team-primary)" : "var(--text-muted-app)", color: "#fff",
+                    borderRadius: "var(--radius-full)", fontSize: ".62rem", fontWeight: 700,
                     padding: ".05rem .35rem", minWidth: 15, textAlign: "center",
                   }}>
                     {tab.count}
@@ -760,17 +758,17 @@ export default function MessagesView({
       {/* Thread list */}
       {visibleThreads.length === 0 ? (
         <div style={{
-          background: "#fff", borderRadius: 14, padding: "3rem 1.5rem",
+          background: "var(--surface-light)", borderRadius: "var(--radius-md)", padding: "3rem 1.5rem",
           textAlign: "center",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          border: "1px solid var(--border-app)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .3 }}>💬</div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
+          <MessageCircle size={28} strokeWidth={1.5} aria-hidden="true" style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: ".65rem" }} />
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: ".3rem" }}>
             {isHeadCoach && threads.length > 0
               ? (hcTab === "forMe" ? "Nothing addressed to you directly" : "No oversight conversations")
               : "No messages yet"}
           </div>
-          <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>
             {isHeadCoach && threads.length > 0
               ? (hcTab === "forMe"
                   ? "Conversations you're only auto-included on for oversight show up under Oversight."
@@ -787,7 +785,6 @@ export default function MessagesView({
             thread={t}
             actorKind={actorKind}
             actorId={actorId}
-            primaryColor={primaryColor}
             onClick={() => router.push(`/team/${slug}/messages/${t.id}`)}
           />
         ))

@@ -43,7 +43,13 @@ export default function TeamView({
 
   return (
     <>
-      <div className={styles.mobileOnly}>
+      {/* Coach-only actors: hidden at desktop width (DesktopRosterTable
+          takes over below). Non-coach actors (Parent/Athlete/Booster):
+          shouldShowDesktopRoster is false and DesktopRosterTable never
+          mounts, so this stays visible at every width instead — same
+          component, same internal role gates, just no longer suppressed
+          with nothing to replace it. See Team.module.css. */}
+      <div className={showDesktop ? styles.mobileOnly : styles.memberRosterDesktop}>
         <AthleteRosterGrid slug={slug} roster={roster} pendingRequestCount={pendingRequestCount} />
       </div>
       {showDesktop && (

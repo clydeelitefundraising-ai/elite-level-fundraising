@@ -2,36 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Home, Megaphone, Calendar, DollarSign, ShoppingBag, Users, Handshake, type LucideIcon } from "lucide-react";
 
 type TabConfig = {
   href: string;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   badgeCount?: number;
 };
 
+// Final Phase 4 revision: Lucide icons, no emoji, one consistent icon
+// family across mobile/desktop nav + Quick Actions (see coachDashboardHelpers.ts,
+// desktopNavItems.ts). Destination COUNT is deliberately unchanged here —
+// a 5-primary-plus-"More" restructure was evaluated (per the product
+// direction) but not implemented this pass; see the Phase 4 final report
+// for why and what a follow-up navigation phase would need to do.
 const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
-  { href: "home",           label: "Home",           icon: "🏠" },
+  { href: "home",           label: "Home",           icon: Home },
   // "Communications" (14 chars) doesn't fit this tab's flex width at
   // 320-390px without CSS ellipsis truncating it to "Communi…" — the page
   // itself is still titled "Communications" (see communications/page.tsx);
   // this is only the short nav-tab label.
-  { href: "communications", label: "Comms",          icon: "💬" },
-  { href: "calendar",       label: "Calendar",       icon: "📅" },
-  { href: "fundraiser",     label: "Fundraising",    icon: "💰" },
-  { href: "shop",           label: "Shop",           icon: "🛍️" },
-  { href: "team",           label: "Team",           icon: "👥" },
+  { href: "communications", label: "Comms",          icon: Megaphone },
+  { href: "calendar",       label: "Calendar",       icon: Calendar },
+  { href: "fundraiser",     label: "Fundraising",    icon: DollarSign },
+  { href: "shop",           label: "Shop",           icon: ShoppingBag },
+  { href: "team",           label: "Team",           icon: Users },
 ];
-const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: "🤝" };
+const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: Handshake };
 
 export default function TeamNav({
   slug,
-  primaryColor,
   showSponsors = false,
   badgeCounts = {},
 }: {
   slug: string;
-  primaryColor: string;
   showSponsors?: boolean;
   badgeCounts?: Record<string, number>;
 }) {
@@ -64,6 +69,7 @@ export default function TeamNav({
           <Link
             key={tab.href}
             href={href}
+            className="elf-focus-ring"
             style={{
               flex: 1,
               display: "flex",
@@ -71,13 +77,18 @@ export default function TeamNav({
               alignItems: "center",
               padding: ".5rem .25rem .55rem",
               textDecoration: "none",
-              color: active ? primaryColor : "#9ca3af",
+              // Resolved via the shell root's CSS vars (set by
+              // resolveTeamTheme() in layout.tsx) — already respects
+              // branding_customized, never reads primary_color raw.
+              color: active ? "var(--team-primary)" : "var(--text-muted-app)",
               transition: "color .12s",
               minWidth: 0,
               position: "relative",
+              borderRadius: ".4rem",
             }}
           >
-            {/* Active indicator — centered pill at top */}
+            {/* Active indicator — small centered underline, not a filled
+                pill background (per the "restrained accent" rule). */}
             {active && (
               <div style={{
                 position: "absolute",
@@ -86,19 +97,19 @@ export default function TeamNav({
                 transform: "translateX(-50%)",
                 width: 28,
                 height: 2,
-                background: primaryColor,
+                background: "var(--team-primary)",
                 borderRadius: 1,
               }} />
             )}
             {/* Icon with optional badge */}
             <div style={{ position: "relative", lineHeight: 1.3 }}>
-              <span style={{ fontSize: "1.15rem" }}>{tab.icon}</span>
+              <tab.icon aria-hidden="true" size={21} strokeWidth={active ? 2.3 : 2} />
               {badge > 0 && (
                 <span style={{
                   position: "absolute",
                   top: -4,
                   right: -7,
-                  background: "#dc2626",
+                  background: "var(--color-error)",
                   color: "#fff",
                   borderRadius: 100,
                   fontSize: ".52rem",

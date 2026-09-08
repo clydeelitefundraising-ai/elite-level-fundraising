@@ -1,0 +1,482 @@
+/*
+ * Phase 8B — Requests/Approvals "coach action center" visual pass.
+ *
+ * Purely presentational: nothing here changes fetch/action logic, payloads,
+ * or role gating (those live in page.tsx / RequestsView.tsx / the two panel
+ * components, all of which are otherwise untouched). This module replaces
+ * the previous 100%-inline-style presentation with the same token system
+ * already established in Home/Roster/Communications/Calendar
+ * (var(--team-primary), var(--color-success)/var(--color-error),
+ * var(--surface-light)/var(--border-app)/var(--text-*-app)).
+ *
+ * Desktop width: 800px (within the approved ~760-820px range). Chosen
+ * slightly wider than Roster/Communications' 760px member column because a
+ * comment-approval row needs room for a name + role label + timestamp on
+ * one line plus a full comment body, without wrapping awkwardly next to the
+ * Approve/Decline buttons.
+ */
+
+.page {
+  animation: elf-fadeUp .22s ease both;
+}
+
+@media screen and (min-width: 1024px) {
+  .page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
+  }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.header {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  font-size: .58rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  display: block;
+  margin-bottom: .15rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary-app);
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: .3rem 0 0;
+  font-size: .82rem;
+  color: var(--text-secondary-app);
+}
+
+.chipRow {
+  display: flex;
+  gap: .5rem;
+  margin-top: .75rem;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .32rem .6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-app);
+  background: var(--surface-light);
+  font-size: .76rem;
+  font-weight: 600;
+  color: var(--text-secondary-app);
+}
+
+.chipCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 .3rem;
+  border-radius: var(--radius-full);
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
+  font-size: .64rem;
+  font-weight: 800;
+}
+
+/* ── Section ────────────────────────────────────────────────────────── */
+
+.section {
+  margin-bottom: 1.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .6rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.sectionBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 .3rem;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  color: #fff;
+  font-size: .6rem;
+  font-weight: 700;
+}
+
+.rowList {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+/* ── Flat row (replaces the old shadowed floating card) ────────────────*/
+
+.row {
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-lg);
+  padding: .8rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+
+.rowTop {
+  display: flex;
+  gap: .55rem;
+  align-items: flex-start;
+}
+
+.avatarFallback {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--surface-light-elevated);
+  border: 1px solid var(--border-app);
+  color: var(--text-secondary-app);
+  font-size: .72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rowName {
+  font-weight: 700;
+  font-size: .88rem;
+  color: var(--text-primary-app);
+}
+
+.rowMeta {
+  font-size: .75rem;
+  color: var(--text-secondary-app);
+  margin-top: .15rem;
+  display: flex;
+  align-items: baseline;
+  gap: .3rem;
+  flex-wrap: wrap;
+}
+
+.roleLabel {
+  font-size: .6rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.contextLine {
+  font-size: .72rem;
+  color: var(--text-muted-app);
+  margin-top: .05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commentBody {
+  margin: 0;
+  font-size: .82rem;
+  color: var(--text-primary-app);
+  line-height: 1.55;
+  background: var(--surface-light-elevated);
+  border-radius: var(--radius-md);
+  padding: .55rem .65rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Callouts (suggested match / collision) — semantic, not retokenized */
+
+.matchBox {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-md);
+  padding: .55rem .65rem;
+}
+
+.matchLabel {
+  font-size: .72rem;
+  font-weight: 700;
+  color: #92400e;
+  margin-bottom: .3rem;
+}
+
+.matchButton {
+  text-align: left;
+  border: none;
+  border-radius: 6px;
+  padding: .2rem .35rem;
+  cursor: pointer;
+  font-size: .78rem;
+  color: #78350f;
+  background: transparent;
+}
+
+.matchButtonActive {
+  background: #fef3c7;
+}
+
+.collisionBox {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  padding: .55rem .65rem;
+  font-size: .78rem;
+  color: #991b1b;
+}
+
+.errorText {
+  font-size: .78rem;
+  color: var(--color-error);
+}
+
+/* ── Form controls (link-to-existing, decline reason) ──────────────────*/
+
+.fieldLabel {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.input,
+.select {
+  padding: .4rem .5rem;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-app);
+  font-size: .78rem;
+  font-family: inherit;
+  color: var(--text-primary-app);
+  background: var(--surface-light);
+}
+
+.declineInput {
+  padding: .45rem .6rem;
+  border-radius: 7px;
+  border: 1.5px solid var(--border-app);
+  font-size: .8rem;
+  font-family: inherit;
+  color: var(--text-primary-app);
+  background: var(--surface-light);
+}
+
+/* ── Actions ────────────────────────────────────────────────────────── */
+
+.actionsRow {
+  display: flex;
+  gap: .45rem;
+}
+
+.linkBtn {
+  padding: .4rem .7rem;
+  border-radius: 7px;
+  border: 1.5px solid var(--text-primary-app);
+  background: var(--surface-light);
+  color: var(--text-primary-app);
+  font-weight: 700;
+  font-size: .76rem;
+  cursor: pointer;
+}
+
+.linkBtn:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.approveBtn {
+  flex: 1;
+  padding: .5rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-success);
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+}
+
+.approveBtn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.declineBtn {
+  padding: .5rem .9rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-app);
+  background: var(--surface-light);
+  color: var(--text-secondary-app);
+  font-weight: 700;
+  font-size: .8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+}
+
+.declineBtn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.confirmDeclineBtn {
+  flex: 1;
+  padding: .5rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-error);
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+}
+
+.confirmDeclineBtn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.cancelBtn {
+  padding: .5rem .8rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-app);
+  background: var(--surface-light);
+  color: var(--text-secondary-app);
+  font-weight: 700;
+  font-size: .8rem;
+  cursor: pointer;
+}
+
+.cancelBtn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+/* ── Empty states ───────────────────────────────────────────────────── */
+
+.emptyRow {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-md);
+  padding: .75rem .85rem;
+  font-size: .8rem;
+  color: var(--text-muted-app);
+}
+
+.unifiedEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: .5rem;
+  padding: 2rem 1rem;
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-lg);
+  background: var(--surface-light);
+}
+
+.unifiedEmptyIcon {
+  color: var(--color-success);
+}
+
+.unifiedEmptyTitle {
+  font-size: .82rem;
+  font-weight: 800;
+  color: var(--text-primary-app);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.unifiedEmptyBody {
+  font-size: .82rem;
+  color: var(--text-secondary-app);
+  max-width: 26rem;
+}
+
+/* ── Access gate (HeadCoachOnlyGate, page.tsx) ─────────────────────────*/
+
+.gateWrap {
+  animation: elf-fadeUp .22s ease both;
+}
+
+.gateCard {
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: var(--radius-lg);
+  padding: 2.25rem 1.5rem;
+  text-align: center;
+}
+
+.gateIcon {
+  color: var(--text-muted-app);
+  margin-bottom: .65rem;
+}
+
+.gateTitle {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text-primary-app);
+  margin-bottom: .3rem;
+}
+
+.gateBody {
+  margin: 0 0 1.25rem;
+  font-size: .85rem;
+  color: var(--text-secondary-app);
+  line-height: 1.5;
+}
+
+.gateLink {
+  display: inline-block;
+  padding: .55rem 1.25rem;
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
+  border-radius: 9px;
+  font-size: .875rem;
+  font-weight: 700;
+  text-decoration: none;
+}

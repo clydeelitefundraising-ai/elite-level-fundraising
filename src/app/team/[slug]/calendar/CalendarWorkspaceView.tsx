@@ -81,7 +81,14 @@ export default function CalendarWorkspaceView({
       </div>
 
       <div className="elf-calendar-noprint">
-        <div className={styles.mobileOnly}>
+        {/* Coach-only actors: hidden at desktop width (DesktopCalendarView
+            takes over below). Non-coach actors (Parent/Athlete/Booster):
+            shouldShowDesktopCalendar is false and DesktopCalendarView
+            never mounts, so this stays visible at every width instead —
+            same component, same internal role gates (cal.canManage), just
+            no longer suppressed with nothing to replace it. See
+            Calendar.module.css. */}
+        <div className={showDesktop ? styles.mobileOnly : styles.memberCalendarDesktop}>
           <CalendarView cal={cal} printRef={printRef} printFilename={printFilename} />
         </div>
         {showDesktop && (

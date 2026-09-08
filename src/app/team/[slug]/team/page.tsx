@@ -48,6 +48,7 @@ export default async function TeamPage({
       overview={<OverviewView />}
       roster={
         <RosterTabs
+          actor={actor}
           athletes={
             <TeamView
               slug={slug}

@@ -18,6 +18,23 @@
   display: none;
 }
 
+/*
+ * Phase 6 fix: for actors where shouldShowDesktopCommunications(actor) is
+ * false (Parent/Athlete/Booster — see UpdatesWorkspaceView.tsx),
+ * DesktopUpdatesView never mounts, so the old .mobileOnly rule left them
+ * with nothing visible at >=1024px. This is the non-coach substitute:
+ * never display:none, so UpdatesView (already role-safe via
+ * canEdit/canDelete inside useUpdatesWorkspace, not viewport) stays
+ * visible at every width for these actors. At desktop widths it gets the
+ * same purposeful max-width/padding treatment as Team/Roster's
+ * .memberRosterDesktop, so it reads as an intentional compact reading
+ * column rather than a stretched phone feed. Zero effect on coach-only
+ * actors, who still use .mobileOnly above.
+ */
+.memberUpdatesDesktop {
+  display: block;
+}
+
 @media screen and (min-width: 1024px) {
   .mobileOnly {
     display: none;
@@ -25,6 +42,12 @@
 
   .desktopOnly {
     display: block;
+  }
+
+  .memberUpdatesDesktop {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
   }
 }
 
@@ -34,14 +57,37 @@
  * UpdatesWorkspaceView.tsx) rather than duplicated per-presentation, so its
  * width can't simply live inside DesktopUpdatesView.tsx's own constrained
  * column. This mirrors that same 760px constraint at desktop widths only,
- * so it visually lines up under the desktop feed; ineligible actors never
- * receive this class, so their Files section is full-width at every
- * viewport width, unchanged.
+ * so it visually lines up under the desktop feed.
+ *
+ * filesWrapMember is the non-coach counterpart (Phase 6 refinement): before
+ * this rule existed, ineligible actors (Parent/Athlete/Booster) received no
+ * width class at all on the Files wrapper, so Files stretched full-width
+ * directly beneath their already-constrained memberUpdatesDesktop feed — a
+ * visible seam. Same 760px constraint, applied to the other branch of the
+ * showDesktop ternary in UpdatesWorkspaceView.tsx. Mobile widths (<1024px)
+ * are untouched either way — Files is always full-width there, as before.
  */
 @media screen and (min-width: 1024px) {
-  .filesWrapDesktop {
+  .filesWrapDesktop,
+  .filesWrapMember {
     max-width: 760px;
     margin-left: auto;
     margin-right: auto;
+  }
+}
+
+/*
+ * Phase 6 refinement: MessagesView has no coach/member split (one
+ * implementation, safe for every role at every width already), so unlike
+ * Updates/Files this needs no showDesktop branching — just a constant
+ * reading-width wrapper so the thread list doesn't stretch full-bleed at
+ * desktop. Same 760px figure as memberUpdatesDesktop/filesWrapDesktop for
+ * visual consistency across the whole Communications workspace.
+ */
+@media screen and (min-width: 1024px) {
+  .messagesWrapDesktop {
+    max-width: 760px;
+    margin: 0 auto;
+    padding-top: 1.5rem;
   }
 }

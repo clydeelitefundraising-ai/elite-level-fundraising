@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Bell } from "lucide-react";
 
 export default function NotificationBell({
   slug,
@@ -33,12 +34,17 @@ export default function NotificationBell({
     <Link
       href={`/team/${slug}/notifications`}
       aria-label={count > 0 ? `Notifications — ${count} unread` : "Notifications"}
+      className="elf-focus-ring"
       style={{
         position: "relative",
         width: 34,
         height: 34,
         borderRadius: "50%",
-        background: "rgba(255,255,255,.12)",
+        // Phase 3: was rgba(255,255,255,.12), tuned for the header's old
+        // filled team-color background — now that TeamHeader is white,
+        // that value read as a barely-visible pill. This is only mounted
+        // inside TeamHeader (verified — no other call site).
+        background: "var(--surface-light-elevated)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -48,14 +54,14 @@ export default function NotificationBell({
         transition: "background .18s ease",
       }}
     >
-      🔔
+      <Bell aria-hidden="true" size={17} strokeWidth={2.1} />
       {count > 0 && (
         <span
           style={{
             position: "absolute",
             top: 3,
             right: 3,
-            background: "#ef4444",
+            background: "var(--color-error)",
             color: "#fff",
             borderRadius: 100,
             fontSize: ".48rem",
@@ -64,7 +70,7 @@ export default function NotificationBell({
             lineHeight: 1.5,
             minWidth: 13,
             textAlign: "center",
-            border: "1.5px solid rgba(255,255,255,.6)",
+            border: "1.5px solid var(--canvas)",
             pointerEvents: "none",
           }}
         >

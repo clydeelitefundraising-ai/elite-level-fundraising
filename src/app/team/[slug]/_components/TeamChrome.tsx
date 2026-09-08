@@ -31,6 +31,8 @@ export default function TeamChrome({
   accountName,
   profilePhotoUrl,
   isAuthenticated,
+  hasAccountSession,
+  isMember,
 }: {
   slug: string;
   settings: CampaignSettings;
@@ -43,6 +45,8 @@ export default function TeamChrome({
   accountName?: string;
   profilePhotoUrl?: string | null;
   isAuthenticated: boolean;
+  hasAccountSession: boolean;
+  isMember: boolean;
 }) {
   const pathname = usePathname();
   const storageKey = `elf_home_read_${slug}`;
@@ -104,7 +108,6 @@ export default function TeamChrome({
       <div className={styles.mobileOnly}>
         <TeamNav
           slug={slug}
-          primaryColor={settings.primary_color}
           showSponsors={showSponsors}
           // D2a: no fundraiser badge — see desktopNavItems.ts's comment on
           // why donationStats.donor_count was removed from this slot.
@@ -124,6 +127,8 @@ export default function TeamChrome({
           accountName={accountName}
           profilePhotoUrl={profilePhotoUrl}
           isAuthenticated={isAuthenticated}
+          hasAccountSession={hasAccountSession}
+          isMember={isMember}
         />
       </div>
     </>

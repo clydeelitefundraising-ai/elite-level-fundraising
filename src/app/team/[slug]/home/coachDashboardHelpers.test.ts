@@ -4,7 +4,6 @@ import {
   shouldShowCoachDashboard,
   buildQuickActions,
   resolveRequestsCardData,
-  shouldShowFundraisingCard,
 } from "./coachDashboardHelpers.ts";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
@@ -120,13 +119,7 @@ test("resolveRequestsCardData: absent (null) for Booster", () => {
   assert.equal(resolveRequestsCardData(memberActor("booster"), SUMMARY), null);
 });
 
-// ─── shouldShowFundraisingCard ──────────────────────────────────────────────
-
-test("shouldShowFundraisingCard: false when nothing has been raised yet, matching mobile FundraiserSnapshot's rule", () => {
-  assert.equal(shouldShowFundraisingCard(0), false);
-});
-
-test("shouldShowFundraisingCard: true once anything has been raised", () => {
-  assert.equal(shouldShowFundraisingCard(1), true);
-  assert.equal(shouldShowFundraisingCard(500000), true);
-});
+// shouldShowFundraisingCard removed (Phase 4 final revision) — the
+// Fundraising module is now always rendered (intentional $0 empty state
+// instead of disappearing), so there is no longer a visibility rule to
+// unit-test here.
