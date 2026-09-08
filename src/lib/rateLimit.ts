@@ -50,6 +50,16 @@ export function rateLimitKey(prefix: string, req: HeadersLike): string {
 }
 
 /**
+ * Build a namespaced rate-limit key from an arbitrary opaque identifier
+ * rather than an IP — e.g. a hash of a normalized email. Callers MUST pass
+ * an already-hashed identifier, never a raw email/PII value, since this
+ * string is stored as a Redis key.
+ */
+export function identifierRateLimitKey(prefix: string, identifierHash: string): string {
+  return `rl:${prefix}:${identifierHash}`;
+}
+
+/**
  * Check whether a key is currently under the limit.
  * Read-only — does NOT increment the counter.
  * Fails open: if Redis is unavailable, the request is allowed.

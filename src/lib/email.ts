@@ -272,6 +272,50 @@ export async function sendStaffInvite(p: StaffInviteParams): Promise<void> {
   await sendEmail(p.to, `You've been invited to join ${p.teamName} on Elite Level Fundraising`, html);
 }
 
+// ── Password reset (modern ELF accounts) ───────────────────────────────────────
+
+export interface PasswordResetParams {
+  to:       string;
+  name:     string;
+  resetUrl: string;
+}
+
+export async function sendPasswordReset(p: PasswordResetParams): Promise<void> {
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:20px;">
+          <h1 style="color:#0B1E3D;font-size:1.6rem;margin:0 0 8px 0;font-family:Arial,sans-serif;">Reset Your Password</h1>
+          <p style="color:#6b7280;margin:0;font-size:0.95rem;">We received a request to reset the password for your ELF account.</p>
+        </td></tr>
+        <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:24px;">
+          <p style="margin:0;">Hi ${p.name},</p>
+          <p style="margin:12px 0 0;">Click the button below to choose a new password. This link expires in <strong>1 hour</strong> and can only be used once.</p>
+        </td></tr>
+        <tr><td style="text-align:center;padding:8px 0 28px 0;">
+          <a href="${p.resetUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:1rem;font-weight:bold;">Reset Password &rarr;</a>
+        </td></tr>
+        <tr><td style="background:#f5f6fa;border-radius:8px;padding:14px 16px;color:#6b7280;font-size:0.82rem;line-height:1.5;word-break:break-all;">
+          Or copy this link: ${p.resetUrl}
+        </td></tr>
+        <tr><td style="color:#9ca3af;font-size:0.8rem;text-align:center;line-height:1.6;border-top:1px solid #e5e7eb;padding-top:24px;">
+          If you didn&rsquo;t request this, you can safely ignore this email — your password will not change.<br />
+          Questions? <a href="mailto:support@elitelevelfundraising.com" style="color:#C4A35A;text-decoration:none;">support@elitelevelfundraising.com</a><br />
+          <span style="display:inline-block;margin-top:12px;">Powered by Elite Level Fundraising</span>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, "Reset your ELF password", html);
+}
+
 // ── Marketing: demo request notification (to ELF) ─────────────────────────────
 
 export interface DemoRequestNotificationParams {

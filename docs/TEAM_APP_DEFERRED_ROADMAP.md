@@ -1,5 +1,15 @@
 # ELF Team App Deferred Roadmap
 
+## Security / Account Recovery
+- Self-service password recovery for modern ELF accounts (elf_accounts) — IMPLEMENTED (Phase A33, branch feature/password-recovery, pending review/merge/manual migration)
+  - /forgot-password, /reset-password/[token], password_reset_tokens table
+  - session invalidation via salt rotation on reset (no elf_session/accountAuth changes required)
+  - legacy /coach-login and team_coaches credentials intentionally untouched
+- Password hashing modernization — OPEN, not started
+  - migrate ELF account credentials from the current single-pass SHA-256 (salt + pepper) scheme to a password-hardening algorithm such as Argon2id
+  - use a backward-compatible rehash-on-login or controlled migration strategy
+  - separate from password recovery; do not bundle with future recovery-flow changes
+
 ## Production Checkpoint
 - PR #27
 - Production merge commit: 2a37610

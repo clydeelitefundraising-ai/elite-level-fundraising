@@ -78,7 +78,12 @@ export default function LoginView() {
           </label>
 
           <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
-            <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>Password</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>Password</span>
+              <a href="/forgot-password" style={{ fontSize: ".8rem", color: "#6b7280", textDecoration: "underline" }}>
+                Forgot password?
+              </a>
+            </div>
             <input
               type="password"
               autoComplete="current-password"
