@@ -1,7 +1,10 @@
 # ELF Team App Deferred Roadmap
 
 ## Security / Account Recovery
-- Self-service password recovery for modern ELF accounts (elf_accounts) — IMPLEMENTED (Phase A33, branch feature/password-recovery, pending review/merge/manual migration)
+- Self-service password recovery for modern ELF accounts (elf_accounts) — COMPLETE (Phase A33)
+  - PR #28 merged into main
+  - phase_a33_password_reset_tokens.sql manually applied and verified in production Supabase
+  - full production password-reset flow manually QA'd successfully on September 8, 2026 (request → email → reset link → new password → login)
   - /forgot-password, /reset-password/[token], password_reset_tokens table
   - session invalidation via salt rotation on reset (no elf_session/accountAuth changes required)
   - legacy /coach-login and team_coaches credentials intentionally untouched
