@@ -19,6 +19,8 @@ export default function TeamHeader({
   accountName,
   profilePhotoUrl,
   isAuthenticated = false,
+  hasAccountSession = false,
+  isMember = false,
 }: {
   settings:         CampaignSettings;
   unreadNotifCount?: number;
@@ -27,6 +29,8 @@ export default function TeamHeader({
   accountName?:      string;
   profilePhotoUrl?:  string | null;
   isAuthenticated?:  boolean;
+  hasAccountSession?: boolean;
+  isMember?:          boolean;
 }) {
   const sport  = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
   const season = settings.season ?? "";
@@ -94,6 +98,8 @@ export default function TeamHeader({
               teams={accountTeams}
               accountName={accountName}
               profilePhotoUrl={profilePhotoUrl}
+              hasAccountSession={hasAccountSession}
+              isMember={isMember}
             />
           )}
           {!isAuthenticated && (

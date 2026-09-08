@@ -31,6 +31,8 @@ export default function TeamChrome({
   accountName,
   profilePhotoUrl,
   isAuthenticated,
+  hasAccountSession,
+  isMember,
 }: {
   slug: string;
   settings: CampaignSettings;
@@ -43,6 +45,8 @@ export default function TeamChrome({
   accountName?: string;
   profilePhotoUrl?: string | null;
   isAuthenticated: boolean;
+  hasAccountSession: boolean;
+  isMember: boolean;
 }) {
   const pathname = usePathname();
   const storageKey = `elf_home_read_${slug}`;
@@ -123,6 +127,8 @@ export default function TeamChrome({
           accountName={accountName}
           profilePhotoUrl={profilePhotoUrl}
           isAuthenticated={isAuthenticated}
+          hasAccountSession={hasAccountSession}
+          isMember={isMember}
         />
       </div>
     </>

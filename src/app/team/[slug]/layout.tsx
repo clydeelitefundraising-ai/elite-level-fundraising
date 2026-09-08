@@ -42,8 +42,16 @@ export default async function TeamLayout({
 
   if (!settings) notFound();
 
-  const isMember         = actor.kind === "member";
-  const isAuthenticated  = actor.kind !== "public";
+  const isMember          = actor.kind === "member";
+  const isAuthenticated   = actor.kind !== "public";
+  // Identity Compatibility follow-up: distinguishes a real elf_session
+  // (accountSession truthy) from a legacy team_coach/team_member-cookie-only
+  // session (isAuthenticated true, accountSession null) — reuses the value
+  // already resolved above, no new session check. AccountMenu needs this to
+  // avoid offering "My Profile" as a dead-end that bounces to /login for
+  // legacy sessions (/profile itself still correctly requires
+  // getAccountSession() — this only changes what the menu offers).
+  const hasAccountSession = Boolean(accountSession);
   const unreadNotifCount = isMember && settings.team_id
     ? await getUnreadCount(settings.team_id, {
         kind:       "member",
@@ -127,6 +135,8 @@ export default async function TeamLayout({
           accountName={accountSession?.name}
           profilePhotoUrl={accountSession?.profile_photo_url}
           isAuthenticated={isAuthenticated}
+          hasAccountSession={hasAccountSession}
+          isMember={isMember}
         />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
@@ -139,6 +149,8 @@ export default async function TeamLayout({
               accountName={accountSession?.name}
               profilePhotoUrl={accountSession?.profile_photo_url}
               isAuthenticated={isAuthenticated}
+              hasAccountSession={hasAccountSession}
+              isMember={isMember}
             />
           </div>
           {isPlatformAdmin(actor) && (

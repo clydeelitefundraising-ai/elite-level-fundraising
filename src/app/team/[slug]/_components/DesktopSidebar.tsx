@@ -34,6 +34,8 @@ export default function DesktopSidebar({
   accountName,
   profilePhotoUrl,
   isAuthenticated,
+  hasAccountSession,
+  isMember,
 }: {
   slug: string;
   settings: CampaignSettings;
@@ -46,6 +48,8 @@ export default function DesktopSidebar({
   accountName?: string;
   profilePhotoUrl?: string | null;
   isAuthenticated: boolean;
+  hasAccountSession: boolean;
+  isMember: boolean;
 }) {
   const pathname = usePathname();
   const sport = [settings.mascot, settings.sport_name].filter(Boolean).join(" · ");
@@ -143,6 +147,8 @@ export default function DesktopSidebar({
             teams={accountTeams}
             accountName={accountName}
             profilePhotoUrl={profilePhotoUrl}
+            hasAccountSession={hasAccountSession}
+            isMember={isMember}
             onDark
           />
         )}

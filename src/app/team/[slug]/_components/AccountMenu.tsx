@@ -18,6 +18,8 @@ export default function AccountMenu({
   accountName,
   profilePhotoUrl,
   onDark = false,
+  hasAccountSession = false,
+  isMember = false,
 }: {
   currentSlug:     string;
   teams:           TeamSummary[];
@@ -31,6 +33,21 @@ export default function AccountMenu({
    *  regardless of onDark, since it's an overlay, not part of either
    *  shell surface. */
   onDark?: boolean;
+  /** Identity Compatibility follow-up: true only when an elf_session
+   *  (accountSession) exists — false for a legacy team_coach/team_member
+   *  cookie-only session, even though isAuthenticated (this component only
+   *  mounts at all when isAuthenticated) is true for both. Threaded down
+   *  from layout.tsx's already-resolved accountSession, not a new check.
+   *  Governs whether "My Profile" is offered — /team/[slug]/profile
+   *  requires getAccountSession() and must keep doing so; a legacy-only
+   *  session clicking "My Profile" would otherwise bounce straight to
+   *  /login with no context, a confusing dead end. */
+  hasAccountSession?: boolean;
+  /** Distinguishes a legacy team_member session (self-serve activation
+   *  exists at /team/[slug]/activate-account) from a legacy team_coach
+   *  session (activation requires an admin-issued invite token — no
+   *  generic self-serve route exists, so no link is offered for coaches). */
+  isMember?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -212,16 +229,52 @@ export default function AccountMenu({
               <PushOptIn slug={currentSlug} />
             </div>
 
-            {/* My Profile */}
-            <a
-              href={`/team/${currentSlug}/profile`}
-              onClick={() => setOpen(false)}
-              className="elf-focus-ring"
-              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
-            >
-              <span style={{ fontSize: ".9rem" }}>👤</span>
-              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
-            </a>
+            {/* My Profile — only offered when a real elf_session exists.
+                /team/[slug]/profile requires getAccountSession() and always
+                will; a legacy team_coach/team_member-cookie-only session
+                clicking this would just bounce to /login with no context.
+                Instead show the real supported next step for that session
+                type (see hasAccountSession/isMember above). */}
+            {hasAccountSession && (
+              <a
+                href={`/team/${currentSlug}/profile`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
+              </a>
+            )}
+            {!hasAccountSession && isMember && (
+              // Legacy team_member session: self-serve activation genuinely
+              // exists and is safe to link to (verifies via the member's own
+              // team_member cookie, on-file-email-only linking — see
+              // members/activate/route.ts).
+              <a
+                href={`/team/${currentSlug}/activate-account`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Activate ELF Account</span>
+              </a>
+            )}
+            {!hasAccountSession && !isMember && (
+              // Legacy team_coach session: no generic self-serve activation
+              // exists (requires an admin-issued single-use invite token) —
+              // showing a fake/broken link here would be worse than no link.
+              // Informational only, not clickable, so it can't dead-end.
+              <div
+                style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", padding: ".7rem 1rem", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <span style={{ fontSize: ".78rem", color: "#9ca3af", lineHeight: 1.45 }}>
+                  Set up your ELF account to manage your profile and access multiple teams. Ask your administrator for an activation link.
+                </span>
+              </div>
+            )}
 
             {/* Settings */}
             <a
