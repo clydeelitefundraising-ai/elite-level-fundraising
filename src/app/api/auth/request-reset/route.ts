@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { consumeRateLimit, rateLimitKey, identifierRateLimitKey } from "@/lib/rateLimit";
 import { generateResetToken, hashResetToken, resetTokenExpiresAt, hashNormalizedEmail } from "@/lib/passwordReset";
 import { sendPasswordReset } from "@/lib/email";
@@ -84,12 +84,26 @@ export async function POST(req: NextRequest) {
         const appBase  = process.env.NEXT_PUBLIC_APP_URL ?? "";
         const resetUrl = `${appBase}/reset-password/${rawToken}`;
 
-        try {
-          // Never log the raw token — only that a send was attempted.
-          await sendPasswordReset({ to: normalizedEmail, name: account.name, resetUrl });
-        } catch (err) {
-          console.error("[request-reset] sendPasswordReset failed:", err);
-        }
+        // Deferred via Next.js's after() (not a bare fire-and-forget
+        // `void sendPasswordReset(...)`) for the same reason as the
+        // announcements route's push dispatch: this app runs on Vercel's
+        // standard Node.js serverless runtime, which can freeze a
+        // function's execution the moment its response is sent. An
+        // un-awaited promise racing that freeze could silently drop the
+        // outbound Resend call. after() runs the callback after the
+        // response is sent while keeping the invocation alive until it
+        // finishes — and, as a deliberate side effect here, it also
+        // removes the account-exists path's only remaining large timing
+        // cost (the external email API call) from the awaited response,
+        // closing the observable timing gap against the account-absent
+        // path. Never log the raw token — only that a send was attempted.
+        after(async () => {
+          try {
+            await sendPasswordReset({ to: normalizedEmail, name: account.name, resetUrl });
+          } catch (err) {
+            console.error("[request-reset] sendPasswordReset failed:", err);
+          }
+        });
 
         logAuditEvent({
           actor:        { type: "system", note: "password_reset_requested" },

@@ -14,3 +14,9 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 
 CREATE INDEX IF NOT EXISTS password_reset_tokens_token_hash_idx ON password_reset_tokens (token_hash);
 CREATE INDEX IF NOT EXISTS password_reset_tokens_account_id_idx ON password_reset_tokens (account_id);
+
+-- Server/service-role-key only, same as coach_invite_tokens: RLS enabled
+-- with no policies means default-deny for any anon/authenticated client
+-- context. The service role bypasses RLS entirely, so existing server-side
+-- access via the service-role key is unaffected.
+ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
