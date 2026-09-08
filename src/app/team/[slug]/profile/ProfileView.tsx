@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Check, ChevronLeft } from "lucide-react";
 
 const LABEL: React.CSSProperties = {
   display: "flex",
@@ -122,24 +123,24 @@ export default function ProfileView({
   const inits = initials(name || email);
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 680, margin: "0 auto" }}>
 
       {/* Section label */}
       <div style={{ marginBottom: ".75rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em" }}>
           Account
         </span>
-        <h2 style={{ margin: ".1rem 0 0", fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em" }}>
+        <h2 style={{ margin: ".1rem 0 0", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em" }}>
           My Profile
         </h2>
       </div>
 
       {/* Photo card */}
       <div style={{
-        background: "#fff",
-        borderRadius: 13,
+        background: "var(--surface-light)",
+        borderRadius: "var(--radius-lg)",
         padding: "1.25rem 1rem",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        border: "1px solid var(--border-app)",
         marginBottom: ".75rem",
         display: "flex",
         flexDirection: "column",
@@ -153,15 +154,15 @@ export default function ProfileView({
             width: 88,
             height: 88,
             borderRadius: "50%",
-            background: photoUrl ? "transparent" : "#0b1e3d",
-            border: "3px solid #e5e7eb",
+            background: photoUrl ? "transparent" : "var(--team-primary)",
+            border: "3px solid var(--border-app)",
             overflow: "hidden",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: "1.5rem",
             fontWeight: 800,
-            color: "#fff",
+            color: "var(--team-primary-foreground)",
             letterSpacing: ".02em",
             flexShrink: 0,
           }}>
@@ -197,8 +198,8 @@ export default function ProfileView({
             disabled={uploading}
             style={{
               padding: ".45rem .9rem",
-              background: "#0b1e3d",
-              color: "#fff",
+              background: "var(--team-primary)",
+              color: "var(--team-primary-foreground)",
               border: "none",
               borderRadius: 8,
               fontSize: ".8rem",
@@ -216,7 +217,7 @@ export default function ProfileView({
               style={{
                 padding: ".45rem .9rem",
                 background: "#fff",
-                color: "#dc2626",
+                color: "var(--color-error)",
                 border: "1.5px solid #fecaca",
                 borderRadius: 8,
                 fontSize: ".8rem",
@@ -230,7 +231,7 @@ export default function ProfileView({
           )}
         </div>
 
-        <p style={{ margin: 0, fontSize: ".72rem", color: "#9ca3af", textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: ".72rem", color: "var(--text-muted-app)", textAlign: "center" }}>
           JPEG, PNG, WebP or HEIC · max 5 MB
         </p>
 
@@ -253,10 +254,10 @@ export default function ProfileView({
       <form
         onSubmit={handleSaveName}
         style={{
-          background: "#fff",
-          borderRadius: 13,
+          background: "var(--surface-light)",
+          borderRadius: "var(--radius-lg)",
           padding: "1rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          border: "1px solid var(--border-app)",
           display: "flex",
           flexDirection: "column",
           gap: ".85rem",
@@ -294,9 +295,10 @@ export default function ProfileView({
           type="submit"
           disabled={saving}
           style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
             padding: ".7rem 1rem",
-            background: nameSaved ? "#16a34a" : saving ? "#9ca3af" : "#0b1e3d",
-            color: "#fff",
+            background: nameSaved ? "var(--color-success)" : saving ? "#9ca3af" : "var(--team-primary)",
+            color: nameSaved ? "#fff" : "var(--team-primary-foreground)",
             border: "none",
             borderRadius: 9,
             fontSize: ".875rem",
@@ -305,7 +307,7 @@ export default function ProfileView({
             transition: "background .18s",
           }}
         >
-          {nameSaved ? "✓ Saved" : saving ? "Saving…" : "Save Name"}
+          {nameSaved ? <><Check size={15} /> Saved</> : saving ? "Saving…" : "Save Name"}
         </button>
       </form>
 
@@ -313,9 +315,9 @@ export default function ProfileView({
       <div style={{ textAlign: "center", marginTop: "1.25rem" }}>
         <a
           href={`/team/${slug}/home`}
-          style={{ fontSize: ".8rem", color: "#9ca3af", textDecoration: "none" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: ".2rem", fontSize: ".8rem", color: "var(--text-muted-app)", textDecoration: "none" }}
         >
-          ← Back to Team Hub
+          <ChevronLeft size={14} /> Back to Team Hub
         </a>
       </div>
     </div>

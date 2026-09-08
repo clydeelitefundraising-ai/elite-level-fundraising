@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Clock, UserPlus } from "lucide-react";
 import Modal from "../_components/Modal";
 
 type Role = "head_coach" | "assistant_coach" | "booster";
@@ -68,9 +69,9 @@ function Avatar({ name }: { name: string }) {
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
   return (
     <div style={{
-      width: 38, height: 38, borderRadius: "50%", background: "#0b1e3d",
+      width: 38, height: 38, borderRadius: "50%", background: "var(--team-primary)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontWeight: 800, fontSize: ".85rem", color: "#fff", flexShrink: 0,
+      fontWeight: 800, fontSize: ".85rem", color: "var(--team-primary-foreground)", flexShrink: 0,
     }}>
       {initial}
     </div>
@@ -87,20 +88,20 @@ function StaffCard({
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: ".7rem",
-      background: "#fff", borderRadius: 12, padding: ".7rem .85rem",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+      background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: ".7rem .85rem",
+      border: "1px solid var(--border-app)",
     }}>
       <Avatar name={s.name} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>{s.name}</div>
-        <div style={{ fontSize: ".72rem", color: "#9ca3af", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)" }}>{s.name}</div>
+        <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {s.email ?? roleLabel(s.role)}
         </div>
       </div>
       {canRemove && (
         <button
           onClick={() => onRemove(s)}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 700, color: "#fca5a5", padding: ".3rem .5rem", borderRadius: 6, flexShrink: 0 }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 700, color: "var(--color-error)", padding: ".3rem .5rem", borderRadius: 6, flexShrink: 0 }}
         >
           Remove
         </button>
@@ -120,13 +121,13 @@ function PendingCard({
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: ".7rem",
-      background: "#fffbeb", borderRadius: 12, padding: ".7rem .85rem",
-      border: "1px solid #fde68a",
+      background: "var(--surface-light-elevated)", borderRadius: "var(--radius-lg)", padding: ".7rem .85rem",
+      border: "1px solid var(--border-app)",
     }}>
-      <div style={{ fontSize: "1.1rem", flexShrink: 0 }}>⏳</div>
+      <Clock size={18} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>{inv.full_name}</div>
-        <div style={{ fontSize: ".72rem", color: "#92400e" }}>
+        <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)" }}>{inv.full_name}</div>
+        <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
           {inv.email} &middot; {roleLabel(inv.role)} &middot; expires {timeUntil(inv.expires_at)}
         </div>
       </div>
@@ -134,14 +135,14 @@ function PendingCard({
         <button
           disabled={busy}
           onClick={() => onResend(inv)}
-          style={{ background: "none", border: "none", cursor: busy ? "not-allowed" : "pointer", fontSize: ".72rem", fontWeight: 700, color: "#0b1e3d", padding: ".3rem .4rem", borderRadius: 6 }}
+          style={{ background: "none", border: "none", cursor: busy ? "not-allowed" : "pointer", fontSize: ".72rem", fontWeight: 700, color: "var(--team-primary)", padding: ".3rem .4rem", borderRadius: 6 }}
         >
           Resend
         </button>
         <button
           disabled={busy}
           onClick={() => onRevoke(inv)}
-          style={{ background: "none", border: "none", cursor: busy ? "not-allowed" : "pointer", fontSize: ".72rem", fontWeight: 700, color: "#dc2626", padding: ".3rem .4rem", borderRadius: 6 }}
+          style={{ background: "none", border: "none", cursor: busy ? "not-allowed" : "pointer", fontSize: ".72rem", fontWeight: 700, color: "var(--color-error)", padding: ".3rem .4rem", borderRadius: 6 }}
         >
           Revoke
         </button>
@@ -320,46 +321,46 @@ export default function StaffView({
   }, [successMsg]);
 
   return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+    <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
       <div style={{ marginBottom: ".65rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Team Management
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Team Staff
           </h2>
           <div style={{ flex: 1 }} />
           <button
             onClick={openAdd}
-            style={{ padding: ".45rem .85rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "center", gap: ".35rem", padding: ".45rem .85rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
           >
-            + Add Staff Member
+            <UserPlus size={15} /> Add Staff
           </button>
         </div>
-        <p style={{ margin: ".3rem 0 0", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+        <p style={{ margin: ".3rem 0 0", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
           Manage the assistant coaches and boosters who help run your team.
         </p>
       </div>
 
       {successMsg && (
-        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: ".55rem .75rem", color: "#16a34a", fontSize: ".82rem", fontWeight: 600, marginBottom: ".65rem" }}>
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 9, padding: ".55rem .75rem", color: "var(--color-success)", fontSize: ".82rem", fontWeight: 600, marginBottom: ".65rem" }}>
           {successMsg}
         </div>
       )}
       {loadError && (
-        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: ".55rem .75rem", color: "#dc2626", fontSize: ".82rem", marginBottom: ".65rem" }}>
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: ".55rem .75rem", color: "var(--color-error)", fontSize: ".82rem", marginBottom: ".65rem" }}>
           {loadError}
         </div>
       )}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "2rem 0", color: "#9ca3af", fontSize: ".85rem" }}>Loading…</div>
+        <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--text-muted-app)", fontSize: ".85rem" }}>Loading…</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           {/* Head Coach */}
           <div>
-            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
+            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
               Head Coach
             </div>
             {headCoach && <StaffCard s={headCoach} canRemove={false} onRemove={() => {}} />}
@@ -367,11 +368,11 @@ export default function StaffView({
 
           {/* Assistant Coaches */}
           <div>
-            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
+            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
               Assistant Coaches
             </div>
             {assistantCoaches.length === 0 ? (
-              <div style={{ fontSize: ".8rem", color: "#9ca3af", padding: ".3rem 0" }}>No assistant coaches yet.</div>
+              <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)", padding: ".3rem 0" }}>No assistant coaches yet.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {assistantCoaches.map(s => (
@@ -383,11 +384,11 @@ export default function StaffView({
 
           {/* Boosters */}
           <div>
-            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
+            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
               Boosters
             </div>
             {boosters.length === 0 ? (
-              <div style={{ fontSize: ".8rem", color: "#9ca3af", padding: ".3rem 0" }}>No boosters yet.</div>
+              <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)", padding: ".3rem 0" }}>No boosters yet.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {boosters.map(s => (
@@ -399,11 +400,11 @@ export default function StaffView({
 
           {/* Pending Invitations */}
           <div>
-            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
+            <div style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".4rem" }}>
               Pending Invitations
             </div>
             {pending.length === 0 ? (
-              <div style={{ fontSize: ".8rem", color: "#9ca3af", padding: ".3rem 0" }}>No pending invitations.</div>
+              <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)", padding: ".3rem 0" }}>No pending invitations.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {pending.map(inv => (
@@ -426,7 +427,7 @@ export default function StaffView({
                   An ELF account already exists for this email.
                 </div>
                 <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 9, padding: ".65rem .8rem" }}>
-                  <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>{existingAccount.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)" }}>{existingAccount.name}</div>
                   <div style={{ fontSize: ".75rem", color: "#6b7280" }}>{existingAccount.email}</div>
                 </div>
                 <p style={{ margin: 0, fontSize: ".82rem", color: "#6b7280" }}>
@@ -437,7 +438,7 @@ export default function StaffView({
                   <button onClick={() => setExistingAccount(null)} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
                     Back
                   </button>
-                  <button onClick={handleAssignExisting} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
+                  <button onClick={handleAssignExisting} disabled={saving} style={{ padding: ".5rem 1rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
                     {saving ? "Adding…" : "Add Existing Account"}
                   </button>
                 </div>
@@ -451,11 +452,11 @@ export default function StaffView({
                     onClick={() => setMethod("invite")}
                     style={{
                       textAlign: "left", padding: ".7rem .85rem", borderRadius: 10,
-                      border: method === "invite" ? "2px solid #0b1e3d" : "1.5px solid #e5e7eb",
+                      border: method === "invite" ? "2px solid var(--team-primary)" : "1.5px solid #e5e7eb",
                       background: method === "invite" ? "#f8f9fb" : "#fff", cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>
+                    <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)" }}>
                       Send Invitation <span style={{ color: "#16a34a", fontSize: ".68rem", fontWeight: 700 }}>Recommended</span>
                     </div>
                     <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".15rem" }}>
@@ -467,11 +468,11 @@ export default function StaffView({
                     onClick={() => setMethod("temp_password")}
                     style={{
                       textAlign: "left", padding: ".7rem .85rem", borderRadius: 10,
-                      border: method === "temp_password" ? "2px solid #0b1e3d" : "1.5px solid #e5e7eb",
+                      border: method === "temp_password" ? "2px solid var(--team-primary)" : "1.5px solid #e5e7eb",
                       background: method === "temp_password" ? "#f8f9fb" : "#fff", cursor: "pointer",
                     }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>
+                    <div style={{ fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)" }}>
                       Create Account with Temporary Password
                     </div>
                     <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".15rem" }}>
@@ -500,9 +501,9 @@ export default function StaffView({
                         onClick={() => setRole(r)}
                         style={{
                           padding: ".45rem .25rem", borderRadius: 8,
-                          border: role === r ? "2px solid #0b1e3d" : "2px solid #e5e7eb",
+                          border: role === r ? "2px solid var(--team-primary)" : "2px solid #e5e7eb",
                           background: role === r ? "#f8f9fb" : "#fff",
-                          color: role === r ? "#0b1e3d" : "#6b7280",
+                          color: role === r ? "var(--team-primary)" : "#6b7280",
                           fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
                         }}
                       >
@@ -525,7 +526,7 @@ export default function StaffView({
                   <button onClick={closeAdd} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
                     Cancel
                   </button>
-                  <button onClick={handleSubmit} disabled={saving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
+                  <button onClick={handleSubmit} disabled={saving} style={{ padding: ".5rem 1rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
                     {saving ? "Saving…" : method === "invite" ? "Send Invitation" : "Create Account"}
                   </button>
                 </div>
