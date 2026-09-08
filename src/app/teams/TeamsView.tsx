@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
+import { authDisplayFont } from "@/components/auth/authDisplayFont";
+import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./Teams.module.css";
 
 export type PendingTeamCard = {
@@ -68,7 +70,7 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
             minWidth: 200, overflow: "hidden",
           }}>
             <div style={{ padding: ".8rem 1rem .6rem", borderBottom: "1px solid #f0f0f0" }}>
-              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#0b1e3d" }}>{accountName}</div>
+              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "#121110" }}>{accountName}</div>
             </div>
 
             {firstTeamSlug && (
@@ -138,7 +140,7 @@ function PendingCard({ card }: { card: PendingTeamCard }) {
           {isDeclined ? "🚫" : "⏳"}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: "1.02rem", color: "#0b1e3d", lineHeight: 1.25 }}>
+          <div style={{ fontWeight: 800, fontSize: "1.02rem", color: "#121110", lineHeight: 1.25 }}>
             {card.school_name}
           </div>
           <div style={{ fontSize: ".8rem", color: "#6b7280", marginTop: ".25rem" }}>
@@ -174,7 +176,7 @@ export default function TeamsView({
   accountName: string;
 }) {
   return (
-    <div className={styles.page} style={{ background: "#0b1e3d", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div className={`${styles.page} ${authDisplayFont.variable}`} style={{ background: "var(--shell-backdrop)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
         .team-card { transition: transform .15s ease, box-shadow .15s ease; }
         .team-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
@@ -183,19 +185,21 @@ export default function TeamsView({
       <div className={styles.panel} style={{ background: "#f5f6f8" }}>
 
         {/* Header */}
-        <div style={{ background: "#0b1e3d", padding: "1.1rem 1rem .9rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={34} height={34} style={{ borderRadius: ".45rem", flexShrink: 0 }} />
+        <div style={{ background: "var(--shell-backdrop)", padding: "1.1rem 1rem .9rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
+          <div className={entryStyles.wordmark} style={{ flexShrink: 0 }}>
+            <CrownMark className={entryStyles.crown} />
+          </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: "#fff", fontWeight: 800, fontSize: ".95rem", lineHeight: 1.2 }}>Choose Your Team</div>
             <div style={{ color: "rgba(255,255,255,.55)", fontSize: ".72rem", marginTop: ".05rem" }}>Select the team you want to enter</div>
           </div>
           <ProfileMenu accountName={accountName} firstTeamSlug={teams[0]?.campaign_slug ?? null} />
         </div>
-        <div style={{ height: 3, background: "#C4A35A" }} />
+        <div style={{ height: 3, background: "var(--elf-orange)" }} />
 
         {/* Welcome blurb */}
         <div style={{ padding: "1.25rem 1.25rem .75rem" }}>
-          <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "#0b1e3d", letterSpacing: "-.01em" }}>
+          <div style={{ fontFamily: "var(--auth-font-display, inherit)", fontWeight: 400, fontSize: "1.35rem", color: "#121110", letterSpacing: ".01em" }}>
             Welcome back, {accountName.split(" ")[0]}
           </div>
           <div style={{ fontSize: ".82rem", color: "#6b7280", marginTop: ".2rem" }}>
@@ -223,7 +227,7 @@ export default function TeamsView({
               </p>
               <a
                 href="/enter-code"
-                style={{ display: "inline-block", background: "#0b1e3d", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".85rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
+                style={{ display: "inline-block", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".85rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
               >
                 Enter Team Code
               </a>
@@ -231,7 +235,7 @@ export default function TeamsView({
           ) : (
             <div className={styles.teamsGrid}>
             {teams.map(team => {
-              const color = team.primary_color || "#0b1e3d";
+              const color = team.primary_color || "#121110";
               const cardShadow      = `0 3px 12px 0 ${hexToRgba(color, 0.16)}`;
               const cardShadowHover = `0 10px 28px 0 ${hexToRgba(color, 0.3)}`;
               return (
@@ -276,7 +280,7 @@ export default function TeamsView({
                     {/* Team identity */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
-                        fontWeight: 800, fontSize: "1.05rem", color: "#0b1e3d", lineHeight: 1.25,
+                        fontWeight: 800, fontSize: "1.05rem", color: "#121110", lineHeight: 1.25,
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       }}>
                         {team.school_name}
@@ -315,8 +319,8 @@ export default function TeamsView({
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
                 marginTop: ".1rem", padding: ".75rem",
-                border: "1.5px dashed #c7cad1", borderRadius: "1rem",
-                fontSize: ".85rem", color: "#0b1e3d", fontWeight: 700, textDecoration: "none",
+                border: "1.5px dashed #DE4712", borderRadius: "1rem",
+                fontSize: ".85rem", color: "#DE4712", fontWeight: 700, textDecoration: "none",
               }}
             >
               + Add Team
@@ -328,11 +332,11 @@ export default function TeamsView({
             <div style={{
               display: "flex", gap: ".7rem", alignItems: "flex-start",
               margin: ".25rem 0 1.5rem", padding: "1rem 1.1rem",
-              background: "#eef1f6", borderRadius: "1rem",
+              background: "#F5F0E6", borderRadius: "1rem",
             }}>
               <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💡</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#0b1e3d", marginBottom: ".2rem" }}>
+                <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#121110", marginBottom: ".2rem" }}>
                   Need another team?
                 </div>
                 <div style={{ fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>

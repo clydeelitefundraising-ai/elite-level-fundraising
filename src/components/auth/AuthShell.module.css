@@ -1,0 +1,101 @@
+/*
+ * Phase A35 — shared shell for /login, /forgot-password, /reset-password.
+ * Supersedes the old per-page duplicated navy/gold "Team Hub" shell
+ * (previously Login.module.css, copy-pasted inline across three files).
+ *
+ * Same 1024px breakpoint / pure-CSS-media-query philosophy as the prior
+ * shell and the Team Hub desktop shell — kept consistent on purpose.
+ */
+
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--shell-backdrop);
+}
+
+.brandPanel {
+  display: none;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--shell-backdrop);
+  /* Mobile: no separate off-white card — the form sits directly on the
+     dark ELF backdrop, per the reference's mobile treatment. Only the
+     individual inputs are light. */
+}
+
+.cardInner {
+  padding: 1.75rem 1.25rem calc(1.75rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  flex: 1;
+}
+
+.mobileHeader {
+  padding: 1.5rem 1.25rem 0;
+}
+
+@media screen and (min-width: 1024px) {
+  .page {
+    align-items: center;
+    gap: 0;
+    padding: 2rem;
+  }
+
+  .brandPanel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 420px;
+    flex-shrink: 0;
+    padding: 3.5rem 3rem;
+    color: #fff;
+    background: var(--shell-backdrop);
+    border-radius: 1.25rem 0 0 1.25rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 640px;
+  }
+
+  /* Subtle editorial texture — a soft radial wash, not a decorative
+     gradient fill. Same restrained technique already used on the
+     marketing hero (globals.css .hero::before), at low opacity. */
+  .brandPanel::before {
+    content: "";
+    position: absolute;
+    top: -120px;
+    right: -120px;
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(255, 90, 31, .16) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .mobileHeader {
+    display: none;
+  }
+
+  .card {
+    min-height: 640px;
+    max-width: 380px;
+    border-radius: 0 1.25rem 1.25rem 0;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+    background: #FFFFFF;
+  }
+
+  .cardInner {
+    padding: 2.75rem 2rem;
+    justify-content: center;
+  }
+}

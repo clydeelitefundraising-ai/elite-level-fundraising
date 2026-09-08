@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import styles from "./Login.module.css";
+import Link from "next/link";
+import AuthShell from "@/components/auth/AuthShell";
+import styles from "@/components/auth/authEntry.module.css";
 
 export default function LoginView() {
   const router = useRouter();
@@ -37,106 +38,81 @@ export default function LoginView() {
   }
 
   return (
-    <div className={styles.page} style={{ background: "#0b1e3d", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      {/* D1c: desktop-only brand panel — hidden on mobile (Login.module.css),
-          purely presentational, no auth/session behavior. */}
-      <div className={styles.brandPanel}>
-        <Image src="/ELF.LOGO.png" alt="" width={64} height={64} style={{ borderRadius: ".9rem", marginBottom: "1.5rem" }} />
-        <h1 style={{ margin: 0, fontSize: "2.1rem", fontWeight: 800, letterSpacing: "-.02em" }}>Team Hub</h1>
-        <p style={{ marginTop: ".75rem", fontSize: "1.02rem", color: "rgba(255,255,255,.75)", lineHeight: 1.6, maxWidth: 360 }}>
-          One place for your team&apos;s roster, calendar, messages, and fundraising — built for coaches, athletes, and families.
-        </p>
-      </div>
+    <AuthShell
+      headline="Welcome to ELF Team"
+      tagline="Log in to manage your team, communicate, and fundraise — all in one place."
+    >
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+        <h1 className={styles.headline} style={{ fontSize: "1.6rem" }}>Log In</h1>
 
-      <div className={styles.card} style={{ background: "#f5f6f8" }}>
+        {error && <div className={styles.errorBox}>{error}</div>}
 
-        <div style={{ background: "#0b1e3d", padding: "1.25rem 1rem", display: "flex", alignItems: "center", gap: ".75rem" }}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={36} height={36} style={{ borderRadius: ".4rem" }} />
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.05rem" }}>Team Hub</span>
-        </div>
+        <label className={styles.label}>
+          Email
+          <input
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className={styles.input}
+          />
+        </label>
 
-        <form onSubmit={handleSubmit} style={{ padding: "2rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem", flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.02em" }}>Log In</h1>
-          <p style={{ margin: 0, fontSize: ".9rem", color: "#6b7280" }}>Enter your account email and password.</p>
-
-          {error && (
-            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".88rem", color: "#991b1b" }}>
-              {error}
-            </div>
-          )}
-
-          <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
-            <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>Email</span>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={{ padding: ".75rem 1rem", borderRadius: ".5rem", border: "1.5px solid #d1d5db", fontSize: "1rem", outline: "none", background: "#fff" }}
-            />
-          </label>
-
-          <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>Password</span>
-              <a href="/forgot-password" style={{ fontSize: ".8rem", color: "#6b7280", textDecoration: "underline" }}>
-                Forgot password?
-              </a>
-            </div>
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={{ padding: ".75rem 1rem", borderRadius: ".5rem", border: "1.5px solid #d1d5db", fontSize: "1rem", outline: "none", background: "#fff" }}
-            />
-          </label>
-
-          <label style={{ display: "flex", alignItems: "center", gap: ".55rem", cursor: "pointer", userSelect: "none" }}>
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0b1e3d" }}
-            />
-            <span style={{ fontSize: ".88rem", color: "#374151" }}>Remember me for 30 days</span>
-          </label>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{ background: "#C4A35A", color: "#0b1e3d", fontWeight: 800, fontSize: "1.05rem", padding: "1rem", borderRadius: ".75rem", border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? .7 : 1 }}
-          >
-            {loading ? "Logging in…" : "Log In"}
-          </button>
-
-          <div style={{ textAlign: "center", marginTop: ".5rem" }}>
-            <span style={{ fontSize: ".88rem", color: "#6b7280" }}>New member? </span>
-            <a href="/enter-code" style={{ fontSize: ".88rem", color: "#0b1e3d", fontWeight: 700, textDecoration: "underline" }}>
-              Enter your team code
+        <label className={styles.label}>
+          <div className={styles.labelRow}>
+            <span>Password</span>
+            <a href="/forgot-password" className={styles.textLink} style={{ fontWeight: 600, fontSize: ".78rem", textTransform: "none", letterSpacing: "normal" }}>
+              Forgot password?
             </a>
           </div>
-        </form>
+          <input
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className={styles.input}
+          />
+        </label>
 
-        <div style={{ padding: "0 1rem 1.5rem", textAlign: "center", display: "flex", flexDirection: "column", gap: ".6rem" }}>
-          <a href="/" style={{ fontSize: ".78rem", color: "#9ca3af", textDecoration: "none" }}>← Back to home</a>
-          <a href="/coach-login" style={{ fontSize: ".75rem", color: "#9ca3af", textDecoration: "underline" }}>
-            Coach using old login? Continue with legacy coach login.
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={e => setRememberMe(e.target.checked)}
+          />
+          <span className={styles.checkboxLabel}>Remember me for 30 days</span>
+        </label>
+
+        <button type="submit" disabled={loading} className={styles.primaryButton}>
+          {loading ? "Logging in…" : "Log In"}
+        </button>
+
+        <div style={{ textAlign: "center" }}>
+          <span className={styles.subtext} style={{ fontSize: ".88rem" }}>New member? </span>
+          <a href="/enter-code" className={styles.textLink}>
+            Enter your team code
           </a>
-          {/* Identity Compatibility follow-up: no safe, slug-agnostic link
-              exists here — /enter-code is the new-member join path (would
-              risk creating a duplicate membership for someone who already
-              has one), and the team-specific /activate-account page needs a
-              team_member cookie /login doesn't have. Pointing this
-              population at their coach/admin is the only route that's both
-              safe (no email enumeration, no guessed slug) and accurate. */}
-          <p style={{ fontSize: ".75rem", color: "#9ca3af", margin: 0, lineHeight: 1.5, maxWidth: 300, marginLeft: "auto", marginRight: "auto" }}>
-            Previously used a team-specific login and don&apos;t have an ELF account yet? Ask your coach or team admin to help you activate your ELF account.
-          </p>
         </div>
+      </form>
+
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: ".65rem", marginTop: "1.5rem" }}>
+        <Link href="/" className={styles.mutedLink} style={{ textDecoration: "none" }}>← Back to home</Link>
+        <a href="/coach-login" className={styles.mutedLink}>
+          Coach using old login? Continue with legacy coach login.
+        </a>
+        {/* Identity Compatibility follow-up: no safe, slug-agnostic link
+            exists here — /enter-code is the new-member join path (would
+            risk creating a duplicate membership for someone who already
+            has one), and the team-specific /activate-account page needs a
+            team_member cookie /login doesn't have. Pointing this
+            population at their coach/admin is the only route that's both
+            safe (no email enumeration, no guessed slug) and accurate. */}
+        <p className={styles.subtext} style={{ fontSize: ".75rem", margin: 0, maxWidth: 300, marginLeft: "auto", marginRight: "auto" }}>
+          Previously used a team-specific login and don&apos;t have an ELF account yet? Ask your coach or team admin to help you activate your ELF account.
+        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }
