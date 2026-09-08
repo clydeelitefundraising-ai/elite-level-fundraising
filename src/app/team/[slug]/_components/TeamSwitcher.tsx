@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamSummary } from "@/lib/accountSession";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 
 export default function TeamSwitcher({
   currentSlug,
@@ -75,6 +76,14 @@ export default function TeamSwitcher({
 
             {teams.map(team => {
               const isCurrent = team.campaign_slug === currentSlug;
+              // Each row shows ITS OWN team's accent, not the currently
+              // active team's var(--team-primary) (that CSS variable only
+              // reflects whichever team is active in this layout render).
+              // resolveTeamTheme() applies the same branding_customized
+              // fallback rule used everywhere else in the app: an
+              // uncustomized team always gets the ELF default color,
+              // regardless of whatever raw value happens to be stored.
+              const rowTheme = resolveTeamTheme(team.primary_color, null, team.branding_customized);
               return (
                 <button
                   key={team.campaign_slug}
@@ -96,19 +105,19 @@ export default function TeamSwitcher({
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: team.primary_color || "#0b1e3d",
+                    background: rowTheme["--team-primary"],
                     flexShrink: 0,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#fff",
+                    color: rowTheme["--team-primary-foreground"],
                     fontWeight: 800,
                     fontSize: ".75rem",
                   }}>
                     {team.school_name.charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: ".88rem", fontWeight: 700, color: "#0b1e3d", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: ".88rem", fontWeight: 700, color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {team.school_name}
                     </div>
                     <div style={{ fontSize: ".72rem", color: "#6b7280" }}>{team.sport_name}</div>
@@ -123,7 +132,7 @@ export default function TeamSwitcher({
             <a
               href="/teams"
               onClick={() => setOpen(false)}
-              style={{ display: "block", padding: ".75rem 1rem", fontSize: ".82rem", color: "#0b1e3d", fontWeight: 600, textDecoration: "none", textAlign: "center", borderTop: "1px solid #f0f0f0" }}
+              style={{ display: "block", padding: ".75rem 1rem", fontSize: ".82rem", color: "var(--text-primary-app)", fontWeight: 600, textDecoration: "none", textAlign: "center", borderTop: "1px solid #f0f0f0" }}
             >
               All Teams
             </a>
