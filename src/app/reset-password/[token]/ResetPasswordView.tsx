@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import AuthShell from "@/components/auth/AuthShell";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import styles from "@/components/auth/authEntry.module.css";
 
-export default function ResetPasswordView({ token }: { token: string }) {
+export default function ResetPasswordView({ token, photo }: { token: string; photo: EntryPhoto }) {
   const [pw,      setPw]      = useState("");
   const [pw2,     setPw2]     = useState("");
   const [error,   setError]   = useState<string | null>(null);
@@ -43,8 +44,8 @@ export default function ResetPasswordView({ token }: { token: string }) {
 
   if (invalid) {
     return (
-      <AuthShell headline="Same Teams. Bigger Opportunities." tagline="Every reset link is single-use for your security.">
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+      <AuthShell headline="Same Teams. Bigger Opportunities." tagline="Every reset link is single-use for your security." photo={photo}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Link Invalid or Expired</h1>
           <p className={styles.subtext}>
             This password reset link is invalid or has expired. Request a new one to continue.
@@ -59,8 +60,8 @@ export default function ResetPasswordView({ token }: { token: string }) {
 
   if (done) {
     return (
-      <AuthShell headline="Next Season, Brighter." tagline="Your account is ready — log in with your new password.">
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+      <AuthShell headline="Next Season, Brighter." tagline="Your account is ready — log in with your new password." photo={photo}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--elf-yellow)" }}>✓</div>
           <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Password Reset</h1>
           <p className={styles.subtext}>
@@ -75,8 +76,8 @@ export default function ResetPasswordView({ token }: { token: string }) {
   }
 
   return (
-    <AuthShell headline="Create a New Password" tagline="Choose a strong password to keep your ELF account secure.">
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+    <AuthShell headline="Create a New Password" tagline="Choose a strong password to keep your ELF account secure." photo={photo}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
         <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>
           Create a New Password
         </h1>

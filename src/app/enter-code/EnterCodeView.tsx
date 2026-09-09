@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
+import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
+import entryStyles from "@/components/auth/authEntry.module.css";
+import styles from "./EnterCode.module.css";
 
 // Locally redeclared to match CampaignPageClient.tsx's established
 // convention — lib/supabase.ts is server-only (reads
@@ -23,9 +28,11 @@ type Step = "code" | "details" | "submitting" | "pending_confirmation";
 export default function EnterCodeView({
   loggedInName,
   initialCode,
+  photo,
 }: {
   loggedInName: string | null;
   initialCode:  string | null;
+  photo:        EntryPhoto;
 }) {
   const router = useRouter();
 
@@ -159,29 +166,56 @@ export default function EnterCodeView({
   const showNameField = !loggedInName && !(role === "athlete" && athleteMode === "select");
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
+    <div className={`${styles.page} ${authDisplayFont.variable} ${authHandFont.variable}`} style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
+      <div className={styles.panel}>
 
-        <div style={{ background: "#0b1e3d", padding: "1.25rem 1rem", display: "flex", alignItems: "center", gap: ".75rem" }}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={36} height={36} style={{ borderRadius: ".4rem" }} />
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.05rem" }}>Enter Team Code</span>
+        {/* Phase A36 mobile refinement — compact photo hero, hidden at
+            1024px+ where the dark crown+text .header (below) takes over. */}
+        <div className={entryStyles.mobileHero}>
+          <div className={entryStyles.photoFill}>
+            <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 1023px) 100vw, 0px" priority />
+          </div>
+          <div className={entryStyles.photoScrim} />
+          <div className={entryStyles.mobileHeroContent}>
+            <Image
+              src="/auth/elf-team-logo.png"
+              alt="ELF Team"
+              width={1536}
+              height={1024}
+              className={entryStyles.mobileHeroLogo}
+              priority
+            />
+          </div>
         </div>
 
-        <div style={{ padding: "1.5rem 1.25rem", flex: 1, display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+        <div className={styles.header}>
+          <Image
+            src="/auth/elf-team-logo.png"
+            alt="ELF Team"
+            width={1536}
+            height={1024}
+            className={entryStyles.brandMarkCompact}
+            style={{ flexShrink: 0 }}
+            priority
+          />
+          <div className={styles.headerText}>
+            <span className={styles.headerTitle}>Find Your Team</span>
+            <span className={styles.headerSubtitle}>Connect with your coach&apos;s code</span>
+          </div>
+        </div>
+        <div className={styles.accentDivider} />
+
+        <div className={styles.body}>
 
           {/* Step 1: Code entry */}
           {step === "code" && (
             <form onSubmit={findTeam} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d" }}>Find Your Team</h1>
+              <h1 style={{ margin: 0, fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.6rem", fontWeight: 400, color: "#121110" }}>Find Your Team</h1>
               <p style={{ margin: 0, fontSize: ".9rem", color: "#6b7280" }}>
                 Enter the 6-character code from your coach.
               </p>
 
-              {error && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".88rem", color: "#991b1b" }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className={entryStyles.errorBox}>{error}</div>}
 
               <input
                 type="text"
@@ -190,41 +224,27 @@ export default function EnterCodeView({
                 required
                 value={code}
                 onChange={e => setCode(e.target.value.toUpperCase())}
+                className={entryStyles.input}
                 style={{
-                  padding: "1rem",
-                  borderRadius: ".5rem",
-                  border: "1.5px solid #d1d5db",
                   fontSize: "1.6rem",
                   fontWeight: 800,
                   textAlign: "center",
                   letterSpacing: ".2em",
                   textTransform: "uppercase",
-                  outline: "none",
-                  background: "#fff",
                 }}
               />
 
               <button
                 type="submit"
                 disabled={looking || code.trim().length < 4}
-                style={{
-                  background: "#C4A35A",
-                  color: "#0b1e3d",
-                  fontWeight: 800,
-                  fontSize: "1.05rem",
-                  padding: "1rem",
-                  borderRadius: ".75rem",
-                  border: "none",
-                  cursor: (looking || code.trim().length < 4) ? "not-allowed" : "pointer",
-                  opacity: (looking || code.trim().length < 4) ? .6 : 1,
-                }}
+                className={entryStyles.primaryButton}
               >
                 {looking ? "Searching…" : "Find Team →"}
               </button>
 
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: ".88rem", color: "#6b7280" }}>Already have an account? </span>
-                <a href="/login" style={{ fontSize: ".88rem", color: "#0b1e3d", fontWeight: 700, textDecoration: "underline" }}>Log in</a>
+                <a href="/login" style={{ fontSize: ".88rem", color: "var(--elf-orange-dark)", fontWeight: 700, textDecoration: "underline" }}>Log in</a>
               </div>
             </form>
           )}
@@ -234,18 +254,14 @@ export default function EnterCodeView({
             <form onSubmit={handleJoin} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 
               {/* Team card */}
-              <div style={{ background: teamInfo.primary_color || "#0b1e3d", borderRadius: ".75rem", padding: "1.25rem", color: "#fff" }}>
+              <div style={{ background: teamInfo.primary_color || "var(--shell-backdrop)", borderRadius: ".75rem", padding: "1.25rem", color: "#fff" }}>
                 <div style={{ fontWeight: 800, fontSize: "1.2rem" }}>{teamInfo.school_name}</div>
                 <div style={{ fontSize: ".85rem", opacity: .85, marginTop: ".2rem" }}>
                   {[teamInfo.mascot, teamInfo.sport_name].filter(Boolean).join(" · ")}
                 </div>
               </div>
 
-              {error && (
-                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".88rem", color: "#991b1b" }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className={entryStyles.errorBox}>{error}</div>}
 
               {/* Role picker — Booster intentionally excluded (Phase 1B):
                   boosters are added only via Head-Coach staff management. */}
@@ -263,8 +279,8 @@ export default function EnterCodeView({
                         flex: 1,
                         padding: ".65rem .5rem",
                         borderRadius: ".5rem",
-                        border: `2px solid ${role === r ? "#0b1e3d" : "#d1d5db"}`,
-                        background: role === r ? "#0b1e3d" : "#fff",
+                        border: `2px solid ${role === r ? "var(--elf-orange)" : "#d1d5db"}`,
+                        background: role === r ? "var(--elf-orange)" : "#fff",
                         color: role === r ? "#fff" : "#374151",
                         fontWeight: 700,
                         fontSize: ".88rem",
@@ -314,7 +330,7 @@ export default function EnterCodeView({
                         border: "1.5px solid #d1d5db",
                         background: "#fff",
                         fontSize: ".82rem",
-                        color: "#0b1e3d",
+                        color: "var(--elf-orange-dark)",
                         fontWeight: 700,
                         cursor: "pointer",
                       }}
@@ -430,17 +446,7 @@ export default function EnterCodeView({
               <button
                 type="submit"
                 disabled={isSubmitting || !role}
-                style={{
-                  background: "#C4A35A",
-                  color: "#0b1e3d",
-                  fontWeight: 800,
-                  fontSize: "1.05rem",
-                  padding: "1rem",
-                  borderRadius: ".75rem",
-                  border: "none",
-                  cursor: (isSubmitting || !role) ? "not-allowed" : "pointer",
-                  opacity: (isSubmitting || !role) ? .6 : 1,
-                }}
+                className={entryStyles.primaryButton}
               >
                 {isSubmitting ? "Submitting…" : isNotListed ? "Send Request →" : "Join Team →"}
               </button>
@@ -459,13 +465,13 @@ export default function EnterCodeView({
           {step === "pending_confirmation" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", textAlign: "center", paddingTop: "2rem" }}>
               <div style={{ fontSize: "2.5rem" }}>⏳</div>
-              <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800, color: "#0b1e3d" }}>Request Sent</h1>
+              <h1 style={{ margin: 0, fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.4rem", fontWeight: 400, color: "#121110" }}>Request Sent</h1>
               <p style={{ margin: 0, fontSize: ".9rem", color: "#6b7280", lineHeight: 1.5, maxWidth: 320 }}>
                 Your request has been sent to the Head Coach for approval. You&apos;ll get team access once it&apos;s approved.
               </p>
               <a
                 href="/teams"
-                style={{ display: "inline-block", marginTop: ".5rem", background: "#0b1e3d", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".75rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
+                style={{ display: "inline-block", marginTop: ".5rem", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".75rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
               >
                 Go to My Teams
               </a>
@@ -473,8 +479,22 @@ export default function EnterCodeView({
           )}
         </div>
 
-        <div style={{ padding: "1rem", textAlign: "center" }}>
-          <a href="/" style={{ fontSize: ".78rem", color: "#9ca3af", textDecoration: "none" }}>← Back to home</a>
+        <div style={{ padding: "0 1.25rem 1.25rem", textAlign: "center" }}>
+          <Link href="/" style={{ fontSize: ".78rem", color: "#9c9186", textDecoration: "none" }}>← Back to home</Link>
+        </div>
+
+        {/* Phase A36 — desktop-only editorial photo band, matching the same
+            pattern used on /teams. Hidden below 1024px (EnterCode.module.css). */}
+        <div className={styles.photoBand}>
+          <div className={entryStyles.photoFill}>
+            <Image src={photo.src} alt={photo.alt} fill sizes="560px" priority />
+          </div>
+          <div className={entryStyles.photoScrim} />
+          <div className={entryStyles.photoContent} style={{ padding: "0 2rem 1.5rem" }}>
+            <p className={entryStyles.handwritten} style={{ fontSize: "1.05rem", margin: 0 }}>
+              Real teams. Real results.
+            </p>
+          </div>
         </div>
       </div>
     </div>

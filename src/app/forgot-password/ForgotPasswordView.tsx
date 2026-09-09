@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import AuthShell from "@/components/auth/AuthShell";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import styles from "@/components/auth/authEntry.module.css";
 
-export default function ForgotPasswordView() {
+export default function ForgotPasswordView({ photo }: { photo: EntryPhoto }) {
   const [email, setEmail]     = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -34,9 +35,10 @@ export default function ForgotPasswordView() {
     <AuthShell
       headline="Forgot Your Password?"
       tagline="Enter your account email and we'll send you a link to reset your password."
+      photo={photo}
     >
       {message ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--elf-yellow)" }}>✓</div>
           <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Check Your Email</h1>
           <p className={styles.subtext}>{message}</p>
@@ -45,7 +47,7 @@ export default function ForgotPasswordView() {
           </a>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Forgot Your Password?</h1>
           <p className={styles.subtext}>
             Enter your account email and we&apos;ll send you a link to reset your password.

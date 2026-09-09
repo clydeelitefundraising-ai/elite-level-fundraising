@@ -26,6 +26,14 @@
   flex-direction: column;
 }
 
+/* Phase A36 mobile refinement — the dark crown+text header is desktop-only
+   (see the 1024px media query below); mobile shows the shared photo hero
+   (entryStyles.mobileHero) instead, rendered just above this in
+   TeamsView.tsx. */
+.header {
+  display: none;
+}
+
 .contentColumn {
   padding: 0 1.25rem;
   display: flex;
@@ -46,7 +54,27 @@
   gap: .85rem;
 }
 
+/* Phase A36 — desktop-only editorial photo band under the team cards.
+   display:none on mobile, matching the exact same pattern AuthShell already
+   uses for its .brandPanel — visually hidden below 1024px via pure CSS, no
+   window.innerWidth/matchMedia. */
+.photoBand {
+  display: none;
+}
+
 @media screen and (min-width: 1024px) {
+  .header {
+    display: flex;
+  }
+
+  .photoBand {
+    display: flex;
+    align-items: flex-end;
+    position: relative;
+    height: 190px;
+    overflow: hidden;
+  }
+
   .page {
     align-items: center;
     padding: 2rem;

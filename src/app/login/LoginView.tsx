@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "@/components/auth/AuthShell";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import styles from "@/components/auth/authEntry.module.css";
 
-export default function LoginView() {
+export default function LoginView({ photo }: { photo: EntryPhoto }) {
   const router = useRouter();
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
@@ -41,8 +42,9 @@ export default function LoginView() {
     <AuthShell
       headline="Welcome to ELF Team"
       tagline="Log in to manage your team, communicate, and fundraise — all in one place."
+      photo={photo}
     >
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem", flex: 1 }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
         <h1 className={styles.headline} style={{ fontSize: "1.6rem" }}>Log In</h1>
 
         {error && <div className={styles.errorBox}>{error}</div>}
@@ -97,7 +99,7 @@ export default function LoginView() {
         </div>
       </form>
 
-      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: ".65rem", marginTop: "1.5rem" }}>
+      <div className={styles.footerLinks} style={{ textAlign: "center" }}>
         <Link href="/" className={styles.mutedLink} style={{ textDecoration: "none" }}>← Back to home</Link>
         <a href="/coach-login" className={styles.mutedLink}>
           Coach using old login? Continue with legacy coach login.

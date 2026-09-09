@@ -185,6 +185,128 @@
   color: rgba(255, 255, 255, .82);
 }
 
+/* Phase A36 — restrained handwritten/marker accent. Personality statements
+   ONLY (a short tagline near a headline/logo) — never used for navigation,
+   forms, tables, buttons, inputs, validation, or any accessibility-critical
+   text. Always paired with a plain, highly-legible sibling that carries the
+   same information for anything that matters functionally. */
+.handwritten {
+  font-family: var(--auth-font-hand, inherit);
+  font-weight: 400;
+  color: var(--elf-yellow);
+  line-height: 1.3;
+}
+
+/* Phase A36 mobile cleanup — the below-form footer link group (used by
+   LoginView). Mobile relies purely on the parent .cardInner's own gap for
+   separation (tighter — avoids the excessive vertical gap a fixed
+   marginTop added on top of that gap); desktop keeps its original explicit
+   1.5rem marginTop, unchanged, since desktop's approved composition isn't
+   in scope for this pass. */
+.footerLinks {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .footerLinks {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Phase A36 — full-bleed photography container used inside a positioned
+   parent (AuthShell's .brandPanel, or a dedicated .photoBand below). A
+   plain absolutely-positioned wrapper around next/image's fill mode, kept
+   here (not duplicated per consumer) since every entry surface that shows
+   photography needs the identical stacking/overlay approach. */
+.photoFill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.photoFill img {
+  object-fit: cover;
+}
+
+/* Dark scrim over photography so foreground text/logo stay readable —
+   moderate, not a near-opaque wash, so the photo still reads as photography
+   per the "photography should behave as photography" instruction. */
+.photoScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(10, 10, 10, .35) 0%, rgba(10, 10, 10, .55) 55%, rgba(10, 10, 10, .82) 100%);
+}
+
+.photoContent {
+  position: relative;
+  z-index: 2;
+}
+
+/* Full raster ELF Team brand mark (public/auth/elf-team-logo.png) at a
+   prominent desktop size — preserves the asset's real aspect ratio via
+   next/image's width/height, never stretched. Reserved for the desktop
+   branded panel. */
+.brandLogoImage {
+  width: 220px;
+  height: auto;
+}
+
+/* Phase A36 brand-mark consistency pass — the same logo asset at a
+   compact, app-icon-style size, used wherever a small header/panel would
+   previously have shown the standalone CrownMark + "ELF TEAM" text as a
+   generic brand mark (never for a crown used with actual semantic meaning
+   — role/rank/achievement badges — none of which exist in this codebase
+   today; CrownMark itself is untouched for that future case). Only used
+   on the same dark backgrounds the full-size mark already requires — the
+   asset's white/orange/yellow linework has no light-background variant,
+   so a light-card context keeps the existing CrownMark + text treatment
+   instead (see join/[code]/page.tsx's CardWordmark). */
+.brandMarkCompact {
+  width: auto;
+  height: 30px;
+}
+
+/* Phase A36 mobile refinement — compact photographic hero band for the
+   mobile (<1024px) auth/entry screens. Reuses the exact same photo prop,
+   .photoFill/.photoScrim stacking, and rotation source as the desktop
+   panel — no separate mobile photo system. Sized to ~200px (per spec:
+   "photo + ELF logo -> functional page title/form", not a second
+   marketing hero) and overlaid with the real logo instead of a
+   headline/tagline. Hidden at >=1024px, where each page's own existing
+   desktop composition (unchanged by this pass) already carries
+   photography — this band is additive to mobile only, never a
+   replacement for the desktop treatment. */
+.mobileHero {
+  position: relative;
+  height: 200px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mobileHeroContent {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 1.1rem;
+}
+
+.mobileHeroLogo {
+  width: 140px;
+  height: auto;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileHero {
+    display: none;
+  }
+}
+
 /* ── Desktop (white card) overrides ───────────────────────────────────── */
 @media screen and (min-width: 1024px) {
   .headline {

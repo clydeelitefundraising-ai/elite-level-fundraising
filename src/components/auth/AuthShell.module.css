@@ -5,6 +5,12 @@
  *
  * Same 1024px breakpoint / pure-CSS-media-query philosophy as the prior
  * shell and the Team Hub desktop shell — kept consistent on purpose.
+ *
+ * Phase A36 — .brandPanel's background photography (real ELF sports
+ * photos) and scrim overlay live in authEntry.module.css's shared
+ * .photoFill/.photoScrim classes (AuthShell.tsx composes them in), not
+ * here, since /teams and /enter-code's desktop photo bands need the exact
+ * same stacking approach without depending on this file.
  */
 
 .page {
@@ -23,14 +29,18 @@
 .card {
   width: 100%;
   max-width: 440px;
-  min-height: 100vh;
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--shell-backdrop);
   /* Mobile: no separate off-white card — the form sits directly on the
      dark ELF backdrop, per the reference's mobile treatment. Only the
-     individual inputs are light. */
+     individual inputs are light.
+     No forced min-height here (unlike the desktop rule below): .page
+     already carries min-height:100dvh + the same --shell-backdrop color,
+     so a short screen (e.g. Forgot Password) simply ends after its
+     content instead of stretching the card to fill the viewport — the
+     page's own background continues underneath, seamlessly, since it's
+     the identical color. */
 }
 
 .cardInner {
@@ -65,20 +75,6 @@
     position: relative;
     overflow: hidden;
     min-height: 640px;
-  }
-
-  /* Subtle editorial texture — a soft radial wash, not a decorative
-     gradient fill. Same restrained technique already used on the
-     marketing hero (globals.css .hero::before), at low opacity. */
-  .brandPanel::before {
-    content: "";
-    position: absolute;
-    top: -120px;
-    right: -120px;
-    width: 420px;
-    height: 420px;
-    background: radial-gradient(circle, rgba(255, 90, 31, .16) 0%, transparent 70%);
-    pointer-events: none;
   }
 
   .mobileHeader {

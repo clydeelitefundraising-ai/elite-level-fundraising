@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
-import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
-import { authDisplayFont } from "@/components/auth/authDisplayFont";
+import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./Teams.module.css";
 
@@ -170,13 +171,15 @@ export default function TeamsView({
   teams,
   pendingCards,
   accountName,
+  photo,
 }: {
   teams: TeamSummary[];
   pendingCards: PendingTeamCard[];
   accountName: string;
+  photo: EntryPhoto;
 }) {
   return (
-    <div className={`${styles.page} ${authDisplayFont.variable}`} style={{ background: "var(--shell-backdrop)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div className={`${styles.page} ${authDisplayFont.variable} ${authHandFont.variable}`} style={{ background: "var(--shell-backdrop)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
         .team-card { transition: transform .15s ease, box-shadow .15s ease; }
         .team-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow-hover); }
@@ -184,11 +187,36 @@ export default function TeamsView({
       `}</style>
       <div className={styles.panel} style={{ background: "#f5f6f8" }}>
 
-        {/* Header */}
-        <div style={{ background: "var(--shell-backdrop)", padding: "1.1rem 1rem .9rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
-          <div className={entryStyles.wordmark} style={{ flexShrink: 0 }}>
-            <CrownMark className={entryStyles.crown} />
+        {/* Phase A36 mobile refinement — compact photo hero, hidden at
+            1024px+ where the dark crown+text header (below) takes over. */}
+        <div className={entryStyles.mobileHero}>
+          <div className={entryStyles.photoFill}>
+            <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 1023px) 100vw, 0px" priority />
           </div>
+          <div className={entryStyles.photoScrim} />
+          <div className={entryStyles.mobileHeroContent}>
+            <Image
+              src="/auth/elf-team-logo.png"
+              alt="ELF Team"
+              width={1536}
+              height={1024}
+              className={entryStyles.mobileHeroLogo}
+              priority
+            />
+          </div>
+        </div>
+
+        {/* Header — desktop-only (see Teams.module.css .header) */}
+        <div className={styles.header} style={{ background: "var(--shell-backdrop)", padding: "1.1rem 1rem .9rem", alignItems: "center", gap: ".875rem" }}>
+          <Image
+            src="/auth/elf-team-logo.png"
+            alt="ELF Team"
+            width={1536}
+            height={1024}
+            className={entryStyles.brandMarkCompact}
+            style={{ flexShrink: 0 }}
+            priority
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: "#fff", fontWeight: 800, fontSize: ".95rem", lineHeight: 1.2 }}>Choose Your Team</div>
             <div style={{ color: "rgba(255,255,255,.55)", fontSize: ".72rem", marginTop: ".05rem" }}>Select the team you want to enter</div>
@@ -345,6 +373,21 @@ export default function TeamsView({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Phase A36 — desktop-only editorial photo band beneath the team
+            cards, per the reference's "Choose Your Team" composition. Hidden
+            below 1024px (Teams.module.css) — mobile stays exactly as before. */}
+        <div className={styles.photoBand}>
+          <div className={entryStyles.photoFill}>
+            <Image src={photo.src} alt={photo.alt} fill sizes="760px" priority />
+          </div>
+          <div className={entryStyles.photoScrim} />
+          <div className={entryStyles.photoContent} style={{ padding: "0 1.75rem 1.25rem" }}>
+            <p className={entryStyles.handwritten} style={{ fontSize: "1.05rem", margin: 0 }}>
+              Good people. Great teams.
+            </p>
+          </div>
         </div>
       </div>
     </div>

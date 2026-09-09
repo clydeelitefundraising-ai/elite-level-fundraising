@@ -3,6 +3,7 @@ import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { getVisiblePendingRequestsForAccount } from "@/lib/platform/athleteRequests";
 import { getCampaign } from "@/lib/platform/campaigns";
+import { entryPhotoForOffset, ENTRY_PHOTO_OFFSET } from "@/components/auth/entryPhotos";
 import TeamsView, { type PendingTeamCard } from "./TeamsView";
 
 export const dynamic = "force-dynamic";
@@ -45,5 +46,12 @@ export default async function TeamsPage() {
   // Always show the selector, even with exactly one team — keeps the flow
   // consistent and gives users a visible way to add another team (dual-sport
   // athletes, multi-team coaches, parents with kids on different teams).
-  return <TeamsView teams={teams} pendingCards={pendingCards} accountName={session.name} />;
+  return (
+    <TeamsView
+      teams={teams}
+      pendingCards={pendingCards}
+      accountName={session.name}
+      photo={entryPhotoForOffset(ENTRY_PHOTO_OFFSET.teams)}
+    />
+  );
 }
