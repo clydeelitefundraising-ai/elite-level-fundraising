@@ -1,3 +1,4 @@
+import { computeCalendarSignature } from "@/lib/calendarSignature";
 import type { AthleteRow, SponsorRow } from "@/lib/supabase";
 import { arizonaTodayISO, type EventType } from "@/lib/calendarShared";
 import { resolvePhotoUrl, type RawCoachInfo } from "@/lib/messages";
@@ -212,6 +213,23 @@ export async function getAnnouncementMeta(
   if (!res.ok) return { count: 0, latestAt: null };
   const rows: { created_at: string }[] = await res.json();
   return { count: rows.length, latestAt: rows[0]?.created_at ?? null };
+}
+
+// TeamRealtimeSync polling replacement — see calendarSignature.ts for why
+// this needs a real content signature (calendar_events has no updated_at,
+// so count+latest(created_at) alone would miss edits) and why the pure
+// hashing logic lives in its own aliased-import-free module.
+export async function getCalendarSignature(
+  slug: string,
+): Promise<{ count: number; signature: string }> {
+  const res = await fetch(
+    `${BASE}/rest/v1/calendar_events?campaign_slug=eq.${encodeURIComponent(slug)}` +
+      `&select=id,title,event_date,event_time,start_time,end_time,location,type,description&order=id.asc`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return { count: 0, signature: computeCalendarSignature([]) };
+  const rows = await res.json();
+  return { count: rows.length, signature: computeCalendarSignature(rows) };
 }
 
 export async function getActiveJoinCode(slug: string): Promise<ActiveJoinCode | null> {
