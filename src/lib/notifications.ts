@@ -63,6 +63,31 @@ export async function getTeamIdBySlug(slug: string): Promise<string | null> {
   return rows[0]?.team_id ?? null;
 }
 
+/**
+ * TeamRealtimeSync polling replacement — a minimal, TEAM-SCOPED (never
+ * global) freshness signal for the sync-status endpoint. Deliberately NOT
+ * getUnreadCount: that function does actor-aware recipient-scope + read-
+ * state cross-referencing, correct to run once per real page render (as
+ * the layout already does), too expensive to re-run every ~45s from a
+ * poll that usually finds nothing changed. This returns only
+ * count/latest-timestamp — never row content (title/body/type/etc.) —
+ * so a poll response can never itself leak notification content, and the
+ * authoritative per-actor unread count is still computed exactly where it
+ * already is today (the layout, via getUnreadCount) once router.refresh()
+ * actually fires.
+ */
+export async function getTeamNotificationMeta(
+  teamId: string,
+): Promise<{ count: number; latestAt: string | null }> {
+  const res = await fetch(
+    `${BASE}/rest/v1/notifications?team_id=eq.${encodeURIComponent(teamId)}&select=created_at&order=created_at.desc`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return { count: 0, latestAt: null };
+  const rows: { created_at: string }[] = await res.json();
+  return { count: rows.length, latestAt: rows[0]?.created_at ?? null };
+}
+
 // ── Write ─────────────────────────────────────────────────────────────────────
 
 export async function createNotification(
