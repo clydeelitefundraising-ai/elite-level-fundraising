@@ -17,3 +17,26 @@ export function buildShareText(athleteFirstName: string, schoolName: string, spo
 export function buildAthleteShareUrl(origin: string, slug: string, athleteId: string): string {
   return `${origin}/campaign/${slug}?athlete=${athleteId}`;
 }
+
+// Open Graph / Twitter title+description for the public campaign page —
+// used by campaign/[slug]/page.tsx's generateMetadata. Pure so it's unit
+// testable without mocking Next's metadata resolution. teamLabel is
+// pre-joined (school + mascot + sport) since callers already build it.
+export function buildCampaignMetadata(input: {
+  athleteName: string | null;
+  teamLabel: string;
+  schoolName: string;
+  sportName: string;
+}): { title: string; description: string } {
+  const { athleteName, teamLabel, schoolName, sportName } = input;
+  if (athleteName) {
+    return {
+      title: `Support ${athleteName} — ${teamLabel || "Elite Level Fundraising"}`,
+      description: buildShareText(athleteName.split(" ")[0], schoolName, sportName),
+    };
+  }
+  return {
+    title: `Support ${teamLabel || "Our Team"} | Elite Level Fundraising`,
+    description: `Support ${teamLabel || "our team"} this season! Every donation helps the team.`,
+  };
+}

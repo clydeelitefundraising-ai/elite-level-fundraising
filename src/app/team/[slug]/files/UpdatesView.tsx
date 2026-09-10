@@ -407,12 +407,14 @@ export default function UpdatesView({
   initialFiles,
   actor,
   athletes,
+  primaryColor,
 }: {
   slug: string;
   initialUpdates: AnnouncementRow[];
   initialFiles: TeamFileRow[];
   actor: TeamActor;
   athletes: { id: string; name: string }[];
+  primaryColor: string;
 }) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -670,7 +672,7 @@ export default function UpdatesView({
 
       {/* ── Standalone files section ── */}
       <div style={{ marginTop: "1.75rem" }}>
-        <FilesView slug={slug} initialFiles={initialFiles} actor={actor} />
+        <FilesView slug={slug} initialFiles={initialFiles} actor={actor} primaryColor={primaryColor} />
       </div>
 
       {/* ── Composer modal ── */}

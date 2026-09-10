@@ -120,6 +120,7 @@ export default function CommunicationsView({
           initialFiles={initialFiles}
           actor={actor}
           athletes={athletes}
+          primaryColor={primaryColor}
         />
       )}
 

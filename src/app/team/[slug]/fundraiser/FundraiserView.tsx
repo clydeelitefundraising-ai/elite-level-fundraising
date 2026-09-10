@@ -522,11 +522,15 @@ function AthleteView({
 
   useEffect(() => {
     import("qrcode").then(QRCode => {
-      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#0b1e3d" } })
+      // `primary` (team's theme color, falling back to ELF navy) — QR
+      // dark-module contrast against a white background stays scannable
+      // for any team color, so this is safe to theme unlike a decorative
+      // accent that might need contrast tuning.
+      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: primary } })
         .then(url => setQrDataUrl(url))
         .catch(() => { /* silently ignore */ });
     });
-  }, [profileUrl]);
+  }, [profileUrl, primary]);
 
   const handleCopy = async () => {
     try {
