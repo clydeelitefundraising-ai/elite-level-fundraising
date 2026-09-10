@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById } from "@/lib/teamData";
+import { resolveTeamLogoUrl } from "@/lib/shareCopy";
 
 // Dynamic share-link preview image for the public campaign/donor page
 // (/campaign/[slug], optionally ?athlete=<id>). Route Handlers (unlike
@@ -12,12 +13,25 @@ import { getAthleteById } from "@/lib/teamData";
 // color (campaign_settings) as the accent, falling back to the ELF brand
 // navy — same "default ELF theme, coach-selected team colors as accent"
 // rule the rest of the app follows (no team color ever hard-coded here).
+//
+// The team's own logo (resolveTeamLogoUrl — same team_photo/logo_url
+// precedence as TeamHeader.tsx's header cluster) is the primary visual
+// here, never an ELF logo standing in for it. Both settings and the logo
+// resolution happen fresh on every request, so editing a team's logo
+// immediately changes newly generated previews with no separate cache to
+// invalidate. When no logo is configured, falls back to the same
+// initials-badge treatment the header falls back to, rather than a
+// separate/invented placeholder.
 export const alt = "Elite Level Fundraising";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const DEFAULT_INK = "#0B1E3D";
 const PAPER = "#F6F5F1";
+
+function initials(name: string): string {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
+}
 
 export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get("slug") ?? "";
@@ -29,6 +43,7 @@ export async function GET(req: NextRequest) {
   const accent = settings?.primary_color || DEFAULT_INK;
   const teamLabel = [settings?.school_name, settings?.mascot, settings?.sport_name].filter(Boolean).join(" ") || "Elite Level Fundraising";
   const heading = athlete ? `Support ${athlete.name}` : `Support ${settings?.school_name ?? "Our Team"}`;
+  const logoUrl = resolveTeamLogoUrl(settings);
 
   return new ImageResponse(
     (
@@ -44,7 +59,34 @@ export async function GET(req: NextRequest) {
           padding: "0 80px",
         }}
       >
-        <div style={{ display: "flex", fontSize: 22, fontWeight: 700, letterSpacing: "0.08em", color: accent, opacity: 0.75, marginBottom: 18 }}>
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            width={120}
+            height={120}
+            style={{ objectFit: "contain", borderRadius: "50%", background: "#FFFFFF", border: `2px solid ${accent}`, marginBottom: 22 }}
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              width: 120,
+              height: 120,
+              borderRadius: "50%",
+              background: "#FFFFFF",
+              border: `2px solid ${accent}`,
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 42,
+              fontWeight: 800,
+              color: DEFAULT_INK,
+              marginBottom: 22,
+            }}
+          >
+            {initials(settings?.school_name || "Elite Level Fundraising")}
+          </div>
+        )}
+        <div style={{ display: "flex", fontSize: 18, fontWeight: 700, letterSpacing: "0.08em", color: accent, opacity: 0.65, marginBottom: 18 }}>
           ELITE LEVEL FUNDRAISING
         </div>
         <div style={{ display: "flex", fontSize: 64, fontWeight: 800, color: DEFAULT_INK, textAlign: "center", letterSpacing: "-0.01em" }}>
