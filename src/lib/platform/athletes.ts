@@ -10,8 +10,8 @@
 // numbers are intentionally not unique; exact-name collisions are an
 // application-level warning, not a DB-level rule) — see Phase 1A plan.
 
-import { restList, restInsert, restUpdate } from "./_client";
-import { generateMemberSalt } from "@/lib/memberAuth";
+import { restList, restInsert, restUpdate } from "./_client.ts";
+import { generateMemberSalt } from "../memberAuth.ts";
 
 export type AthleteRow = {
   id:             string;
@@ -64,6 +64,23 @@ export type PossibleDuplicate = {
 export type LinkMemberResult =
   | { ok: true }
   | { ok: false; reason: "not_found" };
+
+// Safe member-to-athlete linking helper for Phase 1B, now scoped to
+// role="athlete" only (Phase 11a routes role="parent" through
+// parentAccessRequests.ts's approval flow instead — a parent's
+// relationship is never activated immediately). Validates the athlete
+// belongs to the campaign before writing — never links across campaigns,
+// never links to a nonexistent athlete.
+export async function linkMemberToAthlete(
+  memberId: string,
+  athleteId: string,
+  campaignSlug: string,
+): Promise<LinkMemberResult> {
+  const athlete = await validateAthleteForCampaign(athleteId, campaignSlug);
+  if (!athlete) return { ok: false, reason: "not_found" };
+  await restUpdate(`team_members?id=eq.${encodeURIComponent(memberId)}`, { athlete_id: athleteId });
+  return { ok: true };
+}
 
 export type UnlinkedAthleteMember = {
   id:            string;
@@ -203,20 +220,6 @@ export async function validateAthleteForCampaign(
     `athletes?id=eq.${encodeURIComponent(athleteId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=*&limit=1`,
   );
   return rows[0] ?? null;
-}
-
-// Safe member-to-athlete linking helper for Phase 1B. Validates the athlete
-// belongs to the campaign before writing — never links across campaigns,
-// never links to a nonexistent athlete.
-export async function linkMemberToAthlete(
-  memberId: string,
-  athleteId: string,
-  campaignSlug: string,
-): Promise<LinkMemberResult> {
-  const athlete = await validateAthleteForCampaign(athleteId, campaignSlug);
-  if (!athlete) return { ok: false, reason: "not_found" };
-  await restUpdate(`team_members?id=eq.${encodeURIComponent(memberId)}`, { athlete_id: athleteId });
-  return { ok: true };
 }
 
 // Atomic "create the team_members row and link it to a canonical athlete"

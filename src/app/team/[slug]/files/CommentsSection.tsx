@@ -40,9 +40,14 @@ const COLLAPSED_COUNT = 2;
 export default function CommentsSection({
   slug,
   announcementId,
+  leadingSlot,
 }: {
   slug: string;
   announcementId: string;
+  // Rendered on the same row as the comment-count label — used by
+  // UpdateCard to place LikeButton directly beside it, matching the
+  // "👍 18   💬 4 Comments" layout (Phase 11b).
+  leadingSlot?: React.ReactNode;
 }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [body,      setBody]    = useState("");
@@ -75,13 +80,13 @@ export default function CommentsSection({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ body: trimmed }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to post comment."); return; }
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error ?? "Failed to post comment. Please try again."); return; }
       setBody("");
       setExpanded(true);
       load();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setSending(false);
     }
@@ -95,7 +100,8 @@ export default function CommentsSection({
 
   return (
     <div style={{ marginTop: ".55rem", paddingTop: ".55rem", borderTop: "1px solid var(--border-app)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".35rem", marginBottom: approvedCount > 0 || list.length > 0 ? ".5rem" : ".4rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: approvedCount > 0 || list.length > 0 ? ".5rem" : ".4rem" }}>
+        {leadingSlot}
         <MessageCircle size={12} aria-hidden="true" style={{ color: "var(--text-muted-app)" }} />
         <span style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)" }}>
           {approvedCount > 0 ? `${approvedCount} comment${approvedCount !== 1 ? "s" : ""}` : "Comments"}

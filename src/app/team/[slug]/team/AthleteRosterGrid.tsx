@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search, Users, ChevronRight, Pencil, Trash2, ClipboardList } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
+import type { TeamActor } from "@/lib/permissions";
+import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import CoachBar from "../_components/CoachBar";
 import type { AthleteRosterState } from "./useAthleteRoster";
 
@@ -60,6 +62,7 @@ function AthleteRow({
   slug,
   staffMode,
   canDelete,
+  canOpen,
   onEdit,
   onDelete,
 }: {
@@ -67,29 +70,30 @@ function AthleteRow({
   slug: string;
   staffMode: boolean;
   canDelete: boolean;
+  // Whether THIS viewer is authorized to open THIS athlete's profile —
+  // staff always; an athlete only their own row; a parent only a row
+  // they're linked to (see canViewAthleteProfile / team/page.tsx's
+  // linkedAthleteIds). The destination page itself
+  // (team/[slug]/athlete/[id]/page.tsx) re-enforces this server-side via
+  // canAccessAthleteProfile — this is only what drives the tap affordance,
+  // never the actual security boundary.
+  canOpen: boolean;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
 }) {
   const router = useRouter();
   const bg = avatarColor(a.name);
-  // Every row navigates somewhere real: staff go to the staff-facing
-  // profile (edit-capable), everyone else goes to the existing public
-  // athlete profile route — this route already exists and is safe for
-  // any authenticated team member to view; the roster previously gave
-  // non-staff rows no click target at all, this just wires the tap
-  // target to the destination the two-tier profile architecture already
-  // designates for them. No new route, no new permission.
-  const destination = staffMode ? `/team/${slug}/team/${a.id}` : `/athlete/${a.id}`;
+  const destination = staffMode ? `/team/${slug}/team/${a.id}` : `/team/${slug}/athlete/${a.id}`;
   const secondary = [a.class_year, a.event].filter(Boolean).join(" · ");
 
   return (
     <div
-      onClick={() => router.push(destination)}
-      className="elf-list-row elf-focus-ring"
-      style={{ cursor: "pointer", gap: "var(--space-3)" }}
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(destination); } }}
+      onClick={canOpen ? () => router.push(destination) : undefined}
+      className={canOpen ? "elf-list-row elf-focus-ring" : "elf-list-row"}
+      style={{ gap: "var(--space-3)", cursor: canOpen ? "pointer" : "default" }}
+      role={canOpen ? "button" : undefined}
+      tabIndex={canOpen ? 0 : undefined}
+      onKeyDown={canOpen ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(destination); } }) : undefined}
     >
       {a.profile_photo ? (
         <img
@@ -147,7 +151,9 @@ function AthleteRow({
         </div>
       )}
 
-      <ChevronRight size={16} aria-hidden="true" style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+      {canOpen && (
+        <ChevronRight size={16} aria-hidden="true" style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+      )}
     </div>
   );
 }
@@ -156,6 +162,8 @@ export default function AthleteRosterGrid({
   slug,
   roster,
   pendingRequestCount = 0,
+  actor,
+  linkedAthleteIds = [],
 }: {
   slug: string;
   roster: AthleteRosterState;
@@ -163,9 +171,21 @@ export default function AthleteRosterGrid({
   // review/approve pending athlete requests — this is only a small
   // contextual pointer, not the approval workflow itself.
   pendingRequestCount?: number;
+  actor: TeamActor;
+  linkedAthleteIds?: string[];
 }) {
   const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
   const [search, setSearch] = useState("");
+
+  const selfAthleteId = actor.kind === "member" ? actor.session.athlete_id : null;
+  const memberRole = actor.kind === "member" ? actor.session.role : null;
+  const canOpenAthlete = (athleteId: string): boolean => canViewAthleteProfile({
+    isStaffActor: staffMode,
+    memberRole,
+    selfAthleteId,
+    linkedAthleteIds,
+    athleteId,
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -286,6 +306,7 @@ export default function AthleteRosterGrid({
                     slug={slug}
                     staffMode={staffMode}
                     canDelete={canDelete}
+                    canOpen={canOpenAthlete(a.id)}
                     onEdit={openEdit}
                     onDelete={handleDelete}
                   />

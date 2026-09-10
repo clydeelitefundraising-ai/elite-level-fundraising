@@ -9,6 +9,7 @@ import type { AnnouncementRow } from "@/lib/teamData";
 import { staffRoleLabel } from "@/lib/permissions";
 import type { ReadReceiptsResult } from "@/lib/notifications";
 import CommentsSection from "./CommentsSection";
+import LikeButton from "./LikeButton";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import { type RecipientScope, SCOPE_LABELS } from "./useUpdatesWorkspace";
@@ -319,11 +320,16 @@ export function UpdateCard({
         </div>
       )}
 
-      {/* Comments (Phase 3B-2) — reads/writes are already scoped per-viewer
-          server-side, so this renders identically regardless of role. D5
-          explicitly does not change comment presentation — CommentsSection
-          is reused completely unmodified. */}
-      <CommentsSection slug={slug} announcementId={a.id} />
+      {/* Likes (Phase 11b) + Comments (Phase 3B-2) — reads/writes are
+          already scoped per-viewer server-side, so both render identically
+          regardless of role, on both the mobile and desktop presentations
+          (UpdateCard is shared by both — see file header). Likes need no
+          approval, unlike comments. */}
+      <CommentsSection
+        slug={slug}
+        announcementId={a.id}
+        leadingSlot={<LikeButton slug={slug} announcementId={a.id} />}
+      />
     </div>
   );
 }

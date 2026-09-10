@@ -100,7 +100,7 @@ test("buildQuickActions: a non-staff member only gets Send Message + Manage Team
 
 // ─── resolveRequestsCardData ────────────────────────────────────────────────
 
-const SUMMARY: PendingRequestSummary = { athleteRequests: 2, commentApprovals: 1, total: 3 };
+const SUMMARY: PendingRequestSummary = { athleteRequests: 2, commentApprovals: 1, parentAccessRequests: 0, total: 3 };
 
 test("resolveRequestsCardData: visible for Head Coach, with the exact summary passed through", () => {
   assert.deepEqual(resolveRequestsCardData(coachActor("head_coach"), SUMMARY), SUMMARY);

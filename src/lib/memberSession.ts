@@ -18,6 +18,11 @@ export type MemberSession = {
   role: "athlete" | "parent" | "booster";
   campaign_slug: string;
   athlete_id: string | null;
+  // Phase 11a: needed to attribute a parent's additional-child access
+  // request (parent_access_requests.account_id) to the right elf_accounts
+  // row. Legacy team_members rows created before the account system
+  // (Phase 21) may have this null.
+  account_id: string | null;
 };
 
 /**
@@ -34,7 +39,7 @@ export async function getMemberSession(
   if (!memberId) return null;
 
   const res = await fetch(
-    `${BASE}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id,name,role,campaign_slug,athlete_id,salt&limit=1`,
+    `${BASE}/rest/v1/team_members?id=eq.${encodeURIComponent(memberId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id,name,role,campaign_slug,athlete_id,account_id,salt&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return null;
@@ -51,5 +56,6 @@ export async function getMemberSession(
     role: member.role as MemberSession["role"],
     campaign_slug: member.campaign_slug,
     athlete_id: member.athlete_id ?? null,
+    account_id: member.account_id ?? null,
   };
 }

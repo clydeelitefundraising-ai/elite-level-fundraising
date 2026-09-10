@@ -21,11 +21,11 @@
 // membership row is gone can no longer authenticate as that actor at all,
 // so this is not a permission loophole, just an inert column).
 
-import { restList, restInsert, restUpdate, restDelete } from "./_client";
+import { restList, restInsert, restUpdate, restDelete } from "./_client.ts";
 import {
   resolvePhotoUrl, fetchHeadCoaches,
   type ActorKey, type RawCoachInfo, type RawMemberInfo, type RawPlatformAdminInfo,
-} from "@/lib/messages";
+} from "../messages.ts";
 
 export type CommentStatus = "pending" | "approved" | "declined";
 
@@ -126,7 +126,8 @@ const MAX_COMMENT_LENGTH = 1000;
 export type CreateCommentResult =
   | { ok: true;  comment: ResolvedComment; announcementTitle: string }
   | { ok: false; reason: "validation"; message: string }
-  | { ok: false; reason: "announcement_not_found" };
+  | { ok: false; reason: "announcement_not_found" }
+  | { ok: false; reason: "server_error"; message: string };
 
 // isHeadCoachAuthor/authorName/authorRole are all passed in (computed by
 // the caller from the resolved session — actor.session.name/role, the
@@ -178,7 +179,13 @@ export async function createComment(input: {
     decided_at:                  now,
   };
 
-  const rows = await restInsert<RawComment>(`announcement_comments?select=${COMMENT_SELECT}`, payload);
+  let rows: RawComment[];
+  try {
+    rows = await restInsert<RawComment>(`announcement_comments?select=${COMMENT_SELECT}`, payload);
+  } catch (err) {
+    console.error("[platform/comments] createComment insert failed:", err);
+    return { ok: false, reason: "server_error", message: "Failed to post comment. Please try again." };
+  }
   const raw = rows[0];
   return { ok: true, comment: { ...resolveDisplay(raw), is_own: true }, announcementTitle: announcement.title };
 }
@@ -227,7 +234,8 @@ export async function getPendingCommentApprovalCount(campaignSlug: string): Prom
 export type DecideCommentResult =
   | { ok: true;  comment: { id: string; status: CommentStatus } }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "already_decided" };
+  | { ok: false; reason: "already_decided" }
+  | { ok: false; reason: "server_error" };
 
 // Single atomic conditional UPDATE (WHERE status='pending') — the exact
 // claim-before-mutate pattern already proven race-safe by
@@ -244,17 +252,23 @@ async function decide(
   decidedBy:    Extract<ActorKey, { kind: "coach" | "platform_admin" }>,
   status:       "approved" | "declined",
 ): Promise<DecideCommentResult> {
-  const rows = await restUpdate<AnnouncementCommentRow>(
-    `announcement_comments?id=eq.${encodeURIComponent(commentId)}` +
-    `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&status=eq.pending`,
-    {
-      status,
-      decided_by_coach_id:          decidedBy.kind === "coach"          ? decidedBy.id : null,
-      decided_by_platform_admin_id: decidedBy.kind === "platform_admin" ? decidedBy.id : null,
-      decided_at:          new Date().toISOString(),
-      updated_at:          new Date().toISOString(),
-    },
-  );
+  let rows: AnnouncementCommentRow[];
+  try {
+    rows = await restUpdate<AnnouncementCommentRow>(
+      `announcement_comments?id=eq.${encodeURIComponent(commentId)}` +
+      `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&status=eq.pending`,
+      {
+        status,
+        decided_by_coach_id:          decidedBy.kind === "coach"          ? decidedBy.id : null,
+        decided_by_platform_admin_id: decidedBy.kind === "platform_admin" ? decidedBy.id : null,
+        decided_at:          new Date().toISOString(),
+        updated_at:          new Date().toISOString(),
+      },
+    );
+  } catch (err) {
+    console.error("[platform/comments] decide update failed:", err);
+    return { ok: false, reason: "server_error" };
+  }
   if (!rows[0]) {
     const check = await restList<{ id: string }>(
       `announcement_comments?id=eq.${encodeURIComponent(commentId)}` +
@@ -280,7 +294,8 @@ export function declineComment(
 export type DeleteCommentResult =
   | { ok: true }
   | { ok: false; reason: "not_found" }
-  | { ok: false; reason: "forbidden" };
+  | { ok: false; reason: "forbidden" }
+  | { ok: false; reason: "server_error" };
 
 // Conservative first version (explicit instruction — no editing at all):
 // the author may delete their own comment in any status; the Head Coach
@@ -301,7 +316,12 @@ export async function deleteComment(
     return { ok: false, reason: "forbidden" };
   }
 
-  await restDelete(`announcement_comments?id=eq.${encodeURIComponent(commentId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}`);
+  try {
+    await restDelete(`announcement_comments?id=eq.${encodeURIComponent(commentId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}`);
+  } catch (err) {
+    console.error("[platform/comments] deleteComment failed:", err);
+    return { ok: false, reason: "server_error" };
+  }
   return { ok: true };
 }
 

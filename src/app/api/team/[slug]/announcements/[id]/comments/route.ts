@@ -66,6 +66,9 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (result.reason === "announcement_not_found") {
       return NextResponse.json({ error: "Announcement not found." }, { status: 404 });
     }
+    if (result.reason === "server_error") {
+      return NextResponse.json({ error: result.message }, { status: 500 });
+    }
     return NextResponse.json({ error: result.message }, { status: 400 });
   }
 

@@ -7,6 +7,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
 import styles from "./Fundraiser.module.css";
+import { buildShareText } from "@/lib/shareCopy";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -411,6 +412,7 @@ function ClaimView({ slug, roster }: ClaimMode) {
   const [selected, setSelected] = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
+  const [pending,  setPending]  = useState(false);
   const primary = "var(--team-primary)";
 
   const handleSave = async () => {
@@ -425,6 +427,10 @@ function ClaimView({ slug, roster }: ClaimMode) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to link profile."); return; }
+      // Parent role: this is now a pending request, not immediate access
+      // (Phase 11a) — show the "sent for approval" state instead of
+      // refreshing into a dashboard the parent doesn't have access to yet.
+      if (data.pending) { setPending(true); return; }
       router.refresh();
     } catch {
       setError("Connection error. Please try again.");
@@ -432,6 +438,26 @@ function ClaimView({ slug, roster }: ClaimMode) {
       setSaving(false);
     }
   };
+
+  if (pending) {
+    return (
+      <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+        <div style={{
+          background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "2rem 1.25rem",
+          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          borderTop: `4px solid ${primary}`, textAlign: "center",
+        }}>
+          <div style={{ fontSize: "2rem", marginBottom: ".6rem" }}>⏳</div>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)", marginBottom: ".4rem" }}>
+            Request Sent
+          </div>
+          <p style={{ margin: 0, fontSize: ".85rem", color: "var(--text-muted-app)", lineHeight: 1.6 }}>
+            Your request has been sent to the Head Coach for approval. You&rsquo;ll get access once it&rsquo;s approved.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -560,7 +586,11 @@ function AthleteView({
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: `Support ${athlete.name}`, text: `Help ${firstName} reach their fundraising goal!`, url: profileUrl });
+        await navigator.share({
+          title: `Support ${athlete.name}`,
+          text: buildShareText(firstName, settings?.school_name ?? "", settings?.sport_name ?? ""),
+          url: profileUrl,
+        });
       } catch { /* cancelled */ }
     } else {
       handleCopy();

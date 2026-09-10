@@ -186,7 +186,7 @@ function RequestsEntry({ slug, summary }: { slug: string; summary: PendingReques
         <div style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--text-primary-app)" }}>Approvals</div>
         <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted-app)", marginTop: 2 }}>
           {hasPending
-            ? `${summary.athleteRequests} athlete · ${summary.commentApprovals} comment`
+            ? `${summary.athleteRequests} athlete · ${summary.commentApprovals} comment · ${summary.parentAccessRequests} parent`
             : "You're all caught up"}
         </div>
       </div>

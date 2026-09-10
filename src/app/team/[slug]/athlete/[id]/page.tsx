@@ -1,18 +1,29 @@
 import { notFound } from "next/navigation";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
+import { requireTeamMembership, canAccessAthleteProfile } from "@/lib/permissions.server";
 import AthleteProfileView from "./AthleteProfileView";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_ATHLETE_GOAL_CENTS = 50_000; // $500
 
+// This is the internal, member-facing athlete profile (fundraising detail,
+// donor list, etc.) — NOT the public donor/share page, which is
+// /campaign/[slug]?athlete=[id] and intentionally stays unauthenticated.
+// Access here is restricted to staff, the athlete themself, or a parent
+// linked to this athlete — see canAccessAthleteProfile() for the exact
+// rule. Hiding the roster's click affordance for unauthorized rows
+// (TeamView.tsx) is a UX nicety only; this check is the real boundary.
 export default async function AthleteProfilePage({
   params,
 }: {
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
+
+  const actor = await requireTeamMembership(slug);
+  if (!(await canAccessAthleteProfile(actor, id))) notFound();
 
   const [athlete, athletes, donations, settings] = await Promise.all([
     getAthleteById(id),

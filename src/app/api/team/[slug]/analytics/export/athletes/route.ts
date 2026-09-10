@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
-import { getTeamAthletes } from "@/lib/teamData";
+import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap } from "@/lib/teamData";
+import { FOLLOW_UP_STATUS_LABEL } from "@/lib/followUps";
 
 function csvField(val: string | number | null | undefined): string {
   if (val == null) return "";
@@ -24,10 +25,12 @@ export async function GET(
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return new Response("Unauthorized", { status: 401 });
 
-  const [athletes, donations, settings] = await Promise.all([
+  const [athletes, donations, settings, contactCounts, outreachMap] = await Promise.all([
     getTeamAthletes(slug),
     getDonations(slug),
     getCampaignSettings(slug),
+    getContactCountsByAthlete(slug),
+    getOutreachMap(slug),
   ]);
   const campaignDefaultGoal = settings?.default_athlete_goal_cents ?? null;
 
@@ -60,8 +63,9 @@ export async function GET(
     .map((a, i) => ({ ...a, rank: i + 1 }));
 
   const header = [
-    "Rank", "Name", "Event", "Jersey #", "Grad Year",
-    "Amount Raised", "Goal", "% of Goal", "Donor Count",
+    "Rank", "Name", "Grade", "Event", "Jersey #", "Grad Year",
+    "Fundraising Contacts", "Donor Count", "Amount Raised", "Goal", "% of Goal",
+    "Follow-Up Status", "Last Outreach",
   ].join(",");
 
   const rows = ranked.map(a => {
@@ -69,25 +73,33 @@ export async function GET(
     const pct = effectiveGoal && effectiveGoal > 0
       ? `${Math.min(100, Math.round((a.raisedCents / effectiveGoal) * 100))}%`
       : "";
+    const outreach = outreachMap[a.id] ?? null;
     return [
       csvField(a.rank),
       csvField(a.name),
+      csvField(a.class_year ?? (a.grad_year ? `Class of ${a.grad_year}` : "")),
       csvField(a.event),
       csvField(a.jersey_number),
       csvField(a.grad_year),
+      csvField(contactCounts[a.id] ?? 0),
+      csvField(a.donorCount),
       csvField(`$${(a.raisedCents / 100).toFixed(2)}`),
       csvField(effectiveGoal != null ? `$${(effectiveGoal / 100).toFixed(2)}` : ""),
       csvField(pct),
-      csvField(a.donorCount),
+      csvField(outreach ? FOLLOW_UP_STATUS_LABEL[outreach.status] : ""),
+      csvField(outreach?.created_at ? outreach.created_at.slice(0, 10) : ""),
     ].join(",");
   });
 
-  const csv = [header, ...rows].join("\n");
+  // Leading UTF-8 BOM + CRLF endings so Excel opens this cleanly, matching
+  // the convention already established in lib/followUps.ts's CSV builder.
+  const BOM = "﻿";
+  const csv = BOM + [header, ...rows].join("\r\n") + "\r\n";
 
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="athletes-${slug}-${today()}.csv"`,
+      "Content-Disposition": `attachment; filename="athlete-report-${slug}-${today()}.csv"`,
     },
   });
 }

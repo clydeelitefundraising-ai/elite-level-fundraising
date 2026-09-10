@@ -88,11 +88,12 @@ function signApnsJwt(): string | null {
 
 // ── Payload construction (pure, privacy-safe) ────────────────────────────────
 
-export type ApnsAlertKind = "announcement" | "file_upload" | "calendar_event" | "message" | "request";
+export type ApnsAlertKind = "announcement" | "file_upload" | "calendar_event" | "message" | "request" | "request_approved";
 
 export type ApnsAlertContext = {
   actorName?: string;   // e.g. the coach/sender's display name
   eventTitle?: string;  // calendar event title
+  teamLabel?: string;   // e.g. school + sport, for a request-approved alert
 };
 
 /** Pure — builds the lock-screen-safe title/body for each category. No full
@@ -111,6 +112,8 @@ export function buildApnsAlert(kind: ApnsAlertKind, ctx: ApnsAlertContext): { ti
       return { title: "Calendar", body: ctx.eventTitle ? `Practice schedule updated: ${ctx.eventTitle}` : "Practice schedule updated" };
     case "request":
       return { title: "Team Request", body: "A new team request needs review" };
+    case "request_approved":
+      return { title: "Request Approved", body: ctx.teamLabel ? `Your request to join ${ctx.teamLabel} was approved!` : "Your team request was approved!" };
   }
 }
 

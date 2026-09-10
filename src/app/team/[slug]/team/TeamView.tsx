@@ -29,6 +29,7 @@ export default function TeamView({
   attribution,
   contactCounts,
   outreachMap,
+  linkedAthleteIds = [],
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
@@ -37,6 +38,10 @@ export default function TeamView({
   attribution: AttributionTotals;
   contactCounts: Record<string, number>;
   outreachMap: Record<string, OutreachCurrentRow>;
+  // Athlete ids this actor (a parent) is linked to — server-computed
+  // (team/page.tsx, via getLinkedAthleteIds). Empty for staff/athlete
+  // actors, who use a different rule in AthleteRosterGrid.
+  linkedAthleteIds?: string[];
 }) {
   const roster = useAthleteRoster(slug, initialAthletes, actor);
   const showDesktop = shouldShowDesktopRoster(actor);
@@ -50,7 +55,13 @@ export default function TeamView({
           component, same internal role gates, just no longer suppressed
           with nothing to replace it. See Team.module.css. */}
       <div className={showDesktop ? styles.mobileOnly : styles.memberRosterDesktop}>
-        <AthleteRosterGrid slug={slug} roster={roster} pendingRequestCount={pendingRequestCount} />
+        <AthleteRosterGrid
+          slug={slug}
+          roster={roster}
+          pendingRequestCount={pendingRequestCount}
+          actor={actor}
+          linkedAthleteIds={linkedAthleteIds}
+        />
       </div>
       {showDesktop && (
         <div className={styles.desktopOnly}>

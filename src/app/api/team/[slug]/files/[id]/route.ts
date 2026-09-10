@@ -16,8 +16,9 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 // slug. Proxied through the server so the team-files bucket stays private
 // and no Supabase signed-URL token round-trip is needed (avoids JWT path
 // mismatch errors that occur with some Supabase storage versions).
-export async function GET(_req: NextRequest, { params }: RouteContext) {
+export async function GET(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const inline = req.nextUrl.searchParams.get("mode") === "view";
 
   const actor = await getTeamActor(slug);
   if (actor.kind === "public") {
@@ -52,10 +53,11 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
   const contentType = fileRes.headers.get("Content-Type") ?? "application/octet-stream";
   const safeFilename = encodeURIComponent(name).replace(/%20/g, "+");
 
+  const disposition = inline ? "inline" : "attachment";
   return new NextResponse(fileRes.body, {
     headers: {
       "Content-Type":        contentType,
-      "Content-Disposition": `attachment; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`,
+      "Content-Disposition": `${disposition}; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`,
       "Cache-Control":       "private, max-age=1800",
     },
   });

@@ -5,7 +5,9 @@ import { getCoachSession } from "@/lib/teamSession";
 import { getMemberSession } from "@/lib/memberSession";
 import { getAccountSession, getActorForAccount } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
-import type { TeamActor } from "@/lib/permissions";
+import { isStaff, type TeamActor } from "@/lib/permissions";
+import { getLinkedAthleteIds } from "@/lib/teamData";
+import { canViewAthleteProfile } from "@/lib/athleteAccess";
 
 export type { TeamActor } from "@/lib/permissions";
 export { isStaff, isHeadCoach, isCoachOnly, isMember, isPlatformAdmin, coachSession, isHeadCoachRole, staffRoleLabel, canWrite } from "@/lib/permissions";
@@ -73,4 +75,34 @@ export async function requireTeamMembership(slug: string): Promise<AuthedTeamAct
   const account = await getAccountSession();
   if (account) redirect("/teams");
   redirect("/login");
+}
+
+/** Authorization for a single athlete's private profile/fundraising data
+ *  (`/team/[slug]/team/[id]` for staff, `/team/[slug]/athlete/[id]` for
+ *  members) — as opposed to the public donor page
+ *  (`/campaign/[slug]?athlete=[id]`), which intentionally stays
+ *  unauthenticated. Staff (coach/booster/platform admin — isStaff() already
+ *  covers all three) always allowed. An athlete may only view their own
+ *  profile. A parent may only view athlete(s) they are actually linked to
+ *  (legacy single athlete_id + team_member_athletes for multi-child
+ *  support — see getLinkedAthleteIds). Everyone else, including a
+ *  different athlete's own account, is denied — mirroring the UI's
+ *  per-row click gating (AthleteRosterGrid.tsx) is not sufficient on its
+ *  own; this is the actual security boundary. */
+export async function canAccessAthleteProfile(actor: TeamActor, athleteId: string): Promise<boolean> {
+  if (isStaff(actor)) return true;
+  if (actor.kind !== "member") return false;
+
+  const { session } = actor;
+  const linkedAthleteIds = session.role === "parent"
+    ? await getLinkedAthleteIds(session.id, session.athlete_id)
+    : [];
+
+  return canViewAthleteProfile({
+    isStaffActor:     false,
+    memberRole:       session.role,
+    selfAthleteId:    session.athlete_id,
+    linkedAthleteIds,
+    athleteId,
+  });
 }
