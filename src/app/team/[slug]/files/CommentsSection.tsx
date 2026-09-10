@@ -39,9 +39,14 @@ const COLLAPSED_COUNT = 2;
 export default function CommentsSection({
   slug,
   announcementId,
+  leadingSlot,
 }: {
   slug: string;
   announcementId: string;
+  // Rendered on the same row as the "💬 N comments" label — used by
+  // UpdateCard to place LikeButton directly beside it, matching the
+  // "👍 18   💬 4 Comments" layout (Phase 11b).
+  leadingSlot?: React.ReactNode;
 }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [body,      setBody]    = useState("");
@@ -94,7 +99,8 @@ export default function CommentsSection({
 
   return (
     <div style={{ marginTop: ".55rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".35rem", marginBottom: approvedCount > 0 || list.length > 0 ? ".5rem" : ".4rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: approvedCount > 0 || list.length > 0 ? ".5rem" : ".4rem" }}>
+        {leadingSlot}
         <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280" }}>
           {approvedCount > 0 ? `💬 ${approvedCount} comment${approvedCount !== 1 ? "s" : ""}` : "Comments"}
         </span>

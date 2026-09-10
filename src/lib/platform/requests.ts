@@ -9,17 +9,25 @@
 // field + one more await here if a third category is ever added).
 import { getPendingRequestCount } from "./athleteRequests";
 import { getPendingCommentApprovalCount } from "./comments";
+import { getPendingRequestCount as getPendingParentAccessRequestCount } from "./parentAccessRequests";
 
 export type PendingRequestSummary = {
   athleteRequests: number;
   commentApprovals: number;
+  parentAccessRequests: number;
   total: number;
 };
 
 export async function getPendingRequestSummary(campaignSlug: string): Promise<PendingRequestSummary> {
-  const [athleteRequests, commentApprovals] = await Promise.all([
+  const [athleteRequests, commentApprovals, parentAccessRequests] = await Promise.all([
     getPendingRequestCount(campaignSlug),
     getPendingCommentApprovalCount(campaignSlug),
+    getPendingParentAccessRequestCount(campaignSlug),
   ]);
-  return { athleteRequests, commentApprovals, total: athleteRequests + commentApprovals };
+  return {
+    athleteRequests,
+    commentApprovals,
+    parentAccessRequests,
+    total: athleteRequests + commentApprovals + parentAccessRequests,
+  };
 }

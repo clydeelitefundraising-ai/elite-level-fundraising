@@ -21,11 +21,11 @@
 // membership row is gone can no longer authenticate as that actor at all,
 // so this is not a permission loophole, just an inert column).
 
-import { restList, restInsert, restUpdate, restDelete } from "./_client";
+import { restList, restInsert, restUpdate, restDelete } from "./_client.ts";
 import {
   resolvePhotoUrl, fetchHeadCoaches,
   type ActorKey, type RawCoachInfo, type RawMemberInfo,
-} from "@/lib/messages";
+} from "../messages.ts";
 
 export type CommentStatus = "pending" | "approved" | "declined";
 

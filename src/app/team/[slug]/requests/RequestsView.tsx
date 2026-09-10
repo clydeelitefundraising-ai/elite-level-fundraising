@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import AthleteRequestsPanel from "./AthleteRequestsPanel";
 import CommentApprovalsPanel from "./CommentApprovalsPanel";
+import ParentAccessRequestsPanel from "./ParentAccessRequestsPanel";
 
 // ── Section wrapper (Phase 3B-1) ────────────────────────────────────────────
 //
@@ -58,6 +59,7 @@ export default function RequestsView({
 }) {
   const [athleteRequestCount, setAthleteRequestCount] = useState(0);
   const [commentApprovalCount, setCommentApprovalCount] = useState(0);
+  const [parentAccessRequestCount, setParentAccessRequestCount] = useState(0);
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -88,6 +90,15 @@ export default function RequestsView({
           slug={slug}
           onCountChange={setCommentApprovalCount}
           emptyState={<EmptyRow message="No pending comment approvals." />}
+          hideHeader
+        />
+      </RequestSection>
+
+      <RequestSection title="Parent Access Requests" count={parentAccessRequestCount}>
+        <ParentAccessRequestsPanel
+          slug={slug}
+          onCountChange={setParentAccessRequestCount}
+          emptyState={<EmptyRow message="No pending parent access requests." />}
           hideHeader
         />
       </RequestSection>

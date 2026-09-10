@@ -76,6 +76,11 @@ export async function getActorForAccount(
           role:          m.role as "athlete" | "parent" | "booster",
           campaign_slug: m.campaign_slug,
           athlete_id:    m.athlete_id ?? null,
+          // Resolved from the account that authenticated this session —
+          // always known here (unlike the legacy-cookie path in
+          // memberSession.ts), since getActorForAccount() only reaches
+          // this branch by matching team_members.account_id === account.id.
+          account_id:    account.id,
         },
       };
     }

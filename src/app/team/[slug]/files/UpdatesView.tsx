@@ -9,6 +9,7 @@ import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import FilesView from "./FilesView";
 import CommentsSection from "./CommentsSection";
+import LikeButton from "./LikeButton";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 
@@ -213,6 +214,7 @@ function UpdateCard({
   canDelete,
   onEdit,
   onDelete,
+  primaryColor,
 }: {
   a: AnnouncementRow;
   slug: string;
@@ -220,6 +222,7 @@ function UpdateCard({
   canDelete: boolean;
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
+  primaryColor: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
@@ -371,9 +374,14 @@ function UpdateCard({
         </div>
       )}
 
-      {/* Comments (Phase 3B-2) — reads/writes are already scoped per-viewer
-          server-side, so this renders identically regardless of role. */}
-      <CommentsSection slug={slug} announcementId={a.id} />
+      {/* Likes (Phase 11b) + Comments (Phase 3B-2) — reads/writes are
+          already scoped per-viewer server-side, so both render identically
+          regardless of role. Likes need no approval, unlike comments. */}
+      <CommentsSection
+        slug={slug}
+        announcementId={a.id}
+        leadingSlot={<LikeButton slug={slug} announcementId={a.id} primaryColor={primaryColor} />}
+      />
     </div>
   );
 }
@@ -646,25 +654,25 @@ export default function UpdatesView({
           {pinned.length > 0 && (
             <>
               <SectionLabel label="📌 Pinned" />
-              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} primaryColor={primaryColor} />)}
             </>
           )}
           {todayItems.length > 0 && (
             <>
               <SectionLabel label="Today" />
-              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} primaryColor={primaryColor} />)}
             </>
           )}
           {yesterdayItems.length > 0 && (
             <>
               <SectionLabel label="Yesterday" />
-              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} primaryColor={primaryColor} />)}
             </>
           )}
           {earlierItems.length > 0 && (
             <>
               <SectionLabel label="Earlier" />
-              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} primaryColor={primaryColor} />)}
             </>
           )}
         </>
