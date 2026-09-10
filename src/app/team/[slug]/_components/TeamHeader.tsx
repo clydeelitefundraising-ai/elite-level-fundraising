@@ -48,27 +48,27 @@ export default function TeamHeader({
     // (already branding_customized-aware through the shell root's CSS
     // vars, unlike the old raw settings.secondary_color read).
     <div id="elf-team-header" style={{ background: "var(--canvas)", color: "var(--text-primary-app)", borderBottom: "1px solid var(--border-app)" }}>
-      {/* ELF product-identity strip — top-left, above team identity.
-          Compact (no vertical padding of its own beyond a small top gap)
-          so the header doesn't grow taller than necessary. Team stays the
-          larger, primary identity in the row below. */}
-      <div style={{ padding: ".5rem 1rem 0" }}>
-        <ElfMark />
-      </div>
-
       <div style={{ padding: ".55rem 1rem .85rem", display: "flex", alignItems: "center", gap: ".85rem" }}>
-        {/* Team avatar */}
-        {(settings.team_photo || settings.logo_url) ? (
-          <img
-            src={settings.team_photo || settings.logo_url}
-            alt={settings.school_name}
-            style={{ width: 44, height: 44, objectFit: "contain", flexShrink: 0, borderRadius: "50%", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", padding: 3 }}
-          />
-        ) : (
-          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".95rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
-            {initials(settings.school_name)}
-          </div>
-        )}
+        {/* ELF + school/team logo — a paired brand cluster ("TEAM =
+            content identity, ELF = product identity") rather than the
+            ELF mark stacked in its own strip above. Tighter internal gap
+            than the row's own gap so the two logos read as one grouped
+            unit, distinct from the team-identity text block beside them. */}
+        <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexShrink: 0 }}>
+          <ElfMark />
+
+          {(settings.team_photo || settings.logo_url) ? (
+            <img
+              src={settings.team_photo || settings.logo_url}
+              alt={settings.school_name}
+              style={{ width: 44, height: 44, objectFit: "contain", flexShrink: 0, borderRadius: "50%", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", padding: 3 }}
+            />
+          ) : (
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".95rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
+              {initials(settings.school_name)}
+            </div>
+          )}
+        </div>
 
         {/* Team identity */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -82,9 +82,9 @@ export default function TeamHeader({
           )}
         </div>
 
-        {/* Icon tray — notifications + account/settings only. The ELF
-            product mark now lives in its own strip above (top-left);
-            this tray stays top-right utility controls only. */}
+        {/* Icon tray — top-right utility controls only (notifications +
+            account/settings). The ELF product mark lives in the logo
+            cluster on the left, not here. */}
         <div style={{ display: "flex", gap: ".4rem", flexShrink: 0, alignItems: "center" }}>
           {showBell && (
             <NotificationBell
