@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
+import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
+import Modal from "../_components/Modal";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -345,7 +348,40 @@ function TopDonorsCard({ topDonors }: { topDonors: TopDonor[] }) {
 
 // ── Export card ───────────────────────────────────────────────────────────────
 
+// Minimal RFC-4180-ish CSV parser (handles quoted fields with embedded
+// commas/newlines/escaped quotes) — enough to render the report as a table
+// in the View modal without re-fetching structured JSON from the server.
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(field); field = "";
+    } else if (c === "\r") {
+      // skip
+    } else if (c === "\n") {
+      row.push(field); field = ""; rows.push(row); row = [];
+    } else field += c;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 1 || r[0] !== "");
+}
+
 function ExportCard({ slug }: { slug: string }) {
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [viewing, setViewing] = useState<{ title: string; rows: string[][] } | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+
   const btn: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
     width: "100%", padding: ".7rem",
@@ -353,6 +389,31 @@ function ExportCard({ slug }: { slug: string }) {
     border: "1.5px solid #e5e7eb", borderRadius: 10,
     fontSize: ".85rem", fontWeight: 600, textDecoration: "none", cursor: "pointer",
     boxSizing: "border-box",
+  };
+  const ghostBtn: React.CSSProperties = { ...btn, background: "#fff", fontSize: ".78rem", padding: ".5rem" };
+
+  const download = async (key: string, path: string) => {
+    setDownloading(key); setError("");
+    try {
+      await downloadViaFetch(`/api/team/${slug}/analytics/export/${path}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Download failed.");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const view = async (title: string, path: string) => {
+    setViewLoading(true); setError("");
+    try {
+      const { blob } = await fetchFileBlob(`/api/team/${slug}/analytics/export/${path}`);
+      const text = await blob.text();
+      setViewing({ title, rows: parseCsv(text) });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load report.");
+    } finally {
+      setViewLoading(false);
+    }
   };
 
   return (
@@ -364,13 +425,51 @@ function ExportCard({ slug }: { slug: string }) {
       </div>
 
       <div style={{ padding: ".875rem 1.25rem", display: "flex", flexDirection: "column", gap: ".55rem" }}>
-        <a href={`/api/team/${slug}/analytics/export/donations`} style={btn}>
-          ↓ Download Donations CSV
-        </a>
-        <a href={`/api/team/${slug}/analytics/export/athletes`} style={btn}>
-          ↓ Download Athlete Report CSV
-        </a>
+        <button onClick={() => download("donations", "donations")} disabled={downloading === "donations"} style={btn}>
+          {downloading === "donations" ? "Preparing…" : "↓ Download Donations CSV"}
+        </button>
+
+        <button onClick={() => download("athletes", "athletes")} disabled={downloading === "athletes"} style={btn}>
+          {downloading === "athletes" ? "Preparing…" : "↓ Download Athlete Report CSV"}
+        </button>
+        <button onClick={() => view("Athlete Report", "athletes")} disabled={viewLoading} style={ghostBtn}>
+          {viewLoading ? "Loading…" : "View Athlete Report"}
+        </button>
+
+        {error && (
+          <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".78rem" }}>
+            {error}
+          </p>
+        )}
       </div>
+
+      {viewing && (
+        <Modal title={viewing.title} onClose={() => setViewing(null)}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", fontSize: ".72rem" }}>
+              <thead>
+                <tr>
+                  {viewing.rows[0]?.map((h, i) => (
+                    <th key={i} style={{ textAlign: "left", padding: ".4rem .55rem", borderBottom: "2px solid #e5e7eb", color: "#374151", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {viewing.rows.slice(1).map((r, ri) => (
+                  <tr key={ri}>
+                    {r.map((cell, ci) => (
+                      <td key={ci} style={{ padding: ".4rem .55rem", borderBottom: "1px solid #f3f4f6", color: "#111827", whiteSpace: "nowrap" }}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {viewing.rows.length <= 1 && (
+              <p style={{ textAlign: "center", color: "#9ca3af", fontSize: ".82rem", margin: "1rem 0" }}>No data yet.</p>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -5,6 +5,11 @@ import type { TeamFileRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
+
+// Only these can be shown inline (img/iframe) in the VIEW modal. DOC/DOCX
+// has no in-WebView preview path — those fall back to Download-only.
+const PREVIEWABLE_TYPES = new Set(["pdf", "image"]);
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -70,10 +75,12 @@ export default function FilesView({
   slug,
   initialFiles,
   actor,
+  primaryColor = "#0b1e3d",
 }: {
   slug: string;
   initialFiles: TeamFileRow[];
   actor: TeamActor;
+  primaryColor?: string;
 }) {
   const canUpload = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -88,7 +95,50 @@ export default function FilesView({
   const [editSaving,   setEditSaving]   = useState(false);
   const [editError,    setEditError]    = useState("");
   const [hoveredId,    setHoveredId]    = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<{ id: string; message: string } | null>(null);
+  const [viewingFile,  setViewingFile]  = useState<TeamFileRow | null>(null);
+  const [viewUrl,      setViewUrl]      = useState<string | null>(null);
+  const [viewLoading,  setViewLoading]  = useState(false);
+  const [viewError,    setViewError]    = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── View / Download ──
+
+  const openView = async (file: TeamFileRow) => {
+    setViewingFile(file);
+    setViewUrl(null);
+    setViewError("");
+    if (!PREVIEWABLE_TYPES.has(file.file_type)) return;
+    setViewLoading(true);
+    try {
+      const { blob } = await fetchFileBlob(`/api/team/${slug}/files/${file.id}?mode=view`);
+      setViewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setViewError(err instanceof Error ? err.message : "Failed to load preview.");
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeView = () => {
+    if (viewUrl) URL.revokeObjectURL(viewUrl);
+    setViewingFile(null);
+    setViewUrl(null);
+    setViewError("");
+  };
+
+  const handleDownloadFile = async (file: TeamFileRow) => {
+    setDownloadingId(file.id);
+    setDownloadError(null);
+    try {
+      await downloadViaFetch(`/api/team/${slug}/files/${file.id}`, file.name);
+    } catch (err) {
+      setDownloadError({ id: file.id, message: err instanceof Error ? err.message : "Download failed." });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // ── Upload ──
 
@@ -226,7 +276,7 @@ export default function FilesView({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           style={{
-            border: `2px dashed ${dragOver ? "#0b1e3d" : "#d1d5db"}`,
+            border: `2px dashed ${dragOver ? primaryColor : "#d1d5db"}`,
             borderRadius: 12,
             padding: "1.5rem 1rem",
             textAlign: "center",
@@ -237,7 +287,7 @@ export default function FilesView({
           }}
         >
           <div style={{ fontSize: "1.5rem", marginBottom: ".35rem", opacity: dragOver ? 1 : .5 }}>☁️</div>
-          <div style={{ fontSize: ".82rem", fontWeight: 700, color: dragOver ? "#0b1e3d" : "#6b7280" }}>
+          <div style={{ fontSize: ".82rem", fontWeight: 700, color: dragOver ? primaryColor : "#6b7280" }}>
             {dragOver ? "Drop to upload" : "Tap to upload"}
           </div>
           <div style={{ fontSize: ".68rem", color: "#9ca3af", marginTop: ".2rem" }}>
@@ -257,7 +307,7 @@ export default function FilesView({
           </div>
           <div style={{ background: "#f3f4f6", borderRadius: 100, height: 8, overflow: "hidden" }}>
             <div style={{
-              background: "linear-gradient(90deg, #0b1e3d, #1e4d7b)",
+              background: primaryColor,
               borderRadius: 100,
               height: "100%",
               width: `${progress}%`,
@@ -358,29 +408,52 @@ export default function FilesView({
                       )}
                     </div>
                   )}
+                  {downloadError?.id === file.id && (
+                    <div style={{ fontSize: ".65rem", color: "#dc2626", marginTop: ".2rem" }}>{downloadError.message}</div>
+                  )}
                 </div>
 
-                {/* Download — navy pill */}
-                <a
-                  href={`/api/team/${slug}/files/${file.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    flexShrink: 0,
-                    padding: ".35rem .7rem",
-                    background: hovered ? "#1e4d7b" : "#0b1e3d",
-                    color: "#fff",
-                    borderRadius: 8,
-                    fontSize: ".72rem",
-                    fontWeight: 700,
-                    textDecoration: "none",
-                    whiteSpace: "nowrap",
-                    letterSpacing: ".01em",
-                    transition: "background .13s ease",
-                  }}
-                >
-                  ↓ Download
-                </a>
+                {/* View + Download */}
+                <div style={{ display: "flex", gap: ".35rem", flexShrink: 0 }}>
+                  {PREVIEWABLE_TYPES.has(file.file_type) && (
+                    <button
+                      onClick={() => openView(file)}
+                      style={{
+                        padding: ".35rem .6rem",
+                        background: "#f3f4f6",
+                        color: "#374151",
+                        border: "none",
+                        borderRadius: 8,
+                        fontSize: ".72rem",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                        cursor: "pointer",
+                      }}
+                    >
+                      View
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDownloadFile(file)}
+                    disabled={downloadingId === file.id}
+                    style={{
+                      padding: ".35rem .7rem",
+                      background: primaryColor,
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontSize: ".72rem",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      letterSpacing: ".01em",
+                      transition: "background .13s ease",
+                      cursor: downloadingId === file.id ? "default" : "pointer",
+                      opacity: downloadingId === file.id ? .7 : 1,
+                    }}
+                  >
+                    {downloadingId === file.id ? "…" : "↓ Download"}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -404,11 +477,36 @@ export default function FilesView({
               <button onClick={closeEdit} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
                 Cancel
               </button>
-              <button onClick={handleRename} disabled={editSaving} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? .7 : 1 }}>
+              <button onClick={handleRename} disabled={editSaving} style={{ padding: ".5rem 1rem", background: primaryColor, color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: editSaving ? "not-allowed" : "pointer", opacity: editSaving ? .7 : 1 }}>
                 {editSaving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* View preview modal */}
+      {viewingFile && (
+        <Modal title={viewingFile.name} onClose={closeView}>
+          {viewLoading && (
+            <p style={{ textAlign: "center", color: "#6b7280", fontSize: ".85rem" }}>Loading preview…</p>
+          )}
+          {viewError && (
+            <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              {viewError}
+            </p>
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingFile.file_type === "image" && (
+            <img src={viewUrl} alt={viewingFile.name} style={{ width: "100%", height: "auto", borderRadius: 10, display: "block" }} />
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingFile.file_type === "pdf" && (
+            <iframe src={viewUrl} title={viewingFile.name} style={{ width: "100%", height: "70vh", border: "none", borderRadius: 10 }} />
+          )}
+          {!viewLoading && !viewError && !PREVIEWABLE_TYPES.has(viewingFile.file_type) && (
+            <p style={{ textAlign: "center", color: "#6b7280", fontSize: ".85rem" }}>
+              No in-app preview available for this file type. Use Download instead.
+            </p>
+          )}
         </Modal>
       )}
     </div>

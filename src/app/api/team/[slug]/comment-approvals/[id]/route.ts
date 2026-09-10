@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (!result.ok) {
     if (result.reason === "not_found")       return NextResponse.json({ error: "Comment not found." }, { status: 404 });
     if (result.reason === "already_decided") return NextResponse.json({ error: "This comment has already been decided." }, { status: 409 });
+    return NextResponse.json({ error: "Failed to save decision. Please try again." }, { status: 500 });
   }
 
   return NextResponse.json(result);

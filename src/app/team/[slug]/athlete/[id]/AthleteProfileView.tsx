@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../../_components/Modal";
+import { buildShareText, buildAthleteShareUrl } from "@/lib/shareCopy";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,10 @@ export default function AthleteProfileView({
   const amtCents   = preset !== null ? preset * 100 : Math.round((parseFloat(custom) || 0) * 100);
 
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
-  const shareUrl = `${siteOrigin}/team/${slug}/athlete/${athleteId}`;
+  // The public donor link, not the internal (now access-controlled)
+  // /team/[slug]/athlete/[id] route this page itself lives at — donors
+  // must never be sent to a URL that requires a team login.
+  const shareUrl = buildAthleteShareUrl(siteOrigin, slug, athleteId);
 
   const handleDonate = async () => {
     if (amtCents < 100) { setDonateErr("Minimum donation is $1."); return; }
@@ -157,7 +161,7 @@ export default function AthleteProfileView({
       try {
         await navigator.share({
           title: `Support ${athlete.name}`,
-          text: `Help ${firstName} reach their fundraising goal!`,
+          text: buildShareText(firstName, settings?.school_name ?? "", settings?.sport_name ?? ""),
           url: shareUrl,
         });
       } catch { /* user cancelled or not supported */ }

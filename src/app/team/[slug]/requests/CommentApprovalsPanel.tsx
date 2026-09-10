@@ -46,10 +46,10 @@ function ApprovalCard({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ action }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Action failed."); return; }
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error ?? "Action failed. Please try again."); return; }
     } catch {
-      setError("Network error. Please try again.");
+      setError("Network error. Please check your connection and try again.");
       return;
     } finally {
       setBusy(false);

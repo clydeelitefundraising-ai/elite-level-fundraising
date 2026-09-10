@@ -74,13 +74,13 @@ export default function CommentsSection({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ body: trimmed }),
       });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to post comment."); return; }
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error ?? "Failed to post comment. Please try again."); return; }
       setBody("");
       setExpanded(true);
       load();
     } catch {
-      setError("Network error. Please try again.");
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setSending(false);
     }

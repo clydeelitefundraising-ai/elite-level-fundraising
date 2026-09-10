@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
+import { buildShareText } from "@/lib/shareCopy";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -538,7 +539,11 @@ function AthleteView({
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: `Support ${athlete.name}`, text: `Help ${firstName} reach their fundraising goal!`, url: profileUrl });
+        await navigator.share({
+          title: `Support ${athlete.name}`,
+          text: buildShareText(firstName, settings?.school_name ?? "", settings?.sport_name ?? ""),
+          url: profileUrl,
+        });
       } catch { /* cancelled */ }
     } else {
       handleCopy();

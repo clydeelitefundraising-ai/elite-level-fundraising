@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { AthleteSummary, CoachSummaryResponse } from "@/app/api/team/[slug]/contacts/coach/summary/route";
 import Modal from "../../_components/Modal";
+import { downloadViaFetch } from "../../_components/fileDownload";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -347,6 +348,19 @@ export default function CoachContactsView({
   const [loading, setLoading]     = useState(true);
   const [expanded, setExpanded]   = useState<string | null>(null);
   const [goalModal, setGoalModal] = useState<{ isTeamDefault: boolean; athleteId: string | null; athleteName: string; currentGoal: number } | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  const handleExportCsv = async () => {
+    setExporting(true); setExportError("");
+    try {
+      await downloadViaFetch(`/api/team/${slug}/contacts/export`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/team/${slug}/contacts/coach/summary`)
@@ -423,17 +437,23 @@ export default function CoachContactsView({
             Fundraising Contacts
           </h1>
         </div>
-        <a
-          href={`/api/team/${slug}/contacts/export`}
+        <button
+          onClick={handleExportCsv}
+          disabled={exporting}
           style={{
             padding: ".45rem .9rem", background: "#f3f4f6", color: "#374151",
-            borderRadius: 9, fontSize: ".78rem", fontWeight: 700,
-            textDecoration: "none", whiteSpace: "nowrap",
+            border: "none", borderRadius: 9, fontSize: ".78rem", fontWeight: 700,
+            whiteSpace: "nowrap", cursor: exporting ? "default" : "pointer", opacity: exporting ? .7 : 1,
           }}
         >
-          Export CSV
-        </a>
+          {exporting ? "Preparing…" : "Export CSV"}
+        </button>
       </div>
+      {exportError && (
+        <p style={{ margin: "0 0 .75rem", padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+          {exportError}
+        </p>
+      )}
 
       {/* Team total card */}
       <div style={{

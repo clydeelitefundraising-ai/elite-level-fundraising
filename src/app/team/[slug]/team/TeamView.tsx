@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CoachSession } from "@/lib/teamSession";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
+import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
@@ -93,6 +94,7 @@ function AthleteCard({
   a,
   slug,
   staffMode,
+  canOpen,
   canDelete,
   onEdit,
   onDelete,
@@ -100,6 +102,7 @@ function AthleteCard({
   a: TeamAthleteRow;
   slug: string;
   staffMode: boolean;
+  canOpen: boolean;
   canDelete: boolean;
   onEdit: (a: TeamAthleteRow) => void;
   onDelete: (id: string) => void;
@@ -108,16 +111,25 @@ function AthleteCard({
   const router  = useRouter();
   const bg      = avatarColor(a.name);
 
+  // Staff open the coach-facing detail view; a self-athlete or a linked
+  // parent opens the member-facing profile — canAccessAthleteProfile()
+  // (permissions.server.ts) is the actual authorization boundary enforced
+  // server-side on that destination; this only decides whether the card
+  // LOOKS clickable. Athletes/parents with no access to this particular
+  // row get no chevron/click affordance at all — the row stays visible
+  // (roster privacy design), just not navigable.
+  const destination = staffMode ? `/team/${slug}/team/${a.id}` : `/team/${slug}/athlete/${a.id}`;
+
   return (
     <div
-      onClick={staffMode ? () => router.push(`/team/${slug}/team/${a.id}`) : undefined}
-      onMouseEnter={staffMode ? () => setHovered(true) : undefined}
-      onMouseLeave={staffMode ? () => setHovered(false) : undefined}
+      onClick={canOpen ? () => router.push(destination) : undefined}
+      onMouseEnter={canOpen ? () => setHovered(true) : undefined}
+      onMouseLeave={canOpen ? () => setHovered(false) : undefined}
       style={{
         background: "#fff",
         borderRadius: 14,
         padding: ".9rem .8rem .75rem",
-        boxShadow: (staffMode && hovered)
+        boxShadow: (canOpen && hovered)
           ? "0 6px 20px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.05)"
           : "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         borderTop: "3px solid #0b1e3d",
@@ -126,9 +138,9 @@ function AthleteCard({
         alignItems: "center",
         textAlign: "center",
         position: "relative",
-        transform: (staffMode && hovered) ? "translateY(-2px)" : "none",
+        transform: (canOpen && hovered) ? "translateY(-2px)" : "none",
         transition: "transform .15s ease, box-shadow .15s ease",
-        cursor: staffMode ? "pointer" : "default",
+        cursor: canOpen ? "pointer" : "default",
       }}
     >
       {a.jersey_number != null && (
@@ -215,6 +227,7 @@ export default function TeamView({
   initialAthletes,
   actor,
   pendingRequestCount = 0,
+  linkedAthleteIds = [],
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
@@ -224,9 +237,23 @@ export default function TeamView({
   // only a small contextual pointer, not the approval workflow itself
   // (moved there in full, not duplicated).
   pendingRequestCount?: number;
+  // Athlete ids this actor (a parent) is linked to — server-computed
+  // (team.page.tsx, via getLinkedAthleteIds). Empty for staff/athlete
+  // actors, who use a different rule below.
+  linkedAthleteIds?: string[];
 }) {
   const staffMode = isStaff(actor);
   const canDelete = isHeadCoach(actor);
+  const selfAthleteId = actor.kind === "member" ? actor.session.athlete_id : null;
+  const memberRole = actor.kind === "member" ? actor.session.role : null;
+
+  const canOpenAthlete = (athleteId: string): boolean => canViewAthleteProfile({
+    isStaffActor: staffMode,
+    memberRole,
+    selfAthleteId,
+    linkedAthleteIds,
+    athleteId,
+  });
   const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,           setForm]           = useState<AthForm>(BLANK);
   const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
@@ -420,6 +447,7 @@ export default function TeamView({
               a={a}
               slug={slug}
               staffMode={staffMode}
+              canOpen={canOpenAthlete(a.id)}
               canDelete={canDelete}
               onEdit={openEdit}
               onDelete={handleDelete}

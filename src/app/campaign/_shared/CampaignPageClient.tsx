@@ -8,6 +8,7 @@ import PremiumLayout from "./PremiumLayout";
 import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campaignPublicDisplay";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
+import { buildShareText } from "@/lib/shareCopy";
 
 // Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
 // since this is a client component and that module is server-only.
@@ -286,21 +287,28 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     setTimeout(() => setCopyConfirm(false), 2500);
   };
 
+  // Dynamic athlete-first copy when a specific athlete is selected
+  // (?athlete=<id>), otherwise a team-level fallback. Keep SMS concise.
+  const shareFirstName = selectedAthleteName.split(" ")[0];
+  const smsText = selectedAthleteName
+    ? buildShareText(shareFirstName, schoolName, sportName)
+    : `Support ${schoolName} ${sportName}! Every donation helps the team.`;
+
   const handleText = () => {
-    const body = encodeURIComponent(`Support ${schoolName} ${sportName}! ${window.location.href}`);
+    const body = encodeURIComponent(`${smsText} ${window.location.href}`);
     window.open(`sms:?body=${body}`);
   };
 
   const handleEmail = () => {
     const subject = encodeURIComponent(`Support ${schoolName} ${sportName}`);
-    const body    = encodeURIComponent(`I wanted to share this fundraiser with you:\n\n${window.location.href}`);
+    const body    = encodeURIComponent(`${smsText}\n\n${window.location.href}`);
     window.open(`mailto:?subject=${subject}&body=${body}`);
   };
 
   const handleSocial = async () => {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({ title: `Support ${schoolName} ${sportName}`, text: `Help the ${schoolName} team compete this season!`, url: window.location.href });
+        await navigator.share({ title: `Support ${schoolName} ${sportName}`, text: smsText, url: window.location.href });
         return;
       } catch { /* cancelled or unavailable */ }
     }

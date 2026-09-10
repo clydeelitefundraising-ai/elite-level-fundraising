@@ -18,6 +18,7 @@ function h() {
 export type TeamAthleteRow = AthleteRow & {
   jersey_number: number | null;
   grad_year: number | null;
+  class_year: string | null;
   profile_photo: string | null;
   goal_cents: number | null;
 };
@@ -152,6 +153,25 @@ export async function getAthleteById(id: string): Promise<TeamAthleteRow | null>
   if (!res.ok) return null;
   const rows: TeamAthleteRow[] = await res.json();
   return rows[0] ?? null;
+}
+
+// Multi-child parent support: team_member_athletes already exists in the
+// schema (RLS-enabled, FK'd) but had no application code reading/writing
+// it — team_members.athlete_id (single FK) was the only relationship the
+// app actually consulted. This reads the join table as an ADDITIVE source
+// of linked athlete ids, unioned with the legacy single athlete_id so a
+// parent linked only the old way still resolves correctly. No backfill
+// migration needed: legacy single-child parents keep working via
+// athlete_id; only a future multi-child link needs a join-table row.
+export async function getLinkedAthleteIds(memberId: string, legacyAthleteId: string | null): Promise<string[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/team_member_athletes?team_member_id=eq.${encodeURIComponent(memberId)}&select=athlete_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const rows: { athlete_id: string }[] = res.ok ? await res.json() : [];
+  const ids = new Set(rows.map(r => r.athlete_id));
+  if (legacyAthleteId) ids.add(legacyAthleteId);
+  return [...ids];
 }
 
 export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
