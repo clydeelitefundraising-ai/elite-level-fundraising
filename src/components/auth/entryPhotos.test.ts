@@ -42,6 +42,10 @@ test("entryPhotoForOffset: consecutive screen offsets wrap correctly with 3 phot
   assert.deepEqual(resetPassword, login);
   assert.deepEqual(enterCode, teams);
   assert.deepEqual(joinError, forgotPassword);
+
+  // home (offset 6) wraps back around to the same photo as login (offset 0).
+  const home = entryPhotoForOffset(ENTRY_PHOTO_OFFSET.home, SAME_DAY_MORNING);
+  assert.deepEqual(home, login);
 });
 
 test("entryPhotoForOffset: negative or huge offsets still resolve to a valid in-range photo", () => {

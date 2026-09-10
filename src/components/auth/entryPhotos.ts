@@ -45,6 +45,7 @@ export const ENTRY_PHOTO_OFFSET = {
   resetPassword:  3,
   enterCode:      4,
   joinError:      5,
+  home:           6,
 } as const;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

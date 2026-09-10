@@ -139,6 +139,35 @@
   cursor: not-allowed;
 }
 
+/* Secondary CTA — outlined, same size/shape as .primaryButton. Only
+   AppEntry (the root pre-login landing screen) uses this today, for
+   "Enter Team Code" beside the primary "Log In" action. Border/text color
+   switches light-on-dark/dark-on-light exactly like .textLink below, for
+   the same reason (mobile + AuthShell's brand panel are both dark; the
+   desktop white card is not). */
+.secondaryButton {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.02rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, .35);
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color .15s ease, background-color .15s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.secondaryButton:hover {
+  border-color: rgba(255, 255, 255, .6);
+  background: rgba(255, 255, 255, .06);
+}
+
 /* High-contrast accent link — bright yellow reads clearly against the
    near-black mobile/brand-panel background; switches to the darker orange
    on the white desktop card, where yellow would fail AA. */
@@ -212,6 +241,31 @@
 @media screen and (min-width: 1024px) {
   .footerLinks {
     margin-top: 1.5rem;
+  }
+}
+
+/* Small generic visibility utilities — pure CSS, same 1024px breakpoint as
+   everything else in this file. Used where a view needs genuinely
+   different content per breakpoint (not just restyled), e.g. AppEntry
+   showing its full branded headline/tagline on mobile (which never sees
+   AuthShell's desktop panel copy) but a shorter functional heading on
+   desktop (where the panel already carries that message, avoiding a
+   verbatim duplicate right next to it). */
+.hideOnDesktop {
+  display: block;
+}
+
+.hideOnMobile {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .hideOnDesktop {
+    display: none;
+  }
+
+  .hideOnMobile {
+    display: block;
   }
 }
 
@@ -323,6 +377,16 @@
 
   .textLink {
     color: var(--elf-orange-dark);
+  }
+
+  .secondaryButton {
+    color: #121110;
+    border-color: #d8d0c2;
+  }
+
+  .secondaryButton:hover {
+    border-color: #b8ac96;
+    background: rgba(0, 0, 0, .03);
   }
 
   .mutedLink {
