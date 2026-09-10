@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildShareText, buildAthleteShareUrl, buildCampaignMetadata } from "./shareCopy.ts";
+import { buildShareText, buildAthleteShareUrl, buildCampaignMetadata, resolveTeamLogoUrl } from "./shareCopy.ts";
 
 test("buildShareText combines athlete, school, and sport dynamically", () => {
   assert.equal(
@@ -49,4 +49,37 @@ test("buildCampaignMetadata: team-wide (no athlete) falls back to a team-level t
 test("buildCampaignMetadata: never falls back to a generic/no-name title even with empty team data", () => {
   const { title } = buildCampaignMetadata({ athleteName: null, teamLabel: "", schoolName: "", sportName: "" });
   assert.equal(title, "Support Our Team | Elite Level Fundraising");
+});
+
+// A: custom team logo (Platform-Admin-set team_photo) wins, matching
+// TeamHeader/DesktopSidebar's own team_photo-over-logo_url precedence.
+test("resolveTeamLogoUrl: prefers team_photo over logo_url, same as the header", () => {
+  const url = resolveTeamLogoUrl({
+    team_photo: "https://storage.example.com/team-photos/monroe-valley.png",
+    logo_url:   "https://storage.example.com/logos/monroe-valley-old.png",
+  });
+  assert.equal(url, "https://storage.example.com/team-photos/monroe-valley.png");
+});
+
+// B: an athlete-specific share resolves the logo from the same campaign
+// `settings` object as a team-wide share (the athlete never carries its
+// own logo) — so a coach-uploaded logo_url with no team_photo set still
+// resolves correctly for either kind of share link.
+test("resolveTeamLogoUrl: falls back to logo_url when no team_photo is set", () => {
+  const url = resolveTeamLogoUrl({ team_photo: null, logo_url: "https://storage.example.com/logos/monroe-valley.png" });
+  assert.equal(url, "https://storage.example.com/logos/monroe-valley.png");
+});
+
+test("resolveTeamLogoUrl: treats an empty-string logo_url as unset, same as the header's falsy check", () => {
+  const url = resolveTeamLogoUrl({ team_photo: "", logo_url: "" });
+  assert.equal(url, null);
+});
+
+// C: no logo configured at all -> null, signaling callers (e.g. /api/og)
+// to use the same initials-badge fallback the header uses, not an ELF logo.
+test("resolveTeamLogoUrl: returns null when neither team_photo nor logo_url is set", () => {
+  assert.equal(resolveTeamLogoUrl({ team_photo: null, logo_url: null }), null);
+  assert.equal(resolveTeamLogoUrl({}), null);
+  assert.equal(resolveTeamLogoUrl(null), null);
+  assert.equal(resolveTeamLogoUrl(undefined), null);
 });
