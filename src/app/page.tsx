@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import MarketingPage from "./MarketingPage";
 import AppEntry from "./AppEntry";
+import { entryPhotoForOffset, ENTRY_PHOTO_OFFSET } from "@/components/auth/entryPhotos";
 
 // NEXT_PUBLIC_APP_URL is set only in the ELF Team App Vercel project,
 // not in the marketing site project — so this evaluates at build time
@@ -48,7 +49,7 @@ const WEBSITE_SCHEMA = {
 };
 
 export default function RootPage() {
-  if (IS_APP) return <AppEntry />;
+  if (IS_APP) return <AppEntry photo={entryPhotoForOffset(ENTRY_PHOTO_OFFSET.home)} />;
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_SCHEMA) }} />

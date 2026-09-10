@@ -1,0 +1,399 @@
+/*
+ * Phase A35 — shared visual system for the four pre-Team-App entry
+ * screens: /login, /teams, /forgot-password, /reset-password/[token].
+ *
+ * Deliberately built on tokens ALREADY defined in globals.css
+ * (--shell-backdrop, --elf-orange, --elf-orange-dark, --elf-yellow)
+ * rather than new ones — these are the same values the authenticated
+ * Team App's default (uncustomized) theme and structural chrome already
+ * use, so the entry experience sits on the same palette as both the
+ * marketing site (independently, via marketing-tokens.css's
+ * --mk-orange/--mk-ink, identical hex values) and the Team App shell. No
+ * marketing-scoped file is imported here — this file is independent, the
+ * same way marketing-tokens.css is independent of globals.css.
+ *
+ * Text/link colors below are defined per-breakpoint (not as separate
+ * "OnDark"/"OnLight" class names picked in JS) because the page's own
+ * background flips from dark (mobile, full-bleed ELF backdrop) to a white
+ * card (desktop, >=1024px) — same pure-CSS-media-query philosophy already
+ * used throughout this entry flow (no window.innerWidth/matchMedia).
+ * Colors were chosen to clear WCAG AA against BOTH backgrounds.
+ */
+
+.crown {
+  color: var(--elf-yellow);
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.wordmarkText {
+  font-family: var(--auth-font-display, inherit);
+  font-size: 1.15rem;
+  letter-spacing: .04em;
+  color: #fff;
+  line-height: 1;
+}
+
+.wordmarkText b {
+  font-weight: inherit;
+  color: var(--elf-orange);
+}
+
+.headline {
+  font-family: var(--auth-font-display, inherit);
+  letter-spacing: .015em;
+  line-height: 1.05;
+  color: #fff;
+  margin: 0;
+}
+
+.underline {
+  display: block;
+  width: 3.25rem;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--elf-orange);
+  margin-top: .6rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  font-size: .78rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .62);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+}
+
+.subtext {
+  margin: 0;
+  font-size: .92rem;
+  color: rgba(255, 255, 255, .68);
+  line-height: 1.55;
+}
+
+.input {
+  padding: .85rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid #e4dcc8;
+  font-size: 1rem;
+  outline: none;
+  background: #fff;
+  color: #121110;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  transition: border-color .15s ease;
+}
+
+.input:focus {
+  border-color: var(--elf-orange);
+  box-shadow: 0 0 0 3px rgba(255, 90, 31, .22);
+}
+
+.primaryButton {
+  display: block;
+  width: 100%;
+  background: var(--elf-orange);
+  color: #fff;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.02rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background-color .15s ease, transform .1s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.primaryButton:hover {
+  background: var(--elf-orange-dark);
+}
+
+.primaryButton:active {
+  transform: translateY(1px);
+}
+
+.primaryButton:disabled {
+  background: #6b6157;
+  cursor: not-allowed;
+}
+
+/* Secondary CTA — outlined, same size/shape as .primaryButton. Only
+   AppEntry (the root pre-login landing screen) uses this today, for
+   "Enter Team Code" beside the primary "Log In" action. Border/text color
+   switches light-on-dark/dark-on-light exactly like .textLink below, for
+   the same reason (mobile + AuthShell's brand panel are both dark; the
+   desktop white card is not). */
+.secondaryButton {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: #fff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.02rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, .35);
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color .15s ease, background-color .15s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.secondaryButton:hover {
+  border-color: rgba(255, 255, 255, .6);
+  background: rgba(255, 255, 255, .06);
+}
+
+/* High-contrast accent link — bright yellow reads clearly against the
+   near-black mobile/brand-panel background; switches to the darker orange
+   on the white desktop card, where yellow would fail AA. */
+.textLink {
+  color: var(--elf-yellow);
+  font-weight: 700;
+  text-decoration: underline;
+  font-size: .88rem;
+}
+
+.mutedLink {
+  color: rgba(255, 255, 255, .58);
+  font-size: .82rem;
+  text-decoration: underline;
+}
+
+.errorBox {
+  background: #F6E3DC;
+  border: 1px solid #e0a98f;
+  border-radius: 6px;
+  padding: .75rem 1rem;
+  font-size: .88rem;
+  color: #7a2a15;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  cursor: pointer;
+  user-select: none;
+  min-height: 44px;
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--elf-orange);
+}
+
+.checkboxLabel {
+  font-size: .88rem;
+  color: rgba(255, 255, 255, .82);
+}
+
+/* Phase A36 — restrained handwritten/marker accent. Personality statements
+   ONLY (a short tagline near a headline/logo) — never used for navigation,
+   forms, tables, buttons, inputs, validation, or any accessibility-critical
+   text. Always paired with a plain, highly-legible sibling that carries the
+   same information for anything that matters functionally. */
+.handwritten {
+  font-family: var(--auth-font-hand, inherit);
+  font-weight: 400;
+  color: var(--elf-yellow);
+  line-height: 1.3;
+}
+
+/* Phase A36 mobile cleanup — the below-form footer link group (used by
+   LoginView). Mobile relies purely on the parent .cardInner's own gap for
+   separation (tighter — avoids the excessive vertical gap a fixed
+   marginTop added on top of that gap); desktop keeps its original explicit
+   1.5rem marginTop, unchanged, since desktop's approved composition isn't
+   in scope for this pass. */
+.footerLinks {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .footerLinks {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Small generic visibility utilities — pure CSS, same 1024px breakpoint as
+   everything else in this file. Used where a view needs genuinely
+   different content per breakpoint (not just restyled), e.g. AppEntry
+   showing its full branded headline/tagline on mobile (which never sees
+   AuthShell's desktop panel copy) but a shorter functional heading on
+   desktop (where the panel already carries that message, avoiding a
+   verbatim duplicate right next to it). */
+.hideOnDesktop {
+  display: block;
+}
+
+.hideOnMobile {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .hideOnDesktop {
+    display: none;
+  }
+
+  .hideOnMobile {
+    display: block;
+  }
+}
+
+/* Phase A36 — full-bleed photography container used inside a positioned
+   parent (AuthShell's .brandPanel, or a dedicated .photoBand below). A
+   plain absolutely-positioned wrapper around next/image's fill mode, kept
+   here (not duplicated per consumer) since every entry surface that shows
+   photography needs the identical stacking/overlay approach. */
+.photoFill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.photoFill img {
+  object-fit: cover;
+}
+
+/* Dark scrim over photography so foreground text/logo stay readable —
+   moderate, not a near-opaque wash, so the photo still reads as photography
+   per the "photography should behave as photography" instruction. */
+.photoScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(10, 10, 10, .35) 0%, rgba(10, 10, 10, .55) 55%, rgba(10, 10, 10, .82) 100%);
+}
+
+.photoContent {
+  position: relative;
+  z-index: 2;
+}
+
+/* Full raster ELF Team brand mark (public/auth/elf-team-logo.png) at a
+   prominent desktop size — preserves the asset's real aspect ratio via
+   next/image's width/height, never stretched. Reserved for the desktop
+   branded panel. */
+.brandLogoImage {
+  width: 220px;
+  height: auto;
+}
+
+/* Phase A36 brand-mark consistency pass — the same logo asset at a
+   compact, app-icon-style size, used wherever a small header/panel would
+   previously have shown the standalone CrownMark + "ELF TEAM" text as a
+   generic brand mark (never for a crown used with actual semantic meaning
+   — role/rank/achievement badges — none of which exist in this codebase
+   today; CrownMark itself is untouched for that future case). Only used
+   on the same dark backgrounds the full-size mark already requires — the
+   asset's white/orange/yellow linework has no light-background variant,
+   so a light-card context keeps the existing CrownMark + text treatment
+   instead (see join/[code]/page.tsx's CardWordmark). */
+.brandMarkCompact {
+  width: auto;
+  height: 30px;
+}
+
+/* Phase A36 mobile refinement — compact photographic hero band for the
+   mobile (<1024px) auth/entry screens. Reuses the exact same photo prop,
+   .photoFill/.photoScrim stacking, and rotation source as the desktop
+   panel — no separate mobile photo system. Sized to ~200px (per spec:
+   "photo + ELF logo -> functional page title/form", not a second
+   marketing hero) and overlaid with the real logo instead of a
+   headline/tagline. Hidden at >=1024px, where each page's own existing
+   desktop composition (unchanged by this pass) already carries
+   photography — this band is additive to mobile only, never a
+   replacement for the desktop treatment. */
+.mobileHero {
+  position: relative;
+  height: 200px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mobileHeroContent {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 1.1rem;
+}
+
+.mobileHeroLogo {
+  width: 140px;
+  height: auto;
+}
+
+@media screen and (min-width: 1024px) {
+  .mobileHero {
+    display: none;
+  }
+}
+
+/* ── Desktop (white card) overrides ───────────────────────────────────── */
+@media screen and (min-width: 1024px) {
+  .headline {
+    color: #121110;
+  }
+
+  .subtext {
+    color: #63594E;
+  }
+
+  .label {
+    color: #63594E;
+  }
+
+  .textLink {
+    color: var(--elf-orange-dark);
+  }
+
+  .secondaryButton {
+    color: #121110;
+    border-color: #d8d0c2;
+  }
+
+  .secondaryButton:hover {
+    border-color: #b8ac96;
+    background: rgba(0, 0, 0, .03);
+  }
+
+  .mutedLink {
+    color: #9c9186;
+  }
+
+  .checkboxLabel {
+    color: #374151;
+  }
+}

@@ -1,0 +1,97 @@
+/*
+ * Phase A35 — shared shell for /login, /forgot-password, /reset-password.
+ * Supersedes the old per-page duplicated navy/gold "Team Hub" shell
+ * (previously Login.module.css, copy-pasted inline across three files).
+ *
+ * Same 1024px breakpoint / pure-CSS-media-query philosophy as the prior
+ * shell and the Team Hub desktop shell — kept consistent on purpose.
+ *
+ * Phase A36 — .brandPanel's background photography (real ELF sports
+ * photos) and scrim overlay live in authEntry.module.css's shared
+ * .photoFill/.photoScrim classes (AuthShell.tsx composes them in), not
+ * here, since /teams and /enter-code's desktop photo bands need the exact
+ * same stacking approach without depending on this file.
+ */
+
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: var(--shell-backdrop);
+}
+
+.brandPanel {
+  display: none;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  background: var(--shell-backdrop);
+  /* Mobile: no separate off-white card — the form sits directly on the
+     dark ELF backdrop, per the reference's mobile treatment. Only the
+     individual inputs are light.
+     No forced min-height here (unlike the desktop rule below): .page
+     already carries min-height:100dvh + the same --shell-backdrop color,
+     so a short screen (e.g. Forgot Password) simply ends after its
+     content instead of stretching the card to fill the viewport — the
+     page's own background continues underneath, seamlessly, since it's
+     the identical color. */
+}
+
+.cardInner {
+  padding: 1.75rem 1.25rem calc(1.75rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  flex: 1;
+}
+
+.mobileHeader {
+  padding: 1.5rem 1.25rem 0;
+}
+
+@media screen and (min-width: 1024px) {
+  .page {
+    align-items: center;
+    gap: 0;
+    padding: 2rem;
+  }
+
+  .brandPanel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 420px;
+    flex-shrink: 0;
+    padding: 3.5rem 3rem;
+    color: #fff;
+    background: var(--shell-backdrop);
+    border-radius: 1.25rem 0 0 1.25rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 640px;
+  }
+
+  .mobileHeader {
+    display: none;
+  }
+
+  .card {
+    min-height: 640px;
+    max-width: 380px;
+    border-radius: 0 1.25rem 1.25rem 0;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+    background: #FFFFFF;
+  }
+
+  .cardInner {
+    padding: 2.75rem 2rem;
+    justify-content: center;
+  }
+}

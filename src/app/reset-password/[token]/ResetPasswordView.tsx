@@ -1,61 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import AuthShell from "@/components/auth/AuthShell";
+import type { EntryPhoto } from "@/components/auth/entryPhotos";
+import styles from "@/components/auth/authEntry.module.css";
 
-const HEADER_STYLE: React.CSSProperties = {
-  background: "#0b1e3d",
-  padding: "1.25rem 1rem",
-  display: "flex",
-  alignItems: "center",
-  gap: ".75rem",
-};
-
-const CARD_STYLE: React.CSSProperties = {
-  padding: "2rem 1.25rem",
-  display: "flex",
-  flexDirection: "column",
-  gap: "1rem",
-  flex: 1,
-};
-
-const INPUT_STYLE: React.CSSProperties = {
-  padding: ".75rem 1rem",
-  borderRadius: ".5rem",
-  border: "1.5px solid #d1d5db",
-  fontSize: "1rem",
-  outline: "none",
-  background: "#fff",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: ".35rem",
-  fontSize: ".82rem",
-  fontWeight: 600,
-  color: "#374151",
-  textTransform: "uppercase",
-  letterSpacing: ".06em",
-};
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
-        <div style={HEADER_STYLE}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={36} height={36} style={{ borderRadius: ".4rem" }} />
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.05rem" }}>Team Hub</span>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-export default function ResetPasswordView({ token }: { token: string }) {
+export default function ResetPasswordView({ token, photo }: { token: string; photo: EntryPhoto }) {
   const [pw,      setPw]      = useState("");
   const [pw2,     setPw2]     = useState("");
   const [error,   setError]   = useState<string | null>(null);
@@ -94,57 +44,47 @@ export default function ResetPasswordView({ token }: { token: string }) {
 
   if (invalid) {
     return (
-      <Shell>
-        <div style={CARD_STYLE}>
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d" }}>Link Invalid or Expired</h1>
-          <p style={{ margin: 0, fontSize: ".95rem", color: "#6b7280", lineHeight: 1.6 }}>
+      <AuthShell headline="Same Teams. Bigger Opportunities." tagline="Every reset link is single-use for your security." photo={photo}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Link Invalid or Expired</h1>
+          <p className={styles.subtext}>
             This password reset link is invalid or has expired. Request a new one to continue.
           </p>
-          <a
-            href="/forgot-password"
-            style={{ display: "inline-block", background: "#0b1e3d", color: "#fff", textAlign: "center", fontWeight: 700, fontSize: "1rem", padding: ".85rem 1rem", borderRadius: ".85rem", textDecoration: "none", marginTop: ".5rem" }}
-          >
+          <a href="/forgot-password" className={styles.primaryButton} style={{ marginTop: ".5rem" }}>
             Request a New Link
           </a>
         </div>
-      </Shell>
+      </AuthShell>
     );
   }
 
   if (done) {
     return (
-      <Shell>
-        <div style={CARD_STYLE}>
-          <div style={{ fontSize: "2rem", lineHeight: 1 }}>✓</div>
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d" }}>Password Reset</h1>
-          <p style={{ margin: 0, fontSize: ".95rem", color: "#6b7280", lineHeight: 1.6 }}>
+      <AuthShell headline="Next Season, Brighter." tagline="Your account is ready — log in with your new password." photo={photo}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--elf-yellow)" }}>✓</div>
+          <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>Password Reset</h1>
+          <p className={styles.subtext}>
             Your password has been updated. Log in with your new password to continue.
           </p>
-          <a
-            href="/login"
-            style={{ display: "block", background: "#C4A35A", color: "#0b1e3d", textAlign: "center", fontWeight: 800, fontSize: "1.05rem", padding: "1rem", borderRadius: ".85rem", textDecoration: "none", marginTop: ".5rem" }}
-          >
+          <a href="/login" className={styles.primaryButton} style={{ marginTop: ".5rem" }}>
             Log In
           </a>
         </div>
-      </Shell>
+      </AuthShell>
     );
   }
 
   return (
-    <Shell>
-      <form onSubmit={handleSubmit} style={CARD_STYLE}>
-        <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.02em" }}>
-          Choose a New Password
+    <AuthShell headline="Create a New Password" tagline="Choose a strong password to keep your ELF account secure." photo={photo}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+        <h1 className={styles.headline} style={{ fontSize: "1.5rem" }}>
+          Create a New Password
         </h1>
 
-        {error && (
-          <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: ".5rem", padding: ".75rem 1rem", fontSize: ".88rem", color: "#991b1b" }}>
-            {error}
-          </div>
-        )}
+        {error && <div className={styles.errorBox}>{error}</div>}
 
-        <label style={LABEL_STYLE}>
+        <label className={styles.label}>
           New Password
           <input
             type="password"
@@ -153,11 +93,11 @@ export default function ResetPasswordView({ token }: { token: string }) {
             minLength={8}
             value={pw}
             onChange={e => setPw(e.target.value)}
-            style={INPUT_STYLE}
+            className={styles.input}
             placeholder="Minimum 8 characters"
           />
         </label>
-        <label style={LABEL_STYLE}>
+        <label className={styles.label}>
           Confirm New Password
           <input
             type="password"
@@ -166,31 +106,15 @@ export default function ResetPasswordView({ token }: { token: string }) {
             minLength={8}
             value={pw2}
             onChange={e => setPw2(e.target.value)}
-            style={INPUT_STYLE}
+            className={styles.input}
             placeholder="Repeat your new password"
           />
         </label>
 
-        <button
-          type="submit"
-          disabled={busy}
-          style={{
-            display: "block",
-            background: busy ? "#9ca3af" : "#C4A35A",
-            color: "#0b1e3d",
-            textAlign: "center",
-            fontWeight: 800,
-            fontSize: "1.05rem",
-            padding: "1rem",
-            borderRadius: ".85rem",
-            border: "none",
-            cursor: busy ? "not-allowed" : "pointer",
-            marginTop: ".5rem",
-          }}
-        >
+        <button type="submit" disabled={busy} className={styles.primaryButton}>
           {busy ? "Please wait…" : "Reset Password"}
         </button>
       </form>
-    </Shell>
+    </AuthShell>
   );
 }

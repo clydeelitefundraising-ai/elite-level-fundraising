@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAccountSession } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { resolveAuthenticatedLandingPath } from "@/lib/platformAdminLanding";
+import { entryPhotoForOffset, ENTRY_PHOTO_OFFSET } from "@/components/auth/entryPhotos";
 import LoginView from "./LoginView";
 
 export const dynamic = "force-dynamic";
@@ -12,5 +13,5 @@ export default async function LoginPage() {
     const platformAdmin = await getPlatformAdminSession();
     redirect(resolveAuthenticatedLandingPath(Boolean(platformAdmin)));
   }
-  return <LoginView />;
+  return <LoginView photo={entryPhotoForOffset(ENTRY_PHOTO_OFFSET.login)} />;
 }

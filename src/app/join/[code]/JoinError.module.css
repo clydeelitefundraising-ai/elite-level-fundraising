@@ -1,0 +1,56 @@
+/*
+ * Phase A36 — desktop-only background photography behind the /join/[code]
+ * invalid/archived error cards. These are small centered cards on the dark
+ * ELF backdrop (not a split-panel layout like AuthShell), so the photo sits
+ * as a full-bleed background behind the whole screen rather than in a
+ * dedicated panel.
+ *
+ * Phase A36 mobile refinement — mobile now gets its own compact photo hero
+ * (entryStyles.mobileHero) stacked above the card instead of a full-bleed
+ * background photo, matching the rest of the entry flow. .cardArea flexes
+ * to fill whatever height the hero doesn't use and centers the card in it,
+ * so on mobile the layout reads as "hero, then centered card below" while
+ * on desktop (hero hidden) it's unchanged: a single centered card over the
+ * full-bleed photo.
+ */
+
+.shell {
+  position: relative;
+  min-height: 100dvh;
+  background: var(--shell-backdrop);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.cardArea {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.cardWordmark {
+  display: none;
+}
+
+.photoLayer {
+  display: none;
+}
+
+@media screen and (min-width: 1024px) {
+  .cardWordmark {
+    display: flex;
+  }
+
+  .photoLayer {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+}
