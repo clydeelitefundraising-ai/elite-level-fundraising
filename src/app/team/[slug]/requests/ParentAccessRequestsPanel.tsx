@@ -2,23 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
-import Avatar from "../messages/_shared/Avatar";
 import styles from "./Requests.module.css";
 
-type PendingCommentApproval = {
-  id:                  string;
-  announcement_id:     string;
-  announcement_title:  string;
-  body:                string;
-  created_at:          string;
-  author_name:         string;
-  author_role:         string;
-  author_photo_url:    string | null;
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  head_coach: "Head Coach", assistant_coach: "Asst. Coach", booster: "Booster",
-  athlete: "Athlete", parent: "Parent",
+type PendingParentAccessRequest = {
+  id:           string;
+  parent_name:  string;
+  athlete_name: string;
+  created_at:   string;
 };
 
 function timeAgo(iso: string): string {
@@ -29,11 +19,11 @@ function timeAgo(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function ApprovalCard({
-  slug, approval, onActionComplete,
+function RequestCard({
+  slug, request, onActionComplete,
 }: {
   slug: string;
-  approval: PendingCommentApproval;
+  request: PendingParentAccessRequest;
   onActionComplete: () => void;
 }) {
   const [busy,  setBusy]  = useState(false);
@@ -43,7 +33,7 @@ function ApprovalCard({
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(`/api/team/${slug}/comment-approvals/${approval.id}`, {
+      const res = await fetch(`/api/team/${slug}/parent-access-requests/${request.id}`, {
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ action }),
@@ -62,22 +52,16 @@ function ApprovalCard({
   return (
     <div className={styles.row}>
       <div className={styles.rowTop}>
-        <Avatar name={approval.author_name} photoUrl={approval.author_photo_url} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className={styles.rowMeta} style={{ marginTop: 0 }}>
-            <span className={styles.rowName}>{approval.author_name}</span>
-            {ROLE_LABELS[approval.author_role] && (
-              <span className={styles.roleLabel}>{ROLE_LABELS[approval.author_role]}</span>
-            )}
-            <span style={{ fontSize: ".64rem", color: "var(--text-muted-app)" }}>· {timeAgo(approval.created_at)}</span>
+            <span className={styles.rowName}>{request.parent_name}</span>
+            <span style={{ fontSize: ".64rem", color: "var(--text-muted-app)" }}>· {timeAgo(request.created_at)}</span>
           </div>
           <div className={styles.contextLine}>
-            On &ldquo;{approval.announcement_title}&rdquo;
+            Requesting access as parent of <strong>{request.athlete_name}</strong>
           </div>
         </div>
       </div>
-
-      <p className={styles.commentBody}>{approval.body}</p>
 
       {error && <div className={styles.errorText}>{error}</div>}
 
@@ -95,11 +79,11 @@ function ApprovalCard({
   );
 }
 
-// Mirrors AthleteRequestsPanel.tsx's shape exactly (own data fetch,
+// Mirrors CommentApprovalsPanel.tsx's shape exactly (own data fetch,
 // onCountChange lifted-callback, emptyState/hideHeader for the Requests
 // Center wrapper) — same pattern, new category, per Phase 3B-1's
 // established extension point.
-export default function CommentApprovalsPanel({
+export default function ParentAccessRequestsPanel({
   slug, onCountChange, emptyState, hideHeader,
 }: {
   slug: string;
@@ -107,17 +91,17 @@ export default function CommentApprovalsPanel({
   emptyState?: React.ReactNode;
   hideHeader?: boolean;
 }) {
-  const [approvals, setApprovals] = useState<PendingCommentApproval[] | null>(null);
+  const [requests, setRequests] = useState<PendingParentAccessRequest[] | null>(null);
 
   const load = () => {
-    fetch(`/api/team/${slug}/comment-approvals`)
-      .then(r => r.ok ? r.json() : { approvals: [] })
+    fetch(`/api/team/${slug}/parent-access-requests`)
+      .then(r => r.ok ? r.json() : { requests: [] })
       .then(d => {
-        const list: PendingCommentApproval[] = d.approvals ?? [];
-        setApprovals(list);
+        const list: PendingParentAccessRequest[] = d.requests ?? [];
+        setRequests(list);
         onCountChange?.(list.length);
       })
-      .catch(() => setApprovals([]));
+      .catch(() => setRequests([]));
   };
 
   // onCountChange excluded from deps deliberately — see
@@ -126,21 +110,21 @@ export default function CommentApprovalsPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [slug]);
 
-  if (!approvals || approvals.length === 0) {
-    return approvals !== null && emptyState !== undefined ? <>{emptyState}</> : null;
+  if (!requests || requests.length === 0) {
+    return requests !== null && emptyState !== undefined ? <>{emptyState}</> : null;
   }
 
   return (
     <div style={{ marginBottom: "1rem" }}>
       {!hideHeader && (
         <div className={styles.sectionHeader}>
-          <h3 className={styles.sectionTitle}>Comment Approvals</h3>
-          <span className={styles.sectionBadge}>{approvals.length}</span>
+          <h3 className={styles.sectionTitle}>Parent Access Requests</h3>
+          <span className={styles.sectionBadge}>{requests.length}</span>
         </div>
       )}
       <div className={styles.rowList}>
-        {approvals.map(a => (
-          <ApprovalCard key={a.id} slug={slug} approval={a} onActionComplete={() => load()} />
+        {requests.map(r => (
+          <RequestCard key={r.id} slug={slug} request={r} onActionComplete={() => load()} />
         ))}
       </div>
     </div>

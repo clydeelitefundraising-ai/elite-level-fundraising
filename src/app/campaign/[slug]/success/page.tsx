@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { insertDonation, donationExists, getCampaignSettings } from "@/lib/supabase";
+import { ElfMark, ElfWordmark } from "@/components/BrandMark";
 import { sendReceiptForSession } from "@/lib/donorReceipt";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function DonationSuccessPage({
     <div style={styles.page}>
       <nav style={styles.nav}>
         <a href="/" style={styles.navLogo}>
-          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={160} height={46} priority />
+          <ElfWordmark tone="light" size="md" />
         </a>
       </nav>
 
@@ -50,7 +50,7 @@ export default async function DonationSuccessPage({
         </div>
 
         <div style={styles.poweredBy}>
-          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={90} height={26} />
+          <ElfMark size={26} />
           <span style={styles.poweredText}>Powered by Elite Level Fundraising</span>
         </div>
       </main>

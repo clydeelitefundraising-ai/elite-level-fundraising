@@ -92,6 +92,10 @@ export default function EnterCodeView({
       setError("Please select yourself from the roster, or choose \"I don't see my name.\"");
       return;
     }
+    if (role === "parent" && !athleteId) {
+      setError("Please select your child from the roster.");
+      return;
+    }
     if (isNotListed && (!name.trim() || !classYear)) {
       setError("Full name and class/year are required.");
       return;
@@ -149,6 +153,13 @@ export default function EnterCodeView({
       if (!res.ok) {
         setError(data.error ?? "Join failed.");
         setStep("details");
+        return;
+      }
+      // Parent role: access is never immediate (Phase 11a) — the request
+      // now goes to the Head Coach for approval, same "sent for approval"
+      // screen the not-listed athlete path already uses.
+      if ((data as { pending?: boolean }).pending) {
+        setStep("pending_confirmation");
         return;
       }
       router.push(`/team/${(data as { campaign_slug: string }).campaign_slug}/home`);
@@ -294,14 +305,17 @@ export default function EnterCodeView({
                 </div>
               </div>
 
-              {/* Athlete select — required for role=athlete (never optional:
-                  either pick yourself, or explicitly say you're not listed).
-                  Optional for role=parent (existing behavior preserved). */}
+              {/* Athlete select — required for BOTH roles: athlete must
+                  either pick themself or explicitly say they're not
+                  listed; parent must name the specific child they're
+                  requesting access to (Phase 11a — that child is now what
+                  the Head Coach approval request is FOR, so it can no
+                  longer be optional/deferred). */}
               {needsAthleteSelect && athleteMode === "select" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
                     <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                      {role === "athlete" ? "Select Yourself" : "Select Athlete (optional)"}
+                      {role === "athlete" ? "Select Yourself" : "Select Your Child"}
                     </span>
                     <select
                       value={athleteId}

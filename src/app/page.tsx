@@ -37,7 +37,9 @@ const ORG_SCHEMA = {
   "@type": "Organization",
   name: "Elite Level Fundraising",
   url: "https://www.elitelevelfundraising.com",
-  logo: "https://www.elitelevelfundraising.com/ELF.LOGO.png",
+  // Current approved ELF mark (black wordmark, transparent background) —
+  // replaces the old desert-logo asset this used to point at.
+  logo: "https://www.elitelevelfundraising.com/auth/ELF-team-logo-black.png",
   areaServed: "Arizona, US",
 };
 

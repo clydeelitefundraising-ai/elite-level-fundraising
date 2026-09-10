@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { makeMemberCookie, generateMemberSalt } from "@/lib/memberAuth";
+import { makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { validateAthleteForCampaign, createLinkedAthleteMember } from "@/lib/platform/athletes";
+import { createPendingRequest } from "@/lib/platform/parentAccessRequests";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
-import { syncParentIntoAthleteThreads } from "@/lib/messages";
+import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
+import { dispatchApnsPush } from "@/lib/apns";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -76,19 +79,15 @@ export async function POST(req: NextRequest) {
   // role=athlete (never allow an athlete membership with athlete_id=null),
   // and always validated server-side against this exact campaign.
   //
-  // Parent role: athlete_id remains optional, unchanged from before —
-  // parents may link their athlete later via PATCH members/me.
-  if (role === "athlete") {
+  // Parent role: athlete_id is ALSO required (Phase 11a — Parent Access
+  // Approval). A parent request names a specific child; team access is
+  // never granted immediately here regardless — see the parent branch
+  // below, which creates a pending parent_access_requests row instead of a
+  // team_members row.
+  if (role === "athlete" || role === "parent") {
     if (!athlete_id || typeof athlete_id !== "string") {
-      return NextResponse.json({ error: "Please select your athlete from the roster." }, { status: 400 });
-    }
-    const athlete = await validateAthleteForCampaign(athlete_id, campaign_slug);
-    if (!athlete) {
-      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
-    }
-  } else if (athlete_id !== undefined && athlete_id !== null) {
-    if (typeof athlete_id !== "string") {
-      return NextResponse.json({ error: "Invalid athlete_id." }, { status: 400 });
+      const message = role === "athlete" ? "Please select your athlete from the roster." : "Please select your child from the roster.";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
     const athlete = await validateAthleteForCampaign(athlete_id, campaign_slug);
     if (!athlete) {
@@ -102,9 +101,6 @@ export async function POST(req: NextRequest) {
   }
   const { accountId, newCookieValue } = accountResult;
 
-  const response = NextResponse.json({ ok: true, campaign_slug });
-  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
-
   if (role === "athlete") {
     // athlete_id was validated above and is guaranteed non-null here.
     const linkResult = await createLinkedAthleteMember({
@@ -116,49 +112,78 @@ export async function POST(req: NextRequest) {
     if (!linkResult.ok) {
       return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
     }
+    const response = NextResponse.json({ ok: true, campaign_slug });
+    if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
     response.cookies.set("team_member", makeMemberCookie(linkResult.member.id, linkResult.member.salt), cookieOpts);
     return response;
   }
 
-  // Parent (and any future non-athlete role): unchanged raw insert path —
-  // no pre-existing member row is expected here either, so there's nothing
-  // for createLinkedAthleteMember's "already a member" branch to help with.
-  const memberSalt = generateMemberSalt();
-  const memberBody: Record<string, unknown> = {
-    campaign_slug,
-    role,
-    name:       (name as string).trim(),
-    salt:       memberSalt,
-    account_id: accountId,
-  };
-  if (athlete_id && typeof athlete_id === "string") memberBody.athlete_id = athlete_id;
-
-  const memberRes = await fetch(`${BASE}/rest/v1/team_members`, {
-    method:  "POST",
-    headers: h({ Prefer: "return=representation" }),
-    body:    JSON.stringify(memberBody),
+  // Parent: create a PENDING parent_access_requests row — never a live
+  // team_members row. No team_member cookie is set; the parent has an
+  // account (elf_session, set above) but no team access until a Head
+  // Coach approves. See parentAccessRequests.ts for the full rationale.
+  const result = await createPendingRequest({
+    campaignSlug: campaign_slug,
+    accountId,
+    parentName:   (name as string).trim(),
+    athleteId:    athlete_id as string,
   });
 
-  if (!memberRes.ok) {
-    const msg = await memberRes.text();
-    return NextResponse.json({ error: `Failed to join team: ${msg}` }, { status: 500 });
-  }
-
-  const memberRows = await memberRes.json();
-  const member     = memberRows[0];
-  const memberCookieValue = makeMemberCookie(member.id as string, member.salt as string);
-  response.cookies.set("team_member", memberCookieValue, cookieOpts);
-
-  // Parent selected their athlete during signup — catch up any pre-existing
-  // athlete↔coach thread the same way members/me's later-linking path does.
-  // Best-effort — must never fail the join that already succeeded.
-  if (role === "parent" && athlete_id && typeof athlete_id === "string") {
-    try {
-      await syncParentIntoAthleteThreads(athlete_id, campaign_slug);
-    } catch (err) {
-      console.error("[auth/join] syncParentIntoAthleteThreads failed:", err);
+  if (!result.ok) {
+    if (result.reason === "athlete_not_found") {
+      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
     }
+    return NextResponse.json({ error: result.message }, { status: 400 });
   }
 
+  // Fast path: this exact parent+child relationship is already live
+  // (e.g. re-entering a code they already used) — log them straight in,
+  // no new request needed.
+  if (result.alreadyMember) {
+    const memberRes = await fetch(
+      `${BASE}/rest/v1/team_members?id=eq.${encodeURIComponent(result.memberId)}&select=id,salt&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    const memberRows = memberRes.ok ? await memberRes.json() : [];
+    const member = memberRows[0];
+    const response = NextResponse.json({ ok: true, campaign_slug, pending: false });
+    if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
+    if (member) {
+      response.cookies.set("team_member", makeMemberCookie(member.id, member.salt), cookieOpts);
+    }
+    return response;
+  }
+
+  // Fire-and-forget Head Coach notification for the new pending request —
+  // same pattern as /api/auth/join-request. Never fails (or is allowed to
+  // fail) the join that already succeeded above.
+  if (!result.alreadyPending) {
+    void (async () => {
+      try {
+        const teamId = await getTeamIdBySlug(campaign_slug);
+        if (!teamId) return;
+        await createNotification(teamId, {
+          type: "request",
+          title: "New Team Request",
+          body: "A new parent access request needs review",
+          reference_id: result.request.id,
+          reference_url: `/team/${campaign_slug}/requests`,
+        });
+        const accountIds = await getHeadCoachAccountIds(campaign_slug);
+        await dispatchApnsPush({
+          accountIds,
+          category: "requests",
+          kind: "request",
+          ctx: {},
+          url: `/team/${campaign_slug}/requests`,
+        });
+      } catch (err) {
+        console.error("[auth/join] parent request notification/push failed:", err);
+      }
+    })();
+  }
+
+  const response = NextResponse.json({ ok: true, campaign_slug, pending: true });
+  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
   return response;
 }

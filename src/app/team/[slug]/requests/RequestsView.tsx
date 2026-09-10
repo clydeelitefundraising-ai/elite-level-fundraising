@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, MessageSquare, CheckCircle } from "lucide-react";
+import { UserPlus, MessageSquare, CheckCircle, Users } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import AthleteRequestsPanel from "./AthleteRequestsPanel";
 import CommentApprovalsPanel from "./CommentApprovalsPanel";
+import ParentAccessRequestsPanel from "./ParentAccessRequestsPanel";
 import styles from "./Requests.module.css";
 
 // ── Section wrapper (Phase 3B-1, retokenized Phase 8B) ──────────────────────
@@ -56,10 +57,11 @@ export default function RequestsView({
   // than flashing on the initial render before either panel has fetched.
   const [athleteRequestCount, setAthleteRequestCount] = useState<number | null>(null);
   const [commentApprovalCount, setCommentApprovalCount] = useState<number | null>(null);
+  const [parentAccessRequestCount, setParentAccessRequestCount] = useState<number | null>(null);
 
-  const bothLoaded = athleteRequestCount !== null && commentApprovalCount !== null;
-  const bothEmpty = bothLoaded && athleteRequestCount === 0 && commentApprovalCount === 0;
-  const totalCount = (athleteRequestCount ?? 0) + (commentApprovalCount ?? 0);
+  const bothLoaded = athleteRequestCount !== null && commentApprovalCount !== null && parentAccessRequestCount !== null;
+  const bothEmpty = bothLoaded && athleteRequestCount === 0 && commentApprovalCount === 0 && parentAccessRequestCount === 0;
+  const totalCount = (athleteRequestCount ?? 0) + (commentApprovalCount ?? 0) + (parentAccessRequestCount ?? 0);
 
   return (
     <div className={styles.page}>
@@ -83,6 +85,11 @@ export default function RequestsView({
             <MessageSquare size={13} strokeWidth={2} />
             Comments
             <span className={styles.chipCount}>{commentApprovalCount ?? 0}</span>
+          </span>
+          <span className={styles.chip}>
+            <Users size={13} strokeWidth={2} />
+            Parents
+            <span className={styles.chipCount}>{parentAccessRequestCount ?? 0}</span>
           </span>
         </div>
       </div>
@@ -110,6 +117,15 @@ export default function RequestsView({
               slug={slug}
               onCountChange={setCommentApprovalCount}
               emptyState={<EmptyRow message="No pending comment approvals." />}
+              hideHeader
+            />
+          </RequestSection>
+
+          <RequestSection title="Parent Access Requests" icon={<Users size={13} strokeWidth={2} />} count={parentAccessRequestCount ?? 0}>
+            <ParentAccessRequestsPanel
+              slug={slug}
+              onCountChange={setParentAccessRequestCount}
+              emptyState={<EmptyRow message="No pending parent access requests." />}
               hideHeader
             />
           </RequestSection>

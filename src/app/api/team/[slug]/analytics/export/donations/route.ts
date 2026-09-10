@@ -50,7 +50,8 @@ export async function GET(
     ].join(",");
   });
 
-  const csv = [header, ...rows].join("\n");
+  const BOM = "﻿";
+  const csv = BOM + [header, ...rows].join("\r\n") + "\r\n";
 
   return new Response(csv, {
     headers: {

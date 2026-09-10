@@ -27,7 +27,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
   const result = await deleteComment(commentId, slug, actorKey, isHeadCoach(actor));
   if (!result.ok) {
     if (result.reason === "not_found") return NextResponse.json({ error: "Comment not found." }, { status: 404 });
-    return NextResponse.json({ error: "You can only delete your own comments." }, { status: 403 });
+    if (result.reason === "forbidden") return NextResponse.json({ error: "You can only delete your own comments." }, { status: 403 });
+    return NextResponse.json({ error: "Failed to delete comment. Please try again." }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

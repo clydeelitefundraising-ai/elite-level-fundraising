@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import "./campaign.css";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
+import { ElfMark } from "@/components/BrandMark";
 
 const rankIcon = (r: number) =>
   r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;
@@ -100,7 +100,7 @@ export default function PremiumLayout({
       {/* NAV */}
       <nav className="cl-nav">
         <a href="/" className="cl-nav-logo">
-          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={180} height={52} className="cl-nav-logo-img" priority />
+          <ElfMark size={44} />
           <span className="cl-nav-logo-text">Elite Level Fundraising</span>
         </a>
         <div className="cl-nav-links">
@@ -119,8 +119,14 @@ export default function PremiumLayout({
         color: "#fff",
       }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
-          <img src={logoUrl} alt={schoolName}
-            style={{ width: 80, height: 80, objectFit: "contain", marginBottom: "1rem", filter: "drop-shadow(0 2px 8px rgba(0,0,0,.3))" }} />
+          {logoUrl ? (
+            <img src={logoUrl} alt={schoolName}
+              style={{ width: 80, height: 80, objectFit: "contain", marginBottom: "1rem", filter: "drop-shadow(0 2px 8px rgba(0,0,0,.3))" }} />
+          ) : (
+            <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "center" }}>
+              <ElfMark size={80} radius={18} style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,.3))" }} />
+            </div>
+          )}
           <h1 style={{ margin: "0 0 .4rem", fontSize: "clamp(1.8rem, 5vw, 3rem)", fontWeight: 900, letterSpacing: "-.02em", lineHeight: 1.1 }}>
             {schoolName.toUpperCase()}
           </h1>
@@ -265,7 +271,7 @@ export default function PremiumLayout({
           <div className="cl-card cl-identity-card" style={{ marginBottom: "1.5rem" }}>
             <div className="cl-identity-header">
               <div className="cl-identity-logo-wrap">
-                <img src={logoUrl} alt={schoolName} />
+                {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={46} />}
               </div>
               <div className="cl-identity-header-text">
                 <h2 className="cl-card-title">PROGRAM IDENTITY</h2>
@@ -410,7 +416,7 @@ export default function PremiumLayout({
       <footer className="cl-footer">
         <div className="cl-footer-inner">
           <div className="cl-footer-logo">
-            <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={200} height={64} className="cl-footer-logo-img" />
+            <ElfMark size={52} />
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
@@ -420,7 +426,7 @@ export default function PremiumLayout({
 
       {/* Powered by (below footer for premium) */}
       <div className="cl-powered-by" style={{ justifyContent: "center", paddingBottom: "1.5rem" }}>
-        <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={100} height={28} className="cl-powered-logo-img" />
+        <ElfMark size={28} />
         <span>Powered by Elite Level Fundraising</span>
       </div>
     </>

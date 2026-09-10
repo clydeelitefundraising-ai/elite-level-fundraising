@@ -18,6 +18,10 @@ export type PendingTeamCard = {
   status:         "pending" | "declined";
   created_at:     string;
   decline_reason: string | null;
+  // e.g. "Requesting access as parent of Abigail Cooper" — set only for
+  // parent access requests, distinguishing them from athlete
+  // self-registration requests, which have no note.
+  note?:          string;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -147,6 +151,11 @@ function PendingCard({ card }: { card: PendingTeamCard }) {
           <div style={{ fontSize: ".8rem", color: "#6b7280", marginTop: ".25rem" }}>
             {card.sport_name}
           </div>
+          {card.note && (
+            <div style={{ fontSize: ".76rem", color: "#374151", marginTop: ".3rem", lineHeight: 1.4 }}>
+              {card.note}
+            </div>
+          )}
           <span style={{
             display: "inline-flex", alignItems: "center", marginTop: ".5rem",
             background: isDeclined ? "#fef2f2" : "#fffbeb",

@@ -11,9 +11,9 @@ const SITE_URL = IS_APP
   ? (process.env.NEXT_PUBLIC_APP_URL ?? "https://app.elitelevelfundraising.com")
   : (process.env.NEXT_PUBLIC_MARKETING_URL ?? "https://www.elitelevelfundraising.com");
 
-const TITLE = "Elite Level Fundraising | Arizona School Sports Teams";
+const TITLE = "Elite Level Fundraising | The Operating System for Athletic Programs";
 const DESCRIPTION =
-  "We help Arizona school sports teams raise more money with simple donation pages, corporate sponsor outreach, and custom team merchandise shops.";
+  "Donation pages, team communication, and fundraising tools built for school sports programs — proudly serving Arizona schools, built to support athletic programs nationwide.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -33,8 +33,17 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     url: SITE_URL,
     siteName: "Elite Level Fundraising",
-    images: ["/ELF.LOGO.png"],
     type: "website",
+    // Deliberately no `images` override here — this app directory's
+    // sibling opengraph-image.tsx (current ELF wordmark/brand identity,
+    // replacing the old desert-logo PNG) is auto-detected by Next and used
+    // as the site-wide default. Per-route pages (e.g. campaign/[slug])
+    // that need a more specific image define their own generateMetadata.
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 
