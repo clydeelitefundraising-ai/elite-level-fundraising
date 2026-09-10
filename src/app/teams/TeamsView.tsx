@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { ElfMark } from "@/components/BrandMark";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
@@ -192,7 +192,7 @@ export default function TeamsView({
 
         {/* Header */}
         <div style={{ background: "#0b1e3d", padding: "1.1rem 1rem .9rem", display: "flex", alignItems: "center", gap: ".875rem" }}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={34} height={34} style={{ borderRadius: ".45rem", flexShrink: 0 }} />
+          <ElfMark size={34} radius={7} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: "#fff", fontWeight: 800, fontSize: ".95rem", lineHeight: 1.2 }}>Choose Your Team</div>
             <div style={{ color: "rgba(255,255,255,.55)", fontSize: ".72rem", marginTop: ".05rem" }}>Select the team you want to enter</div>

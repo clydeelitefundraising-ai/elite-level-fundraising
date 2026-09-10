@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { ElfMark } from "@/components/BrandMark";
 
 type Props =
   | { status: "invalid" | "expired" | "used" | "error"; token: string }
@@ -58,7 +58,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div style={{ minHeight: "100vh", background: "#0b1e3d", display: "flex", justifyContent: "center", alignItems: "flex-start", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", background: "#f5f6f8", display: "flex", flexDirection: "column" }}>
         <div style={HEADER_STYLE}>
-          <Image src="/ELF.LOGO.png" alt="ELF" width={36} height={36} style={{ borderRadius: ".4rem" }} />
+          <ElfMark size={36} radius={7} />
           <span style={{ color: "#fff", fontWeight: 800, fontSize: "1.05rem" }}>Team Hub</span>
         </div>
         {children}

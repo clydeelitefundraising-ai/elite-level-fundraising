@@ -36,7 +36,12 @@ const ORG_SCHEMA = {
   "@type": "Organization",
   name: "Elite Level Fundraising",
   url: "https://www.elitelevelfundraising.com",
-  logo: "https://www.elitelevelfundraising.com/ELF.LOGO.png",
+  // No `logo` field: current ELF branding is a typographic wordmark, not
+  // an image asset (see components/BrandMark.tsx) — Schema.org's `logo`
+  // requires an actual image URL, and the old desert-logo PNG this used
+  // to point at no longer represents the brand. The field is optional for
+  // Organization; omitting it is preferable to pointing at a mismatched
+  // asset (e.g. the 1200x630 share-preview image isn't a square logo).
   areaServed: "Arizona, US",
 };
 

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { ElfMark } from "@/components/BrandMark";
 
 export default function AppEntry() {
   return (
@@ -44,12 +44,10 @@ export default function AppEntry() {
                 borderRadius: "1.75rem",
                 background: "radial-gradient(circle, rgba(196,163,90,.2) 0%, transparent 70%)",
               }} />
-              <Image
-                src="/ELF.LOGO.png"
-                alt="Elite Level Fundraising"
-                width={96}
-                height={96}
-                style={{ borderRadius: "1.35rem", display: "block", position: "relative" }}
+              <ElfMark
+                size={96}
+                radius={22}
+                style={{ position: "relative" }}
               />
             </div>
           </div>

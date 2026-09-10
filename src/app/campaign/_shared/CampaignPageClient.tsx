@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import Image from "next/image";
 import "./campaign.css";
 import PremiumLayout from "./PremiumLayout";
 import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campaignPublicDisplay";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
 import { buildShareText } from "@/lib/shareCopy";
+import { ElfMark } from "@/components/BrandMark";
 
 // Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
 // since this is a client component and that module is server-only.
@@ -93,7 +93,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [themeButtonColor,    setThemeButtonColor]    = useState("#1B4FA8");
   const [location,        setLocation]        = useState("");
   const [season,          setSeason]          = useState(defaultSeasonLabel);
-  const [logoUrl,         setLogoUrl]         = useState("/ELF.LOGO.png");
+  // Empty until the team's own settings.logo_url loads — falls back to
+  // ElfMark (the ELF platform mark) at each render site below rather than
+  // showing the old desert-logo placeholder for a team with no logo yet.
+  const [logoUrl,         setLogoUrl]         = useState("");
   const [archived,        setArchived]        = useState(false);
   const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
 
@@ -345,7 +348,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       <>
         <nav className="cl-nav">
           <a href="/" className="cl-nav-logo">
-            <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={180} height={52} className="cl-nav-logo-img" priority />
+            <ElfMark size={44} />
             <span className="cl-nav-logo-text">Elite Level Fundraising</span>
           </a>
         </nav>
@@ -359,7 +362,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         <footer className="cl-footer">
           <div className="cl-footer-inner">
             <div className="cl-footer-logo">
-              <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={200} height={64} className="cl-footer-logo-img" />
+              <ElfMark size={52} />
               <span className="cl-footer-logo-text">Elite Level Fundraising</span>
             </div>
             <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
@@ -375,7 +378,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       {/* NAV */}
       <nav className="cl-nav">
         <a href="/" className="cl-nav-logo">
-          <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={180} height={52} className="cl-nav-logo-img" priority />
+          <ElfMark size={44} />
           <span className="cl-nav-logo-text">Elite Level Fundraising</span>
         </a>
         <div className="cl-nav-links">
@@ -392,7 +395,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         <div className="cl-school-header">
           <div className="cl-school-header-inner">
             <div className="cl-header-logo-wrap">
-              <img src={logoUrl} alt={schoolName} />
+              {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={36} />}
             </div>
             <div className="cl-school-info">
               <div className="cl-school-name">{schoolName.toUpperCase()} {mascot.toUpperCase()}</div>
@@ -437,7 +440,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <div className="cl-img-accent" />
               <div className="cl-img-content">
                 <div className="cl-logo-small">
-                  <img src={logoUrl} alt={schoolName} />
+                  {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={72} />}
                 </div>
                 <div className="cl-img-school-name">{schoolName.toUpperCase()}</div>
                 <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
@@ -519,7 +522,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               <div className="cl-card cl-identity-card">
                 <div className="cl-identity-header">
                   <div className="cl-identity-logo-wrap">
-                    <img src={logoUrl} alt={schoolName} />
+                    {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={46} />}
                   </div>
                   <div className="cl-identity-header-text">
                     <h2 className="cl-card-title">PROGRAM IDENTITY</h2>
@@ -680,7 +683,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
               </div>
 
               <div className="cl-powered-by">
-                <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={100} height={28} className="cl-powered-logo-img" />
+                <ElfMark size={28} />
                 <span>Powered by Elite Level Fundraising</span>
               </div>
             </div>
@@ -731,7 +734,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       <footer className="cl-footer">
         <div className="cl-footer-inner">
           <div className="cl-footer-logo">
-            <Image src="/ELF.LOGO.png" alt="Elite Level Fundraising" width={200} height={64} className="cl-footer-logo-img" />
+            <ElfMark size={52} />
             <span className="cl-footer-logo-text">Elite Level Fundraising</span>
           </div>
           <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
