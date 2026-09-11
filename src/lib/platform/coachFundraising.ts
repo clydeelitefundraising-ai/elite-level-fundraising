@@ -12,7 +12,7 @@
 // full rationale.
 
 import { restList, restInsert, restUpdate } from "./_client.ts";
-import { isCoachOnly } from "../permissions.ts";
+import { isCoachOnly, isStaff, isHeadCoach } from "../permissions.ts";
 import type { TeamActor } from "../permissions.ts";
 
 export type CoachFundraiserRow = {
@@ -237,4 +237,36 @@ export async function getOutreachMapByCoach(campaignSlug: string): Promise<Recor
 export function ownCoachIdForActor(actor: TeamActor): string | null {
   if (actor.kind === "coach" && isCoachOnly(actor)) return actor.session.id;
   return null;
+}
+
+// Server-side "may this actor edit/delete THIS contact" decision, used by
+// contacts/[id]/route.ts's PATCH and DELETE handlers. A single source of
+// truth so the two handlers can't drift.
+//
+// athlete-owned contact (contact.athlete_id set): UNCHANGED from the
+// pre-coach-fundraising behavior — any staff actor (isStaff(), which
+// includes every coach role AND boosters) may manage it, or the matching
+// member (athlete/parent sharing that athlete_id). This is deliberately
+// broad because staff already coordinate roster-wide outreach together.
+//
+// coach-owned contact (contact.coach_id set): DELIBERATELY TIGHTER — a
+// coach's own fundraising contacts are personal to them, not roster-wide,
+// so only that same coach (by session id, never a client-supplied id) or
+// isHeadCoach() (head coach / platform admin, who retain campaign-wide
+// management authority) may manage it. A different active coach, or a
+// booster (isStaff() would otherwise include them), may not.
+export function canManageContact(
+  actor: TeamActor,
+  contact: { athlete_id: string | null; coach_id: string | null },
+): boolean {
+  if (contact.coach_id) {
+    if (isHeadCoach(actor)) return true;
+    return actor.kind === "coach" && actor.session.id === contact.coach_id;
+  }
+
+  if (isStaff(actor)) return true;
+  if (actor.kind !== "member") return false;
+  const { session } = actor;
+  if (session.role !== "athlete" && session.role !== "parent") return false;
+  return Boolean(session.athlete_id) && session.athlete_id === contact.athlete_id;
 }

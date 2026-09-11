@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { ArrowUpRight, Trophy, HandCoins } from "lucide-react";
+import { ArrowUpRight, Trophy, HandCoins, Users } from "lucide-react";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap, getContactCountsByAthlete } from "@/lib/teamData";
@@ -148,8 +148,9 @@ async function withCoachFollowUpRows(
 // not a separate coach-profile page, so it lives inline in the same
 // Overview tab the coach already lands on for the team campaign view.
 function MyCoachFundraiserCard({
-  raisedCents, goalCents, contactCount, shareUrl,
+  slug, raisedCents, goalCents, contactCount, shareUrl,
 }: {
+  slug: string;
   raisedCents: number;
   goalCents: number | null;
   contactCount: number;
@@ -184,6 +185,17 @@ function MyCoachFundraiserCard({
             <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)" }}>contact{contactCount !== 1 ? "s" : ""}</div>
           </div>
         </div>
+        <a
+          href={`/team/${slug}/contacts`}
+          style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "var(--surface-light-elevated)", borderRadius: 10, border: "1px solid var(--border-app)", textDecoration: "none", marginBottom: ".5rem" }}
+        >
+          <Users size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)", marginBottom: ".1rem" }}>Manage My Contacts</div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)" }}>{contactCount} contact{contactCount !== 1 ? "s" : ""}</div>
+          </div>
+          <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+        </a>
         <a
           href={shareUrl}
           target="_blank"
@@ -676,6 +688,7 @@ export default async function FundraiserPage({
           <div className={styles.overviewDesktopWrap}>
             {myFundraiser && (
               <MyCoachFundraiserCard
+                slug={slug}
                 raisedCents={myFundraiser.raisedCents}
                 goalCents={myFundraiser.goalCents}
                 contactCount={myFundraiser.contactCount}

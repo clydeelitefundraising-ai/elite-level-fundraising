@@ -86,7 +86,7 @@ function makeFakeDb() {
 const { db, handle } = makeFakeDb();
 globalThis.fetch = (async (url: string | URL, init?: RequestInit) => handle(String(url), init)) as typeof fetch;
 
-const { getCoachFundraisers, getActiveCoachFundraisers, validateCoachForCampaign, upsertCoachParticipant, getCoachById, getCoachTotals } =
+const { getCoachFundraisers, getActiveCoachFundraisers, validateCoachForCampaign, upsertCoachParticipant, getCoachById, getCoachTotals, canManageContact, ownCoachIdForActor } =
   await import("./coachFundraising.ts");
 
 function resetDb() {
@@ -279,4 +279,79 @@ test("validateCoachForCampaign: a coach active under one campaign is NOT a parti
 
   assert.equal(await validateCoachForCampaign("head-1", SLUG), true);
   assert.equal(await validateCoachForCampaign("head-1", OTHER_SLUG), false);
+});
+
+// ── canManageContact / ownCoachIdForActor — coach fundraising contacts UI ──
+//
+// Fully-typed TeamActor literals (matching CoachSession/MemberSession/
+// PlatformAdminActorSession exactly, including fields these functions
+// don't read, e.g. member.account_id) so these tests type-check with no
+// `any`/suppression — a real compile-time guarantee the fixtures are
+// shaped like production actors, not just "close enough" mocks.
+
+const headCoachActor    = { kind: "coach" as const, session: { id: "head-1",  name: "Mike Owens",      role: "head_coach" as const,      campaign_slug: SLUG } };
+const asstCoachActor    = { kind: "coach" as const, session: { id: "asst-1",  name: "Rachel Moreno",   role: "assistant_coach" as const, campaign_slug: SLUG } };
+const otherAsstActor    = { kind: "coach" as const, session: { id: "asst-2",  name: "Other Asst",      role: "assistant_coach" as const, campaign_slug: SLUG } };
+const boosterCoachActor = { kind: "coach" as const, session: { id: "boost-1", name: "Booster",         role: "booster" as const,         campaign_slug: SLUG } };
+
+const boosterMemberActor = { kind: "member" as const, session: { id: "m-boost", name: "Booster Member", role: "booster" as const,  campaign_slug: SLUG, athlete_id: null,   account_id: null } };
+const athleteMemberActor = { kind: "member" as const, session: { id: "m-ath-1", name: "Athlete One",    role: "athlete" as const,  campaign_slug: SLUG, athlete_id: "ath-1", account_id: null } };
+const otherAthleteMemberActor = { kind: "member" as const, session: { id: "m-ath-2", name: "Athlete Two", role: "athlete" as const, campaign_slug: SLUG, athlete_id: "ath-2", account_id: null } };
+const parentMemberActor  = { kind: "member" as const, session: { id: "m-par-1", name: "Parent One",     role: "parent" as const,   campaign_slug: SLUG, athlete_id: "ath-1", account_id: null } };
+
+const platformAdminActor = { kind: "platform_admin" as const, session: { platformAdminId: "pa-1", accountId: "acc-1", name: "Admin", email: "a@b.com", campaign_slug: SLUG } };
+const publicActor = { kind: "public" as const };
+
+const coachOwnedContact   = { athlete_id: null, coach_id: "asst-1" };
+const athleteOwnedContact = { athlete_id: "ath-1", coach_id: null };
+
+test("canManageContact: a coach can manage their OWN coach-owned contact", () => {
+  assert.equal(canManageContact(asstCoachActor, coachOwnedContact), true);
+});
+
+test("canManageContact: a DIFFERENT coach cannot manage another coach's contact (own-only, not roster-wide)", () => {
+  assert.equal(canManageContact(otherAsstActor, coachOwnedContact), false);
+});
+
+test("canManageContact: Head Coach / Platform Admin can manage ANY coach's contact (campaign-wide authority preserved)", () => {
+  assert.equal(canManageContact(headCoachActor, coachOwnedContact), true);
+  assert.equal(canManageContact(platformAdminActor, coachOwnedContact), true);
+});
+
+test("canManageContact: a booster (either team_coaches role or member role) cannot manage a coach-owned contact", () => {
+  assert.equal(canManageContact(boosterCoachActor, coachOwnedContact), false);
+  assert.equal(canManageContact(boosterMemberActor, coachOwnedContact), false);
+});
+
+test("canManageContact: public (unauthenticated) can never manage any contact", () => {
+  assert.equal(canManageContact(publicActor, coachOwnedContact), false);
+  assert.equal(canManageContact(publicActor, athleteOwnedContact), false);
+});
+
+test("canManageContact REGRESSION: athlete-owned contact behavior is unchanged — any staff actor may manage it", () => {
+  assert.equal(canManageContact(headCoachActor, athleteOwnedContact), true);
+  assert.equal(canManageContact(asstCoachActor, athleteOwnedContact), true);
+  // boosters ARE staff for athlete-owned contacts (isStaff() includes them) — unchanged pre-existing behavior
+  assert.equal(canManageContact(boosterCoachActor, athleteOwnedContact), true);
+  assert.equal(canManageContact(boosterMemberActor, athleteOwnedContact), true);
+  assert.equal(canManageContact(platformAdminActor, athleteOwnedContact), true);
+});
+
+test("canManageContact REGRESSION: athlete-owned contact — matching member (athlete/parent) can manage, non-matching cannot", () => {
+  assert.equal(canManageContact(athleteMemberActor, athleteOwnedContact), true);
+  assert.equal(canManageContact(parentMemberActor, athleteOwnedContact), true);
+  assert.equal(canManageContact(otherAthleteMemberActor, athleteOwnedContact), false);
+});
+
+test("ownCoachIdForActor: resolves an eligible coach's own id, never a client-supplied one", () => {
+  assert.equal(ownCoachIdForActor(headCoachActor), "head-1");
+  assert.equal(ownCoachIdForActor(asstCoachActor), "asst-1");
+});
+
+test("ownCoachIdForActor: null for a booster (either shape), member, platform admin, or public actor", () => {
+  assert.equal(ownCoachIdForActor(boosterCoachActor), null);
+  assert.equal(ownCoachIdForActor(boosterMemberActor), null);
+  assert.equal(ownCoachIdForActor(athleteMemberActor), null);
+  assert.equal(ownCoachIdForActor(platformAdminActor), null);
+  assert.equal(ownCoachIdForActor(publicActor), null);
 });
