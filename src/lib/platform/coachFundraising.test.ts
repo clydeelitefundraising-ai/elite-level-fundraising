@@ -233,3 +233,50 @@ test("getCoachTotals: id-first, grouped by coach_id, in cents", async () => {
   assert.equal(totals["head-1"], 7500);
   assert.equal(Object.keys(totals).length, 1);
 });
+
+// ── Cross-campaign scoping (backs the new Head-Coach-facing routes:
+// /api/team/[slug]/coach-fundraisers and
+// /api/team/[slug]/settings/coach-fundraising — both call these exact lib
+// functions with the slug taken from their own URL param, never a
+// client-supplied campaign, so a Head Coach of campaign A cannot read or
+// act on campaign B's coaches by guessing a coach_id) ─────────────────────
+const OTHER_SLUG = "chino-valley";
+
+test("upsertCoachParticipant: a coach_id that belongs to a DIFFERENT campaign is rejected as not_eligible, even with the right role", async () => {
+  resetDb();
+  seedCampaign(true);
+  db.campaign_settings.push({ campaign_slug: OTHER_SLUG, allow_coach_fundraising: true });
+  // head-1 exists only under OTHER_SLUG, not SLUG
+  db.team_coaches.push({ id: "head-1", campaign_slug: OTHER_SLUG, name: "Mike Owens", role: "head_coach" });
+
+  const result = await upsertCoachParticipant(SLUG, "head-1", { active: true, goal_cents: null });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "not_eligible");
+  // and no row was created under either campaign
+  assert.equal(db.campaign_coach_fundraisers.length, 0);
+});
+
+test("getCoachFundraisers: only returns rows for the requested campaign_slug, never another campaign's", async () => {
+  resetDb();
+  seedCampaign(true);
+  db.campaign_settings.push({ campaign_slug: OTHER_SLUG, allow_coach_fundraising: true });
+  seedCoach("head-1", "head_coach", "Mike Owens");
+  db.team_coaches.push({ id: "head-2", campaign_slug: OTHER_SLUG, name: "Other Coach", role: "head_coach" });
+  db.campaign_coach_fundraisers.push({ id: "row-1", campaign_slug: SLUG, coach_id: "head-1", active: true, goal_cents: null });
+  db.campaign_coach_fundraisers.push({ id: "row-2", campaign_slug: OTHER_SLUG, coach_id: "head-2", active: true, goal_cents: null });
+
+  const rows = await getCoachFundraisers(SLUG);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].coach_id, "head-1");
+});
+
+test("validateCoachForCampaign: a coach active under one campaign is NOT a participant under a different campaign_slug", async () => {
+  resetDb();
+  seedCampaign(true);
+  db.campaign_settings.push({ campaign_slug: OTHER_SLUG, allow_coach_fundraising: true });
+  seedCoach("head-1", "head_coach", "Mike Owens");
+  db.campaign_coach_fundraisers.push({ id: "row-1", campaign_slug: SLUG, coach_id: "head-1", active: true, goal_cents: null });
+
+  assert.equal(await validateCoachForCampaign("head-1", SLUG), true);
+  assert.equal(await validateCoachForCampaign("head-1", OTHER_SLUG), false);
+});

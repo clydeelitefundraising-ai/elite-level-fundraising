@@ -63,7 +63,10 @@ function UpdateFollowUpModal({
 
   const handleSave = async () => {
     setSaving(true); setError("");
-    const res = await fetch(`/api/team/${slug}/outreach/${athlete.id}`, {
+    const outreachUrl = athlete.kind === "coach"
+      ? `/api/team/${slug}/outreach/coach/${athlete.id}`
+      : `/api/team/${slug}/outreach/${athlete.id}`;
+    const res = await fetch(outreachUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, note: note.trim() || undefined }),
@@ -109,7 +112,10 @@ function FollowUpHistoryModal({ slug, athlete, onClose }: { slug: string; athlet
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/team/${slug}/outreach/${athlete.id}`)
+    const outreachUrl = athlete.kind === "coach"
+      ? `/api/team/${slug}/outreach/coach/${athlete.id}`
+      : `/api/team/${slug}/outreach/${athlete.id}`;
+    fetch(outreachUrl)
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (!cancelled) setHistory(d); })
       .catch(() => { if (!cancelled) setHistory([]); })

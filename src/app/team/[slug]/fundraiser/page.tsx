@@ -8,8 +8,12 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff } from "@/lib/permissions";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
-import { buildFollowUpRows } from "@/lib/followUps";
-import { validateCoachForCampaign, getCoachFundraiserById, getCoachTotals, getContactCountsByCoach } from "@/lib/platform/coachFundraising";
+import { buildFollowUpRows, buildCoachFollowUpRows } from "@/lib/followUps";
+import type { FollowUpRow } from "@/lib/followUps";
+import {
+  validateCoachForCampaign, getCoachFundraiserById, getCoachTotals, getContactCountsByCoach,
+  getActiveCoachFundraisers, getOutreachMapByCoach,
+} from "@/lib/platform/coachFundraising";
 import { buildCoachShareUrl } from "@/lib/shareCopy";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
@@ -97,6 +101,44 @@ function buildTeamFeed(
     donation_message: d.donation_message,
     created_at:       d.created_at,
   }));
+}
+
+// ── Merged Follow-Ups rows (Phase A35) ──────────────────────────────────
+// Appends active coach-fundraiser rows to the existing roster-first
+// athlete rows. getActiveCoachFundraisers already returns [] when
+// allow_coach_fundraising is false (checked internally), so this is
+// naturally a no-op on a campaign that hasn't opted in — no redundant
+// flag check needed here, but we skip the extra fetches entirely as a
+// minor efficiency win when the flag is off.
+async function withCoachFollowUpRows(
+  slug: string,
+  allowCoachFundraising: boolean,
+  athleteRows: FollowUpRow[],
+): Promise<FollowUpRow[]> {
+  if (!allowCoachFundraising) return athleteRows;
+
+  const [participants, coachTotals, coachContactCounts, coachOutreachMap] = await Promise.all([
+    getActiveCoachFundraisers(slug),
+    getCoachTotals(slug),
+    getContactCountsByCoach(slug),
+    getOutreachMapByCoach(slug),
+  ]);
+  // upsertCoachParticipant() already refuses to activate a booster, so
+  // this filter should never actually drop anything in practice — kept as
+  // a cheap runtime safety net (defense in depth) rather than trusting
+  // the type-level role narrowing alone.
+  const eligible = participants.filter(
+    (p): p is typeof p & { role: "head_coach" | "assistant_coach" } => p.role === "head_coach" || p.role === "assistant_coach",
+  );
+  if (eligible.length === 0) return athleteRows;
+
+  const coachRows = buildCoachFollowUpRows(
+    eligible.map(p => ({ id: p.coach_id, name: p.name, role: p.role })),
+    coachTotals,
+    coachContactCounts,
+    coachOutreachMap,
+  );
+  return [...athleteRows, ...coachRows];
 }
 
 // ── Coach's own personal fundraiser (Phase A35) ────────────────────────────────
@@ -619,7 +661,13 @@ export default async function FundraiserPage({
     // Phase 6: roster-first Follow-Ups rows — starts from `athletes`
     // (every roster row), enriched by athlete id from contactCounts/
     // donations/outreachMap. Never derived from those three datasets.
-    const followUpRows = buildFollowUpRows(athletes, donations, contactCounts, outreachMap);
+    // Phase A35: active coach-fundraiser rows are appended alongside the
+    // athlete rows (same Follow-Ups workspace, not a separate system) —
+    // see withCoachFollowUpRows above.
+    const followUpRows = await withCoachFollowUpRows(
+      slug, settings.allow_coach_fundraising ?? false,
+      buildFollowUpRows(athletes, donations, contactCounts, outreachMap),
+    );
 
     return (
       <FundraiserTabs
@@ -675,7 +723,17 @@ export default async function FundraiserPage({
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
     const leaderboard = buildLeaderboard(athletes, donations);
     const teamFeed    = buildTeamFeed(athletes, donations);
-    const followUpRows = buildFollowUpRows(athletes, donations, contactCounts, outreachMap);
+    // Phase A35: a booster's Follow-Ups access is otherwise unchanged
+    // (still no AnalyticsView, per the comment above) — but boosters
+    // already record outreach for anyone via the same staff-gated
+    // outreach routes (isStaff(), not isHeadCoach()/isCoachOnly()), so
+    // they should see coach-fundraiser rows here too, exactly like the
+    // coach branch above. Boosters still can never BE a participant
+    // themselves; this only affects what they can help follow up on.
+    const followUpRows = await withCoachFollowUpRows(
+      slug, settings.allow_coach_fundraising ?? false,
+      buildFollowUpRows(athletes, donations, contactCounts, outreachMap),
+    );
 
     return (
       <FundraiserTabs

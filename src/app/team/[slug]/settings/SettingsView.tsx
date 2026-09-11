@@ -11,6 +11,7 @@ import PrintSignupSheet from "../_components/PrintSignupSheet";
 import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJoinCode";
 import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
+import CoachFundraisingSection from "./CoachFundraisingSection";
 
 type Props = {
   slug: string;
@@ -22,9 +23,12 @@ type Props = {
   // Phase A34: Team Branding Settings (logo + colors) — separate from the
   // above, which only feeds the join-code QR/print flow.
   branding: TeamBrandingSettings;
+  // Phase A35: whether coach fundraising is currently enabled for this
+  // campaign — Head-Coach-only section below.
+  allowCoachFundraising: boolean;
 };
 
-export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding }: Props) {
+export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding, allowCoachFundraising }: Props) {
   const router = useRouter();
   const [code, setCode]       = useState<ActiveJoinCode | null>(initialCode);
   const [working, setWorking] = useState(false);
@@ -355,6 +359,18 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
             </span>
           </div>
           <TeamBrandingSection slug={slug} branding={branding} />
+        </>
+      )}
+
+      {/* ── Coach Fundraising section (Head Coach only) ── */}
+      {coach.role === "head_coach" && (
+        <>
+          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+              Coach Fundraising
+            </span>
+          </div>
+          <CoachFundraisingSection slug={slug} initialAllowCoachFundraising={allowCoachFundraising} />
         </>
       )}
 

@@ -43,6 +43,7 @@ export default async function SettingsPage({
         secondary_color:      settings?.secondary_color ?? null,
         branding_customized:  settings?.branding_customized ?? false,
       }}
+      allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
     />
   );
 }
