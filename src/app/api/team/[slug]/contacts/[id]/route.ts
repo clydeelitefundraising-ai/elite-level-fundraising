@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeamActor, isStaff } from "@/lib/permissions.server";
+import { getTeamActor } from "@/lib/permissions.server";
+import { canManageContact } from "@/lib/platform/coachFundraising";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -21,17 +22,19 @@ const ALLOWED_RELATIONSHIPS = new Set([
 
 async function fetchContact(id: string, slug: string) {
   const res = await fetch(
-    `${BASE}/rest/v1/fundraising_contacts?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=id,athlete_id&limit=1`,
+    `${BASE}/rest/v1/fundraising_contacts?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=id,athlete_id,coach_id&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return null;
   const rows = await res.json();
-  return rows[0] as { id: string; athlete_id: string } | undefined;
+  return rows[0] as { id: string; athlete_id: string | null; coach_id: string | null } | undefined;
 }
 
 // PATCH /api/team/[slug]/contacts/[id]
 // Athlete/parent: must share athlete_id with the contact
-// Staff: may edit any contact in this campaign
+// Staff: may edit any ATHLETE-owned contact in this campaign (unchanged)
+// Coach-owned contact: only that coach, or the Head Coach/Platform Admin
+// — see canManageContact() for the full rule.
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
@@ -45,18 +48,8 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
-  // Permission check
-  if (!isStaff(actor)) {
-    if (actor.kind !== "member") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-    const { session } = actor;
-    if (session.role !== "athlete" && session.role !== "parent") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-    if (!session.athlete_id || session.athlete_id !== contact.athlete_id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+  if (!canManageContact(actor, contact)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);
@@ -109,7 +102,9 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
 
 // DELETE /api/team/[slug]/contacts/[id]
 // Athlete/parent: must share athlete_id with the contact
-// Staff: may delete any contact in this campaign
+// Staff: may delete any ATHLETE-owned contact in this campaign (unchanged)
+// Coach-owned contact: only that coach, or the Head Coach/Platform Admin
+// — see canManageContact() for the full rule.
 export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
   const actor = await getTeamActor(slug);
@@ -123,18 +118,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
-  // Permission check
-  if (!isStaff(actor)) {
-    if (actor.kind !== "member") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-    const { session } = actor;
-    if (session.role !== "athlete" && session.role !== "parent") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
-    if (!session.athlete_id || session.athlete_id !== contact.athlete_id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+  if (!canManageContact(actor, contact)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
   const res = await fetch(

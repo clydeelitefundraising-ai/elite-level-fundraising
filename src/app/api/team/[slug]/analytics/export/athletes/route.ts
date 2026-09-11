@@ -3,6 +3,7 @@ import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap } from "@/lib/teamData";
 import { FOLLOW_UP_STATUS_LABEL } from "@/lib/followUps";
+import { getCoachFundraisers, getCoachTotals, getCoachDonorCounts, getContactCountsByCoach, getOutreachMapByCoach } from "@/lib/platform/coachFundraising";
 
 function csvField(val: string | number | null | undefined): string {
   if (val == null) return "";
@@ -25,12 +26,21 @@ export async function GET(
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return new Response("Unauthorized", { status: 401 });
 
-  const [athletes, donations, settings, contactCounts, outreachMap] = await Promise.all([
+  const [athletes, donations, settings, contactCounts, outreachMap, coachFundraisers, coachTotals, coachDonorCounts, coachContactCounts, coachOutreachMap] = await Promise.all([
     getTeamAthletes(slug),
     getDonations(slug),
     getCampaignSettings(slug),
     getContactCountsByAthlete(slug),
     getOutreachMap(slug),
+    // Every participation row this campaign has ever had, not just
+    // currently-active ones — a deactivated coach's historical totals
+    // must still appear in reports/exports (deactivation only blocks NEW
+    // attribution and hides them from the live public leaderboard).
+    getCoachFundraisers(slug),
+    getCoachTotals(slug),
+    getCoachDonorCounts(slug),
+    getContactCountsByCoach(slug),
+    getOutreachMapByCoach(slug),
   ]);
   const campaignDefaultGoal = settings?.default_athlete_goal_cents ?? null;
 
@@ -53,40 +63,65 @@ export async function GET(
     }
   }
 
-  const ranked = athletes
-    .map(a => ({
-      ...a,
-      raisedCents: totals[a.id] ?? 0,
-      donorCount:  donorCounts[a.id] ?? 0,
-    }))
+  type ExportRow = {
+    rank: number; name: string; participantType: "Athlete" | "Coach";
+    grade: string; event: string | null; jerseyNumber: number | null; gradYear: number | null;
+    contacts: number; donorCount: number; raisedCents: number; goalCents: number | null;
+  };
+
+  const athleteRows: ExportRow[] = athletes.map(a => ({
+    rank: 0, name: a.name, participantType: "Athlete",
+    grade: a.class_year ?? (a.grad_year ? `Class of ${a.grad_year}` : ""),
+    event: a.event, jerseyNumber: a.jersey_number, gradYear: a.grad_year,
+    contacts: contactCounts[a.id] ?? 0, donorCount: donorCounts[a.id] ?? 0,
+    raisedCents: totals[a.id] ?? 0, goalCents: a.goal_cents ?? campaignDefaultGoal,
+  }));
+
+  const coachRows: ExportRow[] = coachFundraisers.map(c => ({
+    rank: 0, name: c.name, participantType: "Coach",
+    grade: c.role === "head_coach" ? "Head Coach" : "Assistant Coach",
+    event: null, jerseyNumber: null, gradYear: null,
+    contacts: coachContactCounts[c.coach_id] ?? 0, donorCount: coachDonorCounts[c.coach_id] ?? 0,
+    raisedCents: coachTotals[c.coach_id] ?? 0, goalCents: c.goal_cents,
+  }));
+
+  // Outreach lookups keyed by name after merge — athletes.id/coach_id both
+  // fold into the same ExportRow shape, so re-key the two source maps by
+  // the same identifier each row was built from.
+  const outreachByName: Record<string, { status: string; created_at: string }> = {};
+  for (const a of athletes) { const o = outreachMap[a.id]; if (o) outreachByName[a.name] = o; }
+  for (const c of coachFundraisers) { const o = coachOutreachMap[c.coach_id]; if (o) outreachByName[c.name] = o; }
+
+  const ranked = [...athleteRows, ...coachRows]
     .sort((a, b) => b.raisedCents - a.raisedCents)
     .map((a, i) => ({ ...a, rank: i + 1 }));
 
   const header = [
-    "Rank", "Name", "Grade", "Event", "Jersey #", "Grad Year",
+    "Rank", "Name", "Participant Type", "Role / Grade", "Event", "Jersey #", "Grad Year",
     "Fundraising Contacts", "Donor Count", "Amount Raised", "Goal", "% of Goal",
     "Follow-Up Status", "Last Outreach",
   ].join(",");
 
   const rows = ranked.map(a => {
-    const effectiveGoal = a.goal_cents ?? campaignDefaultGoal;
+    const effectiveGoal = a.goalCents;
     const pct = effectiveGoal && effectiveGoal > 0
       ? `${Math.min(100, Math.round((a.raisedCents / effectiveGoal) * 100))}%`
       : "";
-    const outreach = outreachMap[a.id] ?? null;
+    const outreach = outreachByName[a.name] ?? null;
     return [
       csvField(a.rank),
       csvField(a.name),
-      csvField(a.class_year ?? (a.grad_year ? `Class of ${a.grad_year}` : "")),
+      csvField(a.participantType),
+      csvField(a.grade),
       csvField(a.event),
-      csvField(a.jersey_number),
-      csvField(a.grad_year),
-      csvField(contactCounts[a.id] ?? 0),
+      csvField(a.jerseyNumber),
+      csvField(a.gradYear),
+      csvField(a.contacts),
       csvField(a.donorCount),
       csvField(`$${(a.raisedCents / 100).toFixed(2)}`),
       csvField(effectiveGoal != null ? `$${(effectiveGoal / 100).toFixed(2)}` : ""),
       csvField(pct),
-      csvField(outreach ? FOLLOW_UP_STATUS_LABEL[outreach.status] : ""),
+      csvField(outreach ? (FOLLOW_UP_STATUS_LABEL as Record<string, string>)[outreach.status] : ""),
       csvField(outreach?.created_at ? outreach.created_at.slice(0, 10) : ""),
     ].join(",");
   });

@@ -80,6 +80,7 @@ async function saveDonation(sessionId: string, campaignSlug: string) {
         amount_cents:      session.amount_total,
         athlete_name:      session.metadata?.athlete_name     ?? null,
         athlete_id:        session.metadata?.athlete_id       ?? null,
+        coach_id:          session.metadata?.coach_id         ?? null,
         donation_message:  session.metadata?.donation_message ?? null,
         campaign_slug:     campaignSlug,
       });

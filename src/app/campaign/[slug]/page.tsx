@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import CampaignPageClient from "../_shared/CampaignPageClient";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById } from "@/lib/teamData";
+import { getCoachById } from "@/lib/platform/coachFundraising";
 import { buildCampaignMetadata } from "@/lib/shareCopy";
 
 type RouteParams = { slug: string };
-type RouteSearchParams = { athlete?: string };
+type RouteSearchParams = { athlete?: string; coach?: string };
 
 // Per-campaign (and, via ?athlete=<id>, per-athlete) share-link metadata.
 // Previously this page had no generateMetadata at all, so every share
@@ -19,11 +20,15 @@ export async function generateMetadata(
   { params, searchParams }: { params: Promise<RouteParams>; searchParams: Promise<RouteSearchParams> },
 ): Promise<Metadata> {
   const { slug } = await params;
-  const { athlete: athleteId } = await searchParams;
+  const { athlete: athleteId, coach: coachId } = await searchParams;
 
-  const [settings, athlete] = await Promise.all([
+  const [settings, athlete, coach] = await Promise.all([
     getCampaignSettings(slug),
     athleteId ? getAthleteById(athleteId) : Promise.resolve(null),
+    // getCoachById is already campaign-scoped AND verifies active
+    // participation — a non-participating/deselected/stale coach id
+    // simply returns null, same as a stale athlete id does above.
+    (!athleteId && coachId) ? getCoachById(coachId, slug) : Promise.resolve(null),
   ]);
 
   if (!settings) {
@@ -32,15 +37,20 @@ export async function generateMetadata(
 
   const teamLabel = [settings.school_name, settings.mascot, settings.sport_name].filter(Boolean).join(" ");
   const athleteName = athlete && athlete.campaign_slug === slug ? athlete.name : null;
+  const coachName = !athleteName && coach ? coach.name : null;
 
   const { title, description } = buildCampaignMetadata({
     athleteName,
+    coachName,
     teamLabel,
     schoolName: settings.school_name,
     sportName:  settings.sport_name,
   });
 
-  const ogImageUrl = `/api/og?slug=${encodeURIComponent(slug)}${athleteName ? `&athlete=${encodeURIComponent(athleteId!)}` : ""}`;
+  const ogImageUrl = `/api/og?slug=${encodeURIComponent(slug)}${
+    athleteName ? `&athlete=${encodeURIComponent(athleteId!)}` :
+    coachName   ? `&coach=${encodeURIComponent(coachId!)}` : ""
+  }`;
 
   return {
     title,

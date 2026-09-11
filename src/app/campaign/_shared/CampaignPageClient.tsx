@@ -66,6 +66,15 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [goal,            setGoal]            = useState(FALLBACK_GOAL);
   const [daysLeft,        setDaysLeft]        = useState(FALLBACK_DAYS_LEFT);
   const [athletes,        setAthletes]        = useState<{ id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number }[]>([]);
+  // Phase A35: coach fundraising participation. Only ever populated when
+  // the campaign's own allow_coach_fundraising flag is true — never
+  // inferred from anything else. selectedCoachId mirrors
+  // selectedAthleteId's id-first, mutually-exclusive selection shape (see
+  // handleDonate below — never both sent to /api/checkout).
+  const [coaches,          setCoaches]          = useState<{ id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null }[]>([]);
+  const [allowCoachFundraising, setAllowCoachFundraising] = useState(false);
+  const [selectedCoachId,  setSelectedCoachId]  = useState("");
+  const [participantFilter, setParticipantFilter] = useState<"All" | "Athletes" | "Coaches">("All");
   const [recentDonations, setRecentDonations] = useState<{ name: string; amount: number; message: string; time: string }[]>([]);
   const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
   const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
@@ -118,6 +127,12 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           archived: fetchedArchived,
         } = data;
         setArchived(fetchedArchived === true);
+        setAllowCoachFundraising(data.allow_coach_fundraising === true);
+        if (Array.isArray(data.coaches)) {
+          setCoaches(data.coaches.map((c: { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null }) => c));
+        } else {
+          setCoaches([]);
+        }
         setShowLeaderboard(    data.show_leaderboard      !== false);
         setShowFundUses(       data.show_fund_uses        !== false);
         setShowRecentDonations(data.show_recent_donations !== false);
@@ -197,6 +212,20 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     }
   }, [athletes, searchParams]);
 
+  // Coach equivalent of the ?athlete= preselect above — ?coach=<id> only
+  // ever matches against the campaign-scoped `coaches` list (already
+  // filtered server-side to active participants of a campaign with
+  // allow_coach_fundraising=true), so a stale/tampered/cross-campaign id
+  // simply never matches, exactly like the athlete path. /api/checkout
+  // independently re-validates regardless.
+  useEffect(() => {
+    const coachParam = searchParams.get("coach");
+    if (coachParam && coaches.some((c) => c.id === coachParam)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedCoachId(coachParam);
+    }
+  }, [coaches, searchParams]);
+
   // Page chrome (hero, buttons, accents, progress bar, headings, cards) is
   // driven entirely by the CAMPAIGN theme colors, not the team colors —
   // that's the whole point of separating them.
@@ -220,19 +249,48 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
       ? customAmount ? `$${customAmount}` : "Custom Amount"
       : selectedAmount;
 
-  // Display name is looked up from the current campaign's own athlete list
-  // by exact id match — never guessed/matched from free text.
+  // Display name is looked up from the current campaign's own athlete/
+  // coach list by exact id match — never guessed/matched from free text.
   const selectedAthleteName = athletes.find((a) => a.id === selectedAthleteId)?.name ?? "";
+  const selectedCoachName   = coaches.find((c) => c.id === selectedCoachId)?.name ?? "";
 
   const donateLabel =
     selectedAthleteId
       ? `Donate ${displayAmount} for ${selectedAthleteName || "this athlete"} →`
+      : selectedCoachId
+      ? `Donate ${displayAmount} for Coach ${selectedCoachName || "this coach"} →`
       : `Donate ${displayAmount} to the ${mascot} →`;
 
+  // Selecting one participant (athlete or coach, or clearing back to the
+  // general fund) always clears the other — a donation is never
+  // attributable to both, mirrored server-side by /api/checkout's own
+  // rejection of a request carrying both ids.
+  const selectAthleteParticipant = (id: string) => { setSelectedAthleteId(id); setSelectedCoachId(""); };
+  const selectCoachParticipant   = (id: string) => { setSelectedCoachId(id); setSelectedAthleteId(""); };
+
+  // Combined leaderboard: athletes + currently-active participating
+  // coaches (empty when allow_coach_fundraising is off), ranked together
+  // by amount raised. Coach entries carry role instead of grade/event —
+  // never presented as having a grade/event per spec.
+  const combinedEntries = [
+    ...athletes.map((a) => ({ ...a, kind: "athlete" as const, role: undefined as ("head_coach" | "assistant_coach" | undefined) })),
+    ...coaches.map((c) => ({ id: c.id, name: c.name, event: null, class_year: null, raised: c.raised, rank: 0, kind: "coach" as const, role: c.role })),
+  ]
+    .sort((a, b) => b.raised - a.raised)
+    .map((e, i) => ({ ...e, rank: i + 1 }));
+
+  // Grade tabs remain athlete-only (a specific grade has no meaning for a
+  // coach entry) — only the "Overall" tab includes coaches, additionally
+  // narrowable by the lightweight Athletes/Coaches participant filter
+  // (only ever shown when there's at least one active coach).
   const filteredAthletes = (
-    activeFilter === "Overall"
-      ? athletes
-      : athletes.filter((a) => a.class_year === activeFilter)
+    activeFilter !== "Overall"
+      ? athletes.filter((a) => a.class_year === activeFilter).map((a) => ({ ...a, kind: "athlete" as const, role: undefined as ("head_coach" | "assistant_coach" | undefined) }))
+      : participantFilter === "Athletes"
+      ? combinedEntries.filter((e) => e.kind === "athlete")
+      : participantFilter === "Coaches"
+      ? combinedEntries.filter((e) => e.kind === "coach")
+      : combinedEntries
   ).map((a, i) => ({ ...a, displayRank: i + 1 }));
 
   const handleDonate = async () => {
@@ -252,6 +310,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           amountCents:     Math.round(parsed * 100),
           athleteId:       selectedAthleteId   || null,
           athleteName:     selectedAthleteName || null,
+          coachId:         selectedCoachId     || null,
           donorName:       donorName           || null,
           donationMessage: donationMessage     || null,
           campaignSlug:    slug,
@@ -278,13 +337,16 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     themePrimaryColor, location, season, logoUrl, description,
     raised, donors, goal, daysLeft, percent,
     athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
+    coaches, allowCoachFundraising, selectedCoachId,
+    selectAthleteParticipant, selectCoachParticipant,
+    participantFilter, setParticipantFilter,
     recentDonations,
     titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
     missionItems,
     showLeaderboard,
     showFundUses, showRecentDonations, showSponsors, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
-    donorName, setDonorName, selectedAthleteId, setSelectedAthleteId,
+    donorName, setDonorName, selectedAthleteId,
     donationMessage, setDonationMessage,
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,

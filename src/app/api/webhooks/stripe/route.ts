@@ -104,6 +104,8 @@ interface StripeCheckoutSession {
     donor_name?:       string;
     athlete_name?:     string;
     athlete_id?:       string;
+    coach_name?:       string;
+    coach_id?:         string;
     donation_message?: string;
     campaign_slug?:    string;
   };
@@ -190,6 +192,7 @@ export async function POST(req: NextRequest) {
         amount_cents:      session.amount_total,
         athlete_name:      session.metadata?.athlete_name     ?? null,
         athlete_id:        session.metadata?.athlete_id       ?? null,
+        coach_id:          session.metadata?.coach_id         ?? null,
         donation_message:  session.metadata?.donation_message ?? null,
         campaign_slug:     session.metadata?.campaign_slug    ?? null,
       });

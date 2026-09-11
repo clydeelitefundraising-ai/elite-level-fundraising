@@ -168,13 +168,16 @@ function ContactCard({
 
 export default function ContactsView({
   slug,
-  athleteId,
   memberRole,
   primaryColor,
 }: {
   slug: string;
-  athleteId: string;
   memberName: string;
+  // Athlete/parent roles ("athlete" | "parent") or a participating coach's
+  // team_coaches role ("head_coach" | "assistant_coach") — ownership itself
+  // is always resolved server-side from the session by the /contacts API
+  // routes, never from this prop; it only drives copy below (e.g. the
+  // parent-sharing note, gated to exactly "parent").
   memberRole: string;
   primaryColor: string;
 }) {

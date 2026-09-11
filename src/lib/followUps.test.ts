@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildFollowUpRows,
+  buildCoachFollowUpRows,
   sortFollowUpRows,
   filterFollowUpRows,
   buildFollowUpsReportTitle,
@@ -9,6 +10,7 @@ import {
   buildFollowUpsCsvFilename,
   followUpStatusLabel,
   DEFAULT_FOLLOW_UP_SORT,
+  type FollowUpRow,
 } from "./followUps.ts";
 
 function athlete(id: string, name: string) {
@@ -29,6 +31,17 @@ function outreach(athleteId: string, status: "contacted" | "needs_follow_up" | "
   } as import("./teamData.ts").OutreachCurrentRow;
 }
 
+// Row-literal helper for sort/filter/CSV tests below — every FollowUpRow
+// now requires kind/roleLabel (Phase A35); defaults to a plain athlete row
+// so pre-existing tests don't need every literal touched by hand.
+function row(partial: Partial<FollowUpRow> & Pick<FollowUpRow, "id" | "name">): FollowUpRow {
+  return {
+    kind: "athlete", roleLabel: null,
+    contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null,
+    ...partial,
+  };
+}
+
 // ── Roster-first: the core non-negotiable guarantee ─────────────────────
 
 test("buildFollowUpRows: a completely untouched roster athlete (no account/contacts/donations/outreach) still appears with 0/0/null", () => {
@@ -36,7 +49,7 @@ test("buildFollowUpRows: a completely untouched roster athlete (no account/conta
   const rows = buildFollowUpRows(athletes, [], {}, {});
   assert.equal(rows.length, 1);
   assert.deepEqual(rows[0], {
-    id: "a1", name: "Mason Brooks",
+    id: "a1", name: "Mason Brooks", kind: "athlete", roleLabel: null,
     contacts: 0, raisedCents: 0,
     outreachStatus: null, outreachNote: null, outreachAt: null,
   });
@@ -73,48 +86,84 @@ test("buildFollowUpRows: enriches contacts, raised amount, and outreach correctl
   );
   const mason = rows.find(r => r.id === "a1")!;
   const abby  = rows.find(r => r.id === "a2")!;
-  assert.deepEqual(mason, { id: "a1", name: "Mason Brooks", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null });
+  assert.deepEqual(mason, { id: "a1", name: "Mason Brooks", kind: "athlete", roleLabel: null, contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null });
   assert.equal(abby.contacts, 4);
   assert.equal(abby.raisedCents, 12500);
   assert.equal(abby.outreachStatus, "needs_follow_up");
   assert.equal(abby.outreachNote, "Only 4 contacts so far.");
 });
 
-// ── Sorting ───────────────────────────────────────────────────────────────
+test("buildFollowUpRows: every produced row is kind:'athlete' with a null roleLabel", () => {
+  const athletes = [athlete("a1", "Mason Brooks"), athlete("a2", "Abby Cooper")];
+  const rows = buildFollowUpRows(athletes, [], {}, {});
+  for (const r of rows) {
+    assert.equal(r.kind, "athlete");
+    assert.equal(r.roleLabel, null);
+  }
+});
+
+// ── buildCoachFollowUpRows (Phase A35) ───────────────────────────────────
+
+test("buildCoachFollowUpRows: every row is kind:'coach' with a non-null roleLabel, never fake grade/event data", () => {
+  const coaches = [
+    { id: "c1", name: "Mike Owens", role: "head_coach" as const },
+    { id: "c2", name: "Rachel Moreno", role: "assistant_coach" as const },
+  ];
+  const rows = buildCoachFollowUpRows(coaches, { c1: 85000 }, { c1: 18 }, {});
+  assert.equal(rows.length, 2);
+  for (const r of rows) {
+    assert.equal(r.kind, "coach");
+    assert.ok(r.roleLabel, "roleLabel must be non-null for a coach row");
+    assert.ok(!("event" in r));
+    assert.ok(!("class_year" in r));
+    assert.ok(!("grade" in r));
+  }
+  const owens = rows.find(r => r.id === "c1")!;
+  assert.equal(owens.roleLabel, "Head Coach");
+  assert.equal(owens.raisedCents, 85000);
+  assert.equal(owens.contacts, 18);
+  const moreno = rows.find(r => r.id === "c2")!;
+  assert.equal(moreno.roleLabel, "Asst. Coach");
+});
+
+test("buildCoachFollowUpRows: a coach with no totals/contacts/outreach still appears at 0/0/null, mirroring the athlete roster-first guarantee", () => {
+  const coaches = [{ id: "c1", name: "Mike Owens", role: "head_coach" as const }];
+  const rows = buildCoachFollowUpRows(coaches, {}, {}, {});
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].contacts, 0);
+  assert.equal(rows[0].raisedCents, 0);
+  assert.equal(rows[0].outreachStatus, null);
+});
+
+test("buildCoachFollowUpRows: enriches outreach by coach id", () => {
+  const coaches = [{ id: "c1", name: "Mike Owens", role: "head_coach" as const }];
+  const rows = buildCoachFollowUpRows(coaches, {}, {}, {
+    c1: { status: "needs_follow_up", note: "Following up next week.", created_at: "2026-08-10T00:00:00Z" },
+  });
+  assert.equal(rows[0].outreachStatus, "needs_follow_up");
+  assert.equal(rows[0].outreachNote, "Following up next week.");
+});
+
+// ── Sorting (mixed athlete + coach arrays) ──────────────────────────────
 
 test("sortFollowUpRows: contacts ascending", () => {
-  const rows = [
-    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 5,  raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a", name: "A", contacts: 10 }), row({ id: "b", name: "B", contacts: 0 }), row({ id: "c", name: "C", contacts: 5 })];
   assert.deepEqual(sortFollowUpRows(rows, "contacts_asc").map(r => r.id), ["b", "c", "a"]);
 });
 
 test("sortFollowUpRows: contacts descending", () => {
-  const rows = [
-    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 5,  raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a", name: "A", contacts: 10 }), row({ id: "b", name: "B", contacts: 0 }), row({ id: "c", name: "C", contacts: 5 })];
   assert.deepEqual(sortFollowUpRows(rows, "contacts_desc").map(r => r.id), ["a", "c", "b"]);
 });
 
 test("sortFollowUpRows: raised ascending and descending", () => {
-  const rows = [
-    { id: "a", name: "A", contacts: 0, raisedCents: 62000, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0, raisedCents: 0,     outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 0, raisedCents: 12500, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a", name: "A", raisedCents: 62000 }), row({ id: "b", name: "B", raisedCents: 0 }), row({ id: "c", name: "C", raisedCents: 12500 })];
   assert.deepEqual(sortFollowUpRows(rows, "raised_asc").map(r => r.id), ["b", "c", "a"]);
   assert.deepEqual(sortFollowUpRows(rows, "raised_desc").map(r => r.id), ["a", "c", "b"]);
 });
 
 test("sortFollowUpRows: does not mutate the input array", () => {
-  const rows = [
-    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a", name: "A", contacts: 10 }), row({ id: "b", name: "B", contacts: 0 })];
   const original = rows.map(r => r.id);
   sortFollowUpRows(rows, "contacts_desc");
   assert.deepEqual(rows.map(r => r.id), original);
@@ -124,45 +173,65 @@ test("default sort constant is contacts ascending", () => {
   assert.equal(DEFAULT_FOLLOW_UP_SORT, "contacts_asc");
 });
 
-// ── Filtering ─────────────────────────────────────────────────────────────
+test("sortFollowUpRows: a merged athlete+coach array sorts correctly by raisedCents regardless of kind (Phase A35)", () => {
+  const rows = [
+    row({ id: "coach-1", name: "Mike Owens", kind: "coach", roleLabel: "Head Coach", raisedCents: 85000 }),
+    row({ id: "ath-1", name: "Mason Brooks", raisedCents: 42500 }),
+    row({ id: "coach-2", name: "Rachel Moreno", kind: "coach", roleLabel: "Asst. Coach", raisedCents: 29000 }),
+    row({ id: "ath-2", name: "Abby Cooper", raisedCents: 42000 }),
+  ];
+  const sorted = sortFollowUpRows(rows, "raised_desc");
+  assert.deepEqual(sorted.map(r => r.id), ["coach-1", "ath-1", "ath-2", "coach-2"]);
+});
+
+// ── Filtering (mixed athlete + coach arrays) ─────────────────────────────
 
 test("filterFollowUpRows: 'all' returns every row unchanged", () => {
   const rows = [
-    { id: "a", name: "A", contacts: 0, raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0, raisedCents: 0, outreachStatus: "resolved" as const, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+    row({ id: "a", name: "A", outreachStatus: "needs_follow_up" }),
+    row({ id: "b", name: "B", outreachStatus: "resolved" }),
+    row({ id: "c", name: "C" }),
   ];
   assert.equal(filterFollowUpRows(rows, "all").length, 3);
 });
 
-test("filterFollowUpRows: 'needs_follow_up' excludes resolved/contacted/null-status athletes", () => {
+test("filterFollowUpRows: 'needs_follow_up' excludes resolved/contacted/null-status rows", () => {
   const rows = [
-    { id: "a", name: "A", contacts: 0, raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0, raisedCents: 0, outreachStatus: "resolved" as const, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 0, raisedCents: 0, outreachStatus: "contacted" as const, outreachNote: null, outreachAt: null },
-    { id: "d", name: "D", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+    row({ id: "a", name: "A", outreachStatus: "needs_follow_up" }),
+    row({ id: "b", name: "B", outreachStatus: "resolved" }),
+    row({ id: "c", name: "C", outreachStatus: "contacted" }),
+    row({ id: "d", name: "D" }),
   ];
   const filtered = filterFollowUpRows(rows, "needs_follow_up");
   assert.deepEqual(filtered.map(r => r.id), ["a"]);
 });
 
+test("filterFollowUpRows: 'needs_follow_up' matches a coach row exactly like an athlete row (Phase A35)", () => {
+  const rows = [
+    row({ id: "coach-1", name: "Mike Owens", kind: "coach", roleLabel: "Head Coach", outreachStatus: "needs_follow_up" }),
+    row({ id: "ath-1", name: "Mason Brooks", outreachStatus: "resolved" }),
+  ];
+  const filtered = filterFollowUpRows(rows, "needs_follow_up");
+  assert.deepEqual(filtered.map(r => r.id), ["coach-1"]);
+});
+
 // ── Print report title reflects the active filter ────────────────────────
 
-test("buildFollowUpsReportTitle: all athletes", () => {
-  assert.equal(buildFollowUpsReportTitle("all", 12, 12), "Fundraising Athlete Report");
+test("buildFollowUpsReportTitle: all participants", () => {
+  assert.equal(buildFollowUpsReportTitle("all", 12, 12), "Fundraising Report");
 });
 
 test("buildFollowUpsReportTitle: needs follow up shows N of M", () => {
-  assert.equal(buildFollowUpsReportTitle("needs_follow_up", 3, 12), "Needs Follow Up — 3 of 12 Athletes");
+  assert.equal(buildFollowUpsReportTitle("needs_follow_up", 3, 12), "Needs Follow Up — 3 of 12 Participants");
 });
 
 // ── Print data must preserve exactly the caller's given order ───────────
 
 test("filter then sort composition preserves order for a downstream print consumer (no independent re-sort)", () => {
   const rows = [
-    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 5,  raisedCents: 0, outreachStatus: "resolved" as const, outreachNote: null, outreachAt: null },
+    row({ id: "a", name: "A", contacts: 10, outreachStatus: "needs_follow_up" }),
+    row({ id: "b", name: "B", contacts: 0, outreachStatus: "needs_follow_up" }),
+    row({ id: "c", name: "C", contacts: 5, outreachStatus: "resolved" }),
   ];
   const sorted   = sortFollowUpRows(rows, "contacts_asc");
   const filtered = filterFollowUpRows(sorted, "needs_follow_up");
@@ -182,7 +251,7 @@ test("followUpStatusLabel: maps known statuses to human labels, null to an em da
 
 // ── CSV export ────────────────────────────────────────────────────────────
 
-const CSV_HEADER_LINE = "Athlete Name,Contacts Entered,Amount Raised,Follow-Up Status,Last Follow-Up Date";
+const CSV_HEADER_LINE = "Name,Participant Type,Role,Contacts Entered,Amount Raised,Follow-Up Status,Last Follow-Up Date";
 
 test("buildFollowUpsCsv: starts with a UTF-8 BOM (required for Excel to detect UTF-8 correctly)", () => {
   const csv = buildFollowUpsCsv([]);
@@ -196,54 +265,51 @@ test("buildFollowUpsCsv: header row matches the required columns exactly", () =>
 });
 
 test("buildFollowUpsCsv: uses CRLF line endings", () => {
-  const rows = [
-    { id: "a", name: "A", contacts: 1, raisedCents: 100, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a", name: "A", contacts: 1, raisedCents: 100 })];
   const csv = buildFollowUpsCsv(rows);
   assert.ok(csv.includes("\r\n"));
 });
 
-test("buildFollowUpsCsv: a zero-contact, zero-raised, no-status roster athlete exports as 0 / 0.00 / em dash / blank date", () => {
-  const rows = [
-    { id: "a1", name: "Mason Brooks", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+test("buildFollowUpsCsv: a zero-contact, zero-raised, no-status athlete row exports as Athlete/blank-role/0/0.00/em dash/blank date", () => {
+  const rows = [row({ id: "a1", name: "Mason Brooks" })];
   const csv = buildFollowUpsCsv(rows);
   const dataLine = csv.slice(1).split("\r\n")[1];
-  assert.equal(dataLine, "Mason Brooks,0,0.00,—,");
+  assert.equal(dataLine, "Mason Brooks,Athlete,,0,0.00,—,");
 });
 
 test("buildFollowUpsCsv: formats raised cents as a plain two-decimal number (no currency symbol)", () => {
-  const rows = [
-    { id: "a1", name: "Abby Cooper", contacts: 4, raisedCents: 12550, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: "2026-08-10T14:30:00Z" },
-  ];
+  const rows = [row({ id: "a1", name: "Abby Cooper", contacts: 4, raisedCents: 12550, outreachStatus: "needs_follow_up", outreachAt: "2026-08-10T14:30:00Z" })];
   const csv = buildFollowUpsCsv(rows);
   const dataLine = csv.slice(1).split("\r\n")[1];
-  assert.equal(dataLine, "Abby Cooper,4,125.50,Needs Follow Up,2026-08-10");
+  assert.equal(dataLine, "Abby Cooper,Athlete,,4,125.50,Needs Follow Up,2026-08-10");
 });
 
-test("buildFollowUpsCsv: escapes a comma in an athlete name", () => {
-  const rows = [
-    { id: "a1", name: "Cooper, Abby", contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+test("buildFollowUpsCsv: a coach row exports Participant Type=Coach and its role label populated", () => {
+  const rows = [row({ id: "c1", name: "Mike Owens", kind: "coach", roleLabel: "Head Coach", contacts: 18, raisedCents: 85000 })];
   const csv = buildFollowUpsCsv(rows);
   const dataLine = csv.slice(1).split("\r\n")[1];
-  assert.equal(dataLine, '"Cooper, Abby",0,0.00,—,');
+  assert.equal(dataLine, "Mike Owens,Coach,Head Coach,18,850.00,—,");
+});
+
+test("buildFollowUpsCsv: escapes a comma in a name", () => {
+  const rows = [row({ id: "a1", name: "Cooper, Abby" })];
+  const csv = buildFollowUpsCsv(rows);
+  const dataLine = csv.slice(1).split("\r\n")[1];
+  assert.equal(dataLine, '"Cooper, Abby",Athlete,,0,0.00,—,');
 });
 
 test("buildFollowUpsCsv: escapes an internal double quote by doubling it", () => {
-  const rows = [
-    { id: "a1", name: 'Liam "The Rocket" Foster', contacts: 0, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-  ];
+  const rows = [row({ id: "a1", name: 'Liam "The Rocket" Foster' })];
   const csv = buildFollowUpsCsv(rows);
   const dataLine = csv.slice(1).split("\r\n")[1];
-  assert.equal(dataLine, '"Liam ""The Rocket"" Foster",0,0.00,—,');
+  assert.equal(dataLine, '"Liam ""The Rocket"" Foster",Athlete,,0,0.00,—,');
 });
 
 test("buildFollowUpsCsv: row order exactly matches the input array order (no independent re-sort)", () => {
   const rows = [
-    { id: "c", name: "Charlie", contacts: 1, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "a", name: "Alice",   contacts: 9, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
-    { id: "b", name: "Bob",     contacts: 5, raisedCents: 0, outreachStatus: null, outreachNote: null, outreachAt: null },
+    row({ id: "c", name: "Charlie", contacts: 1 }),
+    row({ id: "a", name: "Alice", contacts: 9 }),
+    row({ id: "b", name: "Bob", contacts: 5 }),
   ];
   const csv = buildFollowUpsCsv(rows);
   const names = csv.slice(1).split("\r\n").slice(1).filter(Boolean).map(l => l.split(",")[0]);
@@ -252,15 +318,26 @@ test("buildFollowUpsCsv: row order exactly matches the input array order (no ind
 
 test("buildFollowUpsCsv: exported rows match a sorted+filtered pipeline exactly, same as print", () => {
   const rows = [
-    { id: "a", name: "A", contacts: 10, raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "b", name: "B", contacts: 0,  raisedCents: 0, outreachStatus: "needs_follow_up" as const, outreachNote: null, outreachAt: null },
-    { id: "c", name: "C", contacts: 5,  raisedCents: 0, outreachStatus: "resolved" as const, outreachNote: null, outreachAt: null },
+    row({ id: "a", name: "A", contacts: 10, outreachStatus: "needs_follow_up" }),
+    row({ id: "b", name: "B", contacts: 0, outreachStatus: "needs_follow_up" }),
+    row({ id: "c", name: "C", contacts: 5, outreachStatus: "resolved" }),
   ];
   const sorted = sortFollowUpRows(rows, "contacts_asc");
   const filtered = filterFollowUpRows(sorted, "needs_follow_up");
   const csv = buildFollowUpsCsv(filtered);
   const names = csv.slice(1).split("\r\n").slice(1).filter(Boolean).map(l => l.split(",")[0]);
   assert.deepEqual(names, ["B", "A"]);
+});
+
+test("buildFollowUpsCsv: a mixed athlete+coach export produces correct Participant Type/Role columns for both kinds", () => {
+  const rows = [
+    row({ id: "coach-1", name: "Mike Owens", kind: "coach", roleLabel: "Head Coach", raisedCents: 85000 }),
+    row({ id: "ath-1", name: "Mason Brooks", raisedCents: 42500 }),
+  ];
+  const csv = buildFollowUpsCsv(rows);
+  const lines = csv.slice(1).split("\r\n").filter(Boolean).slice(1);
+  assert.equal(lines[0], "Mike Owens,Coach,Head Coach,0,850.00,—,");
+  assert.equal(lines[1], "Mason Brooks,Athlete,,0,425.00,—,");
 });
 
 // ── CSV filename ──────────────────────────────────────────────────────────

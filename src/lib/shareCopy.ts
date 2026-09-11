@@ -18,21 +18,51 @@ export function buildAthleteShareUrl(origin: string, slug: string, athleteId: st
   return `${origin}/campaign/${slug}?athlete=${athleteId}`;
 }
 
+// Same idea for a participating coach — always the same canonical public
+// /campaign/[slug] page (never an internal /team/[slug]/... route), just
+// preselecting a coach instead of an athlete via ?coach=<id>.
+export function buildCoachShareUrl(origin: string, slug: string, coachId: string): string {
+  return `${origin}/campaign/${slug}?coach=${coachId}`;
+}
+
+// Coach equivalent of buildShareText — "Support Coach {lastName} and
+// {team} this season! Every donation helps the program." Uses the
+// coach's last name (falls back to full name if there's only one word)
+// to read naturally as "Coach <Surname>", matching the example copy:
+// "Support Coach Owens and Monroe Valley Track & Field this season!
+// Every donation helps the program." Never hardcodes a school name or
+// pronoun — everything comes from the caller's real campaign data.
+export function buildCoachShareText(coachName: string, schoolName: string, sportName: string): string {
+  const parts = coachName.trim().split(/\s+/);
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : coachName;
+  const team = [schoolName, sportName].filter(Boolean).join(" ");
+  return team
+    ? `Support Coach ${lastName} and ${team} this season! Every donation helps the program.`
+    : `Support Coach ${lastName} this season! Every donation helps the program.`;
+}
+
 // Open Graph / Twitter title+description for the public campaign page —
 // used by campaign/[slug]/page.tsx's generateMetadata. Pure so it's unit
 // testable without mocking Next's metadata resolution. teamLabel is
 // pre-joined (school + mascot + sport) since callers already build it.
 export function buildCampaignMetadata(input: {
   athleteName: string | null;
+  coachName?: string | null;
   teamLabel: string;
   schoolName: string;
   sportName: string;
 }): { title: string; description: string } {
-  const { athleteName, teamLabel, schoolName, sportName } = input;
+  const { athleteName, coachName, teamLabel, schoolName, sportName } = input;
   if (athleteName) {
     return {
       title: `Support ${athleteName} — ${teamLabel || "Elite Level Fundraising"}`,
       description: buildShareText(athleteName.split(" ")[0], schoolName, sportName),
+    };
+  }
+  if (coachName) {
+    return {
+      title: `Support Coach ${coachName} — ${teamLabel || "Elite Level Fundraising"}`,
+      description: buildCoachShareText(coachName, schoolName, sportName),
     };
   }
   return {

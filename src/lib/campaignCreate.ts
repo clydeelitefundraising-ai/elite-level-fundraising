@@ -46,6 +46,7 @@ export type CampaignCoreParams = {
   show_donation_card:          boolean;
   layout_variant:              "classic" | "premium";
   default_athlete_goal_cents:  number | null;
+  allow_coach_fundraising?:    boolean;
   coach_name:      string;
   coach_email:     string;
   coach_password:  string;
@@ -88,6 +89,7 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
       show_donation_card:         p.show_donation_card,
       layout_variant:             p.layout_variant,
       default_athlete_goal_cents: p.default_athlete_goal_cents,
+      allow_coach_fundraising:    p.allow_coach_fundraising ?? false,
       crm_contact_id:             p.crmContactId ?? null,
     });
   } catch (err) {

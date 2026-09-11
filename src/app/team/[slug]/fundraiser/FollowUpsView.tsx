@@ -26,7 +26,7 @@ export default function FollowUpsView({ workspace }: { workspace: FollowUpsWorks
           Follow-Ups
         </h2>
         <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem" }}>
-          {rows.length} athlete{rows.length !== 1 ? "s" : ""}
+          {rows.length} participant{rows.length !== 1 ? "s" : ""}
         </span>
         <div style={{ flex: 1 }} />
         <button onClick={handleExport} style={printBtn}>
@@ -74,7 +74,7 @@ export default function FollowUpsView({ workspace }: { workspace: FollowUpsWorks
         <div style={{ background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem", textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
           <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .35 }}>✅</div>
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>
-            {filter === "needs_follow_up" ? "No athletes currently need follow-up." : "No athletes on the roster yet."}
+            {filter === "needs_follow_up" ? "No one currently needs follow-up." : "No athletes on the roster yet."}
           </p>
         </div>
       ) : (
@@ -91,6 +91,11 @@ export default function FollowUpsView({ workspace }: { workspace: FollowUpsWorks
                   <span style={{ fontWeight: 700, fontSize: ".92rem", color: "#111827", flex: 1, minWidth: 120 }}>
                     {r.name}
                   </span>
+                  {r.kind === "coach" && (
+                    <span style={{ background: "#eef2ff", color: "#4338ca", borderRadius: 100, fontSize: ".6rem", fontWeight: 700, padding: ".14rem .5rem", textTransform: "uppercase", letterSpacing: ".03em" }}>
+                      {r.roleLabel}
+                    </span>
+                  )}
                   {badge ? (
                     <span style={{ background: badge.bg, color: badge.color, borderRadius: 100, fontSize: ".62rem", fontWeight: 700, padding: ".15rem .55rem", textTransform: "uppercase", letterSpacing: ".03em" }}>
                       {FOLLOW_UP_STATUS_LABEL[r.outreachStatus!]}

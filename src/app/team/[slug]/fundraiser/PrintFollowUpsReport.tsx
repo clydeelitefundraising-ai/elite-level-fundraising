@@ -47,7 +47,7 @@ export default function PrintFollowUpsReport({
       </div>
 
       <div style={{ display: "flex", justifyContent: "center", gap: "1.5rem", marginBottom: "1rem", fontSize: ".8rem", color: "#374151" }}>
-        <span><strong>{rows.length}</strong> Athletes</span>
+        <span><strong>{rows.length}</strong> Participants</span>
         <span><strong>{totalContacts}</strong> Contacts Entered</span>
         <span><strong>{fmtCents(totalRaisedCents)}</strong> Raised</span>
       </div>
@@ -55,7 +55,7 @@ export default function PrintFollowUpsReport({
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: ".85rem" }}>
         <thead style={{ display: "table-header-group" }}>
           <tr>
-            <th style={thStyle}>Athlete</th>
+            <th style={thStyle}>Name</th>
             <th style={{ ...thStyle, textAlign: "right" }}>Contacts Entered</th>
             <th style={{ ...thStyle, textAlign: "right" }}>Amount Raised</th>
           </tr>
@@ -63,7 +63,7 @@ export default function PrintFollowUpsReport({
         <tbody>
           {rows.map(r => (
             <tr key={r.id} style={{ breakInside: "avoid" }}>
-              <td style={tdStyle}>{r.name}</td>
+              <td style={tdStyle}>{r.name}{r.kind === "coach" ? ` (${r.roleLabel})` : ""}</td>
               <td style={{ ...tdStyle, textAlign: "right" }}>{r.contacts}</td>
               <td style={{ ...tdStyle, textAlign: "right" }}>{fmtCents(r.raisedCents)}</td>
             </tr>

@@ -11,10 +11,21 @@ import type { TeamAthleteRow, OutreachCurrentRow } from "./teamData.ts";
 import type { DonationRow } from "./supabase.ts";
 import { attributeDonationsToAthletes } from "./donationAttribution.ts";
 import { sanitizeFilenameSegment } from "./teamJoinQr.ts";
+import { staffRoleLabel } from "./permissions.ts";
 
+// kind/roleLabel: Phase A35. Every row built by buildFollowUpRows below is
+// kind:"athlete", roleLabel:null (athletes have a grade/event shown
+// elsewhere in this app, not a "role" label). buildCoachFollowUpRows
+// produces kind:"coach" rows with a non-null roleLabel ("Head Coach"/
+// "Asst. Coach") instead — never a fake grade/event for a coach. Rows
+// from both builders share this one type so they can be sorted/filtered/
+// exported together with no special-casing in sortFollowUpRows/
+// filterFollowUpRows/buildFollowUpsCsv below.
 export type FollowUpRow = {
   id:             string;
   name:           string;
+  kind:           "athlete" | "coach";
+  roleLabel:      string | null;
   contacts:       number;
   raisedCents:    number;
   outreachStatus: OutreachCurrentRow["status"] | null;
@@ -35,8 +46,38 @@ export function buildFollowUpRows(
     return {
       id:             a.id,
       name:           a.name,
+      kind:           "athlete" as const,
+      roleLabel:      null,
       contacts:       contactCounts[a.id] ?? 0,
       raisedCents:    totalsCents[a.id] ?? 0,
+      outreachStatus: outreach?.status ?? null,
+      outreachNote:   outreach?.note ?? null,
+      outreachAt:     outreach?.created_at ?? null,
+    };
+  });
+}
+
+// Coach-keyed equivalent of buildFollowUpRows — sources from
+// coachFundraising.ts's coach-keyed data functions
+// (getCoachTotals/getContactCountsByCoach/getOutreachMapByCoach) instead
+// of the athlete-keyed ones. roleLabel is always set (never null) via
+// staffRoleLabel so the UI/CSV never has to hardcode "Head Coach"/
+// "Assistant Coach" text itself.
+export function buildCoachFollowUpRows(
+  coaches: { id: string; name: string; role: "head_coach" | "assistant_coach" }[],
+  coachTotals: Record<string, number>,
+  contactCounts: Record<string, number>,
+  outreachMap: Record<string, { status: OutreachCurrentRow["status"]; note: string | null; created_at: string }>,
+): FollowUpRow[] {
+  return coaches.map(c => {
+    const outreach = outreachMap[c.id] ?? null;
+    return {
+      id:             c.id,
+      name:           c.name,
+      kind:           "coach" as const,
+      roleLabel:      staffRoleLabel(c.role),
+      contacts:       contactCounts[c.id] ?? 0,
+      raisedCents:    coachTotals[c.id] ?? 0,
       outreachStatus: outreach?.status ?? null,
       outreachNote:   outreach?.note ?? null,
       outreachAt:     outreach?.created_at ?? null,
@@ -71,8 +112,8 @@ export function filterFollowUpRows(rows: FollowUpRow[], filter: FollowUpFilter):
 
 export function buildFollowUpsReportTitle(filter: FollowUpFilter, filteredCount: number, totalCount: number): string {
   return filter === "needs_follow_up"
-    ? `Needs Follow Up — ${filteredCount} of ${totalCount} Athletes`
-    : "Fundraising Athlete Report";
+    ? `Needs Follow Up — ${filteredCount} of ${totalCount} Participants`
+    : "Fundraising Report";
 }
 
 // ── Follow-up status label (shared by the on-screen badge and the CSV) ──
@@ -100,7 +141,7 @@ export function followUpStatusLabel(status: FollowUpRow["outreachStatus"]): stri
 // the caller (FollowUpsView) passes the exact same sorted+filtered array
 // already driving the on-screen list and the print report, so the
 // exported file always matches the coach's current working view.
-const CSV_HEADERS = ["Athlete Name", "Contacts Entered", "Amount Raised", "Follow-Up Status", "Last Follow-Up Date"];
+const CSV_HEADERS = ["Name", "Participant Type", "Role", "Contacts Entered", "Amount Raised", "Follow-Up Status", "Last Follow-Up Date"];
 
 function csvEscape(value: string): string {
   if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
@@ -122,6 +163,8 @@ export function buildFollowUpsCsv(rows: FollowUpRow[]): string {
   for (const r of rows) {
     lines.push([
       csvEscape(r.name),
+      csvEscape(r.kind === "coach" ? "Coach" : "Athlete"),
+      csvEscape(r.roleLabel ?? ""),
       String(r.contacts),
       centsToDecimalString(r.raisedCents),
       csvEscape(followUpStatusLabel(r.outreachStatus)),

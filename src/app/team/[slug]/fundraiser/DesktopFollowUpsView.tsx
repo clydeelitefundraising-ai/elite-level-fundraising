@@ -56,7 +56,7 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
             Follow-Ups
           </h1>
           <div style={{ fontSize: ".82rem", color: "#6b7280", marginTop: ".15rem" }}>
-            {rows.length} athlete{rows.length !== 1 ? "s" : ""}
+            {rows.length} participant{rows.length !== 1 ? "s" : ""}
           </div>
         </div>
         <div style={{ flex: 1 }} />
@@ -107,7 +107,7 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
         }}>
           <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .35 }}>✅</div>
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>
-            {filter === "needs_follow_up" ? "No athletes currently need follow-up." : "No athletes on the roster yet."}
+            {filter === "needs_follow_up" ? "No one currently needs follow-up." : "No athletes on the roster yet."}
           </p>
         </div>
       ) : (
@@ -115,7 +115,7 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={th}>Athlete</th>
+                <th style={th}>Name</th>
                 <th style={th}>Contacts</th>
                 <th style={th}>Raised</th>
                 <th style={th}>Outreach Status</th>
@@ -128,7 +128,14 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
                 const tone = r.outreachStatus ? STATUS_STYLE[r.outreachStatus] : null;
                 return (
                   <tr key={r.id}>
-                    <td style={{ ...td, fontWeight: 600 }}>{r.name}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>
+                      {r.name}
+                      {r.kind === "coach" && (
+                        <span style={{ marginLeft: ".5rem", background: "#eef2ff", color: "#4338ca", borderRadius: 100, fontSize: ".6rem", fontWeight: 700, padding: ".1rem .45rem", textTransform: "uppercase", letterSpacing: ".03em" }}>
+                          {r.roleLabel}
+                        </span>
+                      )}
+                    </td>
                     <td style={td}>{r.contacts}</td>
                     <td style={{ ...td, fontWeight: r.raisedCents > 0 ? 700 : 400, color: r.raisedCents > 0 ? "#0b1e3d" : "#9ca3af" }}>
                       {fmtCents(r.raisedCents)}
