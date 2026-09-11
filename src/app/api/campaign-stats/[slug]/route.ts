@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDonations, getCampaignSettings, getAthletes, getSponsors, getFundUses } from "@/lib/supabase";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
+import { resolveTeamLogoUrl } from "@/lib/shareCopy";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function GET(
     let location: string | undefined;
     let season: string | undefined;
     let logoUrl: string | undefined;
+    let description: string | undefined;
     let archived: boolean | undefined;
     let layoutVariant: "classic" | "premium" | undefined;
     let visibility: Record<string, boolean> | undefined;
@@ -76,7 +78,12 @@ export async function GET(
         themeButtonColor    = settings.theme_button_color    || themePrimaryColor;
         if (settings.location)        location       = settings.location;
         if (settings.season)          season         = settings.season;
-        if (settings.logo_url)        logoUrl        = settings.logo_url;
+        // Same team_photo-over-logo_url precedence as TeamHeader.tsx's
+        // header logo and the OG-image share preview (resolveTeamLogoUrl)
+        // — one authoritative team-logo source across the whole app.
+        const resolvedLogo = resolveTeamLogoUrl(settings);
+        if (resolvedLogo)             logoUrl        = resolvedLogo;
+        if (settings.description)     description    = settings.description;
         archived = settings.archived ?? false;
         layoutVariant = settings.layout_variant ?? "classic";
         visibility = {
@@ -132,6 +139,7 @@ export async function GET(
       ...(location       !== undefined && { location }),
       ...(season         !== undefined && { season }),
       ...(logoUrl        !== undefined && { logo_url:        logoUrl }),
+      ...(description    !== undefined && { description }),
       ...(athletes       !== undefined && { athletes }),
       ...(sponsors       !== undefined && { sponsors }),
       ...(archived       !== undefined && { archived }),

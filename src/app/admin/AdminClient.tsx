@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 
-type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
+type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; description: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
@@ -169,7 +169,7 @@ export function LoginView() {
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", theme_primary_color: null, theme_secondary_color: null, theme_accent_color: null, theme_button_color: null, location: "", season: "", logo_url: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
+  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", theme_primary_color: null, theme_secondary_color: null, theme_accent_color: null, theme_button_color: null, location: "", season: "", logo_url: "", description: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
   const [settings, setSettings] = useState<Settings>(blank);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -227,6 +227,9 @@ export function AdminDashboard() {
     ]).then(([c, a, s, fu, co]) => {
       setSettings(c && !c.error ? {
         ...c,
+        // Column may not exist yet on a fresh environment/before the
+        // Phase A34 migration is applied — PostgREST simply omits the key.
+        description:           c.description           ?? "",
         show_leaderboard:      c.show_leaderboard      ?? true,
         show_program_identity: c.show_program_identity ?? true,
         show_share_section:    c.show_share_section    ?? true,
@@ -487,6 +490,16 @@ export function AdminDashboard() {
               <label style={C.label}>
                 Logo URL
                 <input style={C.input} value={settings.logo_url} onChange={e => setSettings(s => ({ ...s, logo_url: e.target.value }))} placeholder="/logo.png or https://…" />
+              </label>
+              <label style={{ ...C.label, gridColumn: "1 / -1" }}>
+                Campaign Story <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional — shown as "Why We're Raising Funds" on the public page)</span>
+                <textarea
+                  style={{ ...C.input, height: "auto", minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
+                  rows={4}
+                  value={settings.description}
+                  onChange={e => setSettings(s => ({ ...s, description: e.target.value }))}
+                  placeholder="Our program provides a positive and competitive environment for student-athletes to grow on and off the field. Your support helps us cover travel, equipment, meet fees, and team experiences..."
+                />
               </label>
             </div>
 
