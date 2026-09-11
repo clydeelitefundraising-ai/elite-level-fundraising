@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
+import { FUND_USE_ICON_OPTIONS, DEFAULT_FUND_USE_ICON_ID, normalizeFundUseIconId, resolveFundUseIcon } from "@/lib/fundUseIcons";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; description: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
@@ -9,8 +10,6 @@ const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as c
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
 type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; account_id: string | null; has_pending_invite: boolean; created_at: string };
-
-const EMOJI_PICKS = ["✈️","🚌","👟","🎽","🏆","🥇","💪","🧊","🍽️","🏟️","📋","🧢","🏋️","🏃","⚽","🏀","🏈","⚾","🥎","🎾","🏐","💰","🎯","📚","🛡️","❤️"];
 
 const STORE_PROVIDERS_LIST = ["Shopify", "SquadLocker", "BSN Sports", "Game One", "Custom"];
 
@@ -72,6 +71,39 @@ function SectionHeader({ title, desc }: { title: string; desc?: string }) {
     <div style={{ marginBottom: "1.25rem", paddingBottom: ".875rem", borderBottom: "1px solid #f3f4f6" }}>
       <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#0b1e3d" }}>{title}</h2>
       {desc && <p style={{ margin: ".25rem 0 0", fontSize: ".8rem", color: "#6b7280" }}>{desc}</p>}
+    </div>
+  );
+}
+
+// Visual icon library for fund_uses.icon — shared by both the "add" form
+// and the inline row editor. Shows the resolved current selection (so a
+// legacy emoji-backed row shows its mapped modern icon, not raw emoji
+// text) plus a labeled grid to pick from. See src/lib/fundUseIcons.ts
+// for the resolver/normalization both this and the public campaign page
+// use — do not add a second icon list here.
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const selectedId = normalizeFundUseIconId(value);
+  const SelectedIcon = resolveFundUseIcon(value);
+  const selectedLabel = FUND_USE_ICON_OPTIONS.find(o => o.id === selectedId)?.label ?? "";
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".5rem" }}>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, background: "#eef2ff", color: "#0b1e3d", flexShrink: 0 }}>
+          <SelectedIcon size={17} />
+        </span>
+        <span style={{ fontSize: ".78rem", color: "#6b7280", fontWeight: 500 }}>{selectedLabel}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(34px, 1fr))", gap: ".3rem", maxWidth: 260 }}>
+        {FUND_USE_ICON_OPTIONS.map(opt => {
+          const selected = opt.id === selectedId;
+          return (
+            <button key={opt.id} type="button" title={opt.label} aria-label={opt.label} onClick={() => onChange(opt.id)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: ".4rem", background: selected ? "#e0e7ff" : "#f9fafb", border: selected ? "2px solid #6366f1" : "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer" }}>
+              <opt.Icon size={16} />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -191,7 +223,7 @@ export function AdminDashboard() {
   const [editFU,     setEditFU]     = useState<FundUse | null>(null);
   const [newFUTitle, setNewFUTitle] = useState("");
   const [newFUDesc,  setNewFUDesc]  = useState("");
-  const [newFUIcon,  setNewFUIcon]  = useState("💰");
+  const [newFUIcon,  setNewFUIcon]  = useState(DEFAULT_FUND_USE_ICON_ID);
   const [wizardOpen,   setWizardOpen]   = useState(false);
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
 
@@ -304,7 +336,7 @@ export function AdminDashboard() {
     if (!newFUTitle.trim()) return;
     const nextOrder = fundUses.length > 0 ? Math.max(...fundUses.map(f => f.sort_order)) + 1 : 0;
     const res = await fetch("/api/admin/fund-uses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_slug: selectedSlug, title: newFUTitle.trim(), description: newFUDesc.trim(), icon: newFUIcon, sort_order: nextOrder }) });
-    if (res.ok) { const f = await res.json(); setFundUses(p => [...p, f]); setNewFUTitle(""); setNewFUDesc(""); setNewFUIcon("💰"); flash("Item added."); }
+    if (res.ok) { const f = await res.json(); setFundUses(p => [...p, f]); setNewFUTitle(""); setNewFUDesc(""); setNewFUIcon(DEFAULT_FUND_USE_ICON_ID); flash("Item added."); }
   };
 
   const saveFundUse = async () => {
@@ -811,17 +843,8 @@ export function AdminDashboard() {
                 {fundUses.map(f => (
                   editFU?.id === f.id ? (
                     <tr key={f.id} style={{ background: "#fafafa" }}>
-                      <td style={{ ...C.td, verticalAlign: "top", paddingTop: ".75rem" }}>
-                        <input style={{ ...C.input, width: 54, textAlign: "center", fontSize: "1.2rem", marginBottom: ".4rem" }}
-                          value={editFU.icon} onChange={e => setEditFU(v => v ? { ...v, icon: e.target.value } : v)} />
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: ".2rem" }}>
-                          {EMOJI_PICKS.map(e => (
-                            <button key={e} type="button" onClick={() => setEditFU(v => v ? { ...v, icon: e } : v)}
-                              style={{ fontSize: ".9rem", padding: ".15rem .2rem", background: editFU.icon === e ? "#e0e7ff" : "#f9fafb", border: editFU.icon === e ? "2px solid #6366f1" : "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", lineHeight: 1 }}>
-                              {e}
-                            </button>
-                          ))}
-                        </div>
+                      <td style={{ ...C.td, verticalAlign: "top", paddingTop: ".75rem", minWidth: 190 }}>
+                        <IconPicker value={editFU.icon} onChange={(id) => setEditFU(v => v ? { ...v, icon: id } : v)} />
                       </td>
                       <td style={C.td}><input style={C.input} value={editFU.title} onChange={e => setEditFU(v => v ? { ...v, title: e.target.value } : v)} /></td>
                       <td style={C.td}><input style={C.input} value={editFU.description} onChange={e => setEditFU(v => v ? { ...v, description: e.target.value } : v)} /></td>
@@ -835,7 +858,9 @@ export function AdminDashboard() {
                     </tr>
                   ) : (
                     <tr key={f.id}>
-                      <td style={{ ...C.td, fontSize: "1.4rem", textAlign: "center" }}>{f.icon}</td>
+                      <td style={{ ...C.td, textAlign: "center" }}>
+                        {(() => { const Icon = resolveFundUseIcon(f.icon); return <Icon size={20} style={{ display: "inline-block" }} />; })()}
+                      </td>
                       <td style={{ ...C.td, fontWeight: 600 }}>{f.title}</td>
                       <td style={{ ...C.td, color: "#6b7280" }}>{f.description}</td>
                       <td style={{ ...C.td, color: "#9ca3af", textAlign: "center" }}>{f.sort_order}</td>
@@ -868,18 +893,7 @@ export function AdminDashboard() {
               </label>
               <label style={{ ...C.label, gridColumn: "1 / -1" }}>
                 Icon
-                <div style={{ display: "flex", gap: ".5rem", alignItems: "center", marginBottom: ".35rem" }}>
-                  <input style={{ ...C.input, width: 64, textAlign: "center", fontSize: "1.2rem" }} value={newFUIcon} onChange={e => setNewFUIcon(e.target.value)} />
-                  <span style={{ fontSize: ".72rem", color: "#9ca3af", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>or pick one:</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
-                  {EMOJI_PICKS.map(e => (
-                    <button key={e} type="button" onClick={() => setNewFUIcon(e)}
-                      style={{ fontSize: "1.1rem", padding: ".2rem .35rem", background: newFUIcon === e ? "#e0e7ff" : "#f9fafb", border: newFUIcon === e ? "2px solid #6366f1" : "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", lineHeight: 1 }}>
-                      {e}
-                    </button>
-                  ))}
-                </div>
+                <IconPicker value={newFUIcon} onChange={setNewFUIcon} />
               </label>
             </div>
             <Btn color="#16a34a" onClick={addFundUse}>+ Add Item</Btn>

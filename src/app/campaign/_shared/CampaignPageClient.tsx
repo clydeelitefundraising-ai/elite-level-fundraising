@@ -25,12 +25,12 @@ const FALLBACK_DAYS_LEFT = 23;
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 
 const FALLBACK_MISSION = [
-  { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
-  { icon: "📋", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
-  { icon: "👟", label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
-  { icon: "👕", label: "Uniforms",                 desc: "Competition uniforms, warm-up suits, and team apparel for all athletes." },
-  { icon: "💪", label: "Recovery Tools",           desc: "Foam rollers, resistance bands, ice packs, and injury prevention equipment." },
-  { icon: "🍱", label: "Team Meals",               desc: "Pre-meet fueling and post-competition meals to keep athletes performing at their best." },
+  { icon: "plane",     label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
+  { icon: "clipboard", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
+  { icon: "shoe",      label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
+  { icon: "shirt",     label: "Uniforms",                 desc: "Competition uniforms, warm-up suits, and team apparel for all athletes." },
+  { icon: "dumbbell",  label: "Recovery Tools",           desc: "Foam rollers, resistance bands, ice packs, and injury prevention equipment." },
+  { icon: "utensils",  label: "Team Meals",               desc: "Pre-meet fueling and post-competition meals to keep athletes performing at their best." },
 ];
 
 function hexToRgb(hex: string): string {

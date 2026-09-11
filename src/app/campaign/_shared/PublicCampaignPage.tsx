@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Heart, Users, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
+import { resolveFundUseIcon } from "@/lib/fundUseIcons";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
 // items never leave an awkward near-empty trailing row on desktop — see
@@ -371,13 +372,16 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
             <div>
               <h3 className="pc-fund-heading">Your Support Helps Fund</h3>
               <div className={fundGridColumnClass(Math.min(missionItems.length, 6))}>
-                {missionItems.slice(0, 6).map((item) => (
-                  <div key={item.label}>
-                    <div className="pc-fund-item-icon">{item.icon}</div>
-                    <p className="pc-fund-item-title">{item.label}</p>
-                    <p className="pc-fund-item-desc">{item.desc}</p>
-                  </div>
-                ))}
+                {missionItems.slice(0, 6).map((item) => {
+                  const Icon = resolveFundUseIcon(item.icon);
+                  return (
+                    <div key={item.label} className="pc-fund-item">
+                      <Icon className="pc-fund-item-icon" aria-hidden="true" />
+                      <p className="pc-fund-item-title">{item.label}</p>
+                      <p className="pc-fund-item-desc">{item.desc}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
