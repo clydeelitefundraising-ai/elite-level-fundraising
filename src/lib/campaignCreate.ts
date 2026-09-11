@@ -32,6 +32,7 @@ export type CampaignCoreParams = {
   primary_color:   string;
   secondary_color: string;
   logo_url:        string;
+  description?:    string | null;
   goal_cents:      number;
   deadline:        string;
   external_store_url?:         string | null;
@@ -75,6 +76,7 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
       location:                   p.location,
       season:                     p.season,
       logo_url:                   p.logo_url,
+      description:                p.description ?? null,
       external_store_url:         p.external_store_url ?? null,
       store_provider:             p.store_provider ?? null,
       show_leaderboard:           p.show_leaderboard,

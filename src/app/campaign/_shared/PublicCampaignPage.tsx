@@ -1,8 +1,20 @@
 "use client";
 
-import { Heart, Users, Calendar, Search, Lock, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { Heart, Users, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
 import { ElfMark, ElfWordmark } from "@/components/BrandMark";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
+
+// Fund-uses column count follows the actual item count (1-6) so 1/2/4
+// items never leave an awkward near-empty trailing row on desktop — see
+// the matching .pc-fund-grid--cols-* rules in campaign.css. 3/5/6 keep the
+// reference's 3-wide layout (3+2 or 3+3 reads as intentional, unlike 3+1).
+function fundGridColumnClass(count: number): string {
+  if (count === 1) return "pc-fund-grid pc-fund-grid--cols-1";
+  if (count === 2) return "pc-fund-grid pc-fund-grid--cols-2";
+  if (count === 4) return "pc-fund-grid pc-fund-grid--cols-4";
+  return "pc-fund-grid";
+}
 
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 type Athlete = { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number };
@@ -90,6 +102,8 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     donationsExpanded, setDonationsExpanded, hasMoreDonations,
   } = props;
 
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   const searchedAthletes = searchQuery.trim()
     ? filteredAthletes.filter((a) => a.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : filteredAthletes;
@@ -111,8 +125,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
       <nav className="pc-nav">
         <div className="pc-nav-inner">
           <a href="#pc-about" className="pc-nav-brand">
-            <ElfMark size={32} />
-            <ElfWordmark size="sm" />
+            <img src="/marketing/brand/elf-logo-h-black.png" alt="Elite Level Fundraising" className="pc-nav-logo" />
           </a>
           <div className="pc-nav-links">
             <a href="#pc-about" className="pc-nav-link">About</a>
@@ -121,7 +134,25 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
             {showRecentDonations && <a href="#pc-updates" className="pc-nav-link">Updates</a>}
             <a href="#pc-contact" className="pc-nav-link">Contact</a>
           </div>
-          {showDonationCard && <a href="#pc-donate" className="pc-nav-cta">Donate Now</a>}
+          <div className="pc-nav-right">
+            {showDonationCard && <a href="#pc-donate" className="pc-nav-cta">Donate Now</a>}
+            <button
+              type="button"
+              className="pc-nav-burger"
+              aria-label="Menu"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((v) => !v)}
+            >
+              {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+        </div>
+        <div className={`pc-nav-mobile-panel${mobileNavOpen ? " open" : ""}`}>
+          <a href="#pc-about" onClick={() => setMobileNavOpen(false)}>About</a>
+          <a href="#pc-team" onClick={() => setMobileNavOpen(false)}>Our Team</a>
+          {showSponsors && <a href="#pc-sponsors" onClick={() => setMobileNavOpen(false)}>Sponsors</a>}
+          {showRecentDonations && <a href="#pc-updates" onClick={() => setMobileNavOpen(false)}>Updates</a>}
+          <a href="#pc-contact" onClick={() => setMobileNavOpen(false)}>Contact</a>
         </div>
       </nav>
 
@@ -340,7 +371,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
           {showFundUses && missionItems.length > 0 && (
             <div>
               <h3 className="pc-fund-heading">Your Support Helps Fund</h3>
-              <div className="pc-fund-grid">
+              <div className={fundGridColumnClass(Math.min(missionItems.length, 6))}>
                 {missionItems.slice(0, 6).map((item) => (
                   <div key={item.label}>
                     <div className="pc-fund-item-icon">{item.icon}</div>
@@ -448,8 +479,9 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
             <a href="#pc-contact">Contact</a>
           </div>
           <div className="pc-footer-powered">
-            <ElfMark size={20} />
-            <span>Powered by Elite Level Fundraising · © {currentCopyrightYear()}</span>
+            <span>Powered by</span>
+            <img src="/marketing/brand/elf-logo-h-black.png" alt="Elite Level Fundraising" className="pc-footer-logo" />
+            <span>· © {currentCopyrightYear()}</span>
           </div>
         </div>
       </footer>

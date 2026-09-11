@@ -61,6 +61,8 @@ html { scroll-behavior: smooth; }
   text-decoration: none;
   flex-shrink: 0;
 }
+.pc-nav-logo { height: 30px; width: auto; display: block; }
+.pc-footer-logo { height: 18px; width: auto; display: block; }
 .pc-nav-links {
   display: flex;
   align-items: center;
@@ -85,8 +87,50 @@ html { scroll-behavior: smooth; }
   white-space: nowrap;
   cursor: pointer;
 }
+.pc-nav-right {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+}
+.pc-nav-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #eceef1;
+  border-radius: .5rem;
+  width: 38px;
+  height: 38px;
+  color: #12151c;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.pc-nav-mobile-panel { display: none; }
 @media (max-width: 860px) {
   .pc-nav-links { display: none; }
+  .pc-nav-burger { display: inline-flex; }
+  .pc-nav-mobile-panel.open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-bottom: 1px solid #eceef1;
+    padding: .6rem 1.5rem 1rem;
+    box-shadow: 0 12px 24px -12px rgba(0,0,0,.18);
+    z-index: 99;
+  }
+  .pc-nav-mobile-panel a {
+    color: #12151c;
+    text-decoration: none;
+    font-size: .95rem;
+    font-weight: 600;
+    padding: .7rem 0;
+    border-bottom: 1px solid #f2f3f5;
+  }
+  .pc-nav-mobile-panel a:last-child { border-bottom: none; }
 }
 
 /* ── HERO ── */
@@ -104,7 +148,7 @@ html { scroll-behavior: smooth; }
     "identity donate"
     "progress donate"
     "stats    donate";
-  gap: 2.2rem 3rem;
+  gap: 1.4rem 3rem;
   align-items: start;
 }
 .pc-hero-area-identity { grid-area: identity; }
@@ -185,7 +229,7 @@ html { scroll-behavior: smooth; }
   font-size: 1rem;
   line-height: 1.6;
   max-width: 46ch;
-  margin: 0 0 1.6rem;
+  margin: 0 0 .6rem;
 }
 .pc-hero-amount-row {
   display: flex;
@@ -577,8 +621,15 @@ html { scroll-behavior: smooth; }
   gap: 1.3rem 1.4rem;
   margin-top: 1.4rem;
 }
+/* Column count follows the actual item count (1-6) so 1/2/4 items never
+   leave an awkward orphan trailing a near-empty row — 3/5/6 items keep the
+   reference's 3-wide layout (3+2 or 3+3 reads as intentional, unlike 3+1). */
+.pc-fund-grid--cols-1 { grid-template-columns: minmax(0, 18rem); }
+.pc-fund-grid--cols-2 { grid-template-columns: repeat(2, 1fr); }
+.pc-fund-grid--cols-4 { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 700px) {
   .pc-fund-grid { grid-template-columns: repeat(2, 1fr); gap: 1.1rem; }
+  .pc-fund-grid--cols-1 { grid-template-columns: minmax(0, 16rem); }
 }
 .pc-fund-item-icon {
   font-size: 1.5rem;
