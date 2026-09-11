@@ -27,7 +27,7 @@ function read(path: string): string {
 test("no public campaign footer hardcodes a literal copyright year", () => {
   for (const file of [
     "src/app/campaign/_shared/CampaignPageClient.tsx",
-    "src/app/campaign/_shared/PremiumLayout.tsx",
+    "src/app/campaign/_shared/PublicCampaignPage.tsx",
   ]) {
     const src = read(file);
     assert.doesNotMatch(src, /©\s*\d{4}/, `${file} must not hardcode a literal year next to ©`);

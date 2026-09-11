@@ -87,6 +87,11 @@ export type CampaignSettings = {
   show_donation_card?: boolean;
   layout_variant?:      "classic" | "premium";
   team_photo?:          string;
+  // Phase A34: free-text campaign story shown in the public page's "Why
+  // We're Raising Funds" section. Null/unset (including for every campaign
+  // that existed before this column did) means "use the dynamic template
+  // sentence" — never rendered as literally blank.
+  description?:         string | null;
   external_store_url?:          string | null;
   store_provider?:              string | null;
   default_athlete_goal_cents?:  number | null;

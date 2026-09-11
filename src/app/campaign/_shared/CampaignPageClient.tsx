@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import "./campaign.css";
-import PremiumLayout from "./PremiumLayout";
+import PublicCampaignPage from "./PublicCampaignPage";
 import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campaignPublicDisplay";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
-import { buildShareText } from "@/lib/shareCopy";
 import { ElfMark } from "@/components/BrandMark";
 
 // Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
@@ -26,16 +25,13 @@ const FALLBACK_DAYS_LEFT = 23;
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 
 const FALLBACK_MISSION = [
-  { icon: "✈️", label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
-  { icon: "📋", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
-  { icon: "👟", label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
-  { icon: "👕", label: "Uniforms",                 desc: "Competition uniforms, warm-up suits, and team apparel for all athletes." },
-  { icon: "💪", label: "Recovery Tools",           desc: "Foam rollers, resistance bands, ice packs, and injury prevention equipment." },
-  { icon: "🍱", label: "Team Meals",               desc: "Pre-meet fueling and post-competition meals to keep athletes performing at their best." },
+  { icon: "plane",     label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
+  { icon: "clipboard", label: "Meet Entry Fees",          desc: "Registration costs for conference meets, invitationals, and state qualifiers." },
+  { icon: "shoe",      label: "Equipment & Gear",         desc: "Sport-specific equipment and training tools." },
+  { icon: "shirt",     label: "Uniforms",                 desc: "Competition uniforms, warm-up suits, and team apparel for all athletes." },
+  { icon: "dumbbell",  label: "Recovery Tools",           desc: "Foam rollers, resistance bands, ice packs, and injury prevention equipment." },
+  { icon: "utensils",  label: "Team Meals",               desc: "Pre-meet fueling and post-competition meals to keep athletes performing at their best." },
 ];
-
-const rankIcon = (r: number) =>
-  r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `#${r}`;
 
 function hexToRgb(hex: string): string {
   const h = hex.replace("#", "");
@@ -61,8 +57,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [donateError,     setDonateError]     = useState("");
 
   const [activeFilter, setActiveFilter] = useState("Overall");
-  const [copyConfirm,  setCopyConfirm]  = useState(false);
-  const [shareNote,    setShareNote]    = useState("");
+  const [searchQuery,  setSearchQuery]  = useState("");
+  const [leaderboardExpanded, setLeaderboardExpanded] = useState(false);
+  const [donationsExpanded,   setDonationsExpanded]   = useState(false);
 
   const [raised,          setRaised]          = useState(0);
   const [donors,          setDonors]          = useState(0);
@@ -79,10 +76,6 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");
   const [mascot,          setMascot]          = useState("Team");
-  // Team colors — actual school/team branding. Used ONLY for team identity
-  // elements (Program Identity swatches). Never drives page theme/chrome.
-  const [primaryColor,    setPrimaryColor]    = useState("#1B4FA8");
-  const [secondaryColor,  setSecondaryColor]  = useState("#C4A35A");
   // Campaign (page theme) colors — independent of team colors, drive the
   // fundraising page's look (hero, buttons, accents, progress bar, etc.).
   // Default to the same values as team colors so a campaign with no theme
@@ -97,17 +90,15 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   // ElfMark (the ELF platform mark) at each render site below rather than
   // showing the old desert-logo placeholder for a team with no logo yet.
   const [logoUrl,         setLogoUrl]         = useState("");
+  const [description,     setDescription]     = useState("");
   const [archived,        setArchived]        = useState(false);
   const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
 
   const [showLeaderboard,     setShowLeaderboard]     = useState(true);
-  const [showProgramIdentity, setShowProgramIdentity] = useState(true);
-  const [showShareSection,    setShowShareSection]    = useState(true);
   const [showFundUses,        setShowFundUses]        = useState(true);
   const [showRecentDonations, setShowRecentDonations] = useState(true);
   const [showSponsors,        setShowSponsors]        = useState(true);
   const [showDonationCard,    setShowDonationCard]    = useState(true);
-  const [layoutVariant,       setLayoutVariant]       = useState<"classic" | "premium">("classic");
 
   useEffect(() => {
     fetch(`/api/campaign-stats/${slug}`)
@@ -119,23 +110,19 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           goal: g, displayGoal: dg, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
           school_name: fetchedSchoolName, sport_name: fetchedSportName,
           mascot: fetchedMascot,
-          primary_color: fetchedPrimary, secondary_color: fetchedSecondary,
           theme_primary_color: fetchedThemePrimary, theme_secondary_color: fetchedThemeSecondary,
           theme_accent_color: fetchedThemeAccent, theme_button_color: fetchedThemeButton,
           location: fetchedLocation, season: fetchedSeason,
           logo_url: fetchedLogoUrl,
+          description: fetchedDescription,
           archived: fetchedArchived,
         } = data;
         setArchived(fetchedArchived === true);
         setShowLeaderboard(    data.show_leaderboard      !== false);
-        setShowProgramIdentity(data.show_program_identity !== false);
-        setShowShareSection(   data.show_share_section    !== false);
         setShowFundUses(       data.show_fund_uses        !== false);
         setShowRecentDonations(data.show_recent_donations !== false);
         setShowSponsors(       data.show_sponsors         !== false);
         setShowDonationCard(   data.show_donation_card    !== false);
-        if (data.layout_variant === "premium") setLayoutVariant("premium");
-        else setLayoutVariant("classic");
         setRaised(r);
         setDonors(d);
         // Phase 3D: this page is entirely public/fundraising-facing, so its
@@ -150,8 +137,6 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedSchoolName === "string" && fetchedSchoolName) setSchoolName(fetchedSchoolName);
         if (typeof fetchedSportName  === "string" && fetchedSportName)  setSportName(fetchedSportName);
         if (typeof fetchedMascot     === "string" && fetchedMascot)     setMascot(fetchedMascot);
-        if (typeof fetchedPrimary    === "string" && fetchedPrimary)    setPrimaryColor(fetchedPrimary);
-        if (typeof fetchedSecondary  === "string" && fetchedSecondary)  setSecondaryColor(fetchedSecondary);
         if (typeof fetchedThemePrimary   === "string" && fetchedThemePrimary)   setThemePrimaryColor(fetchedThemePrimary);
         if (typeof fetchedThemeSecondary === "string" && fetchedThemeSecondary) setThemeSecondaryColor(fetchedThemeSecondary);
         if (typeof fetchedThemeAccent    === "string" && fetchedThemeAccent)    setThemeAccentColor(fetchedThemeAccent);
@@ -159,6 +144,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (typeof fetchedLocation   === "string" && fetchedLocation)   setLocation(fetchedLocation);
         if (typeof fetchedSeason     === "string" && fetchedSeason)     setSeason(fetchedSeason);
         if (typeof fetchedLogoUrl    === "string" && fetchedLogoUrl)    setLogoUrl(fetchedLogoUrl);
+        if (typeof fetchedDescription === "string" && fetchedDescription) setDescription(fetchedDescription);
         // Real roster only — an empty roster renders the honest "no
         // athletes yet" empty state below, never invented names.
         const base = resolveLeaderboardAthletes(fetchedAthletes);
@@ -284,463 +270,56 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     }
   };
 
-  const handleCopyLink = async () => {
-    try { await navigator.clipboard.writeText(window.location.href); } catch { /* blocked */ }
-    setCopyConfirm(true);
-    setTimeout(() => setCopyConfirm(false), 2500);
-  };
-
-  // Dynamic athlete-first copy when a specific athlete is selected
-  // (?athlete=<id>), otherwise a team-level fallback. Keep SMS concise.
-  const shareFirstName = selectedAthleteName.split(" ")[0];
-  const smsText = selectedAthleteName
-    ? buildShareText(shareFirstName, schoolName, sportName)
-    : `Support ${schoolName} ${sportName}! Every donation helps the team.`;
-
-  const handleText = () => {
-    const body = encodeURIComponent(`${smsText} ${window.location.href}`);
-    window.open(`sms:?body=${body}`);
-  };
-
-  const handleEmail = () => {
-    const subject = encodeURIComponent(`Support ${schoolName} ${sportName}`);
-    const body    = encodeURIComponent(`${smsText}\n\n${window.location.href}`);
-    window.open(`mailto:?subject=${subject}&body=${body}`);
-  };
-
-  const handleSocial = async () => {
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: `Support ${schoolName} ${sportName}`, text: smsText, url: window.location.href });
-        return;
-      } catch { /* cancelled or unavailable */ }
-    }
-    setShareNote("Copy the URL above to share on social media.");
-    setTimeout(() => setShareNote(""), 3000);
-  };
+  const hasMoreDonations = recentDonations.length > 5;
 
   const sharedProps = {
     slug,
-    schoolName,   sportName, mascot,
-    teamPrimaryColor: primaryColor, teamSecondaryColor: secondaryColor,
-    themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor,
-    location,     season,    logoUrl,
-    raised,       donors,    goal,   daysLeft,     percent,
-    athletes,     filteredAthletes,  filters,      activeFilter, setActiveFilter,
+    schoolName, sportName, mascot,
+    themePrimaryColor, location, season, logoUrl, description,
+    raised, donors, goal, daysLeft, percent,
+    athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
     recentDonations,
     titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
     missionItems,
-    showLeaderboard, showProgramIdentity, showShareSection,
-    showFundUses,    showRecentDonations, showSponsors, showDonationCard,
+    showLeaderboard,
+    showFundUses, showRecentDonations, showSponsors, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
-    donorName,    setDonorName, selectedAthleteId, setSelectedAthleteId,
+    donorName, setDonorName, selectedAthleteId, setSelectedAthleteId,
     donationMessage, setDonationMessage,
     donating, donateError, donateLabel, handleDonate,
-    copyConfirm, shareNote, handleCopyLink, handleText, handleEmail, handleSocial,
+    searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
+    donationsExpanded, setDonationsExpanded, hasMoreDonations,
   };
 
-  if (layoutVariant === "premium" && !archived) {
-    return <PremiumLayout {...sharedProps} />;
-  }
 
   if (archived) {
     return (
-      <>
-        <nav className="cl-nav">
-          <a href="/" className="cl-nav-logo">
-            <ElfMark size={44} />
-            <span className="cl-nav-logo-text">Elite Level Fundraising</span>
-          </a>
+      <div className="pc-page">
+        <nav className="pc-nav">
+          <div className="pc-nav-inner">
+            <a href="/" className="pc-nav-brand">
+              <ElfMark size={32} />
+            </a>
+          </div>
         </nav>
-        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif" }}>
+        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center", maxWidth: 480, padding: "2rem" }}>
-            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🏁</div>
-            <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 .75rem" }}>This fundraising campaign has ended.</h1>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#12151c", margin: "0 0 .75rem" }}>This fundraising campaign has ended.</h1>
             <p style={{ color: "#6b7280", fontSize: "1rem", margin: 0 }}>Thank you to everyone who supported {schoolName} {sportName}.</p>
           </div>
         </div>
-        <footer className="cl-footer">
-          <div className="cl-footer-inner">
-            <div className="cl-footer-logo">
-              <ElfMark size={52} />
-              <span className="cl-footer-logo-text">Elite Level Fundraising</span>
+        <footer className="pc-footer">
+          <div className="pc-footer-inner">
+            <p className="pc-footer-team">{schoolName} · {sportName} · {season}</p>
+            <div className="pc-footer-powered">
+              <ElfMark size={20} />
+              <span>Powered by Elite Level Fundraising · © {currentCopyrightYear()}</span>
             </div>
-            <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-            <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
           </div>
         </footer>
-      </>
+      </div>
     );
   }
 
-  return (
-    <>
-      {/* NAV */}
-      <nav className="cl-nav">
-        <a href="/" className="cl-nav-logo">
-          <ElfMark size={44} />
-          <span className="cl-nav-logo-text">Elite Level Fundraising</span>
-        </a>
-        <div className="cl-nav-links">
-          {showLeaderboard  && <a href="#leaderboard" className="cl-nav-link">Leaderboard</a>}
-          {showDonationCard && <a href="#donate"      className="cl-nav-link cl-nav-link-cta">Donate</a>}
-          {showSponsors     && <a href="#sponsors"    className="cl-nav-link">Sponsors</a>}
-          {showShareSection && <a href="#share"       className="cl-nav-link">Share</a>}
-        </div>
-        <span className="cl-live-badge">● LIVE CAMPAIGN</span>
-      </nav>
-
-      {/* HERO */}
-      <header className="cl-hero">
-        <div className="cl-school-header">
-          <div className="cl-school-header-inner">
-            <div className="cl-header-logo-wrap">
-              {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={36} />}
-            </div>
-            <div className="cl-school-info">
-              <div className="cl-school-name">{schoolName.toUpperCase()} {mascot.toUpperCase()}</div>
-              <div className="cl-school-meta">
-                {sportName} &nbsp;·&nbsp; {location} &nbsp;·&nbsp; {season}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="cl-hero-inner">
-          <div className="cl-hero-text">
-            <div className="cl-badge">🏃 {sportName} · {location}</div>
-            <h1>
-              {schoolName.toUpperCase()}<br />
-              <em>{sportName.toUpperCase()}</em>
-            </h1>
-            <p className="cl-hero-sub">
-              Support the {schoolName} {sportName} program as they prepare for another competitive season.
-            </p>
-            <div className="cl-hero-stats">
-              <div className="cl-hero-stat">
-                <strong>${raised.toLocaleString()}</strong>
-                <span>raised of ${goal.toLocaleString()}</span>
-              </div>
-              <div className="cl-stat-divider" />
-              <div className="cl-hero-stat">
-                <strong>{donors}</strong>
-                <span>donors</span>
-              </div>
-              <div className="cl-stat-divider" />
-              <div className="cl-hero-stat">
-                <strong>{daysLeft}</strong>
-                <span>days left</span>
-              </div>
-            </div>
-            {showDonationCard && <a href="#donate" className="cl-hero-cta">Donate Now →</a>}
-          </div>
-
-          <div className="cl-hero-visual">
-            <div className="cl-img-placeholder">
-              <div className="cl-img-accent" />
-              <div className="cl-img-content">
-                <div className="cl-logo-small">
-                  {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={72} />}
-                </div>
-                <div className="cl-img-school-name">{schoolName.toUpperCase()}</div>
-                <div className="cl-img-mascot-name">{mascot.toUpperCase()}</div>
-                <div className="cl-img-divider" />
-                <div className="cl-img-sport">{sportName.toUpperCase()}</div>
-                <div className="cl-img-year">{season.toUpperCase()}</div>
-              </div>
-              <div className="cl-img-grass-bar" />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* PROGRESS STRIP */}
-      <div className="cl-progress-strip">
-        <div className="cl-section-inner">
-          <div className="cl-progress-labels">
-            <span className="cl-progress-raised">${raised.toLocaleString()} raised</span>
-            <span className="cl-progress-pct">{percent}% of ${goal.toLocaleString()} goal</span>
-          </div>
-          <div className="cl-progress-track">
-            <div className="cl-progress-fill" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="cl-progress-meta">
-            <span>{donors} donors</span>
-            <span>·</span>
-            <span>{daysLeft} days remaining</span>
-            <span>·</span>
-            <span>${(goal - raised).toLocaleString()} still needed</span>
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN TWO-COLUMN */}
-      <div className="cl-main">
-        <div className="cl-main-inner">
-
-          {/* LEFT COLUMN */}
-          <div className="cl-left">
-
-            {/* LEADERBOARD */}
-            {showLeaderboard && (
-              <div className="cl-card" id="leaderboard">
-                <h2 className="cl-card-title">ATHLETE LEADERBOARD</h2>
-                <p className="cl-card-sub">Top fundraisers on the team this season</p>
-                <div className="cl-filter-tabs">
-                  {filters.map((f) => (
-                    <button key={f} className={`cl-filter-tab${activeFilter === f ? " active" : ""}`} onClick={() => setActiveFilter(f)}>
-                      {f}
-                    </button>
-                  ))}
-                </div>
-                {filteredAthletes.length > 0 ? (
-                  <table className="cl-table">
-                    <thead>
-                      <tr>
-                        <th>Rank</th><th>Athlete</th><th>Class</th><th>Raised</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAthletes.map((a) => (
-                        <tr key={a.rank} className={a.displayRank === 1 ? "cl-row-top" : ""}>
-                          <td className="cl-td-rank">{rankIcon(a.displayRank)}</td>
-                          <td className="cl-td-name">{a.name}</td>
-                          <td className="cl-td-event">{a.class_year ?? "—"}</td>
-                          <td className="cl-td-amount">${a.raised.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="cl-filter-empty">No athletes in this class group yet.</div>
-                )}
-              </div>
-            )}
-
-            {/* PROGRAM IDENTITY */}
-            {showProgramIdentity && (
-              <div className="cl-card cl-identity-card">
-                <div className="cl-identity-header">
-                  <div className="cl-identity-logo-wrap">
-                    {logoUrl ? <img src={logoUrl} alt={schoolName} /> : <ElfMark size={46} />}
-                  </div>
-                  <div className="cl-identity-header-text">
-                    <h2 className="cl-card-title">PROGRAM IDENTITY</h2>
-                    <p className="cl-card-sub">{schoolName} Athletics</p>
-                  </div>
-                </div>
-                <div className="cl-identity-grid">
-                  <div className="cl-identity-item">
-                    <div className="cl-identity-label">Mascot</div>
-                    <div className="cl-identity-value">{mascot}</div>
-                  </div>
-                  <div className="cl-identity-item">
-                    <div className="cl-identity-label">Colors</div>
-                    <div className="cl-identity-value cl-identity-colors">
-                      <span className="cl-color-swatch" style={{ background: primaryColor }} />
-                      <span className="cl-color-swatch" style={{ background: secondaryColor }} />
-                    </div>
-                  </div>
-                  <div className="cl-identity-item">
-                    <div className="cl-identity-label">Program</div>
-                    <div className="cl-identity-value">{sportName}</div>
-                  </div>
-                  <div className="cl-identity-item">
-                    <div className="cl-identity-label">School</div>
-                    <div className="cl-identity-value">{schoolName}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* SHARE */}
-            {showShareSection && (
-              <div className="cl-card" id="share">
-                <h2 className="cl-card-title">SHARE THIS CAMPAIGN</h2>
-                <p className="cl-card-sub">Help us reach our goal — every share brings us closer</p>
-                <div className="cl-share-grid">
-                  <button className={`cl-share-btn${copyConfirm ? " copied" : ""}`} onClick={handleCopyLink}>
-                    <span className="cl-share-icon">🔗</span>
-                    {copyConfirm ? "Copied!" : "Copy Link"}
-                  </button>
-                  <button className="cl-share-btn" onClick={handleText}>
-                    <span className="cl-share-icon">💬</span> Text
-                  </button>
-                  <button className="cl-share-btn" onClick={handleEmail}>
-                    <span className="cl-share-icon">✉️</span> Email
-                  </button>
-                  <button className="cl-share-btn" onClick={handleSocial}>
-                    <span className="cl-share-icon">📲</span> Social
-                  </button>
-                </div>
-                {copyConfirm && <p className="cl-share-confirm">✓ Campaign link copied to clipboard!</p>}
-                {shareNote   && <p className="cl-share-confirm">{shareNote}</p>}
-              </div>
-            )}
-
-            {/* MISSION */}
-            {showFundUses && (
-              <div className="cl-card" id="mission">
-                <h2 className="cl-card-title">WHERE YOUR MONEY GOES</h2>
-                <p className="cl-card-sub">Every dollar raised supports student athletes directly</p>
-                <div className="cl-mission-grid">
-                  {missionItems.map((item) => (
-                    <div className="cl-mission-item" key={item.label}>
-                      <div className="cl-mission-icon">{item.icon}</div>
-                      <div>
-                        <h4>{item.label}</h4>
-                        <p>{item.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* RECENT DONATIONS */}
-            {showRecentDonations && (
-              <div className="cl-card" id="donations">
-                <h2 className="cl-card-title">RECENT DONATIONS</h2>
-                <p className="cl-card-sub">Join the supporters cheering on the {mascot}</p>
-                {recentDonations.length > 0 ? (
-                  <div className="cl-donations-list">
-                    {recentDonations.map((d, i) => (
-                      <div className="cl-donation-item" key={i}>
-                        <div className="cl-avatar">{d.name[0]}</div>
-                        <div className="cl-donation-body">
-                          <div className="cl-donation-top">
-                            <span className="cl-donation-name">{d.name}</span>
-                            <span className="cl-donation-amount">${d.amount}</span>
-                          </div>
-                          {d.message && <p className="cl-donation-msg">&ldquo;{d.message}&rdquo;</p>}
-                          <span className="cl-donation-time">{d.time}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="cl-filter-empty">No donations yet. Be the first to support this program.</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN — sticky donation card */}
-          {showDonationCard && (
-            <div className="cl-right">
-              <div className="cl-donate-card" id="donate">
-                <div className="cl-donate-header">
-                  <h2>DONATE TO THE {mascot.toUpperCase()}</h2>
-                  <p>Support {schoolName} {sportName}</p>
-                </div>
-                <div className="cl-donate-body">
-                  <p className="cl-field-label">Choose an amount</p>
-                  <div className="cl-amounts">
-                    {(["$25", "$50", "$100", "$250", "Custom"] as const).map((amt) => (
-                      <button
-                        key={amt}
-                        className={`cl-amount-btn${selectedAmount === amt ? " active" : ""}`}
-                        onClick={() => setSelectedAmount(amt)}
-                      >
-                        {amt}
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedAmount === "Custom" && (
-                    <div className="cl-form-field cl-custom-amount-field">
-                      <label>Enter amount ($)</label>
-                      <input type="number" min="1" placeholder="Enter amount" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} />
-                    </div>
-                  )}
-
-                  <div className="cl-form-field">
-                    <label>Your Name</label>
-                    <input type="text" placeholder="Jane Smith" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
-                  </div>
-
-                  <div className="cl-form-field">
-                    <label>Support a specific athlete <span className="cl-optional">(optional)</span></label>
-                    <select value={selectedAthleteId} onChange={(e) => setSelectedAthleteId(e.target.value)}>
-                      <option value="">— Team General Fund —</option>
-                      {athletes.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="cl-form-field">
-                    <label>Leave a message <span className="cl-optional">(optional)</span></label>
-                    <textarea rows={3} placeholder={`Go ${mascot}! We're rooting for you this season.`} value={donationMessage} onChange={(e) => setDonationMessage(e.target.value)} />
-                  </div>
-
-                  <button className="cl-donate-btn" onClick={handleDonate} disabled={donating}>
-                    {donating ? "Redirecting to Stripe…" : donateLabel}
-                  </button>
-                  {donateError && <p className="cl-donate-error">{donateError}</p>}
-                  <p className="cl-stripe-note">🔒 Secure checkout powered by Stripe</p>
-                </div>
-              </div>
-
-              <div className="cl-powered-by">
-                <ElfMark size={28} />
-                <span>Powered by Elite Level Fundraising</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* SPONSORS */}
-      {showSponsors && (
-        <section className="cl-sponsors" id="sponsors">
-          <div className="cl-section-inner">
-            <p className="section-label">Community Partners</p>
-            <h2 className="cl-sponsors-title">OUR LOCAL SPONSORS</h2>
-            <p className="cl-sponsors-sub">Businesses investing in our student athletes</p>
-
-            {([
-              { key: "title",             items: titleSponsors,     label: "👑 Title Sponsor",      cls: "cl-logo-title"    },
-              { key: "platinum",          items: platinumSponsors,  label: "💎 Platinum Sponsors",  cls: "cl-logo-platinum" },
-              { key: "gold",              items: goldSponsors,      label: "🥇 Gold Sponsors",      cls: "cl-logo-gold"     },
-              { key: "silver",            items: silverSponsors,    label: "🥈 Silver Sponsors",    cls: "cl-logo-silver"   },
-              { key: "bronze",            items: bronzeSponsors,    label: "🥉 Bronze Sponsors",    cls: "cl-logo-bronze"   },
-              { key: "community_partner", items: communitySponsors, label: "🤝 Community Partners", cls: "cl-logo-community"},
-            ] as const).filter(g => g.items.length > 0).map(g => (
-              <div key={g.key} className="cl-tier">
-                <div className={`cl-tier-label cl-tier-${g.key}`}>{g.label}</div>
-                <div className="cl-tier-logos">
-                  {g.items.map((s) => (
-                    <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className={`cl-sponsor-logo ${g.cls}`}>
-                      <div className="cl-sponsor-logo-area">
-                        {s.logo_url
-                          ? <img src={s.logo_url} alt={s.name} className="cl-sponsor-logo-img" />
-                          : <span className="cl-sponsor-logo-fallback">{s.name[0]?.toUpperCase() ?? "S"}</span>
-                        }
-                      </div>
-                      <span className="cl-sponsor-name">{s.name}</span>
-                      {s.description && <span className="cl-sponsor-desc">{s.description}</span>}
-                      <span className="cl-sponsor-visit">Visit →</span>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* FOOTER */}
-      <footer className="cl-footer">
-        <div className="cl-footer-inner">
-          <div className="cl-footer-logo">
-            <ElfMark size={52} />
-            <span className="cl-footer-logo-text">Elite Level Fundraising</span>
-          </div>
-          <p className="cl-footer-team">{schoolName} · {sportName} · {season}</p>
-          <p className="cl-footer-copy">© {currentCopyrightYear()} Elite Level Fundraising · All rights reserved</p>
-        </div>
-      </footer>
-    </>
-  );
+  return <PublicCampaignPage {...sharedProps} />;
 }

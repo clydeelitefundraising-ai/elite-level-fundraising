@@ -23,6 +23,7 @@ type SourceSettings = {
   primary_color:              string;
   secondary_color:            string;
   logo_url:                   string;
+  description:                string | null;
   show_leaderboard:           boolean;
   show_program_identity:      boolean;
   show_share_section:         boolean;
@@ -86,11 +87,13 @@ export async function POST(req: NextRequest) {
         primary_color:   source.primary_color   ?? "#1B4FA8",
         secondary_color: source.secondary_color ?? "#C4A35A",
         logo_url:        source.logo_url        ?? "",
+        description:     source.description     ?? null,
       }
     : {
         primary_color:   "#1B4FA8",
         secondary_color: "#C4A35A",
         logo_url:        "",
+        description:     null,
       };
 
   // ── Resolve feature flags (copy from source or enable all) ───────────────────
