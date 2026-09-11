@@ -33,6 +33,7 @@ type SourceSettings = {
   show_donation_card:         boolean;
   layout_variant:             string;
   default_athlete_goal_cents: number | null;
+  allow_coach_fundraising:    boolean | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -107,11 +108,22 @@ export async function POST(req: NextRequest) {
         show_sponsors:         source.show_sponsors         ?? true,
         show_donation_card:    source.show_donation_card    ?? true,
         layout_variant:        (source.layout_variant === "premium" ? "premium" : "classic") as "classic" | "premium",
+        // Phase A35: the boolean campaign-level gate may ride along with
+        // the other feature toggles, but the actual selected-coach rows
+        // (campaign_coach_fundraisers) are NEVER copied below — a
+        // duplicated campaign always gets a brand-new Head Coach account
+        // and copies zero existing coach rows, so a source campaign's
+        // coach ids don't even exist in the new campaign. Copying this
+        // flag alone just lets the new (real) Head Coach immediately see
+        // the "Coach Fundraising Participants" admin section without
+        // re-toggling it — they still start with nobody selected.
+        allow_coach_fundraising: source.allow_coach_fundraising ?? false,
       }
     : {
         show_leaderboard: true, show_program_identity: true, show_share_section: true,
         show_fund_uses: true, show_recent_donations: true, show_sponsors: true,
         show_donation_card: true, layout_variant: "classic" as const,
+        allow_coach_fundraising: false,
       };
 
   // ── Resolve contact goal (copy from source or skip) ──────────────────────────

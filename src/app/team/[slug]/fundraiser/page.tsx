@@ -9,6 +9,8 @@ import { isStaff } from "@/lib/permissions";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { buildFollowUpRows } from "@/lib/followUps";
+import { validateCoachForCampaign, getCoachFundraiserById, getCoachTotals, getContactCountsByCoach } from "@/lib/platform/coachFundraising";
+import { buildCoachShareUrl } from "@/lib/shareCopy";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
@@ -95,6 +97,66 @@ function buildTeamFeed(
     donation_message: d.donation_message,
     created_at:       d.created_at,
   }));
+}
+
+// ── Coach's own personal fundraiser (Phase A35) ────────────────────────────────
+// Shown only when THIS coach is an active fundraising participant
+// (validateCoachForCampaign) — otherwise simply absent, not an error
+// state. A fundraising function attached to the existing coach identity,
+// not a separate coach-profile page, so it lives inline in the same
+// Overview tab the coach already lands on for the team campaign view.
+function MyCoachFundraiserCard({
+  raisedCents, goalCents, contactCount, shareUrl,
+}: {
+  raisedCents: number;
+  goalCents: number | null;
+  contactCount: number;
+  shareUrl: string;
+}) {
+  const pct = goalCents && goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : null;
+  return (
+    <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
+      <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid var(--border-app)" }}>
+        <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          My Fundraiser
+        </div>
+      </div>
+      <div style={{ padding: "1rem" }}>
+        <div style={{ marginBottom: ".75rem" }}>
+          <span style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(raisedCents)}</span>
+          {goalCents != null && (
+            <span style={{ fontSize: ".85rem", color: "var(--text-muted-app)", marginLeft: ".35rem" }}>of {fmt(goalCents)} goal</span>
+          )}
+        </div>
+        {pct !== null && (
+          <div style={{ marginBottom: ".9rem" }}>
+            <div style={{ height: 10, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pct}%`, background: "var(--team-primary)", borderRadius: 100, transition: "width .4s ease" }} />
+            </div>
+            <div style={{ marginTop: ".35rem", fontSize: ".72rem", fontWeight: 700, color: "var(--team-primary)" }}>{pct}% funded</div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", marginBottom: ".9rem" }}>
+          <div style={{ flex: 1, minWidth: 90, textAlign: "center", padding: ".6rem", background: "var(--surface-light-elevated)", borderRadius: 10 }}>
+            <div style={{ fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{contactCount}</div>
+            <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)" }}>contact{contactCount !== 1 ? "s" : ""}</div>
+          </div>
+        </div>
+        <a
+          href={shareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "var(--surface-light-elevated)", borderRadius: 10, border: "1px solid var(--border-app)", textDecoration: "none" }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)", marginBottom: ".1rem" }}>Share My Fundraiser</div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</div>
+          </div>
+          <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+        </a>
+      </div>
+    </div>
+  );
 }
 
 // ── Coach view ────────────────────────────────────────────────────────────────
@@ -440,6 +502,33 @@ export default async function FundraiserPage({
     const leaderboard = buildLeaderboard(athletes, donations);
     const teamFeed    = buildTeamFeed(athletes, donations);
 
+    // Personal fundraising view — absent (not an error state) unless this
+    // specific coach is an ACTIVE participant. A platform admin has no
+    // team_coaches row to be a participant under, so this is always
+    // absent for them (matches "this is a fundraising function attached
+    // to their coach identity").
+    let myFundraiser: { raisedCents: number; goalCents: number | null; contactCount: number; shareUrl: string } | null = null;
+    if (actor.kind === "coach") {
+      const isParticipant = await validateCoachForCampaign(actor.session.id, slug);
+      if (isParticipant) {
+        const [participant, coachTotals, coachContactCounts] = await Promise.all([
+          getCoachFundraiserById(actor.session.id, slug),
+          getCoachTotals(slug),
+          getContactCountsByCoach(slug),
+        ]);
+        myFundraiser = {
+          raisedCents:  coachTotals[actor.session.id] ?? 0,
+          goalCents:    participant?.goal_cents ?? null,
+          contactCount: coachContactCounts[actor.session.id] ?? 0,
+          // Relative path (empty origin) — the "Share My Fundraiser" link
+          // below opens it as a same-origin URL; buildCoachShareUrl's
+          // origin param exists for external share text that needs an
+          // absolute URL, which isn't the case for this in-app link.
+          shareUrl:     buildCoachShareUrl("", slug, actor.session.id),
+        };
+      }
+    }
+
     // ── Analytics data ────────────────────────────────────────────────────────
     const teamGoalCents = settings.goal_cents ?? 0;
     const donorCount    = donations.length;
@@ -537,6 +626,14 @@ export default async function FundraiserPage({
         actor={actor}
         overview={
           <div className={styles.overviewDesktopWrap}>
+            {myFundraiser && (
+              <MyCoachFundraiserCard
+                raisedCents={myFundraiser.raisedCents}
+                goalCents={myFundraiser.goalCents}
+                contactCount={myFundraiser.contactCount}
+                shareUrl={myFundraiser.shareUrl}
+              />
+            )}
             <TeamCampaignView
               settings={settings}
               raisedCents={raisedCents}

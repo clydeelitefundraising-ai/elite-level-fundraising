@@ -16,6 +16,11 @@ export type DonationRow = {
   amount_cents: number;
   athlete_name: string | null;
   athlete_id?: string | null;
+  // Phase A35: coach fundraising participation. Exactly one of
+  // athlete_id/coach_id is ever set — never both (enforced by the
+  // donations_athlete_or_coach_check DB constraint and by /api/checkout's
+  // own validation).
+  coach_id?: string | null;
   donation_message: string | null;
   campaign_slug?: string | null;
   created_at: string;
@@ -92,6 +97,11 @@ export type CampaignSettings = {
   // that existed before this column did) means "use the dynamic template
   // sentence" — never rendered as literally blank.
   description?:         string | null;
+  // Phase A35: campaign-level coach-fundraising feature gate. false
+  // (including absent, before this migration is applied) means coaches
+  // can never be selected/exposed as fundraising participants regardless
+  // of any campaign_coach_fundraisers rows that may exist.
+  allow_coach_fundraising?: boolean;
   external_store_url?:          string | null;
   store_provider?:              string | null;
   default_athlete_goal_cents?:  number | null;

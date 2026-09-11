@@ -18,8 +18,16 @@ function fundGridColumnClass(count: number): string {
 
 type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
 type Athlete = { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number };
+// Phase A35: a leaderboard row is either an athlete or a participating
+// coach. Coach rows never carry a grade/event — role is shown instead.
+type LeaderboardEntry = Athlete & { kind: "athlete" | "coach"; role?: "head_coach" | "assistant_coach" };
+type CoachParticipant = { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null };
 type MissionItem = { icon: string; label: string; desc: string };
 type Donation = { name: string; amount: number; message: string; time: string };
+
+function coachRoleLabel(role: "head_coach" | "assistant_coach"): string {
+  return role === "head_coach" ? "Head Coach" : "Assistant Coach";
+}
 
 // Same initials fallback treatment as TeamHeader.tsx's header logo slot —
 // the one authoritative "no logo configured" rendering for team identity
@@ -44,10 +52,17 @@ export type PublicCampaignPageProps = {
   daysLeft: number;
   percent: number;
   athletes: Athlete[];
-  filteredAthletes: (Athlete & { displayRank: number })[];
+  filteredAthletes: (LeaderboardEntry & { displayRank: number })[];
   filters: string[];
   activeFilter: string;
   setActiveFilter: (f: string) => void;
+  coaches: CoachParticipant[];
+  allowCoachFundraising: boolean;
+  selectedCoachId: string;
+  selectAthleteParticipant: (id: string) => void;
+  selectCoachParticipant: (id: string) => void;
+  participantFilter: "All" | "Athletes" | "Coaches";
+  setParticipantFilter: (f: "All" | "Athletes" | "Coaches") => void;
   recentDonations: Donation[];
   titleSponsors: SponsorItem[];
   platinumSponsors: SponsorItem[];
@@ -68,7 +83,6 @@ export type PublicCampaignPageProps = {
   donorName: string;
   setDonorName: (n: string) => void;
   selectedAthleteId: string;
-  setSelectedAthleteId: (id: string) => void;
   donationMessage: string;
   setDonationMessage: (m: string) => void;
   donating: boolean;
@@ -91,11 +105,14 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     schoolName, sportName, mascot, location, season, logoUrl, description,
     raised, donors, goal, daysLeft, percent,
     athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
+    coaches, allowCoachFundraising, selectedCoachId,
+    selectAthleteParticipant, selectCoachParticipant,
+    participantFilter, setParticipantFilter,
     recentDonations, titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
     missionItems,
     showLeaderboard, showFundUses, showRecentDonations, showSponsors, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
-    donorName, setDonorName, selectedAthleteId, setSelectedAthleteId,
+    donorName, setDonorName, selectedAthleteId,
     donationMessage, setDonationMessage,
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
@@ -232,12 +249,32 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                   </div>
 
                   <div className="pc-form-field">
-                    <label>Support a Specific Athlete <span className="pc-optional">(optional)</span></label>
-                    <select value={selectedAthleteId} onChange={(e) => setSelectedAthleteId(e.target.value)}>
+                    <label>Credit Your Donation To <span className="pc-optional">(optional)</span></label>
+                    <select
+                      value={selectedAthleteId ? `athlete:${selectedAthleteId}` : selectedCoachId ? `coach:${selectedCoachId}` : ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (!value) { selectAthleteParticipant(""); return; }
+                        const [kind, id] = value.split(":");
+                        if (kind === "coach") selectCoachParticipant(id);
+                        else selectAthleteParticipant(id);
+                      }}
+                    >
                       <option value="">— Team General Fund —</option>
-                      {athletes.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
+                      {athletes.length > 0 && (
+                        <optgroup label="Athletes">
+                          {athletes.map((a) => (
+                            <option key={a.id} value={`athlete:${a.id}`}>{a.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {allowCoachFundraising && coaches.length > 0 && (
+                        <optgroup label="Coaches">
+                          {coaches.map((c) => (
+                            <option key={c.id} value={`coach:${c.id}`}>{c.name}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </div>
 
@@ -290,7 +327,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
             <div className="pc-lb-controls">
               <div className="pc-search-wrap">
                 <Search size={15} />
-                <input placeholder="Search athletes by name…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <input placeholder={allowCoachFundraising && coaches.length > 0 ? "Search athletes or coaches by name…" : "Search athletes by name…"} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
               <div className="pc-filter-tabs">
                 {filters.map((f) => (
@@ -299,6 +336,15 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                   </button>
                 ))}
               </div>
+              {allowCoachFundraising && coaches.length > 0 && activeFilter === "Overall" && (
+                <div className="pc-filter-tabs pc-participant-filter">
+                  {(["All", "Athletes", "Coaches"] as const).map((f) => (
+                    <button key={f} className={`pc-filter-tab${participantFilter === f ? " active" : ""}`} onClick={() => setParticipantFilter(f)}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {searchedAthletes.length > 0 ? (
@@ -316,12 +362,13 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                             <div className="pc-lb-athlete-cell">
                               <span className="pc-lb-avatar">{initials(a.name)}</span>
                               <span>{a.name}</span>
+                              {a.kind === "coach" && <span className="pc-lb-role-pill">{coachRoleLabel(a.role!)}</span>}
                             </div>
                           </td>
-                          <td>{a.class_year ?? "—"}</td>
-                          <td>{a.event ?? "—"}</td>
+                          <td>{a.kind === "coach" ? "—" : (a.class_year ?? "—")}</td>
+                          <td>{a.kind === "coach" ? "—" : (a.event ?? "—")}</td>
                           <td className="pc-lb-amount">${a.raised.toLocaleString()}</td>
-                          <td><a className="pc-lb-donate-btn" href="#pc-donate" onClick={() => setSelectedAthleteId(a.id)}>Donate</a></td>
+                          <td><a className="pc-lb-donate-btn" href="#pc-donate" onClick={() => a.kind === "coach" ? selectCoachParticipant(a.id) : selectAthleteParticipant(a.id)}>Donate</a></td>
                         </tr>
                       ))}
                     </tbody>
@@ -333,12 +380,15 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                     <div className="pc-lb-card" key={a.id}>
                       <span className="pc-lb-avatar">{initials(a.name)}</span>
                       <div className="pc-lb-card-body">
-                        <div className="pc-lb-card-name">#{a.displayRank} {a.name}</div>
-                        <div className="pc-lb-card-meta">{a.class_year ?? "—"} · {a.event ?? "—"}</div>
+                        <div className="pc-lb-card-name">
+                          #{a.displayRank} {a.name}
+                          {a.kind === "coach" && <span className="pc-lb-role-pill">{coachRoleLabel(a.role!)}</span>}
+                        </div>
+                        <div className="pc-lb-card-meta">{a.kind === "coach" ? coachRoleLabel(a.role!) : `${a.class_year ?? "—"} · ${a.event ?? "—"}`}</div>
                       </div>
                       <div>
                         <div className="pc-lb-card-amount">${a.raised.toLocaleString()}</div>
-                        <a className="pc-lb-donate-btn" href="#pc-donate" onClick={() => props.setSelectedAthleteId(a.id)}>Donate</a>
+                        <a className="pc-lb-donate-btn" href="#pc-donate" onClick={() => a.kind === "coach" ? selectCoachParticipant(a.id) : selectAthleteParticipant(a.id)}>Donate</a>
                       </div>
                     </div>
                   ))}

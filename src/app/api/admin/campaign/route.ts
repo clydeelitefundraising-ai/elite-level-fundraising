@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json();
-  const { slug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, theme_primary_color, theme_secondary_color, theme_accent_color, theme_button_color, location, season, logo_url, description, archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents } = body;
+  const { slug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, theme_primary_color, theme_secondary_color, theme_accent_color, theme_button_color, location, season, logo_url, description, archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents, allow_coach_fundraising } = body;
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
   // Theme fields use undefined (not null) when absent from the request body,
   // so partial updates — e.g. archiveCampaign() only ever sends {slug,
@@ -35,6 +35,7 @@ export async function PUT(req: NextRequest) {
     location, season, logo_url,
     description: description !== undefined ? (description || null) : undefined,
     archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents: default_athlete_goal_cents || null,
+    allow_coach_fundraising,
   };
   try {
     await updateCampaignSettings(slug, patch);

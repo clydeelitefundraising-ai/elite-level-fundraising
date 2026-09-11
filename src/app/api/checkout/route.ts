@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateAthleteForCampaign } from "@/lib/platform/athletes";
+import { validateCoachForCampaign, getCoachById } from "@/lib/platform/coachFundraising";
 import { consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import { getDonationAmountError } from "@/lib/checkoutLimits";
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { amountCents, athleteName, athleteId, donorName, donationMessage, campaignSlug } =
+  const { amountCents, athleteName, athleteId, coachId, donorName, donationMessage, campaignSlug } =
     await req.json();
 
   const amountError = getDonationAmountError(amountCents);
@@ -30,6 +31,12 @@ export async function POST(req: NextRequest) {
 
   if (!campaignSlug) {
     return NextResponse.json({ error: "campaignSlug is required." }, { status: 400 });
+  }
+
+  // A donation is never attributed to both an athlete and a coach — reject
+  // outright rather than silently picking one.
+  if (athleteId && coachId) {
+    return NextResponse.json({ error: "A donation cannot be credited to both an athlete and a coach." }, { status: 400 });
   }
 
   // Phase 3A-1 share-path fix: a client-supplied athleteId (from a shared
@@ -50,11 +57,32 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Coach attribution — same never-trust-the-client shape as athletes
+  // above: re-validate the coach is an ACTIVE fundraising participant in
+  // THIS campaign (allow_coach_fundraising must also be true) and derive
+  // the display name server-side. An ineligible/deselected/stale coach id
+  // is silently dropped, exactly like an invalid athleteId, rather than
+  // failing checkout.
+  let finalCoachId: string | null = null;
+  let finalCoachName: string | null = null;
+  if (coachId && !finalAthleteId) {
+    const eligible = await validateCoachForCampaign(coachId, campaignSlug);
+    if (eligible) {
+      const coach = await getCoachById(coachId, campaignSlug);
+      if (coach) {
+        finalCoachId = coach.id;
+        finalCoachName = coach.name;
+      }
+    }
+  }
+
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
   const campaignUrl = `${origin}/campaign/${campaignSlug}`;
 
   const productName = finalAthleteName
     ? `Donation for ${finalAthleteName}`
+    : finalCoachName
+    ? `Donation for Coach ${finalCoachName}`
     : "Team Fundraiser Donation";
 
   const params = new URLSearchParams({
@@ -71,6 +99,8 @@ export async function POST(req: NextRequest) {
   if (donorName)         params.set("metadata[donor_name]",        donorName);
   if (finalAthleteName)  params.set("metadata[athlete_name]",      finalAthleteName);
   if (finalAthleteId)    params.set("metadata[athlete_id]",        finalAthleteId);
+  if (finalCoachName)    params.set("metadata[coach_name]",        finalCoachName);
+  if (finalCoachId)      params.set("metadata[coach_id]",          finalCoachId);
   if (donationMessage)   params.set("metadata[donation_message]",  donationMessage);
   params.set("metadata[campaign_slug]", campaignSlug);
 

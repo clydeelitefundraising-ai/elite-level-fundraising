@@ -515,6 +515,22 @@ html { scroll-behavior: smooth; }
 .pc-lb-table td.pc-td-athlete { white-space: normal; }
 .pc-lb-rank { font-weight: 800; color: #6b7280; }
 .pc-lb-athlete-cell { display: flex; align-items: center; gap: .6rem; }
+/* Phase A35: coach fundraising participation. */
+.pc-participant-filter { border-left: 1px solid #eceef1; padding-left: .6rem; }
+.pc-lb-role-pill {
+  display: inline-block;
+  margin-left: .5rem;
+  padding: .12rem .5rem;
+  border-radius: 100px;
+  background: var(--cl-primary);
+  color: #fff;
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pc-lb-card-name .pc-lb-role-pill { margin-left: .4rem; vertical-align: middle; }
 .pc-lb-avatar {
   width: 30px;
   height: 30px;

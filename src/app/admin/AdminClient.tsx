@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { FUND_USE_ICON_OPTIONS, DEFAULT_FUND_USE_ICON_ID, normalizeFundUseIconId, resolveFundUseIcon } from "@/lib/fundUseIcons";
 
-type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; description: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number };
+type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; description: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number; allow_coach_fundraising: boolean };
+type CoachFundraiser = { id: string; coach_id: string; active: boolean; goal_cents: number | null };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
 const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
@@ -201,7 +202,7 @@ export function LoginView() {
 // ── Admin Dashboard ────────────────────────────────────────────────────────────
 
 export function AdminDashboard() {
-  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", theme_primary_color: null, theme_secondary_color: null, theme_accent_color: null, theme_button_color: null, location: "", season: "", logo_url: "", description: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0 };
+  const blank: Settings = { school_name: "", sport_name: "", mascot: "", goal_cents: 0, deadline: "", primary_color: "#1B4FA8", secondary_color: "#C4A35A", theme_primary_color: null, theme_secondary_color: null, theme_accent_color: null, theme_button_color: null, location: "", season: "", logo_url: "", description: "", show_leaderboard: true, show_program_identity: true, show_share_section: true, show_fund_uses: true, show_recent_donations: true, show_sponsors: true, show_donation_card: true, layout_variant: "classic", default_athlete_goal_cents: 0, allow_coach_fundraising: false };
   const [settings, setSettings] = useState<Settings>(blank);
   const [athletes, setAthletes] = useState<Athlete[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
@@ -228,6 +229,8 @@ export function AdminDashboard() {
   const [launchResult, setLaunchResult] = useState<LaunchResult | null>(null);
 
   const [coaches,    setCoaches]    = useState<Coach[]>([]);
+  const [coachFundraisers, setCoachFundraisers] = useState<CoachFundraiser[]>([]);
+  const [coachFundraiserError, setCoachFundraiserError] = useState("");
   const [newCName,   setNewCName]   = useState("");
   const [newCEmail,  setNewCEmail]  = useState("");
   const [newCRole,   setNewCRole]   = useState<Coach["role"]>("head_coach");
@@ -256,11 +259,13 @@ export function AdminDashboard() {
       fetch(`/api/admin/sponsors?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/fund-uses?slug=${selectedSlug}`).then(r => r.json()),
       fetch(`/api/admin/coaches?slug=${selectedSlug}`).then(r => r.json()),
-    ]).then(([c, a, s, fu, co]) => {
+      fetch(`/api/admin/coach-fundraisers?slug=${selectedSlug}`).then(r => r.json()),
+    ]).then(([c, a, s, fu, co, cf]) => {
       setSettings(c && !c.error ? {
         ...c,
         // Column may not exist yet on a fresh environment/before the
-        // Phase A34 migration is applied — PostgREST simply omits the key.
+        // Phase A34/A35 migrations are applied — PostgREST simply omits
+        // the key.
         description:           c.description           ?? "",
         show_leaderboard:      c.show_leaderboard      ?? true,
         show_program_identity: c.show_program_identity ?? true,
@@ -274,14 +279,40 @@ export function AdminDashboard() {
         theme_secondary_color: c.theme_secondary_color ?? null,
         theme_accent_color:    c.theme_accent_color    ?? null,
         theme_button_color:    c.theme_button_color    ?? null,
+        allow_coach_fundraising: c.allow_coach_fundraising ?? false,
       } : blank);
       setArchived(c?.archived === true);
       setAthletes(Array.isArray(a) ? a : []);
       setSponsors(Array.isArray(s) ? s : []);
       setFundUses(Array.isArray(fu) ? fu : []);
       setCoaches(Array.isArray(co) ? co : []);
+      setCoachFundraisers(Array.isArray(cf) ? cf : []);
     }).catch(() => {});
   }, [selectedSlug]);
+
+  // Select/deselect a coach as a fundraising participant + set their
+  // goal. Optimistic local update, then persist — the admin API route
+  // itself rejects boosters (defense in depth beyond the disabled
+  // checkbox below).
+  const toggleCoachFundraiser = async (coachId: string, active: boolean, goalCents: number | null) => {
+    setCoachFundraiserError("");
+    const res = await fetch("/api/admin/coach-fundraisers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaign_slug: selectedSlug, coach_id: coachId, active, goal_cents: goalCents }),
+    });
+    const body = await res.json();
+    if (!res.ok) { setCoachFundraiserError(body.error ?? "Failed to update coach fundraiser."); return; }
+    setCoachFundraisers(prev => {
+      const existingIdx = prev.findIndex(r => r.coach_id === coachId);
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx] = body;
+        return next;
+      }
+      return [...prev, body];
+    });
+  };
 
   const saveSettings = async () => {
     setSaving(true);
@@ -669,6 +700,7 @@ export function AdminDashboard() {
               ["show_recent_donations", "Recent Donations"],
               ["show_sponsors",         "Sponsors"],
               ["show_donation_card",    "Donation Card"],
+              ["allow_coach_fundraising", "Allow Coaches to Fundraise"],
             ] as [keyof Settings, string][]).map(([key, label]) => (
               <label key={key} style={{ display: "flex", alignItems: "center", gap: ".6rem", cursor: "pointer", fontSize: ".875rem", fontWeight: 500, color: "#374151" }}>
                 <input type="checkbox" checked={!!settings[key]}
@@ -1014,6 +1046,63 @@ export function AdminDashboard() {
             <Btn color="#16a34a" onClick={addCoach}>+ Add Coach</Btn>
           </div>
         </div>
+
+        {/* ── Coach Fundraising Participants ── */}
+        {settings.allow_coach_fundraising && (
+          <div style={{ ...C.card, marginBottom: "3rem" }}>
+            <SectionHeader
+              title="Coach Fundraising Participants"
+              desc="Choose which coaches can compete on the leaderboard, share their own fundraiser link, and manage their own fundraising contacts. Boosters are never eligible."
+            />
+            {coachFundraiserError && <p style={{ color: "#dc2626", margin: "0 0 .75rem", fontSize: ".85rem" }}>{coachFundraiserError}</p>}
+            {coaches.length === 0 ? (
+              <p style={{ color: "#9ca3af", fontSize: ".85rem" }}>No coaches on this campaign yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: ".6rem" }}>
+                {coaches.map(c => {
+                  const eligible = c.role === "head_coach" || c.role === "assistant_coach";
+                  const participant = coachFundraisers.find(cf => cf.coach_id === c.id);
+                  const active = eligible && (participant?.active ?? false);
+                  const goalDollars = participant?.goal_cents != null ? String(Math.round(participant.goal_cents / 100)) : "";
+                  return (
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: ".75rem", padding: ".65rem .85rem", background: eligible ? "#f9fafb" : "#f3f4f6", borderRadius: 8, border: "1px solid #f3f4f6" }}>
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        disabled={!eligible}
+                        onChange={e => toggleCoachFundraiser(c.id, e.target.checked, participant?.goal_cents ?? null)}
+                        style={{ width: 16, height: 16, cursor: eligible ? "pointer" : "not-allowed", accentColor: "#0b1e3d", flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: ".88rem", color: eligible ? "#111827" : "#9ca3af" }}>{c.name}</div>
+                        <div style={{ fontSize: ".74rem", color: "#9ca3af" }}>
+                          {c.role === "head_coach" ? "Head Coach" : c.role === "assistant_coach" ? "Assistant Coach" : "Booster"}
+                          {!eligible && " · Not eligible"}
+                        </div>
+                      </div>
+                      {eligible && active && (
+                        <label style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".8rem", color: "#374151" }}>
+                          Goal: $
+                          <input
+                            type="number"
+                            min="0"
+                            style={{ ...C.input, width: 90 }}
+                            defaultValue={goalDollars}
+                            onBlur={e => {
+                              const dollars = parseFloat(e.target.value);
+                              const cents = Number.isFinite(dollars) && dollars >= 0 ? Math.round(dollars * 100) : null;
+                              toggleCoachFundraiser(c.id, true, cents);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
 

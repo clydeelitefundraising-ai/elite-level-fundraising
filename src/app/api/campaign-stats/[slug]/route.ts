@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDonations, getCampaignSettings, getAthletes, getSponsors, getFundUses } from "@/lib/supabase";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { resolveTeamLogoUrl } from "@/lib/shareCopy";
+import { getActiveCoachFundraisers, getCoachTotals } from "@/lib/platform/coachFundraising";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,8 @@ export async function GET(
     let athletes: { id: string; name: string; event: string | null; class_year: string | null }[] | undefined;
     let sponsors: { name: string; url: string; tier: string; logo_url: string | null; description: string | null }[] | undefined;
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
+    let coaches: { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null }[] | undefined;
+    let allowCoachFundraising = false;
 
     try {
       const settings = await getCampaignSettings(slug);
@@ -85,6 +88,7 @@ export async function GET(
         if (resolvedLogo)             logoUrl        = resolvedLogo;
         if (settings.description)     description    = settings.description;
         archived = settings.archived ?? false;
+        allowCoachFundraising = settings.allow_coach_fundraising ?? false;
         layoutVariant = settings.layout_variant ?? "classic";
         visibility = {
           show_leaderboard:      settings.show_leaderboard      ?? true,
@@ -122,6 +126,28 @@ export async function GET(
       if (rows.length > 0) fundUses = rows.map(f => ({ icon: f.icon, title: f.title, description: f.description }));
     } catch { /* keep undefined */ }
 
+    // Coach fundraising participation — only ever populated when the
+    // campaign has explicitly opted in (allow_coach_fundraising=true);
+    // getActiveCoachFundraisers itself re-checks that flag, never
+    // inferring participation solely from row existence.
+    if (allowCoachFundraising) {
+      try {
+        const [participants, coachTotals] = await Promise.all([
+          getActiveCoachFundraisers(slug),
+          getCoachTotals(slug),
+        ]);
+        if (participants.length > 0) {
+          coaches = participants.map(p => ({
+            id: p.coach_id,
+            name: p.name,
+            role: p.role as "head_coach" | "assistant_coach",
+            raised: (coachTotals[p.coach_id] ?? 0) / 100,
+            goal_cents: p.goal_cents,
+          }));
+        }
+      } catch { /* keep undefined */ }
+    }
+
     return NextResponse.json({
       raised, donors, athleteTotals, recentDonations,
       ...(goal           !== undefined && { goal }),
@@ -146,6 +172,8 @@ export async function GET(
       ...(layoutVariant  !== undefined && { layout_variant: layoutVariant }),
       ...(visibility     !== undefined && visibility),
       ...(fundUses    !== undefined && { fund_uses: fundUses }),
+      ...(coaches     !== undefined && { coaches }),
+      allow_coach_fundraising: allowCoachFundraising,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load stats";

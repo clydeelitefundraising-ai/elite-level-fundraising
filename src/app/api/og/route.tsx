@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById } from "@/lib/teamData";
+import { getCoachById } from "@/lib/platform/coachFundraising";
 import { resolveTeamLogoUrl } from "@/lib/shareCopy";
 
 // Dynamic share-link preview image for the public campaign/donor page
@@ -36,13 +37,19 @@ function initials(name: string): string {
 export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get("slug") ?? "";
   const athleteId = req.nextUrl.searchParams.get("athlete");
+  const coachId = req.nextUrl.searchParams.get("coach");
 
   const settings = slug ? await getCampaignSettings(slug) : null;
   const athlete = athleteId ? await getAthleteById(athleteId) : null;
+  const coach = (!athlete && coachId && slug) ? await getCoachById(coachId, slug) : null;
 
   const accent = settings?.primary_color || DEFAULT_INK;
   const teamLabel = [settings?.school_name, settings?.mascot, settings?.sport_name].filter(Boolean).join(" ") || "Elite Level Fundraising";
-  const heading = athlete ? `Support ${athlete.name}` : `Support ${settings?.school_name ?? "Our Team"}`;
+  const heading = athlete
+    ? `Support ${athlete.name}`
+    : coach
+    ? `Support Coach ${coach.name}`
+    : `Support ${settings?.school_name ?? "Our Team"}`;
   const logoUrl = resolveTeamLogoUrl(settings);
 
   return new ImageResponse(

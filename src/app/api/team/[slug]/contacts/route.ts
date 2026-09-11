@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
+import { isCoachOnly } from "@/lib/permissions";
+import { validateCoachForCampaign } from "@/lib/platform/coachFundraising";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -15,19 +17,27 @@ function h(extra?: Record<string, string>) {
 
 type RouteCtx = { params: Promise<{ slug: string }> };
 
-async function resolveGoal(slug: string, athleteId: string): Promise<number> {
-  const [perAthleteRes, teamDefaultRes] = await Promise.all([
+// subject is either an athlete_id or a coach_id (exactly one) — resolves
+// a per-subject goal override, falling back to the single team-default
+// row (athlete_id AND coach_id both null) exactly as before this
+// generalization; that row's shape is unchanged, so existing athlete
+// goals are unaffected.
+async function resolveGoal(slug: string, subject: { athleteId: string } | { coachId: string }): Promise<number> {
+  const subjectFilter = "athleteId" in subject
+    ? `athlete_id=eq.${encodeURIComponent(subject.athleteId)}`
+    : `coach_id=eq.${encodeURIComponent(subject.coachId)}`;
+  const [perSubjectRes, teamDefaultRes] = await Promise.all([
     fetch(
-      `${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=eq.${encodeURIComponent(athleteId)}&select=goal&limit=1`,
+      `${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&${subjectFilter}&select=goal&limit=1`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=is.null&select=goal&limit=1`,
+      `${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=is.null&coach_id=is.null&select=goal&limit=1`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
-  if (perAthleteRes.ok) {
-    const rows = await perAthleteRes.json();
+  if (perSubjectRes.ok) {
+    const rows = await perSubjectRes.json();
     if (rows.length > 0) return rows[0].goal as number;
   }
   if (teamDefaultRes.ok) {
@@ -47,7 +57,42 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
   if (actor.kind === "public") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Staff use /coach/summary — this endpoint is member-only
+
+  // A participating coach manages their OWN fundraising contacts here,
+  // scoped to their own session id — never a client-supplied coach id.
+  // Any other staff (non-participating coach, booster) still uses
+  // /coach/summary for campaign-wide reporting, unchanged.
+  if (actor.kind === "coach" && isCoachOnly(actor)) {
+    const eligible = await validateCoachForCampaign(actor.session.id, slug);
+    if (eligible) {
+      const coachId = actor.session.id;
+      const isSummary = req.nextUrl.searchParams.get("summary") === "1";
+      const goal = await resolveGoal(slug, { coachId });
+
+      if (isSummary) {
+        const countRes = await fetch(
+          `${BASE}/rest/v1/fundraising_contacts?campaign_slug=eq.${encodeURIComponent(slug)}&coach_id=eq.${encodeURIComponent(coachId)}&select=id`,
+          { headers: { ...h(), Prefer: "count=exact" }, cache: "no-store" },
+        );
+        const countHeader = countRes.headers.get("content-range");
+        const count = countHeader ? parseInt(countHeader.split("/")[1] ?? "0", 10) : 0;
+        return NextResponse.json({ count, goal });
+      }
+
+      const contactsRes = await fetch(
+        `${BASE}/rest/v1/fundraising_contacts?campaign_slug=eq.${encodeURIComponent(slug)}&coach_id=eq.${encodeURIComponent(coachId)}&select=*&order=created_at.desc`,
+        { headers: h(), cache: "no-store" },
+      );
+      if (!contactsRes.ok) {
+        return NextResponse.json({ error: "Failed to load contacts." }, { status: 500 });
+      }
+      const contacts = await contactsRes.json();
+      return NextResponse.json({ contacts, goal });
+    }
+  }
+
+  // Staff (non-participating coach, booster) use /coach/summary — this
+  // endpoint is member/participating-coach-only.
   if (isStaff(actor)) {
     return NextResponse.json({ error: "Use /coach/summary for staff access." }, { status: 403 });
   }
@@ -66,7 +111,7 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
   const isSummary = req.nextUrl.searchParams.get("summary") === "1";
   const athleteId = session.athlete_id;
 
-  const goal = await resolveGoal(slug, athleteId);
+  const goal = await resolveGoal(slug, { athleteId });
 
   if (isSummary) {
     const countRes = await fetch(
@@ -114,7 +159,9 @@ function validateBody(body: Record<string, unknown>): string | null {
 }
 
 // POST /api/team/[slug]/contacts
-// Athlete/parent only — creates a contact for their athlete_id
+// Athlete/parent: creates a contact for their athlete_id.
+// Participating coach: creates a contact for THEIR OWN coach_id, scoped
+// to their own session id — never a client-supplied coach id.
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { slug } = await params;
   const actor = await getTeamActor(slug);
@@ -122,15 +169,36 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   if (actor.kind === "public") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (isStaff(actor) || actor.kind !== "member") {
+
+  let ownerFields: { athlete_id: string | null; coach_id: string | null; added_by_type: "athlete" | "parent" | "coach"; added_by_member_id: string | null; added_by_coach_id: string | null };
+
+  if (actor.kind === "coach" && isCoachOnly(actor)) {
+    const eligible = await validateCoachForCampaign(actor.session.id, slug);
+    if (!eligible) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    ownerFields = {
+      athlete_id: null,
+      coach_id: actor.session.id,
+      added_by_type: "coach",
+      added_by_member_id: null,
+      added_by_coach_id: actor.session.id,
+    };
+  } else if (actor.kind === "member") {
+    const { session } = actor;
+    if (isStaff(actor) || (session.role !== "athlete" && session.role !== "parent")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+    if (!session.athlete_id) {
+      return NextResponse.json({ error: "No athlete linked to this account." }, { status: 400 });
+    }
+    ownerFields = {
+      athlete_id: session.athlete_id,
+      coach_id: null,
+      added_by_type: session.role === "athlete" ? "athlete" : "parent",
+      added_by_member_id: session.id,
+      added_by_coach_id: null,
+    };
+  } else {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
-  const { session } = actor;
-  if (session.role !== "athlete" && session.role !== "parent") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
-  if (!session.athlete_id) {
-    return NextResponse.json({ error: "No athlete linked to this account." }, { status: 400 });
   }
 
   const body = await req.json().catch(() => null);
@@ -142,7 +210,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   const now = new Date().toISOString();
   const contact = {
     campaign_slug:        slug,
-    athlete_id:           session.athlete_id,
+    ...ownerFields,
     phone:                (body.phone as string | undefined)?.trim() || null,
     email:                (body.email as string | undefined)?.trim() || null,
     first_name:           (body.first_name as string | undefined)?.trim() || null,
@@ -150,9 +218,6 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     relationship:         (body.relationship as string | undefined) || null,
     relationship_other:   (body.relationship_other as string | undefined)?.trim() || null,
     notes:                (body.notes as string | undefined)?.trim() || null,
-    added_by_type:        session.role === "athlete" ? "athlete" : "parent",
-    added_by_member_id:   session.id,
-    added_by_coach_id:    null,
     created_at:           now,
     updated_at:           now,
   };
