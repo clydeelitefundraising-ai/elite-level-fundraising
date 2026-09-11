@@ -61,8 +61,8 @@ html { scroll-behavior: smooth; }
   text-decoration: none;
   flex-shrink: 0;
 }
-.pc-nav-logo { height: 30px; width: auto; display: block; }
-.pc-footer-logo { height: 18px; width: auto; display: block; }
+.pc-nav-logo { width: 150px; height: auto; display: block; }
+.pc-footer-logo { width: 85px; height: auto; display: block; }
 .pc-nav-links {
   display: flex;
   align-items: center;
@@ -109,6 +109,7 @@ html { scroll-behavior: smooth; }
 @media (max-width: 860px) {
   .pc-nav-links { display: none; }
   .pc-nav-burger { display: inline-flex; }
+  .pc-nav-logo { width: 110px; }
   .pc-nav-mobile-panel.open {
     display: flex;
     flex-direction: column;
@@ -792,12 +793,12 @@ html { scroll-behavior: smooth; }
   align-items: center;
   gap: .6rem;
   opacity: .92;
-  font-weight: 700;
-  font-size: .85rem;
 }
+.pc-cta-logo { width: 185px; height: auto; display: block; }
 @media (max-width: 760px) {
   .pc-cta-inner { flex-direction: column; text-align: center; }
   .pc-cta-tagline { text-align: center; }
+  .pc-cta-logo { width: 140px; }
 }
 
 /* ── FOOTER ── */

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Heart, Users, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
-import { ElfMark, ElfWordmark } from "@/components/BrandMark";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
@@ -460,8 +459,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               <a className="pc-cta-btn" href="#pc-donate">Donate Now</a>
             </div>
             <div className="pc-cta-brand">
-              <ElfMark size={30} />
-              <ElfWordmark tone="light" size="sm" />
+              <img src="/marketing/brand/elf-logo-horizontal.png" alt="Elite Level Fundraising" className="pc-cta-logo" />
             </div>
           </div>
         </section>
