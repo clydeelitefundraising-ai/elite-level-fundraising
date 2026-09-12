@@ -19,7 +19,7 @@ export default async function CommunicationsPage({
   if (!settings) notFound();
 
   const [updates, files, athletes] = await Promise.all([
-    getAnnouncements(slug),
+    getAnnouncements(slug, actor),
     getTeamFiles(slug),
     getTeamAthletes(slug),
   ]);

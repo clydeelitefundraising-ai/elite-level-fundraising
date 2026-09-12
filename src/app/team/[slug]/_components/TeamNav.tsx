@@ -9,6 +9,12 @@ type TabConfig = {
   label: string;
   icon: LucideIcon;
   badgeCount?: number;
+  // Per-tab override for the shared .6rem label size below — only
+  // "Fundraiser" needs this (9 chars is one more than "Fundraising" was
+  // wide enough to almost fit, but at 320-390px it still clips to
+  // "Fundrai…" without a touch more headroom). Every other tab keeps the
+  // shared size untouched.
+  labelFontSize?: string;
 };
 
 // Final Phase 4 revision: Lucide icons, no emoji, one consistent icon
@@ -25,7 +31,7 @@ const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
   // this is only the short nav-tab label.
   { href: "communications", label: "Comms",          icon: Megaphone },
   { href: "calendar",       label: "Calendar",       icon: Calendar },
-  { href: "fundraiser",     label: "Fundraising",    icon: DollarSign },
+  { href: "fundraiser",     label: "Fundraiser",     icon: DollarSign, labelFontSize: ".54rem" },
   { href: "shop",           label: "Shop",           icon: ShoppingBag },
   { href: "team",           label: "Team",           icon: Users },
 ];
@@ -124,7 +130,7 @@ export default function TeamNav({
               )}
             </div>
             <span style={{
-              fontSize: ".6rem",
+              fontSize: tab.labelFontSize ?? ".6rem",
               fontWeight: active ? 700 : 500,
               letterSpacing: ".01em",
               marginTop: ".1rem",

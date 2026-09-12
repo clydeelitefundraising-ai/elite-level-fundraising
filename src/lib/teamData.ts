@@ -2,6 +2,8 @@ import { computeCalendarSignature } from "@/lib/calendarSignature";
 import type { AthleteRow, SponsorRow } from "@/lib/supabase";
 import { arizonaTodayISO, type EventType } from "@/lib/calendarShared";
 import { resolvePhotoUrl, type RawCoachInfo } from "@/lib/messages";
+import type { TeamActor } from "@/lib/permissions";
+import { isAnnouncementVisibleToActor } from "@/lib/announcementVisibility";
 export type { SponsorRow };
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -183,7 +185,10 @@ export async function getTeamAthletes(slug: string): Promise<TeamAthleteRow[]> {
   return res.json();
 }
 
-export async function getAnnouncements(slug: string): Promise<AnnouncementRow[]> {
+// Phase QA-Build8: previously took no actor at all and returned every announcement in the
+// campaign unconditionally — a real audience leak (a "Parents"-scoped
+// announcement was visible to athletes, etc.). `actor` is now required.
+export async function getAnnouncements(slug: string, actor: TeamActor): Promise<AnnouncementRow[]> {
   const res = await fetch(
     `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}` +
       `&select=*,attachment:team_files!attachment_id(*),author_coach:team_coaches!coach_id(name,role,elf_accounts!account_id(profile_photo_url))` +
@@ -192,10 +197,12 @@ export async function getAnnouncements(slug: string): Promise<AnnouncementRow[]>
   );
   if (!res.ok) return [];
   const rows: (AnnouncementRow & { author_coach: RawCoachInfo | null })[] = await res.json();
-  return rows.map(({ author_coach, ...row }) => ({
-    ...row,
-    author_photo_url: resolvePhotoUrl(author_coach, null),
-  }));
+  return rows
+    .filter(row => isAnnouncementVisibleToActor(row, actor))
+    .map(({ author_coach, ...row }) => ({
+      ...row,
+      author_photo_url: resolvePhotoUrl(author_coach, null),
+    }));
 }
 
 export async function getCalendarEvents(
@@ -222,16 +229,23 @@ export async function getTeamFiles(slug: string): Promise<TeamFileRow[]> {
   return res.json();
 }
 
+// Phase QA-Build8: same audience-leak fix as getAnnouncements() above,
+// applied to the Updates nav badge count — previously an excluded user
+// still saw a "new update" badge for an announcement they couldn't even
+// open. Needs recipient_scope/recipient_athlete_id in the select now (not
+// just created_at) so isVisibleToMember() has what it needs to filter.
 export async function getAnnouncementMeta(
   slug: string,
+  actor: TeamActor,
 ): Promise<{ count: number; latestAt: string | null }> {
   const res = await fetch(
-    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}&select=created_at&order=created_at.desc`,
+    `${BASE}/rest/v1/announcements?campaign_slug=eq.${encodeURIComponent(slug)}&select=created_at,recipient_scope,recipient_athlete_id&order=created_at.desc`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return { count: 0, latestAt: null };
-  const rows: { created_at: string }[] = await res.json();
-  return { count: rows.length, latestAt: rows[0]?.created_at ?? null };
+  const rows: { created_at: string; recipient_scope: string; recipient_athlete_id: string | null }[] = await res.json();
+  const visible = rows.filter(row => isAnnouncementVisibleToActor(row, actor));
+  return { count: visible.length, latestAt: visible[0]?.created_at ?? null };
 }
 
 // TeamRealtimeSync polling replacement — see calendarSignature.ts for why

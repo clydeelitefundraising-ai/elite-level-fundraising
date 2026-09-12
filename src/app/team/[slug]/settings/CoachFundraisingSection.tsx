@@ -218,14 +218,23 @@ export default function CoachFundraisingSection({ slug, initialAllowCoachFundrai
                           disabled={savingThis}
                           defaultValue={goalDollars}
                           onBlur={e => {
-                            const dollars = parseFloat(e.target.value);
+                            // Explicit blur (in addition to the natural one
+                            // already firing this handler) — this input
+                            // isn't inside a <Modal> like the app's other
+                            // 16px-input fixes, so there's no modal-unmount
+                            // moment to release focus; calling it directly
+                            // here is what lets iOS drop its auto-zoom once
+                            // the value is committed.
+                            const input = e.target;
+                            const dollars = parseFloat(input.value);
                             const cents = Number.isFinite(dollars) && dollars >= 0 ? Math.round(dollars * 100) : null;
                             toggleParticipant(s.id, true, cents);
+                            input.blur();
                           }}
                           style={{
                             width: 80, padding: ".35rem .5rem",
                             border: "1.5px solid var(--border-app)", borderRadius: 7,
-                            fontSize: ".8rem", color: "var(--text-primary-app)",
+                            fontSize: "1rem", color: "var(--text-primary-app)",
                           }}
                         />
                       </label>

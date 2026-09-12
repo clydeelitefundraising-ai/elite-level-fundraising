@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   const teamId = await getTeamIdBySlug(slug);
 
   const [announcements, calendar, notifications] = await Promise.all([
-    getAnnouncementMeta(slug),
+    getAnnouncementMeta(slug, actor),
     getCalendarSignature(slug),
     teamId ? getTeamNotificationMeta(teamId) : Promise.resolve({ count: 0, latestAt: null }),
   ]);
