@@ -73,10 +73,27 @@ export type PendingCommentApproval = Omit<ResolvedComment, "is_own"> & {
 const COACH_INFO_SELECT  = "name,role,elf_accounts!account_id(profile_photo_url)";
 const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
 const PLATFORM_ADMIN_INFO_SELECT = "elf_accounts!account_id(name,profile_photo_url)";
-const COMMENT_SELECT =
-  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,author_platform_admin_id,author_name,author_role,body,status,decided_by_coach_id,decided_by_platform_admin_id,decided_at,created_at,updated_at," +
-  `team_coaches!author_coach_id(${COACH_INFO_SELECT}),team_members!author_member_id(${MEMBER_INFO_SELECT}),` +
-  `platform_admins!author_platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`;
+// Phase QA-Build8, Issue 8: built from an array + join("") rather than
+// three pieces joined with "+" — Turbopack's production build was
+// silently dropping the static "),"  tail of the middle template literal
+// at the exact point two adjacent, separately-interpolated template
+// literals were concatenated with "+" (confirmed by inspecting the
+// compiled server chunk: the shipped string was missing that closing
+// paren + comma entirely, which PostgREST rejected with PGRST100 on
+// every real comment submission). The source itself was always
+// syntactically correct — this is a workaround for a compiler-level
+// bug, not a logic change. Array+join sidesteps the pattern the
+// compiler mishandles while producing the byte-identical intended
+// string; do not revert this back to "+"-joined template literals.
+// Exported ONLY for comments.test.ts's compiler-corruption regression
+// test (see the comment above) — not used as a public API by any other
+// module.
+export const COMMENT_SELECT = [
+  "id,campaign_slug,announcement_id,author_type,author_coach_id,author_member_id,author_platform_admin_id,author_name,author_role,body,status,decided_by_coach_id,decided_by_platform_admin_id,decided_at,created_at,updated_at,",
+  `team_coaches!author_coach_id(${COACH_INFO_SELECT}),`,
+  `team_members!author_member_id(${MEMBER_INFO_SELECT}),`,
+  `platform_admins!author_platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`,
+].join("");
 
 // author_name/author_role come from the stored snapshot — the durable,
 // authoritative display identity — NEVER from the live team_coaches/
