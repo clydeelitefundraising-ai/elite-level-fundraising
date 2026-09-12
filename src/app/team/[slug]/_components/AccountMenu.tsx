@@ -222,10 +222,24 @@ export default function AccountMenu({
               </div>
             )}
 
-            {/* Push notifications */}
+            {/* Notifications — the label now navigates to the existing
+                notifications feed (previously dead on platforms like the
+                installed iOS app, where PushOptIn correctly renders
+                nothing since WKWebView has no Web Push API). PushOptIn
+                stays a sibling button, not nested inside the link — it
+                already renders its own <button> and must keep handling
+                its own click (toggle subscribe/unsubscribe) without also
+                triggering navigation. */}
             <div style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".65rem 1rem", borderBottom: "1px solid #f0f0f0" }}>
-              <span style={{ fontSize: ".9rem" }}>🔔</span>
-              <span style={{ flex: 1, fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Notifications</span>
+              <a
+                href={`/team/${currentSlug}/notifications`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", flex: 1, minWidth: 0, textDecoration: "none" }}
+              >
+                <span style={{ fontSize: ".9rem" }}>🔔</span>
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Notifications</span>
+              </a>
               <PushOptIn slug={currentSlug} />
             </div>
 

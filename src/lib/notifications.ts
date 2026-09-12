@@ -120,7 +120,11 @@ export async function createNotification(
 
 // ── Scope filter ──────────────────────────────────────────────────────────────
 
-function isVisibleToMember(
+// Exported for reuse by teamData.ts's getAnnouncements()/getAnnouncementMeta()
+// (Phase QA-Build8: those two functions had NO audience filtering at all —
+// this is the one already-correct, already-proven implementation of the
+// audience matrix in the whole app; reused as-is here, never reimplemented).
+export function isVisibleToMember(
   notif: { recipient_scope: string; recipient_athlete_id: string | null },
   member: { role: string; athlete_id: string | null },
 ): boolean {

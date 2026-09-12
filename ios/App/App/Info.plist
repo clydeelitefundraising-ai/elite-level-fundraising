@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>ELF Team uses your camera so you can take photos to upload to your team.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ELF Team uses your photo library so you can upload team logos, profile photos, athlete photos, and images shared with your team.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

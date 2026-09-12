@@ -21,6 +21,20 @@ const config: CapacitorConfig = {
       'checkout.stripe.com',
       '*.stripe.com'
     ]
+  },
+  plugins: {
+    // Keeps the native LaunchScreen (ELF logo on white) on screen for a
+    // short fixed window, then auto-hides — this covers the WKWebView's
+    // remote server.url fetch so the app never shows a blank white gap
+    // before content paints. Timer-based (not tied to page-load success),
+    // so a failed/offline load still gets the splash dismissed on schedule
+    // instead of hanging indefinitely; the errorPath offline.html fallback
+    // is unaffected either way.
+    SplashScreen: {
+      launchShowDuration: 600,
+      launchAutoHide: true,
+      backgroundColor: '#FFFFFF'
+    }
   }
 };
 

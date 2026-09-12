@@ -12,6 +12,7 @@ import {
   DEFAULT_FOLLOW_UP_SORT,
 } from "@/lib/followUps";
 import type { OutreachRow } from "@/lib/teamData";
+import { shareFileOrFallback } from "../_components/nativeFileShare";
 
 // D6: the row array, sort/filter state, and Update/History modal-open
 // state previously owned directly inside FollowUpsView.tsx (verbatim
@@ -57,15 +58,24 @@ export function useFollowUpsWorkspace(
 
   // Same visibleRows the on-screen list and Print render — exported file
   // always matches the coach's current sort/filter, never a separate query.
+  // A raw <a download> click is a silent no-op inside the installed iOS
+  // Capacitor app (WKWebView has no download-manager UI) — routed through
+  // shareFileOrFallback so it opens the native Share/Save sheet there,
+  // falling back to this exact anchor-click behavior on desktop/browser.
   const handleExport = () => {
     const csv = buildFollowUpsCsv(visibleRows);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = buildFollowUpsCsvFilename(settings.school_name, settings.sport_name);
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = buildFollowUpsCsvFilename(settings.school_name, settings.sport_name);
+    const file = new File([blob], filename, { type: "text/csv;charset=utf-8" });
+    const fallback = () => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    void shareFileOrFallback(file, fallback);
   };
 
   const handlePrint = () => window.print();

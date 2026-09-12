@@ -28,15 +28,21 @@ export default async function TeamLayout({
 }) {
   const { slug } = await params;
 
+  // Phase QA-Build8: getAnnouncementMeta now needs the actor to filter by
+  // audience (see teamData.ts) — getTeamActor is pulled out of the
+  // Promise.all below and awaited first so it's available in time. It's
+  // memoized per-request (React.cache), so this doesn't add a real extra
+  // round-trip beyond what getTeamActor's own callers already pay.
+  const actor = await getTeamActor(slug);
+
   // D2a: getDonationStats(slug) was removed here — its only consumer was
   // the fundraiser nav badge (an all-time donation-record count, not an
   // unread/pending signal), which has been removed from both nav shells.
   // The Coach Dashboard's own Fundraising card fetches this independently
   // in home/page.tsx and is unaffected.
-  const [settings, announcementMeta, actor, accountSession] = await Promise.all([
+  const [settings, announcementMeta, accountSession] = await Promise.all([
     getCampaignSettings(slug),
-    getAnnouncementMeta(slug),
-    getTeamActor(slug),
+    getAnnouncementMeta(slug, actor),
     getAccountSession(),
   ]);
 

@@ -27,7 +27,7 @@ export default async function HomePage({
   const pendingRequestSummary = isHeadCoach(actor) ? await getPendingRequestSummary(slug) : undefined;
   const pendingRequestCount = pendingRequestSummary?.total ?? 0;
   const [announcements, upcoming, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
-    getAnnouncements(slug),
+    getAnnouncements(slug, actor),
     getCalendarEvents(slug, true),
     getTeamSponsors(slug),
     getCampaignSettings(slug),

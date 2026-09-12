@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Modal from "../_components/Modal";
+import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
 
 type Attachment = { id: string; name: string; file_type: "pdf" | "image" | "doc"; size_bytes: number };
+
+// Same in-app View/Download pattern already proven in FilesView.tsx — a
+// plain <a href="/api/..."> either loses the session cookie in a separate
+// browsing context or navigates the WebView in-place with no back
+// affordance inside the installed iOS app. Reusing the identical
+// fetchFileBlob (mode=view, in-app preview) / downloadViaFetch (native
+// Share/Save sheet, falls back to a normal download on desktop) helpers
+// this same API route (src/app/api/team/[slug]/files/[id]/route.ts) is
+// already built to support — no API changes needed.
+const PREVIEWABLE_TYPES = new Set(["pdf", "image"]);
 
 type ClearanceResource = {
   id: string;
@@ -41,7 +52,7 @@ const lbl: React.CSSProperties = {
 };
 
 function ResourceCard({
-  resource, slug, canManage, isFirst, isLast, onEdit, onDeleted, onReordered,
+  resource, slug, canManage, isFirst, isLast, onEdit, onDeleted, onReordered, onView, onDownload, downloading,
 }: {
   resource: ClearanceResource;
   slug: string;
@@ -51,6 +62,9 @@ function ResourceCard({
   onEdit: (r: ClearanceResource) => void;
   onDeleted: () => void;
   onReordered: () => void;
+  onView: (a: Attachment) => void;
+  onDownload: (a: Attachment) => void;
+  downloading: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -105,13 +119,22 @@ function ResourceCard({
             Open Link
           </a>
         )}
-        {resource.attachment && (
-          <a
-            href={`/api/team/${slug}/files/${resource.attachment.id}`}
-            style={{ padding: ".4rem .75rem", background: "#f3f4f6", color: "#0b1e3d", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
+        {resource.attachment && PREVIEWABLE_TYPES.has(resource.attachment.file_type) && (
+          <button
+            onClick={() => onView(resource.attachment!)}
+            style={{ padding: ".4rem .75rem", background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, cursor: "pointer" }}
           >
-            View/Download Attachment
-          </a>
+            View Attachment
+          </button>
+        )}
+        {resource.attachment && (
+          <button
+            onClick={() => onDownload(resource.attachment!)}
+            disabled={downloading}
+            style={{ padding: ".4rem .75rem", background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, cursor: downloading ? "not-allowed" : "pointer", opacity: downloading ? .7 : 1 }}
+          >
+            {downloading ? "Downloading…" : "Download Attachment"}
+          </button>
         )}
       </div>
 
@@ -264,6 +287,46 @@ export default function ClearanceView({ slug }: { slug: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editTarget, setEditTarget] = useState<ClearanceResource | null | "new">(null);
+  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
+  const [viewUrl,     setViewUrl]     = useState<string | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError,   setViewError]   = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // ── View / Download attachment — same pattern as FilesView.tsx ──
+
+  const openView = async (attachment: Attachment) => {
+    setViewingAttachment(attachment);
+    setViewUrl(null);
+    setViewError("");
+    setViewLoading(true);
+    try {
+      const { blob } = await fetchFileBlob(`/api/team/${slug}/files/${attachment.id}?mode=view`);
+      setViewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setViewError(err instanceof Error ? err.message : "Failed to load preview.");
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeView = () => {
+    if (viewUrl) URL.revokeObjectURL(viewUrl);
+    setViewingAttachment(null);
+    setViewUrl(null);
+    setViewError("");
+  };
+
+  const handleDownloadAttachment = async (attachment: Attachment) => {
+    setDownloadingId(attachment.id);
+    try {
+      await downloadViaFetch(`/api/team/${slug}/files/${attachment.id}`, attachment.name);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Download failed.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const load = async () => {
     try {
@@ -332,6 +395,9 @@ export default function ClearanceView({ slug }: { slug: string }) {
               onEdit={setEditTarget}
               onDeleted={load}
               onReordered={load}
+              onView={openView}
+              onDownload={handleDownloadAttachment}
+              downloading={downloadingId === r.attachment?.id}
             />
           ))}
         </div>
@@ -344,6 +410,25 @@ export default function ClearanceView({ slug }: { slug: string }) {
           onClose={() => setEditTarget(null)}
           onSaved={() => { setEditTarget(null); load(); }}
         />
+      )}
+
+      {viewingAttachment && (
+        <Modal title={viewingAttachment.name} onClose={closeView}>
+          {viewLoading && (
+            <p style={{ textAlign: "center", color: "#6b7280", fontSize: ".85rem" }}>Loading preview…</p>
+          )}
+          {viewError && (
+            <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              {viewError}
+            </p>
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingAttachment.file_type === "image" && (
+            <img src={viewUrl} alt={viewingAttachment.name} style={{ width: "100%", height: "auto", borderRadius: 10, display: "block" }} />
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingAttachment.file_type === "pdf" && (
+            <iframe src={viewUrl} title={viewingAttachment.name} style={{ width: "100%", height: "70vh", border: "none", borderRadius: 10 }} />
+          )}
+        </Modal>
       )}
     </div>
   );

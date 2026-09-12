@@ -203,6 +203,16 @@ export default function TeamsView({
             <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 1023px) 100vw, 0px" priority />
           </div>
           <div className={entryStyles.photoScrim} />
+          {/* Mobile Sign Out — the desktop .header below already has this
+              via ProfileMenu, but .mobileHero (hidden at >=1024px by its
+              own existing CSS) has no account affordance at all, leaving a
+              pending/no-team user on mobile with no way to sign out. Same
+              ProfileMenu component, reused as-is, just also mounted here —
+              its own display:none at desktop widths comes for free from
+              .mobileHero's existing breakpoint, so no CSS changes needed. */}
+          <div style={{ position: "absolute", top: "1rem", right: "1rem", zIndex: 3 }}>
+            <ProfileMenu accountName={accountName} firstTeamSlug={teams[0]?.campaign_slug ?? null} />
+          </div>
           <div className={entryStyles.mobileHeroContent}>
             <Image
               src="/auth/elf-team-logo.png"

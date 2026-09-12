@@ -301,10 +301,10 @@ function ProductModal({
               </div>
             ))}
             <div style={{ display: "flex", gap: ".4rem", alignItems: "flex-end" }}>
-              <input style={{ ...inp, fontSize: ".8rem", flex: 2, fontWeight: 400, textTransform: "none", letterSpacing: 0 }} placeholder="e.g. Large" value={newVName} onChange={e => setNewVName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddVariant(); } }} />
+              <input style={{ ...inp, fontSize: "1rem", flex: 2, fontWeight: 400, textTransform: "none", letterSpacing: 0 }} placeholder="e.g. Large" value={newVName} onChange={e => setNewVName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddVariant(); } }} />
               <div style={{ position: "relative", flex: 1 }}>
                 <span style={{ position: "absolute", left: ".55rem", top: "50%", transform: "translateY(-50%)", color: "#9ca3af", fontSize: ".8rem", pointerEvents: "none" }}>+$</span>
-                <input type="number" step="0.01" style={{ ...inp, fontSize: ".8rem", paddingLeft: "1.6rem", fontWeight: 400, textTransform: "none", letterSpacing: 0 }} placeholder="0" value={newVDelta} onChange={e => setNewVDelta(e.target.value)} />
+                <input type="number" step="0.01" style={{ ...inp, fontSize: "1rem", paddingLeft: "1.6rem", fontWeight: 400, textTransform: "none", letterSpacing: 0 }} placeholder="0" value={newVDelta} onChange={e => setNewVDelta(e.target.value)} />
               </div>
               <button onClick={handleAddVariant} style={{ padding: ".5rem .75rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Add</button>
             </div>
