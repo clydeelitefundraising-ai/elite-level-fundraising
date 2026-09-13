@@ -64,6 +64,13 @@ export type ResolvedMessage = {
   sender_photo_url: string | null;
   read_at: string | null;
   attachments: MessageAttachmentPublic[];
+  // Phase A40 (moderation removal): true once a Head Coach/Platform Admin
+  // has removed this message. `body` is already the neutral placeholder
+  // and `attachments` is already forced empty by toResolvedMessage() below
+  // whenever this is true — client code never receives the original
+  // content, this flag exists purely so the UI can style the placeholder
+  // distinctly from an ordinary empty/attachment-only message.
+  removed: boolean;
 };
 
 export type MessageThread = {
@@ -136,6 +143,12 @@ export type MessageAttachment = {
   byte_size: number;
   attachment_kind: AttachmentKind;
   created_at: string;
+  // Phase A40 (moderation removal) — set once a Head Coach/Platform Admin
+  // has removed this attachment (independently, or as part of removing
+  // its parent message). Never null-checked by callers outside this
+  // file's own resolveAuthorizedAttachment()/getAttachmentByIdServer()
+  // gate below — that is the ONLY place old links/paths get rejected.
+  removed_at: string | null;
 };
 
 // Client/API-safe view of an attached (never pending) attachment — the
@@ -422,6 +435,7 @@ type RawMessage = {
   sender_role: string;
   body: string;
   created_at: string;
+  deleted_at: string | null;
   team_coaches: RawCoachInfo | null;
   team_members: RawMemberInfo | null;
   message_attachments: RawMessageAttachment[] | null;
@@ -590,13 +604,24 @@ export async function isParticipant(
 }
 
 const MESSAGE_ROW_SELECT =
-  "id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at," +
+  "id,thread_id,sender_type,sender_coach_id,sender_member_id,sender_platform_admin_id,sender_name,sender_role,body,created_at,deleted_at," +
   `team_coaches!sender_coach_id(${COACH_INFO_SELECT}),team_members!sender_member_id(${MEMBER_INFO_SELECT}),` +
   ATTACHMENT_EMBED_SELECT;
 
+const MODERATION_REMOVED_PLACEHOLDER = "Message removed by moderator";
+
 // Shared by getMessagesForThread and getResolvedMessageById (Phase 3) so
 // the two never drift on what a "resolved message" looks like.
+//
+// Phase A40: a moderation-removed message (deleted_at set) is
+// UNCONDITIONALLY re-rendered here with the neutral placeholder body and
+// zero attachments, regardless of what the underlying row actually
+// contains — this is the single chokepoint both read paths share, so a
+// future bug in the removal write path (e.g. forgetting to blank body)
+// can never leak original content to a client, since this function would
+// still substitute the placeholder.
 function toResolvedMessage(r: RawMessage, readAt: string | null): ResolvedMessage {
+  const removed = Boolean(r.deleted_at);
   return {
     id: r.id,
     thread_id: r.thread_id,
@@ -604,7 +629,8 @@ function toResolvedMessage(r: RawMessage, readAt: string | null): ResolvedMessag
     sender_coach_id: r.sender_coach_id,
     sender_member_id: r.sender_member_id,
     sender_platform_admin_id: r.sender_platform_admin_id,
-    body: r.body,
+    body: removed ? MODERATION_REMOVED_PLACEHOLDER : r.body,
+    removed,
     created_at: r.created_at,
     // Durable snapshot (Phase 3C) — the authoritative historical display
     // identity, immune to what later happens to the live
@@ -616,7 +642,7 @@ function toResolvedMessage(r: RawMessage, readAt: string | null): ResolvedMessag
     sender_role: r.sender_role,
     sender_photo_url: resolvePhotoUrl(r.team_coaches, r.team_members),
     read_at: readAt,
-    attachments: r.message_attachments ?? [],
+    attachments: removed ? [] : (r.message_attachments ?? []),
   };
 }
 
@@ -630,7 +656,7 @@ export async function getMessagesForThread(
     `&order=created_at.asc&limit=${limit}` +
     // Deterministic attachment ordering within each message's embed —
     // created_at first, id as a stable tiebreak for same-instant uploads.
-    `&message_attachments.order=created_at.asc,id.asc` +
+    `&message_attachments.order=created_at.asc,id.asc&message_attachments.removed_at=is.null` +
     `&select=${MESSAGE_ROW_SELECT}`,
     { headers: h(), cache: "no-store" },
   );
@@ -666,7 +692,7 @@ export async function getResolvedMessageById(
 ): Promise<ResolvedMessage | null> {
   const res = await fetch(
     `${BASE}/rest/v1/messages?id=eq.${encodeURIComponent(messageId)}&limit=1` +
-    `&message_attachments.order=created_at.asc,id.asc` +
+    `&message_attachments.order=created_at.asc,id.asc&message_attachments.removed_at=is.null` +
     `&select=${MESSAGE_ROW_SELECT}`,
     { headers: h(), cache: "no-store" },
   );
@@ -1498,8 +1524,13 @@ export async function resolveAuthorizedAttachment(
 ): Promise<AuthorizedAttachmentResult> {
   const attachment = await getAttachmentByIdServer(attachmentId);
   // A pending (unclaimed) attachment is never accessible — only a fully
-  // attached one, with a real message_id, can be.
-  if (!attachment || attachment.status !== "attached" || !attachment.message_id) {
+  // attached one, with a real message_id, can be. A moderation-removed
+  // attachment (Phase A40) is rejected the exact same way a pending one
+  // is — this is the single chokepoint every attachment-serving route
+  // shares (download route + viewer page, per this function's own header
+  // comment), so an old URL/path can never still open a removed file
+  // regardless of which route it was requested through.
+  if (!attachment || attachment.status !== "attached" || !attachment.message_id || attachment.removed_at) {
     return { ok: false, status: 404, error: "File not found." };
   }
 

@@ -57,8 +57,14 @@ function MessageBubble({
   // as a rendering bug, not as "no caption"). Text + attachments renders
   // both: the text bubble first, the attachment card(s) grouped right
   // below it under the same sender/timestamp.
-  const hasBody = shouldRenderTextBubble(msg.body);
-  const hasAttachments = msg.attachments.length > 0;
+  // Phase A40: a moderation-removed message always renders its own
+  // distinct placeholder bubble, regardless of the normal
+  // hasBody/hasAttachments logic — the server has already forced body to
+  // MODERATION_REMOVED_PLACEHOLDER and attachments to [] (see
+  // toResolvedMessage() in lib/messages.ts), this only controls how it
+  // LOOKS, never what content is available to show.
+  const hasBody = msg.removed || shouldRenderTextBubble(msg.body);
+  const hasAttachments = !msg.removed && msg.attachments.length > 0;
 
   return (
     <div
@@ -87,13 +93,15 @@ function MessageBubble({
 
         {hasBody && (
           <div style={{
-            background:   isSelf ? primaryColor : "#fff",
-            color:        isSelf ? "#fff" : "#1f2937",
+            background:   msg.removed ? "#f3f4f6" : isSelf ? primaryColor : "#fff",
+            color:        msg.removed ? "#9ca3af" : isSelf ? "#fff" : "#1f2937",
+            fontStyle:    msg.removed ? "italic" : "normal",
+            border:       msg.removed ? "1px dashed #d1d5db" : "none",
             borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
             padding:      ".6rem .8rem",
             fontSize:     "1rem",
             lineHeight:   1.45,
-            boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
+            boxShadow:    msg.removed ? "none" : "0 1px 3px rgba(0,0,0,.08)",
             whiteSpace:   "pre-wrap",
             wordBreak:    "break-word",
             overflowWrap: "anywhere",
@@ -346,6 +354,7 @@ export default function ThreadView({
         sender_photo_url: null,
         read_at:          new Date().toISOString(),
         attachments:      [],
+        removed:          false,
       };
       setMessages(prev => [...prev, optimistic]);
       setReplyBody("");

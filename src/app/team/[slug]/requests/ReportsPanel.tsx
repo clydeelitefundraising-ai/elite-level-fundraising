@@ -30,6 +30,16 @@ function timeAgo(iso: string): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+// Phase A40: which moderate-remove endpoint a report's target maps to —
+// only message/attachment have one today (comments already have their
+// own long-standing delete path, surfaced directly on the comment
+// itself, not duplicated here).
+function removalEndpointFor(slug: string, report: ContentReport): string | null {
+  if (report.target_type === "message") return `/api/team/${slug}/messages/${report.target_id}/moderate-remove`;
+  if (report.target_type === "attachment") return `/api/team/${slug}/messages/attachments/${report.target_id}/moderate-remove`;
+  return null;
+}
+
 function ReportCard({ slug, report, onActionComplete }: { slug: string; report: ContentReport; onActionComplete: () => void }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -54,6 +64,39 @@ function ReportCard({ slug, report, onActionComplete }: { slug: string; report: 
       onActionComplete();
     }
   }
+
+  // Removes the reported content itself, THEN marks the report actioned
+  // with a note recording that — two calls, not a new combined endpoint,
+  // since resolveReport() already exists and removeMessage()/
+  // removeAttachment() need to stay independently callable (a moderator
+  // may remove content without ever having gone through a report, e.g.
+  // acting on something flagged verbally). Content is never removed
+  // automatically just because it was reported — this only runs when the
+  // moderator explicitly clicks it.
+  async function removeContent() {
+    const endpoint = removalEndpointFor(slug, report);
+    if (!endpoint) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error ?? "Failed to remove content."); return; }
+      await fetch(`/api/team/${slug}/reports/${report.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "actioned", resolutionNote: note.trim() || "Content removed by moderator." }),
+      });
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+      return;
+    } finally {
+      setBusy(false);
+      onActionComplete();
+    }
+  }
+
+  const removable = removalEndpointFor(slug, report) !== null;
 
   return (
     <div className={styles.row}>
@@ -81,6 +124,15 @@ function ReportCard({ slug, report, onActionComplete }: { slug: string; report: 
       />
 
       <div className={styles.actionsRow}>
+        {removable && (
+          <button
+            disabled={busy}
+            onClick={() => { if (confirm("Remove this content? It will be replaced with a moderator-removed placeholder and cannot be undone.")) void removeContent(); }}
+            style={{ padding: ".4rem .8rem", borderRadius: 6, border: "none", background: "#dc2626", color: "#fff", fontSize: ".76rem", fontWeight: 700, cursor: "pointer" }}
+          >
+            Remove Content
+          </button>
+        )}
         <button disabled={busy} onClick={() => act("actioned")} className={styles.approveBtn}>
           Mark Actioned
         </button>

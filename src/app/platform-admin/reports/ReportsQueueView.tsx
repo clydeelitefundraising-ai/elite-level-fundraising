@@ -19,9 +19,20 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 1px 3px rgba(0,0,0,.08)", marginBottom: ".75rem",
 };
 
+// Phase A40: cross-campaign equivalent of ReportsPanel.tsx's
+// removalEndpointFor — campaign scoping here is resolved server-side by
+// the platform-admin route itself (report.campaign_slug is display-only,
+// never sent as the authority for what gets removed).
+function removalEndpointFor(report: ContentReport): string | null {
+  if (report.target_type === "message") return `/api/platform-admin/messages/${report.target_id}/moderate-remove`;
+  if (report.target_type === "attachment") return `/api/platform-admin/messages/attachments/${report.target_id}/moderate-remove`;
+  return null;
+}
+
 function ReportRow({ report, onResolved }: { report: ContentReport; onResolved: () => void }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [error, setError] = useState("");
 
   async function act(status: "actioned" | "dismissed") {
     setBusy(true);
@@ -36,6 +47,31 @@ function ReportRow({ report, onResolved }: { report: ContentReport; onResolved: 
       onResolved();
     }
   }
+
+  async function removeContent() {
+    const endpoint = removalEndpointFor(report);
+    if (!endpoint) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(endpoint, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) { setError(data?.error ?? "Failed to remove content."); return; }
+      await fetch(`/api/platform-admin/reports/${report.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "actioned", resolutionNote: note.trim() || "Content removed by moderator." }),
+      });
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+      return;
+    } finally {
+      setBusy(false);
+      onResolved();
+    }
+  }
+
+  const removable = removalEndpointFor(report) !== null;
 
   return (
     <div style={cardStyle}>
@@ -54,6 +90,7 @@ function ReportRow({ report, onResolved }: { report: ContentReport; onResolved: 
       </div>
 
       {report.details && <p style={{ fontSize: ".82rem", color: "#374151", margin: ".5rem 0 0" }}>{report.details}</p>}
+      {error && <p style={{ fontSize: ".78rem", color: "#dc2626", margin: ".4rem 0 0" }}>{error}</p>}
 
       <textarea
         value={note}
@@ -64,6 +101,15 @@ function ReportRow({ report, onResolved }: { report: ContentReport; onResolved: 
       />
 
       <div style={{ display: "flex", gap: ".5rem", marginTop: ".5rem" }}>
+        {removable && (
+          <button
+            disabled={busy}
+            onClick={() => { if (confirm("Remove this content? It will be replaced with a moderator-removed placeholder and cannot be undone.")) void removeContent(); }}
+            style={{ padding: ".4rem .8rem", borderRadius: 6, border: "none", background: "#dc2626", color: "#fff", fontSize: ".78rem", fontWeight: 700, cursor: "pointer" }}
+          >
+            Remove Content
+          </button>
+        )}
         <button disabled={busy} onClick={() => act("actioned")} style={{ padding: ".4rem .8rem", borderRadius: 6, border: "none", background: "#0b1e3d", color: "#fff", fontSize: ".78rem", fontWeight: 700, cursor: "pointer" }}>
           Mark Actioned
         </button>
