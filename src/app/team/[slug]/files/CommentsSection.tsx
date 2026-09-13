@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import Avatar from "../messages/_shared/Avatar";
+import ReportModal from "../_components/ReportModal";
 
 type Comment = {
   id:               string;
@@ -54,6 +55,7 @@ export default function CommentsSection({
   const [sending,   setSending] = useState(false);
   const [error,     setError]   = useState("");
   const [expanded,  setExpanded] = useState(false);
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const load = () => {
     fetch(`/api/team/${slug}/announcements/${announcementId}/comments`)
@@ -146,15 +148,26 @@ export default function CommentsSection({
                 <p style={{ margin: ".1rem 0 0", fontSize: ".8rem", color: "var(--text-muted-app)", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                   {c.body}
                 </p>
-                {c.is_own && (
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    className="elf-focus-ring"
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: ".15rem", fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
-                  >
-                    Delete
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: ".7rem", marginTop: ".15rem" }}>
+                  {c.is_own && (
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="elf-focus-ring"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
+                    >
+                      Delete
+                    </button>
+                  )}
+                  {!c.is_own && (
+                    <button
+                      onClick={() => setReportingId(c.id)}
+                      className="elf-focus-ring"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".64rem", fontWeight: 600, color: "var(--text-muted-app)" }}
+                    >
+                      Report
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -197,6 +210,10 @@ export default function CommentsSection({
           {sending ? "…" : "Post"}
         </button>
       </div>
+
+      {reportingId && (
+        <ReportModal slug={slug} targetType="comment" targetId={reportingId} onClose={() => setReportingId(null)} />
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
 import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
+import ReportModal from "../../_components/ReportModal";
+import BlockUserModal from "../../_components/BlockUserModal";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -144,6 +146,10 @@ export default function ThreadView({
   const [sending, setSending] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportingUser, setReportingUser] = useState(false);
+  const [blockingUser, setBlockingUser] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
@@ -305,6 +311,15 @@ export default function ThreadView({
   const family = isFamilyThread(participants);
   const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
+  // ResolvedParticipant.id is the message_thread_participants row id, NOT
+  // the underlying coach/member/platform_admin id — reporting/blocking
+  // needs the latter (the id lib/moderation/reports.ts's targetExists()
+  // and lib/moderation/blocks.ts actually validate against).
+  const primaryOtherIdentityId = primaryOther
+    ? primaryOther.actor_type === "coach" ? primaryOther.coach_id!
+      : primaryOther.actor_type === "platform_admin" ? primaryOther.platform_admin_id!
+      : primaryOther.member_id!
+    : null;
 
   const canSend = !sending && (replyBody.trim().length > 0 || selected.length > 0);
 
@@ -470,7 +485,61 @@ export default function ThreadView({
             </div>
           )}
         </div>
+
+        {primaryOther && (
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Conversation options"
+              aria-haspopup="true"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "#6b7280", padding: ".2rem .4rem", lineHeight: 1, borderRadius: 6 }}
+            >
+              •••
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                style={{ position: "absolute", right: 0, top: "100%", marginTop: ".25rem", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.12)", zIndex: 50, minWidth: 160 }}
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); setReportingUser(true); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: ".55rem .8rem", background: "none", border: "none", cursor: "pointer", fontSize: ".82rem", color: "#374151" }}
+                >
+                  Report {primaryOther.name}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); setBlockingUser(true); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: ".55rem .8rem", background: "none", border: "none", cursor: "pointer", fontSize: ".82rem", color: "#dc2626" }}
+                >
+                  Block {primaryOther.name}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {blocked && (
+        <div style={{ padding: ".5rem .65rem", marginBottom: ".65rem", background: "#fef3c7", borderRadius: 8, fontSize: ".78rem", color: "#92400e" }}>
+          You&apos;ve blocked {primaryOther?.name}. You can unblock them from Settings.
+        </div>
+      )}
+
+      {reportingUser && primaryOther && primaryOtherIdentityId && (
+        <ReportModal slug={slug} targetType="user" targetId={primaryOtherIdentityId} targetKind={primaryOther.actor_type} onClose={() => setReportingUser(false)} />
+      )}
+      {blockingUser && primaryOther && primaryOtherIdentityId && (
+        <BlockUserModal
+          slug={slug}
+          blockedKind={primaryOther.actor_type}
+          blockedId={primaryOtherIdentityId}
+          blockedName={primaryOther.name}
+          onClose={() => setBlockingUser(false)}
+          onBlocked={() => { setBlockingUser(false); setBlocked(true); }}
+        />
+      )}
 
       {/* Subordinate context line — family inclusion + oversight, kept
           small and secondary to the header rather than a full-width

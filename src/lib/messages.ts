@@ -1738,6 +1738,21 @@ export async function resolveOrCreateThreadForRecipient(params: {
     return { ok: false, error: "Recipient not found.", status: 404 };
   }
 
+  // Phase A37 (interpersonal blocking): checked here, and ONLY here in
+  // the entire messaging pipeline — this function is the single
+  // chokepoint both the text-message POST route and the attachment-first
+  // /threads/resolve route already share (see the extraction note
+  // above), so a block applies uniformly to starting a new thread AND to
+  // reusing/continuing an existing one, in either direction. Deliberately
+  // NOT consulted anywhere in the announcement pipeline (getAnnouncements,
+  // isAnnouncementVisibleToActor, or push dispatch) — a block must never
+  // suppress official team communications, only this interpersonal path.
+  const { isBlockedEitherDirection } = await import("./moderation/blocks.ts");
+  const blocked = await isBlockedEitherDirection(slug, actor, { kind: recipientActorType, id: recipientId });
+  if (blocked) {
+    return { ok: false, error: "You can't message this person right now.", status: 403 };
+  }
+
   // Build participant list (deduped by actor key)
   const seen = new Set<string>();
   const participants: Omit<ParticipantInsert, "thread_id">[] = [];

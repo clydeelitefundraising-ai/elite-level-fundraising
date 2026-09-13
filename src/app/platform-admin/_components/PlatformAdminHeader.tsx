@@ -33,6 +33,10 @@ export default function PlatformAdminHeader({ name, email }: { name: string; ema
         <span style={{ fontWeight: 800, fontSize: ".95rem", whiteSpace: "nowrap" }}>ELF Platform Admin</span>
       </Link>
 
+      <Link href="/platform-admin/reports" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0 }}>
+        Reports
+      </Link>
+
       <div style={{ display: "flex", alignItems: "center", gap: ".6rem", minWidth: 0 }}>
         <span
           style={{

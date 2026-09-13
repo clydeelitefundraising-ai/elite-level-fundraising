@@ -11,6 +11,7 @@ import type { ReadReceiptsResult } from "@/lib/notifications";
 import CommentsSection from "./CommentsSection";
 import LikeButton from "./LikeButton";
 import Avatar from "../messages/_shared/Avatar";
+import ReportModal from "../_components/ReportModal";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import { type RecipientScope, SCOPE_LABELS } from "./useUpdatesWorkspace";
 
@@ -196,6 +197,7 @@ export function UpdateCard({
   // one persisted receipt.
   const cardRef = useRef<HTMLDivElement>(null);
   useSeenTracker(cardRef, slug, a.id);
+  const [reporting, setReporting] = useState(false);
 
   return (
     <div
@@ -293,6 +295,21 @@ export function UpdateCard({
           </div>
           <Download size={14} aria-hidden="true" style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
         </a>
+      )}
+
+      {!canEdit && (
+        <div style={{ marginTop: ".38rem", display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => setReporting(true)}
+            className="elf-focus-ring"
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".64rem", fontWeight: 600, color: "var(--text-muted-app)", padding: 0 }}
+          >
+            Report
+          </button>
+        </div>
+      )}
+      {reporting && (
+        <ReportModal slug={slug} targetType="announcement" targetId={a.id} onClose={() => setReporting(false)} />
       )}
 
       {/* Staff actions + read receipts */}
