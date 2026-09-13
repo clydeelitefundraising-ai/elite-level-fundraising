@@ -50,13 +50,20 @@ export default function DeleteAccountModal({ slug, onClose }: { slug: string; on
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "12px", padding: "1.35rem", maxWidth: "440px", width: "100%", boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}>
         <h3 style={{ margin: "0 0 .6rem", fontSize: "1.1rem", fontWeight: 800, color: "#111827" }}>Delete your account</h3>
         <p style={{ margin: "0 0 .5rem", fontSize: ".84rem", color: "#374151", lineHeight: 1.55 }}>
-          This permanently deletes your ELF login — your email, password, and profile photo are removed and cannot be
-          recovered. You&apos;ll be signed out everywhere and won&apos;t be able to log back in with this account.
+          This permanently deletes your ELF login and profile — your email, password, and profile photo are removed
+          and cannot be recovered. You&apos;ll be signed out everywhere immediately and won&apos;t be able to log
+          back in with this account.
+        </p>
+        <p style={{ margin: "0 0 .5rem", fontSize: ".84rem", color: "#374151", lineHeight: 1.55 }}>
+          Your personal content is deleted too: comments you&apos;ve posted, your direct messages and any photos or
+          files you&apos;ve sent in them, your likes, and your blocks are all removed — not just hidden.
         </p>
         <p style={{ margin: "0 0 1rem", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.55 }}>
-          Content you&apos;ve posted (announcements, comments, messages) stays attributed to your name as it already
-          appears today — it is not deleted, the same way it already survives when someone leaves a team. Fundraising
-          and donation records are entirely unaffected; nothing here touches campaign totals or financial history.
+          A few things are kept where ELF is legitimately required to: team announcements are official team records
+          (not personal content) and stay in place for the team; fundraising and donation records, campaign totals,
+          and financial/accounting history are entirely unaffected — nothing here ever touches them; and a report
+          you&apos;ve filed may be kept for safety review with your name removed rather than the report itself being
+          deleted. This action cannot be undone.
         </p>
 
         {error && (

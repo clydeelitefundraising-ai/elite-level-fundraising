@@ -8,7 +8,11 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-service-role-key";
 type Row = Record<string, unknown>;
 
 function makeFakeDb() {
-  const db: Record<string, Row[]> = { team_coaches: [], platform_admins: [], elf_accounts: [] };
+  const db: Record<string, Row[]> = {
+    team_coaches: [], platform_admins: [], elf_accounts: [], team_members: [], athletes: [],
+    announcement_comments: [], messages: [], message_attachments: [], post_likes: [], user_blocks: [], content_reports: [],
+  };
+  const storageDeleteCalls: { bucket: string; paths: string[] }[] = [];
 
   function parseFilters(qs: string) {
     const [table, query] = qs.split("?");
@@ -17,6 +21,7 @@ function makeFakeDb() {
   function matchesFilter(row: Row, field: string, expr: string): boolean {
     if (expr.startsWith("eq."))  return String(row[field]) === expr.slice(3);
     if (expr.startsWith("neq.")) return String(row[field]) !== expr.slice(4);
+    if (expr === "not.is.null")  return row[field] !== null && row[field] !== undefined;
     return true;
   }
   function select(table: Row[], params: URLSearchParams): Row[] {
@@ -31,6 +36,13 @@ function makeFakeDb() {
   }
 
   async function handle(url: string, init?: RequestInit): Promise<Response> {
+    if (url.includes("/storage/v1/object/")) {
+      const bucket = url.split("/storage/v1/object/")[1];
+      const body = init?.body ? JSON.parse(init.body as string) : {};
+      storageDeleteCalls.push({ bucket, paths: body.prefixes ?? [] });
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+
     const path = url.replace("https://fake.supabase.co/rest/v1/", "");
     const { table, params } = parseFilters(path);
     const method = init?.method ?? "GET";
@@ -49,18 +61,31 @@ function makeFakeDb() {
       tableRows.push(...remaining);
       return new Response(JSON.stringify(matched), { status: 200 });
     }
+    if (method === "PATCH") {
+      const patch = JSON.parse(init!.body as string);
+      const matched = select(tableRows, params);
+      const matchedIds = new Set(matched.map(r => r.id));
+      const updated: Row[] = [];
+      for (const row of tableRows) {
+        if (matchedIds.has(row.id)) { Object.assign(row, patch); updated.push({ ...row }); }
+      }
+      return new Response(JSON.stringify(updated), { status: 200 });
+    }
     return new Response(JSON.stringify([]), { status: 200 });
   }
-  return { db, handle };
+  return { db, storageDeleteCalls, handle };
 }
 
-const { db, handle } = makeFakeDb();
+const { db, storageDeleteCalls, handle } = makeFakeDb();
 globalThis.fetch = (async (url: string | URL, init?: RequestInit) => handle(String(url), init)) as typeof fetch;
 
 const { deleteAccount } = await import("./accountDeletion.ts");
 
 const SLUG = "monroe-valley";
-function reset() { for (const k of Object.keys(db)) db[k].length = 0; }
+function reset() {
+  for (const k of Object.keys(db)) db[k].length = 0;
+  storageDeleteCalls.length = 0;
+}
 
 function memberActor(id: string, accountId: string | null) {
   return { kind: "member" as const, session: { id, name: "Casey Athlete", role: "athlete" as const, campaign_slug: SLUG, athlete_id: null, account_id: accountId } };
@@ -156,4 +181,56 @@ test("an account that is head coach on TWO campaigns is blocked unless BOTH have
   const result = await deleteAccount(coachActor("hc-a", "head_coach"));
   assert.equal(result.ok, false);
   if (!result.ok) assert.deepEqual((result as { campaigns: string[] }).campaigns, ["team-a"]);
+});
+
+// ─── Personal UGC purge, exercised end-to-end through deleteAccount() ─────────
+
+test("deleteAccount() purges authored comments, messages, and message attachments (with storage cleanup) as part of the same call", async () => {
+  reset();
+  db.elf_accounts.push({ id: "acct-7", name: "Casey Athlete" });
+  db.team_members.push({ id: "mem-7", campaign_slug: SLUG, role: "athlete", account_id: "acct-7", athlete_id: null });
+  db.announcement_comments.push({ id: "c1", campaign_slug: SLUG, author_type: "member", author_member_id: "mem-7", body: "mine" });
+  db.messages.push({ id: "m1", sender_type: "member", sender_member_id: "mem-7", body: "hi" });
+  db.message_attachments.push({ id: "a1", uploader_actor_type: "member", uploader_member_id: "mem-7", storage_path: "thread-1/a1.jpg" });
+
+  const result = await deleteAccount(memberActor("mem-7", "acct-7"));
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.purge.commentsDeleted, 1);
+    assert.equal(result.purge.messagesDeleted, 1);
+    assert.equal(result.purge.attachmentsDeleted, 1);
+  }
+  assert.equal(db.announcement_comments.length, 0);
+  assert.equal(db.messages.length, 0);
+  assert.equal(db.message_attachments.length, 0);
+  assert.ok(storageDeleteCalls.some(c => c.bucket === "message-attachments" && c.paths.includes("thread-1/a1.jpg")));
+});
+
+test("deleteAccount() anonymizes (never deletes) reports the deleting user themselves filed", async () => {
+  reset();
+  db.elf_accounts.push({ id: "acct-8", name: "Casey Athlete" });
+  db.team_members.push({ id: "mem-8", campaign_slug: SLUG, role: "athlete", account_id: "acct-8", athlete_id: null });
+  db.content_reports.push({
+    id: "r1", campaign_slug: SLUG, target_type: "message", target_id: "m-x",
+    reporter_kind: "member", reporter_id: "mem-8", reporter_name: "Casey Athlete",
+    reason: "harassment", status: "open",
+  });
+
+  const result = await deleteAccount(memberActor("mem-8", "acct-8"));
+  assert.equal(result.ok, true);
+  assert.equal(db.content_reports.length, 1, "report row must survive for moderation continuity");
+  assert.equal(db.content_reports[0].reporter_name, "Deleted user");
+  assert.equal(db.content_reports[0].status, "open");
+});
+
+test("a blocked deletion (sole head coach) purges NOTHING — the whole call is a no-op until the blocker is resolved", async () => {
+  reset();
+  db.elf_accounts.push({ id: "acct-9", name: "Head Coach" });
+  db.team_coaches.push({ id: "hc-9", campaign_slug: SLUG, role: "head_coach", account_id: "acct-9" });
+  db.announcement_comments.push({ id: "c1", campaign_slug: SLUG, author_type: "coach", author_coach_id: "hc-9", body: "mine" });
+
+  const result = await deleteAccount(coachActor("hc-9", "head_coach"));
+  assert.equal(result.ok, false);
+  assert.equal(db.announcement_comments.length, 1, "content must be untouched when deletion itself is refused");
+  assert.equal(db.elf_accounts.length, 1);
 });

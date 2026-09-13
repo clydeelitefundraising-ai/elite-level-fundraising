@@ -21,7 +21,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ slug: 
     }
     if (result.reason === "last_platform_admin") {
       return NextResponse.json(
-        { error: "You are the only Platform Admin. Add another platform admin before deleting your account." },
+        {
+          error:
+            "You're currently the only Platform Admin, so deleting your account would leave ELF without one. " +
+            "This isn't a permanent block — appoint at least one more Platform Admin, and you'll be able to delete " +
+            "your account right away with no other changes needed.",
+          reason: "last_platform_admin",
+        },
         { status: 409 },
       );
     }
@@ -30,8 +36,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ slug: 
         {
           error:
             "You're the only Head Coach on " +
-            `${result.campaigns.length === 1 ? "a team" : "teams"} (${result.campaigns.join(", ")}). ` +
-            "Promote another coach to Head Coach on each of those teams before deleting your account.",
+            `${result.campaigns.length === 1 ? "a team" : "teams"} (${result.campaigns.join(", ")}), so deleting ` +
+            "your account would leave that team without an administrator. This isn't a permanent block — promote " +
+            "another coach to Head Coach on each team listed above, and you'll be able to delete your account " +
+            "right away with no other changes needed.",
+          reason: "head_coach_blocker",
           campaigns: result.campaigns,
         },
         { status: 409 },

@@ -50,6 +50,7 @@
 import { restList, restDelete } from "./platform/_client.ts";
 import { logAuditEvent, type AuditActor } from "./auditLog.ts";
 import type { TeamActor } from "./permissions.ts";
+import { collectIdentities, purgePersonalUgc, type PurgeSummary } from "./accountDeletionPurge.ts";
 
 type HeadCoachBlocker = { campaign_slug: string };
 
@@ -104,8 +105,12 @@ async function isLastPlatformAdmin(accountId: string): Promise<{ isAdmin: boolea
 }
 
 export type DeleteAccountResult =
-  | { ok: true }
+  | { ok: true; purge: PurgeSummary }
   | { ok: false; reason: "no_linked_account" }
+  // Both blockers below are DEPENDENCIES, not permanent denials — see
+  // findHeadCoachBlockers/isLastPlatformAdmin: once a second head coach
+  // (per blocked campaign) or a second platform admin exists, this same
+  // call succeeds with no other change required.
   | { ok: false; reason: "last_platform_admin" }
   | { ok: false; reason: "head_coach_blocker"; campaigns: string[] }
   | { ok: false; reason: "server_error" };
@@ -122,7 +127,16 @@ export async function deleteAccount(actor: Extract<TeamActor, { kind: "coach" | 
   const { isAdmin, isLast } = await isLastPlatformAdmin(accountId);
   if (isAdmin && isLast) return { ok: false, reason: "last_platform_admin" };
 
+  let purge: PurgeSummary;
   try {
+    // Personal UGC purge MUST run before the elf_accounts row is deleted —
+    // it needs both the account's identities (team_coaches/team_members/
+    // platform_admins rows, keyed off account_id) and the account's own
+    // profile_photo_url. See accountDeletionPurge.ts for exactly what is
+    // deleted vs. anonymized vs. left alone, and why.
+    const identities = await collectIdentities(accountId);
+    purge = await purgePersonalUgc(accountId, identities);
+
     // Remove the platform_admins row FIRST — it's the only thing standing
     // between this account and deletion (RESTRICT, not SET NULL/CASCADE).
     // Already confirmed above this is not the last one.
@@ -135,7 +149,9 @@ export async function deleteAccount(actor: Extract<TeamActor, { kind: "coach" | 
     // tables — push_devices, push_preferences, account_reset_tokens,
     // pending_athlete_requests) resolves via their EXISTING ON DELETE
     // behavior (SET NULL or CASCADE, all already live in production
-    // schema, none added by this change).
+    // schema, none added by this change). announcements are deliberately
+    // NOT touched — see accountDeletionPurge.ts's header comment for why
+    // they're treated as team-owned operational records, not personal UGC.
     await restDelete(`elf_accounts?id=eq.${encodeURIComponent(accountId)}`);
   } catch (err) {
     console.error("[accountDeletion] deleteAccount failed:", err);
@@ -159,7 +175,8 @@ export async function deleteAccount(actor: Extract<TeamActor, { kind: "coach" | 
     entity_id: accountId,
     campaign_slug: null,
     summary: "Self-service account deletion",
+    new_value: { ...purge },
   });
 
-  return { ok: true };
+  return { ok: true, purge };
 }
