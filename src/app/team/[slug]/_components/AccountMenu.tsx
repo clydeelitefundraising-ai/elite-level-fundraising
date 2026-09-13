@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
+import DeleteAccountModal from "./DeleteAccountModal";
+import BlockedUsersModal from "./BlockedUsersModal";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 declare global {
@@ -50,6 +52,8 @@ export default function AccountMenu({
   isMember?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [blockedOpen, setBlockedOpen] = useState(false);
   const router = useRouter();
 
   // Lets the Android shell's hardware back button close this dropdown instead of
@@ -301,6 +305,57 @@ export default function AccountMenu({
               <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Settings</span>
             </a>
 
+            {/* Support & Legal (Apple Guideline 1.2 / 2.1) — reachable from
+                inside the authenticated app for every role, not just on the
+                public marketing site. Links point at the existing canonical
+                marketing-site pages rather than duplicating their content
+                in-app. */}
+            <div style={{ padding: ".5rem 1rem .15rem", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", borderBottom: "1px solid #f0f0f0", paddingBottom: ".15rem" }}>
+              Support &amp; Legal
+            </div>
+            <div style={{ borderBottom: "1px solid #f0f0f0" }}>
+              {[
+                { href: "/contact",            label: "Support / Contact" },
+                { href: "/trust/privacy",       label: "Privacy Policy" },
+                { href: "/legal/terms",         label: "Terms of Service" },
+                { href: "/legal/acceptable-use", label: "Acceptable Use Policy" },
+              ].map(link => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setOpen(false)}
+                  className="elf-focus-ring"
+                  style={{ display: "block", padding: ".5rem 1rem", fontSize: ".78rem", color: "#6b7280", textDecoration: "none" }}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { setOpen(false); setBlockedOpen(true); }}
+              className="elf-focus-ring"
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: "1px solid #f0f0f0" }}
+            >
+              <span style={{ fontSize: ".9rem" }}>🚫</span>
+              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Blocked Users</span>
+            </button>
+
+            {/* Delete Account (Apple Guideline 2.1) — see
+                DeleteAccountModal.tsx / accountDeletion.ts for the full
+                design (financial records untouched, head-coach/platform-
+                admin protections, session revoked by deleting the row). */}
+            <button
+              onClick={() => { setOpen(false); setDeleteOpen(true); }}
+              className="elf-focus-ring"
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: "1px solid #f0f0f0" }}
+            >
+              <span style={{ fontSize: ".9rem" }}>🗑️</span>
+              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#dc2626" }}>Delete Account</span>
+            </button>
+
             {/* Sign Out — plain browser/PWA form POST is left completely
                 unchanged; on the installed iOS app only, this is
                 intercepted to route through the native-aware logout
@@ -327,6 +382,9 @@ export default function AccountMenu({
           </div>
         </>
       )}
+
+      {deleteOpen && <DeleteAccountModal slug={currentSlug} onClose={() => setDeleteOpen(false)} />}
+      {blockedOpen && <BlockedUsersModal slug={currentSlug} onClose={() => setBlockedOpen(false)} />}
     </div>
   );
 }

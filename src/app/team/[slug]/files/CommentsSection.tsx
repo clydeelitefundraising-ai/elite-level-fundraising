@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import Avatar from "../messages/_shared/Avatar";
+import ReportModal from "../_components/ReportModal";
 
 type Comment = {
   id:               string;
@@ -41,6 +42,7 @@ export default function CommentsSection({
   slug,
   announcementId,
   leadingSlot,
+  canModerate = false,
 }: {
   slug: string;
   announcementId: string;
@@ -48,12 +50,19 @@ export default function CommentsSection({
   // UpdateCard to place LikeButton directly beside it, matching the
   // "👍 18   💬 4 Comments" layout (Phase 11b).
   leadingSlot?: React.ReactNode;
+  // Phase A39 audit finding: the DELETE API (comments.ts deleteComment())
+  // already allows a Head Coach to remove ANY comment for moderation —
+  // this UI simply never surfaced that capability for a comment the
+  // viewer didn't author. `canModerate` is UpdateCard's existing
+  // `canDelete` (= isHeadCoach(actor)), threaded through unchanged.
+  canModerate?: boolean;
 }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [body,      setBody]    = useState("");
   const [sending,   setSending] = useState(false);
   const [error,     setError]   = useState("");
   const [expanded,  setExpanded] = useState(false);
+  const [reportingId, setReportingId] = useState<string | null>(null);
 
   const load = () => {
     fetch(`/api/team/${slug}/announcements/${announcementId}/comments`)
@@ -146,15 +155,26 @@ export default function CommentsSection({
                 <p style={{ margin: ".1rem 0 0", fontSize: ".8rem", color: "var(--text-muted-app)", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
                   {c.body}
                 </p>
-                {c.is_own && (
-                  <button
-                    onClick={() => handleDelete(c.id)}
-                    className="elf-focus-ring"
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: ".15rem", fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
-                  >
-                    Delete
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: ".7rem", marginTop: ".15rem" }}>
+                  {(c.is_own || canModerate) && (
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="elf-focus-ring"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
+                    >
+                      {c.is_own ? "Delete" : "Remove (moderation)"}
+                    </button>
+                  )}
+                  {!c.is_own && (
+                    <button
+                      onClick={() => setReportingId(c.id)}
+                      className="elf-focus-ring"
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".64rem", fontWeight: 600, color: "var(--text-muted-app)" }}
+                    >
+                      Report
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -197,6 +217,10 @@ export default function CommentsSection({
           {sending ? "…" : "Post"}
         </button>
       </div>
+
+      {reportingId && (
+        <ReportModal slug={slug} targetType="comment" targetId={reportingId} onClose={() => setReportingId(null)} />
+      )}
     </div>
   );
 }

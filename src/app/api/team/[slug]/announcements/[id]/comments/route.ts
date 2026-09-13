@@ -5,6 +5,7 @@ import type { ActorKey } from "@/lib/messages";
 import {
   createComment, getVisibleComments, notifyHeadCoachesOfPendingComment,
 } from "@/lib/platform/comments";
+import { getBlockedByMe } from "@/lib/moderation/blocks";
 
 type RouteCtx = { params: Promise<{ slug: string; id: string }> };
 
@@ -27,7 +28,15 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
     { kind: "member", id: actor.session.id };
   const headCoach = isHeadCoach(actor);
 
-  const comments = await getVisibleComments(id, slug, actorKey, headCoach);
+  // Head Coach moderation must never be affected by their own personal
+  // blocks (there usually aren't any, but the rule from
+  // comments.ts/blocks.ts is unconditional) — skip the lookup entirely
+  // rather than compute a set that would be ignored anyway.
+  const blockedAuthorKeys = headCoach
+    ? new Set<string>()
+    : new Set((await getBlockedByMe(slug, actorKey)).map(b => `${b.blocked_kind}:${b.blocked_id}`));
+
+  const comments = await getVisibleComments(id, slug, actorKey, headCoach, blockedAuthorKeys);
   return NextResponse.json({ comments });
 }
 

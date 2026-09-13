@@ -14,6 +14,8 @@ import AttachmentComposerBar from "../_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "../_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
 import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
+import ReportModal from "../../_components/ReportModal";
+import BlockUserModal from "../../_components/BlockUserModal";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -55,8 +57,14 @@ function MessageBubble({
   // as a rendering bug, not as "no caption"). Text + attachments renders
   // both: the text bubble first, the attachment card(s) grouped right
   // below it under the same sender/timestamp.
-  const hasBody = shouldRenderTextBubble(msg.body);
-  const hasAttachments = msg.attachments.length > 0;
+  // Phase A40: a moderation-removed message always renders its own
+  // distinct placeholder bubble, regardless of the normal
+  // hasBody/hasAttachments logic — the server has already forced body to
+  // MODERATION_REMOVED_PLACEHOLDER and attachments to [] (see
+  // toResolvedMessage() in lib/messages.ts), this only controls how it
+  // LOOKS, never what content is available to show.
+  const hasBody = msg.removed || shouldRenderTextBubble(msg.body);
+  const hasAttachments = !msg.removed && msg.attachments.length > 0;
 
   return (
     <div
@@ -85,13 +93,15 @@ function MessageBubble({
 
         {hasBody && (
           <div style={{
-            background:   isSelf ? primaryColor : "#fff",
-            color:        isSelf ? "#fff" : "#1f2937",
+            background:   msg.removed ? "#f3f4f6" : isSelf ? primaryColor : "#fff",
+            color:        msg.removed ? "#9ca3af" : isSelf ? "#fff" : "#1f2937",
+            fontStyle:    msg.removed ? "italic" : "normal",
+            border:       msg.removed ? "1px dashed #d1d5db" : "none",
             borderRadius: isSelf ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
             padding:      ".6rem .8rem",
             fontSize:     "1rem",
             lineHeight:   1.45,
-            boxShadow:    "0 1px 3px rgba(0,0,0,.08)",
+            boxShadow:    msg.removed ? "none" : "0 1px 3px rgba(0,0,0,.08)",
             whiteSpace:   "pre-wrap",
             wordBreak:    "break-word",
             overflowWrap: "anywhere",
@@ -144,6 +154,10 @@ export default function ThreadView({
   const [sending, setSending] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportingUser, setReportingUser] = useState(false);
+  const [blockingUser, setBlockingUser] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
@@ -305,6 +319,15 @@ export default function ThreadView({
   const family = isFamilyThread(participants);
   const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
+  // ResolvedParticipant.id is the message_thread_participants row id, NOT
+  // the underlying coach/member/platform_admin id — reporting/blocking
+  // needs the latter (the id lib/moderation/reports.ts's targetExists()
+  // and lib/moderation/blocks.ts actually validate against).
+  const primaryOtherIdentityId = primaryOther
+    ? primaryOther.actor_type === "coach" ? primaryOther.coach_id!
+      : primaryOther.actor_type === "platform_admin" ? primaryOther.platform_admin_id!
+      : primaryOther.member_id!
+    : null;
 
   const canSend = !sending && (replyBody.trim().length > 0 || selected.length > 0);
 
@@ -331,6 +354,7 @@ export default function ThreadView({
         sender_photo_url: null,
         read_at:          new Date().toISOString(),
         attachments:      [],
+        removed:          false,
       };
       setMessages(prev => [...prev, optimistic]);
       setReplyBody("");
@@ -470,7 +494,61 @@ export default function ThreadView({
             </div>
           )}
         </div>
+
+        {primaryOther && (
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="Conversation options"
+              aria-haspopup="true"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.1rem", color: "#6b7280", padding: ".2rem .4rem", lineHeight: 1, borderRadius: 6 }}
+            >
+              •••
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                style={{ position: "absolute", right: 0, top: "100%", marginTop: ".25rem", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.12)", zIndex: 50, minWidth: 160 }}
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); setReportingUser(true); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: ".55rem .8rem", background: "none", border: "none", cursor: "pointer", fontSize: ".82rem", color: "#374151" }}
+                >
+                  Report {primaryOther.name}
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); setBlockingUser(true); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: ".55rem .8rem", background: "none", border: "none", cursor: "pointer", fontSize: ".82rem", color: "#dc2626" }}
+                >
+                  Block {primaryOther.name}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {blocked && (
+        <div style={{ padding: ".5rem .65rem", marginBottom: ".65rem", background: "#fef3c7", borderRadius: 8, fontSize: ".78rem", color: "#92400e" }}>
+          You&apos;ve blocked {primaryOther?.name}. You can unblock them from Settings.
+        </div>
+      )}
+
+      {reportingUser && primaryOther && primaryOtherIdentityId && (
+        <ReportModal slug={slug} targetType="user" targetId={primaryOtherIdentityId} targetKind={primaryOther.actor_type} onClose={() => setReportingUser(false)} />
+      )}
+      {blockingUser && primaryOther && primaryOtherIdentityId && (
+        <BlockUserModal
+          slug={slug}
+          blockedKind={primaryOther.actor_type}
+          blockedId={primaryOtherIdentityId}
+          blockedName={primaryOther.name}
+          onClose={() => setBlockingUser(false)}
+          onBlocked={() => { setBlockingUser(false); setBlocked(true); }}
+        />
+      )}
 
       {/* Subordinate context line — family inclusion + oversight, kept
           small and secondary to the header rather than a full-width

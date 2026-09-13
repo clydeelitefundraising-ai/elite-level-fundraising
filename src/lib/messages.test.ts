@@ -255,6 +255,28 @@ test("validateSendRequest: duplicate attachment ids — rejected before any RPC 
   if (!result.ok) assert.equal(result.error, "Duplicate attachment ids.");
 });
 
+// ─── Phase A39: server-side objectionable-content filter ───────────────────────
+
+test("validateSendRequest: a message body containing prohibited content is rejected server-side", () => {
+  const result = validateSendRequest({ body: "you are a faggot", attachmentIds: [] });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error, "This message contains content that isn't allowed. Please edit it and try again.");
+});
+
+test("validateSendRequest: simple obfuscation (leetspeak/punctuation) is still caught in a real message body", () => {
+  assert.equal(validateSendRequest({ body: "f4gg0t", attachmentIds: [] }).ok, false);
+  assert.equal(validateSendRequest({ body: "f.a.g.g.o.t", attachmentIds: [] }).ok, false);
+});
+
+test("validateSendRequest: ordinary team communication passes the content filter", () => {
+  assert.equal(validateSendRequest({ body: "See everyone at practice at 6am tomorrow!", attachmentIds: [] }).ok, true);
+});
+
+test("validateSendRequest: an attachment-only message (empty body) is never run through the content filter", () => {
+  // Nothing to filter — this must still succeed exactly as before Phase A39.
+  assert.equal(validateSendRequest({ body: "", attachmentIds: ["a1"] }).ok, true);
+});
+
 // ─── Phase 3: sign endpoint request-shape validation ───────────────────────────
 
 test("parseSignRequestBody: valid, complete body parses through", () => {

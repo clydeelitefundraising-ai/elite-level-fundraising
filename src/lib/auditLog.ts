@@ -16,8 +16,15 @@ import type { TeamActor } from "@/lib/permissions";
 // that actor, so this narrow escape hatch exists rather than mislabeling
 // it as one of the three. Not intended for any new call site — flag this
 // with the user before reusing it elsewhere.
+//
+// "member" (Phase A38, account deletion) — the first audited mutation an
+// ordinary team member (athlete/parent/booster) can trigger on their own
+// behalf. Distinct from "system" precisely so a genuine, identified
+// member-initiated action is never mislabeled as the no-identity
+// pre-session case above.
 export type AuditActor =
   | { type: "coach";          id: string; name?: string | null }
+  | { type: "member";         id: string; name?: string | null }
   | { type: "platform_admin"; id: string; email: string; name?: string | null }
   | { type: "admin_tool" }
   | { type: "system"; note: string };
@@ -49,6 +56,7 @@ export function adminIdentifierFor(actor: AuditActor): string {
   if (actor.type === "admin_tool") return "admin";
   if (actor.type === "system") return `system:${actor.note}`;
   if (actor.type === "platform_admin") return actor.email;
+  if (actor.type === "member") return actor.name ?? `member:${actor.id}`;
   return actor.name ?? `coach:${actor.id}`;
 }
 
@@ -88,7 +96,7 @@ export function logAuditEvent(params: AuditEventParams): void {
       new_value:        params.new_value        ?? null,
       admin_identifier: adminIdentifierFor(params.actor),
       actor_type:       params.actor.type,
-      actor_id:         params.actor.type === "coach" || params.actor.type === "platform_admin" ? params.actor.id : null,
+      actor_id:         params.actor.type === "coach" || params.actor.type === "member" || params.actor.type === "platform_admin" ? params.actor.id : null,
       actor_email:      params.actor.type === "platform_admin" ? params.actor.email : null,
       ip_address:       params.ip_address      ?? null,
       user_agent:       params.user_agent       ?? null,

@@ -22,6 +22,7 @@
 // so this is not a permission loophole, just an inert column).
 
 import { restList, restInsert, restUpdate, restDelete } from "./_client.ts";
+import { checkContent } from "../moderation/contentFilter.ts";
 import {
   resolvePhotoUrl, fetchHeadCoaches,
   type ActorKey, type RawCoachInfo, type RawMemberInfo, type RawPlatformAdminInfo,
@@ -167,6 +168,13 @@ export async function createComment(input: {
   if (body.length > MAX_COMMENT_LENGTH) {
     return { ok: false, reason: "validation", message: `Comments must be ${MAX_COMMENT_LENGTH} characters or fewer.` };
   }
+  // Phase A39: the same lightweight objectionable-content filter applied
+  // to direct messages, run BEFORE this comment ever reaches the pending
+  // queue — this is an additional earlier gate, not a replacement for the
+  // existing Head-Coach approval flow below, which still applies to every
+  // comment (including a Head Coach's own) exactly as before.
+  const contentCheck = checkContent(body);
+  if (!contentCheck.ok) return { ok: false, reason: "validation", message: contentCheck.message };
 
   const announcement = await validateAnnouncementForCampaign(input.announcementId, input.campaignSlug);
   if (!announcement) return { ok: false, reason: "announcement_not_found" };
@@ -207,6 +215,14 @@ export async function createComment(input: {
   return { ok: true, comment: { ...resolveDisplay(raw), is_own: true }, announcementTitle: announcement.title };
 }
 
+function authorKeyOf(r: {
+  author_type: "coach" | "member" | "platform_admin";
+  author_coach_id: string | null; author_member_id: string | null; author_platform_admin_id: string | null;
+}): string {
+  const id = r.author_type === "coach" ? r.author_coach_id : r.author_type === "member" ? r.author_member_id : r.author_platform_admin_id;
+  return `${r.author_type}:${id}`;
+}
+
 // Every comment on this announcement, filtered to what THIS viewer may
 // see: approved comments are visible to anyone who can view the
 // announcement at all (this function's caller is already responsible for
@@ -214,17 +230,32 @@ export async function createComment(input: {
 // comments are visible only to their own author or the Head Coach. A
 // comment must never widen the announcement's own audience — this only
 // ever narrows what a subset of announcement-viewers additionally see.
+//
+// Phase A37 (interpersonal blocking, extended to comments): a comment
+// authored by someone THIS viewer has blocked is additionally excluded
+// from their own view — never from the Head Coach's (moderation must see
+// everything regardless of any personal block, same principle as the
+// approved/pending/declined gate above), and never by deleting or
+// altering the row itself, only by omitting it from this one viewer's
+// result. blockedAuthorKeys is a set of "coach:<id>" / "member:<id>" /
+// "platform_admin:<id>" strings, computed by the caller from
+// lib/moderation/blocks.ts's getBlockedByMe() — this module deliberately
+// has no dependency of its own on the blocks table, matching the existing
+// convention of resolving all cross-cutting state one layer up (see
+// createComment's isHeadCoachAuthor param for the same pattern).
 export async function getVisibleComments(
   announcementId: string,
   campaignSlug:   string,
   actor:          ActorKey,
   actorIsHeadCoach: boolean,
+  blockedAuthorKeys: ReadonlySet<string> = new Set(),
 ): Promise<ResolvedComment[]> {
   const rows = await restList<RawComment>(
     `announcement_comments?announcement_id=eq.${encodeURIComponent(announcementId)}` +
     `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=${COMMENT_SELECT}&order=created_at.asc`,
   );
   return rows
+    .filter(r => actorIsHeadCoach || !blockedAuthorKeys.has(authorKeyOf(r)))
     .map(r => ({ ...resolveDisplay(r), is_own: isOwnComment(r, actor) }))
     .filter(c => c.status === "approved" || c.is_own || actorIsHeadCoach);
 }

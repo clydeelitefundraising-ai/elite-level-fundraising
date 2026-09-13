@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, MessageSquare, CheckCircle, Users } from "lucide-react";
+import { UserPlus, MessageSquare, CheckCircle, Users, Flag } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import AthleteRequestsPanel from "./AthleteRequestsPanel";
 import CommentApprovalsPanel from "./CommentApprovalsPanel";
 import ParentAccessRequestsPanel from "./ParentAccessRequestsPanel";
+import ReportsPanel from "./ReportsPanel";
 import styles from "./Requests.module.css";
 
 // ── Section wrapper (Phase 3B-1, retokenized Phase 8B) ──────────────────────
@@ -58,10 +59,11 @@ export default function RequestsView({
   const [athleteRequestCount, setAthleteRequestCount] = useState<number | null>(null);
   const [commentApprovalCount, setCommentApprovalCount] = useState<number | null>(null);
   const [parentAccessRequestCount, setParentAccessRequestCount] = useState<number | null>(null);
+  const [reportCount, setReportCount] = useState<number | null>(null);
 
-  const bothLoaded = athleteRequestCount !== null && commentApprovalCount !== null && parentAccessRequestCount !== null;
-  const bothEmpty = bothLoaded && athleteRequestCount === 0 && commentApprovalCount === 0 && parentAccessRequestCount === 0;
-  const totalCount = (athleteRequestCount ?? 0) + (commentApprovalCount ?? 0) + (parentAccessRequestCount ?? 0);
+  const bothLoaded = athleteRequestCount !== null && commentApprovalCount !== null && parentAccessRequestCount !== null && reportCount !== null;
+  const bothEmpty = bothLoaded && athleteRequestCount === 0 && commentApprovalCount === 0 && parentAccessRequestCount === 0 && reportCount === 0;
+  const totalCount = (athleteRequestCount ?? 0) + (commentApprovalCount ?? 0) + (parentAccessRequestCount ?? 0) + (reportCount ?? 0);
 
   return (
     <div className={styles.page}>
@@ -91,6 +93,11 @@ export default function RequestsView({
             Parents
             <span className={styles.chipCount}>{parentAccessRequestCount ?? 0}</span>
           </span>
+          <span className={styles.chip}>
+            <Flag size={13} strokeWidth={2} />
+            Reports
+            <span className={styles.chipCount}>{reportCount ?? 0}</span>
+          </span>
         </div>
       </div>
 
@@ -98,10 +105,19 @@ export default function RequestsView({
         <div className={styles.unifiedEmpty}>
           <CheckCircle size={28} strokeWidth={1.75} className={styles.unifiedEmptyIcon} />
           <div className={styles.unifiedEmptyTitle}>All Caught Up</div>
-          <p className={styles.unifiedEmptyBody}>No athlete requests or comments need review.</p>
+          <p className={styles.unifiedEmptyBody}>No athlete requests, comments, or reports need review.</p>
         </div>
       ) : (
         <>
+          <RequestSection title="Reports" icon={<Flag size={13} strokeWidth={2} />} count={reportCount ?? 0}>
+            <ReportsPanel
+              slug={slug}
+              onCountChange={setReportCount}
+              emptyState={<EmptyRow message="No open reports." />}
+              hideHeader
+            />
+          </RequestSection>
+
           <RequestSection title="Athlete Requests" icon={<UserPlus size={13} strokeWidth={2} />} count={athleteRequestCount ?? 0}>
             <AthleteRequestsPanel
               slug={slug}
