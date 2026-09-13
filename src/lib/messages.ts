@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { checkContent } from "./moderation/contentFilter.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -301,6 +302,15 @@ export function validateSendRequest(params: {
   }
   if (new Set(params.attachmentIds).size !== params.attachmentIds.length) {
     return { ok: false, error: "Duplicate attachment ids." };
+  }
+  // Phase A39: server-side objectionable-content filter (Apple Guideline
+  // 1.2). Checked here — inside the one shape-validation function the
+  // send route already calls — rather than as a separate step a future
+  // caller could forget to invoke. Only runs when there's a body to check;
+  // an attachment-only message has nothing to filter.
+  if (params.body) {
+    const contentCheck = checkContent(params.body);
+    if (!contentCheck.ok) return { ok: false, error: contentCheck.message };
   }
   return { ok: true };
 }

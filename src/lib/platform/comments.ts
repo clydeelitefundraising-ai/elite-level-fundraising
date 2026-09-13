@@ -22,6 +22,7 @@
 // so this is not a permission loophole, just an inert column).
 
 import { restList, restInsert, restUpdate, restDelete } from "./_client.ts";
+import { checkContent } from "../moderation/contentFilter.ts";
 import {
   resolvePhotoUrl, fetchHeadCoaches,
   type ActorKey, type RawCoachInfo, type RawMemberInfo, type RawPlatformAdminInfo,
@@ -167,6 +168,13 @@ export async function createComment(input: {
   if (body.length > MAX_COMMENT_LENGTH) {
     return { ok: false, reason: "validation", message: `Comments must be ${MAX_COMMENT_LENGTH} characters or fewer.` };
   }
+  // Phase A39: the same lightweight objectionable-content filter applied
+  // to direct messages, run BEFORE this comment ever reaches the pending
+  // queue — this is an additional earlier gate, not a replacement for the
+  // existing Head-Coach approval flow below, which still applies to every
+  // comment (including a Head Coach's own) exactly as before.
+  const contentCheck = checkContent(body);
+  if (!contentCheck.ok) return { ok: false, reason: "validation", message: contentCheck.message };
 
   const announcement = await validateAnnouncementForCampaign(input.announcementId, input.campaignSlug);
   if (!announcement) return { ok: false, reason: "announcement_not_found" };

@@ -42,6 +42,7 @@ export default function CommentsSection({
   slug,
   announcementId,
   leadingSlot,
+  canModerate = false,
 }: {
   slug: string;
   announcementId: string;
@@ -49,6 +50,12 @@ export default function CommentsSection({
   // UpdateCard to place LikeButton directly beside it, matching the
   // "👍 18   💬 4 Comments" layout (Phase 11b).
   leadingSlot?: React.ReactNode;
+  // Phase A39 audit finding: the DELETE API (comments.ts deleteComment())
+  // already allows a Head Coach to remove ANY comment for moderation —
+  // this UI simply never surfaced that capability for a comment the
+  // viewer didn't author. `canModerate` is UpdateCard's existing
+  // `canDelete` (= isHeadCoach(actor)), threaded through unchanged.
+  canModerate?: boolean;
 }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [body,      setBody]    = useState("");
@@ -149,13 +156,13 @@ export default function CommentsSection({
                   {c.body}
                 </p>
                 <div style={{ display: "flex", gap: ".7rem", marginTop: ".15rem" }}>
-                  {c.is_own && (
+                  {(c.is_own || canModerate) && (
                     <button
                       onClick={() => handleDelete(c.id)}
                       className="elf-focus-ring"
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".64rem", fontWeight: 600, color: "#dc2626" }}
                     >
-                      Delete
+                      {c.is_own ? "Delete" : "Remove (moderation)"}
                     </button>
                   )}
                   {!c.is_own && (

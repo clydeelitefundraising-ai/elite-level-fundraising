@@ -346,6 +346,7 @@ export function UpdateCard({
         slug={slug}
         announcementId={a.id}
         leadingSlot={<LikeButton slug={slug} announcementId={a.id} />}
+        canModerate={canDelete}
       />
     </div>
   );
