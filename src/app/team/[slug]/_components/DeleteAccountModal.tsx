@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 
 // Phase A38: self-service account deletion, reachable from AccountMenu
 // (mounted for every role — coach, member, platform admin) rather than
@@ -40,11 +41,17 @@ export default function DeleteAccountModal({ slug, onClose }: { slug: string; on
     }
   };
 
-  return (
+  // QA fix (same as BlockedUsersModal, mounted from the same AccountMenu
+  // -> TeamHeader/DesktopSidebar ancestry): portaled to document.body so
+  // DesktopSidebar's `position: sticky` stacking context can never trap
+  // this destructive-confirmation modal behind other page content.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "auto" }}
       onClick={onClose}
     >
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "12px", padding: "1.35rem", maxWidth: "440px", width: "100%", boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}>
@@ -101,6 +108,7 @@ export default function DeleteAccountModal({ slug, onClose }: { slug: string; on
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

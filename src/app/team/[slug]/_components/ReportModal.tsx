@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 export type ReportTargetType = "announcement" | "comment" | "message" | "attachment" | "user";
 
@@ -58,11 +59,19 @@ export default function ReportModal({
     }
   };
 
-  return (
+  // QA fix (same as BlockedUsersModal): rendered inline this was trapped
+  // inside DesktopSidebar's `position: sticky` stacking context — that
+  // property unconditionally creates one regardless of z-index — so the
+  // modal painted behind other page content instead of above it.
+  // Portaling to document.body is the same fix already applied there and
+  // matches the codebase's own shared Modal.tsx primitive.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "auto" }}
       onClick={onClose}
     >
       <div
@@ -112,7 +121,8 @@ export default function ReportModal({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

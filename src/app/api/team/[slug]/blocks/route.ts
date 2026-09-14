@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import type { ActorKey } from "@/lib/messages";
-import { blockUser, getBlockedByMe } from "@/lib/moderation/blocks";
+import { blockUser, getBlockedByMeWithDisplay } from "@/lib/moderation/blocks";
 import { logAuditEvent, type AuditActor } from "@/lib/auditLog";
 
 type RouteCtx = { params: Promise<{ slug: string }> };
@@ -60,6 +60,6 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
   const actor = await getTeamActor(slug);
   if (actor.kind === "public") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const blocks = await getBlockedByMe(slug, toActorKey(actor));
+  const blocks = await getBlockedByMeWithDisplay(slug, toActorKey(actor));
   return NextResponse.json({ blocks });
 }

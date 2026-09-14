@@ -10,7 +10,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-service-role-key";
 type Row = Record<string, unknown>;
 
 function makeFakeDb() {
-  const db: Record<string, Row[]> = { user_blocks: [] };
+  const db: Record<string, Row[]> = { user_blocks: [], team_coaches: [], team_members: [], platform_admins: [] };
   let nextId = 1;
   const genId = () => `id-${nextId++}`;
 
@@ -77,10 +77,10 @@ function makeFakeDb() {
 const { db, handle } = makeFakeDb();
 globalThis.fetch = (async (url: string | URL, init?: RequestInit) => handle(String(url), init)) as typeof fetch;
 
-const { blockUser, unblockUser, getBlockedByMe, isBlockedEitherDirection } = await import("./blocks.ts");
+const { blockUser, unblockUser, getBlockedByMe, getBlockedByMeWithDisplay, isBlockedEitherDirection } = await import("./blocks.ts");
 
 const SLUG = "monroe-valley";
-function reset() { db.user_blocks.length = 0; }
+function reset() { for (const k of Object.keys(db)) db[k].length = 0; }
 
 test("member can block a coach", async () => {
   reset();
@@ -133,6 +133,82 @@ test("getBlockedByMe only returns the caller's own blocks, not other actors'", a
   const mine = await getBlockedByMe(SLUG, { kind: "member", id: "mem-1" });
   assert.equal(mine.length, 1);
   assert.equal(mine[0].blocked_id, "coach-1");
+});
+
+// ─── QA fix: Blocked Users list shows a real name + role, not just "coach" ─────
+
+test("getBlockedByMeWithDisplay returns the blocked COACH's real name and a proper role label", async () => {
+  reset();
+  db.team_coaches.push({ id: "coach-1", campaign_slug: SLUG, name: "Mike Owens", role: "head_coach" });
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].blocked_name, "Mike Owens");
+  assert.equal(list[0].blocked_role, "Head Coach");
+});
+
+// Exact wire shape: the API route does `NextResponse.json({ blocks })`
+// with these objects completely unmodified — this pins the precise key
+// names a client actually receives (round-tripped through JSON, exactly
+// as the browser would see it), so a rename here would be caught
+// immediately rather than only failing silently in the UI.
+test("getBlockedByMeWithDisplay's exact JSON wire shape includes blocked_name/blocked_role (not name/role or any other key)", async () => {
+  reset();
+  db.team_coaches.push({ id: "coach-1", campaign_slug: SLUG, name: "Mike Owens", role: "head_coach" });
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  const wire = JSON.parse(JSON.stringify({ blocks: list }));
+  assert.equal(wire.blocks[0].blocked_name, "Mike Owens");
+  assert.equal(wire.blocks[0].blocked_role, "Head Coach");
+  assert.equal(wire.blocks[0].name, undefined, "must not also/instead expose a bare 'name' key");
+  assert.equal(wire.blocks[0].role, undefined, "must not also/instead expose a bare 'role' key");
+});
+
+test("getBlockedByMeWithDisplay returns the blocked MEMBER's real name and role (athlete/parent/booster)", async () => {
+  reset();
+  db.team_members.push({ id: "mem-9", campaign_slug: SLUG, name: "Jamie Rivera", role: "parent" });
+  await blockUser(SLUG, { kind: "coach", id: "coach-1" }, "member", "mem-9");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "coach", id: "coach-1" });
+  assert.equal(list[0].blocked_name, "Jamie Rivera");
+  assert.equal(list[0].blocked_role, "Parent");
+});
+
+test("getBlockedByMeWithDisplay returns the blocked PLATFORM ADMIN's real name", async () => {
+  reset();
+  db.platform_admins.push({ id: "pa-1", account_id: "acct-1", elf_accounts: { name: "Taylor ELF" } });
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "platform_admin", "pa-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  assert.equal(list[0].blocked_name, "Taylor ELF");
+  assert.equal(list[0].blocked_role, "ELF Admin");
+});
+
+test("getBlockedByMeWithDisplay falls back to a generic, non-identifying label when the blocked person's row is gone — never an email or raw id", async () => {
+  reset();
+  // No team_coaches row seeded for "coach-gone" — simulates them having left the team.
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-gone");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  assert.equal(list[0].blocked_name, "Former team member");
+  assert.ok(!list[0].blocked_name.includes("@"), "must never fall back to an email address");
+  assert.notEqual(list[0].blocked_name, "coach-gone", "must never fall back to the raw id");
+});
+
+test("getBlockedByMeWithDisplay still returns role/kind data alongside the name — role is not lost", async () => {
+  reset();
+  db.team_coaches.push({ id: "coach-1", campaign_slug: SLUG, name: "Mike Owens", role: "assistant_coach" });
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  assert.equal(list[0].blocked_kind, "coach");
+  assert.equal(list[0].blocked_role, "Asst. Coach");
+});
+
+test("unblock still works after switching the list endpoint to the display-enriched version", async () => {
+  reset();
+  db.team_coaches.push({ id: "coach-1", campaign_slug: SLUG, name: "Mike Owens", role: "head_coach" });
+  const created = await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  if (!("block" in created)) throw new Error("setup failed");
+  await unblockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  assert.equal(list.length, 0);
 });
 
 // ─── CRITICAL: blocking must never touch announcement visibility ──────────────
