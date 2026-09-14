@@ -80,22 +80,53 @@ test("AccountMenu.tsx still keeps Notifications, My Profile, Settings, Support &
   }
 });
 
-// ─── Account-menu backdrop architecture fix ────────────────────────────────────
+// ─── Account-menu / Team-switcher backdrop architecture fix ────────────────────
+//
+// Both AccountMenu and TeamSwitcher are header dropdowns mounted under
+// TeamHeader/DesktopSidebar and shared the identical trapped-stacking-
+// context bug: DesktopSidebar's `position: sticky` unconditionally
+// creates its own stacking context regardless of z-index, which trapped
+// each dropdown's backdrop inside it — since <main>'s page content is a
+// LATER sibling of DesktopSidebar at the root stacking level, it painted
+// on top of the entire trapped subtree, backdrop included, which is why
+// underlying cards/inputs/buttons visually "punched through" the dimming
+// instead of being covered by it. Both got the identical fix, so this is
+// one parameterized guard rather than two near-duplicate test blocks.
 
-test("AccountMenu.tsx portals its dropdown (backdrop + panel) to document.body, same fix as the four confirmation modals", () => {
-  const source = read("src/app/team/[slug]/_components/AccountMenu.tsx");
-  assert.ok(source.includes('import { createPortal } from "react-dom"'), "must import createPortal");
-  assert.ok(source.includes("createPortal("), "must call createPortal");
-  assert.ok(source.includes("document.body"), "must portal into document.body");
-});
+const HEADER_DROPDOWNS = [
+  { file: "src/app/team/[slug]/_components/AccountMenu.tsx", name: "AccountMenu" },
+  { file: "src/app/team/[slug]/_components/TeamSwitcher.tsx", name: "TeamSwitcher" },
+];
 
-test("AccountMenu.tsx's backdrop covers the full viewport and is explicitly pointer-events: auto (so underlying page content can never receive clicks while it's open)", () => {
-  const source = read("src/app/team/[slug]/_components/AccountMenu.tsx");
-  assert.ok(/position: "fixed", inset: 0, zIndex: 99, background: "rgba\(0,0,0,\.4\)", pointerEvents: "auto"/.test(source), "backdrop must be a full-viewport, explicitly-interactive dimming layer");
-});
+for (const { file, name } of HEADER_DROPDOWNS) {
+  test(`${name}.tsx portals its dropdown (backdrop + panel) to document.body, same fix as the four confirmation modals`, () => {
+    const source = read(file);
+    assert.ok(source.includes('import { createPortal } from "react-dom"'), `${name} must import createPortal`);
+    assert.ok(source.includes("createPortal("), `${name} must call createPortal`);
+    assert.ok(source.includes("document.body"), `${name} must portal into document.body`);
+  });
 
-test("AccountMenu.tsx's dropdown panel no longer uses position: absolute anchored to the button (that anchor breaks once portaled) — it computes fixed screen coordinates instead", () => {
-  const source = read("src/app/team/[slug]/_components/AccountMenu.tsx");
-  assert.ok(source.includes("getBoundingClientRect"), "must compute the panel's position from the toggle button's real screen position");
-  assert.ok(!/position: "absolute",\s*\n\s*top: "calc\(100% \+ \.5rem\)"/.test(source), "must no longer rely on position:absolute + calc(100% + .5rem) anchoring, which only worked while non-portaled");
+  test(`${name}.tsx's backdrop covers the full viewport and is explicitly pointer-events: auto (so underlying page content can never receive clicks while it's open)`, () => {
+    const source = read(file);
+    assert.ok(/position: "fixed", inset: 0, zIndex: 99, background: "rgba\(0,0,0,\.4\)", pointerEvents: "auto"/.test(source), `${name}'s backdrop must be a full-viewport, explicitly-interactive dimming layer`);
+  });
+
+  test(`${name}.tsx's dropdown panel no longer uses position: absolute anchored to the button (that anchor breaks once portaled) — it computes fixed screen coordinates instead`, () => {
+    const source = read(file);
+    assert.ok(source.includes("getBoundingClientRect"), `${name} must compute the panel's position from the toggle button's real screen position`);
+    assert.ok(!/position: "absolute",\s*\n\s*top: "calc\(100% \+ \.5rem\)"/.test(source), `${name} must no longer rely on position:absolute + calc(100% + .5rem) anchoring, which only worked while non-portaled`);
+  });
+
+  test(`${name}.tsx's panel is explicitly pointer-events: auto too (so its own buttons/links are always clickable once portaled)`, () => {
+    const source = read(file);
+    const autoCount = (source.match(/pointerEvents:\s*"auto"/g) ?? []).length;
+    assert.ok(autoCount >= 2, `${name} must set pointerEvents: "auto" on both the backdrop and the panel`);
+  });
+}
+
+test("TeamSwitcher.tsx still switches teams via router.push and still signs out via the native-aware logout helper — team-switching/sign-out logic is untouched by the portal fix", () => {
+  const source = read("src/app/team/[slug]/_components/TeamSwitcher.tsx");
+  assert.ok(source.includes('router.push(`/team/${slug}/home`)'), "switchTo must still navigate to the selected team's home");
+  assert.ok(source.includes("performNativeAwareLogout"), "Sign Out must still route through the native-aware logout helper on iOS");
+  assert.ok(source.includes('action="/api/auth/logout"'), "Sign Out form must still POST to the same logout endpoint");
 });

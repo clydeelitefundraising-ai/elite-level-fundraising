@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, User } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
@@ -15,6 +16,8 @@ export default function TeamSwitcher({
   teams: TeamSummary[];
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const router          = useRouter();
 
   // Hide only when no account teams at all (not logged in via elf_session)
@@ -27,10 +30,30 @@ export default function TeamSwitcher({
     router.push(`/team/${slug}/home`);
   }
 
+  // Same fix as AccountMenu.tsx: this dropdown (backdrop + panel) used to
+  // render inline, nested under TeamHeader/DesktopSidebar.
+  // DesktopSidebar's `position: sticky` unconditionally creates its own
+  // stacking context regardless of z-index, which trapped the backdrop's
+  // zIndex:99 inside it — since <main>'s page content is a LATER sibling
+  // of DesktopSidebar at the root stacking level, it painted on top of
+  // DesktopSidebar's entire subtree, backdrop included, which is why
+  // underlying cards/inputs/buttons visually "punched through" the
+  // dimming instead of being covered by it. Portaling to document.body
+  // puts the backdrop at the true root stacking level. The panel's old
+  // `position: absolute` anchor to this button breaks once portaled, so
+  // its position is computed from the button's real screen coordinates
+  // instead, captured when the menu opens.
+  const openMenu = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    setOpen(true);
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-label={canSwitch ? "Switch team" : "Account menu"}
         aria-expanded={open}
         style={{
@@ -57,25 +80,30 @@ export default function TeamSwitcher({
         )}
       </button>
 
-      {open && (
+      {open && menuPos && createPortal(
         <>
-          {/* Backdrop */}
+          {/* Backdrop — full viewport, explicitly interactive (see
+              AccountMenu.tsx's identical comment for why pointerEvents
+              must be explicit once portaled). */}
           <div
             onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)" }}
+            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)", pointerEvents: "auto" }}
           />
 
-          {/* Dropdown panel */}
+          {/* Dropdown panel — fixed + computed coordinates, not
+              absolute + calc(), since portaling to document.body breaks
+              the old anchor to this button. */}
           <div style={{
-            position: "absolute",
-            top: "calc(100% + .5rem)",
-            right: 0,
+            position: "fixed",
+            top: menuPos.top,
+            right: menuPos.right,
             zIndex: 100,
             background: "#fff",
             borderRadius: ".75rem",
             boxShadow: "0 8px 32px rgba(0,0,0,.22)",
             minWidth: 210,
             overflow: "hidden",
+            pointerEvents: "auto",
           }}>
             <div style={{ padding: ".6rem 1rem", fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", borderBottom: "1px solid #f0f0f0" }}>
               Your Teams
@@ -161,7 +189,8 @@ export default function TeamSwitcher({
               </button>
             </form>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

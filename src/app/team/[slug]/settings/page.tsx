@@ -6,15 +6,15 @@ import { getCampaignSettings } from "@/lib/supabase";
 import SettingsView from "./SettingsView";
 import MemberSettingsView from "./MemberSettingsView";
 
-// Apple-review UI polish: Settings previously dead-ended for every
-// non-coach role ("Coach Access Only"), even though the nav links to it
-// for everyone — meaning athletes/parents/boosters had no Settings page
-// at all, and no way to reach Blocked Users/Delete Account outside the
-// AccountMenu flyout. Coaches keep the exact same full settings
-// experience as before (team config, branding, staff, etc., all
-// unchanged); every other role now gets a smaller, general-only settings
-// view (MemberSettingsView) with account/privacy controls only — no
-// coach-only control is ever exposed to a non-coach.
+// Settings is reachable by every authenticated team role:
+//   - Head Coach / Assistant Coach (actor.kind === "coach"): the full
+//     SettingsView — general/account settings (AccountPrivacySection)
+//     PLUS all existing coach/team settings (branding, staff, join
+//     codes, coach fundraising, etc.), unchanged.
+//   - Athlete / Parent / Booster, and a Platform Admin browsing this
+//     team's settings (everyone else): MemberSettingsView — general/
+//     account settings only (AccountPrivacySection: Blocked Users,
+//     Delete Account). No coach-only control is ever exposed here.
 export default async function SettingsPage({
   params,
 }: {
