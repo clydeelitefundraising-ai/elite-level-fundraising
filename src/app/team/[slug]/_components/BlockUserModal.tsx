@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 // Confirmation dialog for blocking an interpersonal contact. Deliberately
 // says exactly what a block does and does NOT do, per the Apple-review
@@ -46,7 +47,12 @@ export default function BlockUserModal({
     }
   };
 
-  return (
+  // QA fix (same as BlockedUsersModal/ReportModal): portaled to
+  // document.body so a `position: sticky` ancestor stacking context
+  // (e.g. DesktopSidebar) can never trap this behind other page content.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -77,6 +83,7 @@ export default function BlockUserModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
