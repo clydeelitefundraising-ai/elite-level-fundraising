@@ -1,6 +1,8 @@
 // Phase 7: intentionally minimal empty state. Future phases add standings/
 // rankings/scoreboards/team performance/season results here — none of that
 // is built yet, per spec ("establish the information architecture now").
+import { Trophy } from "lucide-react";
+
 export default function OverviewView() {
   return (
     <div style={{
@@ -8,7 +10,7 @@ export default function OverviewView() {
       boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
       animation: "elf-fadeUp .22s ease both",
     }}>
-      <div style={{ fontSize: "1.75rem", marginBottom: ".6rem", opacity: .35 }}>🏆</div>
+      <div style={{ marginBottom: ".6rem", opacity: .35, display: "flex", justifyContent: "center" }}><Trophy size={28} strokeWidth={1.75} aria-hidden="true" /></div>
       <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
         Team Overview
       </div>

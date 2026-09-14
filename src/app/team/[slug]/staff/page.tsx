@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canManageStaff } from "@/lib/permissions";
+import { Lock } from "lucide-react";
 import StaffView from "./StaffView";
 
 export default async function StaffPage({
@@ -27,7 +28,7 @@ function HeadCoachOnlyGate({ slug }: { slug: string }) {
         textAlign: "center",
         boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
       }}>
-        <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>🔒</div>
+        <div style={{ marginBottom: ".65rem", opacity: .35, display: "flex", justifyContent: "center" }}><Lock size={32} strokeWidth={1.75} aria-hidden="true" /></div>
         <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
           Head Coach Access Only
         </div>

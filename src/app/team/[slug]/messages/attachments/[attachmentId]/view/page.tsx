@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getTeamActor } from "@/lib/permissions.server";
+import { Paperclip } from "lucide-react";
 import { resolveAuthorizedAttachment, type ActorKey } from "@/lib/messages";
 import { attachmentApiHref, readableFileSize } from "../../../_shared/attachmentClient";
 
@@ -126,7 +127,7 @@ export default async function AttachmentViewerPage({
           // native open support is a tracked follow-up, not attempted
           // here (see the approved investigation report).
           <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
-            <div style={{ fontSize: "2.5rem", marginBottom: ".5rem" }} aria-hidden="true">📎</div>
+            <div style={{ marginBottom: ".5rem", display: "flex", justifyContent: "center" }}><Paperclip size={40} strokeWidth={1.75} aria-hidden="true" /></div>
             <div style={{ fontWeight: 700, color: "#0b1e3d", marginBottom: ".25rem", wordBreak: "break-word" }}>
               {attachment.original_filename}
             </div>

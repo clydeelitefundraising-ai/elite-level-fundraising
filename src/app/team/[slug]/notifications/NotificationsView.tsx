@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { NotificationRow } from "@/lib/notifications";
+import { Megaphone, MessageCircle, Paperclip, Calendar, DollarSign, Bell, type LucideIcon } from "lucide-react";
 
-const TYPE_META: Record<string, { icon: string; label: string; accent: string; bg: string }> = {
-  announcement:   { icon: "📢", label: "Update",     accent: "#3b82f6", bg: "#dbeafe" },
-  message:        { icon: "💬", label: "Message",    accent: "#8b5cf6", bg: "#ede9fe" },
-  file_upload:    { icon: "📎", label: "File",        accent: "#8b5cf6", bg: "#ede9fe" },
-  calendar_event: { icon: "📅", label: "Event",       accent: "#0f766e", bg: "#ccfbf1" },
-  fundraiser:     { icon: "💰", label: "Fundraiser",  accent: "#f59e0b", bg: "#fef3c7" },
+const TYPE_META: Record<string, { icon: LucideIcon; label: string; accent: string; bg: string }> = {
+  announcement:   { icon: Megaphone,     label: "Update",     accent: "#3b82f6", bg: "#dbeafe" },
+  message:        { icon: MessageCircle, label: "Message",    accent: "#8b5cf6", bg: "#ede9fe" },
+  file_upload:    { icon: Paperclip,     label: "File",        accent: "#8b5cf6", bg: "#ede9fe" },
+  calendar_event: { icon: Calendar,      label: "Event",       accent: "#0f766e", bg: "#ccfbf1" },
+  fundraiser:     { icon: DollarSign,    label: "Fundraiser",  accent: "#f59e0b", bg: "#fef3c7" },
 };
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -93,9 +94,9 @@ function NotifCard({
         width: 36, height: 36, borderRadius: 9,
         background: meta.bg,
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: ".95rem", flexShrink: 0,
+        flexShrink: 0,
       }}>
-        {meta.icon}
+        <meta.icon size={17} strokeWidth={2} aria-hidden="true" style={{ color: meta.accent }} />
       </div>
 
       {/* Content */}
@@ -318,7 +319,7 @@ export default function NotificationsView({
           textAlign: "center",
           boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .3 }}>🔔</div>
+          <div style={{ marginBottom: ".65rem", opacity: .3, display: "flex", justifyContent: "center" }}><Bell size={32} strokeWidth={1.75} aria-hidden="true" /></div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
             You're all caught up
           </div>

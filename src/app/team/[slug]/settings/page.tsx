@@ -1,9 +1,20 @@
 import { redirect } from "next/navigation";
 import { getTeamActor } from "@/lib/permissions.server";
+import { memberRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
 import { getActiveJoinCode } from "@/lib/teamData";
 import { getCampaignSettings } from "@/lib/supabase";
 import SettingsView from "./SettingsView";
+import MemberSettingsView from "./MemberSettingsView";
 
+// Apple-review UI polish: Settings previously dead-ended for every
+// non-coach role ("Coach Access Only"), even though the nav links to it
+// for everyone — meaning athletes/parents/boosters had no Settings page
+// at all, and no way to reach Blocked Users/Delete Account outside the
+// AccountMenu flyout. Coaches keep the exact same full settings
+// experience as before (team config, branding, staff, etc., all
+// unchanged); every other role now gets a smaller, general-only settings
+// view (MemberSettingsView) with account/privacy controls only — no
+// coach-only control is ever exposed to a non-coach.
 export default async function SettingsPage({
   params,
 }: {
@@ -15,72 +26,37 @@ export default async function SettingsPage({
   // Public visitors → coach login
   if (actor.kind === "public") redirect(`/coach-login`);
 
-  // Members (athlete / parent) → friendly gate, not a login redirect
-  if (actor.kind !== "coach") {
-    return <CoachOnlyGate slug={slug} />;
+  if (actor.kind === "coach") {
+    const [activeCode, settings] = await Promise.all([
+      getActiveJoinCode(slug),
+      getCampaignSettings(slug),
+    ]);
+    return (
+      <SettingsView
+        slug={slug}
+        coach={actor.session}
+        initialCode={activeCode}
+        joinCodeSettings={{
+          school_name:   settings?.school_name ?? "",
+          sport_name:    settings?.sport_name ?? "",
+          mascot:        settings?.mascot ?? null,
+          season:        settings?.season ?? null,
+          primary_color: settings?.primary_color ?? "#0b1e3d",
+        }}
+        branding={{
+          school_name:          settings?.school_name ?? "",
+          logo_url:             settings?.logo_url ?? "",
+          primary_color:        settings?.primary_color ?? null,
+          secondary_color:      settings?.secondary_color ?? null,
+          branding_customized:  settings?.branding_customized ?? false,
+        }}
+        allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
+      />
+    );
   }
 
-  const [activeCode, settings] = await Promise.all([
-    getActiveJoinCode(slug),
-    getCampaignSettings(slug),
-  ]);
-  return (
-    <SettingsView
-      slug={slug}
-      coach={actor.session}
-      initialCode={activeCode}
-      joinCodeSettings={{
-        school_name:   settings?.school_name ?? "",
-        sport_name:    settings?.sport_name ?? "",
-        mascot:        settings?.mascot ?? null,
-        season:        settings?.season ?? null,
-        primary_color: settings?.primary_color ?? "#0b1e3d",
-      }}
-      branding={{
-        school_name:          settings?.school_name ?? "",
-        logo_url:             settings?.logo_url ?? "",
-        primary_color:        settings?.primary_color ?? null,
-        secondary_color:      settings?.secondary_color ?? null,
-        branding_customized:  settings?.branding_customized ?? false,
-      }}
-      allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
-    />
-  );
-}
-
-function CoachOnlyGate({ slug }: { slug: string }) {
-  return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: 14,
-        padding: "2.5rem 1.5rem",
-        textAlign: "center",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      }}>
-        <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>🔒</div>
-        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
-          Coach Access Only
-        </div>
-        <p style={{ margin: "0 0 1.25rem", fontSize: ".85rem", color: "#6b7280", lineHeight: 1.5 }}>
-          This page is only available to coaches. Contact your coach if you need help.
-        </p>
-        <a
-          href={`/team/${slug}/home`}
-          style={{
-            display: "inline-block",
-            padding: ".55rem 1.25rem",
-            background: "#0b1e3d",
-            color: "#fff",
-            borderRadius: 9,
-            fontSize: ".875rem",
-            fontWeight: 700,
-            textDecoration: "none",
-          }}
-        >
-          Back to Home
-        </a>
-      </div>
-    </div>
-  );
+  // Member (athlete/parent/booster) or a Platform Admin browsing this
+  // team's Settings page — general account settings only.
+  const roleLabel = actor.kind === "member" ? memberRoleLabel(actor.session.role) : platformAdminRoleLabel();
+  return <MemberSettingsView slug={slug} name={actor.session.name} roleLabel={roleLabel} />;
 }

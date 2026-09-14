@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeftRight, User } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { resolveTeamTheme } from "@/lib/theme/teamTheme";
@@ -47,7 +48,13 @@ export default function TeamSwitcher({
           gap: ".25rem",
         }}
       >
-        {canSwitch ? "⇄ Switch" : "👤"}
+        {canSwitch ? (
+          <>
+            <ArrowLeftRight size={13} strokeWidth={2} aria-hidden="true" /> Switch
+          </>
+        ) : (
+          <User size={13} strokeWidth={2} aria-hidden="true" />
+        )}
       </button>
 
       {open && (

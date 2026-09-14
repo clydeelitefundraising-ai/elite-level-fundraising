@@ -12,6 +12,7 @@ import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJo
 import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
 import CoachFundraisingSection from "./CoachFundraisingSection";
+import AccountPrivacySection from "./AccountPrivacySection";
 
 type Props = {
   slug: string;
@@ -427,6 +428,11 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           </div>
         </div>
       </div>
+
+      {/* ── Account & Privacy (Blocked Users, Delete Account) — moved here
+          from the AccountMenu flyout so every role can reach them from
+          the same place; both modals are reused completely unchanged. ── */}
+      <AccountPrivacySection slug={slug} />
 
       {/* ── Account section ── */}
       <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>

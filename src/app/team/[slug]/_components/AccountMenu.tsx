@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
-import DeleteAccountModal from "./DeleteAccountModal";
-import BlockedUsersModal from "./BlockedUsersModal";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 declare global {
@@ -52,9 +52,34 @@ export default function AccountMenu({
   isMember?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [blockedOpen, setBlockedOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
+
+  // QA fix: the dropdown (backdrop + panel) used to render inline here,
+  // nested under TeamHeader/DesktopSidebar — DesktopSidebar's
+  // `position: sticky` unconditionally creates its own stacking context
+  // regardless of z-index, which trapped the backdrop's zIndex:99 inside
+  // it. Since <main>'s page content is a LATER sibling of DesktopSidebar
+  // at the ROOT stacking level (both at the implicit z-index:auto="0"
+  // level), it painted ON TOP of DesktopSidebar's entire subtree —
+  // including the backdrop — which is exactly why comment inputs/Post
+  // buttons/cards "punched through" the dimming instead of being
+  // covered by it. Portaling straight to document.body (same fix as the
+  // four modals) puts the backdrop at the true root stacking level,
+  // where its zIndex:99 is compared against the whole page, not just
+  // DesktopSidebar's local context.
+  //
+  // The panel itself used `position: absolute` anchored to this
+  // wrapper — portaling breaks that anchor (its new closest positioned
+  // ancestor becomes document.body), so its position is now computed
+  // from the toggle button's own screen position instead, captured once
+  // when the menu opens.
+  const openMenu = () => {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    setOpen(true);
+  };
 
   // Lets the Android shell's hardware back button close this dropdown instead of
   // exiting the app (MainActivity.java checks window.__elfHasOpenOverlay before
@@ -77,7 +102,8 @@ export default function AccountMenu({
   return (
     <div style={{ position: "relative" }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={buttonRef}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-label="Account menu"
         aria-expanded={open}
         className="elf-focus-ring"
@@ -105,27 +131,30 @@ export default function AccountMenu({
       >
         {profilePhotoUrl ? (
           <img src={profilePhotoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : initial ? (
+          initial
         ) : (
-          initial ?? "☰"
+          <User size={16} aria-hidden="true" />
         )}
       </button>
 
-      {open && (
+      {open && menuPos && createPortal(
         <>
           <div
             onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)" }}
+            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)", pointerEvents: "auto" }}
           />
           <div style={{
-            position: "absolute",
-            top: "calc(100% + .5rem)",
-            right: 0,
+            position: "fixed",
+            top: menuPos.top,
+            right: menuPos.right,
             zIndex: 100,
             background: "#fff",
             borderRadius: ".85rem",
             boxShadow: "0 8px 32px rgba(0,0,0,.22)",
             minWidth: 230,
             overflow: "hidden",
+            pointerEvents: "auto",
           }}>
 
             {/* Account identity */}
@@ -241,7 +270,7 @@ export default function AccountMenu({
                 className="elf-focus-ring"
                 style={{ display: "flex", alignItems: "center", gap: ".65rem", flex: 1, minWidth: 0, textDecoration: "none" }}
               >
-                <span style={{ fontSize: ".9rem" }}>🔔</span>
+                <Bell size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Notifications</span>
               </a>
               <PushOptIn slug={currentSlug} />
@@ -260,7 +289,7 @@ export default function AccountMenu({
                 className="elf-focus-ring"
                 style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
               >
-                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
               </a>
             )}
@@ -275,7 +304,7 @@ export default function AccountMenu({
                 className="elf-focus-ring"
                 style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
               >
-                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Activate ELF Account</span>
               </a>
             )}
@@ -287,7 +316,7 @@ export default function AccountMenu({
               <div
                 style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", padding: ".7rem 1rem", borderBottom: "1px solid #f0f0f0" }}
               >
-                <span style={{ fontSize: ".9rem" }}>👤</span>
+                <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".78rem", color: "#9ca3af", lineHeight: 1.45 }}>
                   Set up your ELF account to manage your profile and access multiple teams. Ask your administrator for an activation link.
                 </span>
@@ -301,7 +330,7 @@ export default function AccountMenu({
               className="elf-focus-ring"
               style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
             >
-              <span style={{ fontSize: ".9rem" }}>⚙️</span>
+              <SettingsIcon size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
               <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Settings</span>
             </a>
 
@@ -334,28 +363,6 @@ export default function AccountMenu({
               ))}
             </div>
 
-            <button
-              onClick={() => { setOpen(false); setBlockedOpen(true); }}
-              className="elf-focus-ring"
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: "1px solid #f0f0f0" }}
-            >
-              <span style={{ fontSize: ".9rem" }}>🚫</span>
-              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Blocked Users</span>
-            </button>
-
-            {/* Delete Account (Apple Guideline 2.1) — see
-                DeleteAccountModal.tsx / accountDeletion.ts for the full
-                design (financial records untouched, head-coach/platform-
-                admin protections, session revoked by deleting the row). */}
-            <button
-              onClick={() => { setOpen(false); setDeleteOpen(true); }}
-              className="elf-focus-ring"
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: "1px solid #f0f0f0" }}
-            >
-              <span style={{ fontSize: ".9rem" }}>🗑️</span>
-              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#dc2626" }}>Delete Account</span>
-            </button>
-
             {/* Sign Out — plain browser/PWA form POST is left completely
                 unchanged; on the installed iOS app only, this is
                 intercepted to route through the native-aware logout
@@ -375,16 +382,14 @@ export default function AccountMenu({
                 className="elf-focus-ring"
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
-                <span style={{ fontSize: ".9rem" }}>↩</span>
+                <LogOut size={16} aria-hidden="true" style={{ color: "#9ca3af", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#9ca3af" }}>Sign Out</span>
               </button>
             </form>
           </div>
-        </>
+        </>,
+        document.body,
       )}
-
-      {deleteOpen && <DeleteAccountModal slug={currentSlug} onClose={() => setDeleteOpen(false)} />}
-      {blockedOpen && <BlockedUsersModal slug={currentSlug} onClose={() => setBlockedOpen(false)} />}
     </div>
   );
 }

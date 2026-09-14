@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { AlertTriangle } from "lucide-react";
 
 export default function TeamError({
   error,
@@ -22,7 +23,7 @@ export default function TeamError({
 
   return (
     <div style={{ padding: "2.5rem 1.5rem", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
-      <div style={{ fontSize: "2rem" }}>⚠️</div>
+      <div style={{ display: "flex", justifyContent: "center" }}><AlertTriangle size={32} strokeWidth={1.75} aria-hidden="true" /></div>
       <div>
         <h1 style={{ margin: "0 0 .35rem", fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d" }}>
           Something went wrong
