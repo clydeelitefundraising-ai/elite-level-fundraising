@@ -13,6 +13,7 @@ import {
   getResolvedMessageById,
   messagePreview,
   validateSendRequest,
+  isThreadBlockedForActor,
   type ActorKey,
   type AttachmentKind,
 } from "@/lib/messages";
@@ -47,6 +48,17 @@ export async function POST(
 
   if (!thread || !ok) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  // Phase A37 fix: this is the actual send path for every message after
+  // a thread already exists — the block check on the resolve/create path
+  // (resolveOrCreateThreadForRecipient) never runs again once a thread_id
+  // is already known, so it must be checked here too, or blocking a
+  // relationship never actually stops messages in an ongoing
+  // conversation. Same generic, user-safe rejection either way — never
+  // discloses which party blocked whom.
+  if (await isThreadBlockedForActor(threadId, slug, actorKey)) {
+    return NextResponse.json({ error: "Messaging is unavailable for this conversation." }, { status: 403 });
   }
 
   const parsed = await req.json().catch(() => null);

@@ -14,6 +14,7 @@ function makeFakeDb() {
     announcement_comments: [],
     messages: [],
     message_attachments: [],
+    message_threads: [],
     team_coaches: [],
     team_members: [],
     platform_admins: [],
@@ -90,14 +91,81 @@ test("member can report an announcement", async () => {
   assert.equal(result.ok, true);
 });
 
-test("coach can report a message", async () => {
+// messages/message_attachments have NO campaign_slug column of their
+// own (only message_threads does) — every test below seeds a thread row
+// and points the message/attachment at it, matching the real schema.
+test("coach can report a message (campaign resolved via the message's thread)", async () => {
   reset();
-  db.messages.push({ id: "msg-1", campaign_slug: SLUG });
+  db.message_threads.push({ id: "t1", campaign_slug: SLUG });
+  db.messages.push({ id: "msg-1", thread_id: "t1", deleted_at: null });
   const result = await createReport({
     campaignSlug: SLUG, reporter: { kind: "coach", id: "coach-1" }, reporterName: "Coach Lee",
     targetType: "message", targetId: "msg-1", reason: "harassment",
   });
   assert.equal(result.ok, true);
+});
+
+test("member can report an attachment (campaign resolved via the attachment's thread)", async () => {
+  reset();
+  db.message_threads.push({ id: "t1", campaign_slug: SLUG });
+  db.message_attachments.push({ id: "att-1", thread_id: "t1", removed_at: null });
+  const result = await createReport({
+    campaignSlug: SLUG, reporter: { kind: "member", id: "mem-1" }, reporterName: "Casey",
+    targetType: "attachment", targetId: "att-1", reason: "inappropriate_content",
+  });
+  assert.equal(result.ok, true);
+});
+
+test("reporting a message belonging to a DIFFERENT campaign is rejected (never discloses cross-team existence)", async () => {
+  reset();
+  db.message_threads.push({ id: "t2", campaign_slug: "other-team" });
+  db.messages.push({ id: "msg-2", thread_id: "t2", deleted_at: null });
+  const result = await createReport({
+    campaignSlug: SLUG, reporter: { kind: "member", id: "mem-1" }, reporterName: "Casey",
+    targetType: "message", targetId: "msg-2", reason: "spam",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "target_not_found");
+});
+
+test("reporting an ALREADY moderator-removed message is rejected with a distinct reason", async () => {
+  reset();
+  db.message_threads.push({ id: "t1", campaign_slug: SLUG });
+  db.messages.push({ id: "msg-3", thread_id: "t1", deleted_at: new Date().toISOString() });
+  const result = await createReport({
+    campaignSlug: SLUG, reporter: { kind: "member", id: "mem-1" }, reporterName: "Casey",
+    targetType: "message", targetId: "msg-3", reason: "spam",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "already_removed");
+});
+
+test("reporting an ALREADY moderator-removed attachment is rejected with a distinct reason", async () => {
+  reset();
+  db.message_threads.push({ id: "t1", campaign_slug: SLUG });
+  db.message_attachments.push({ id: "att-2", thread_id: "t1", removed_at: new Date().toISOString() });
+  const result = await createReport({
+    campaignSlug: SLUG, reporter: { kind: "member", id: "mem-1" }, reporterName: "Casey",
+    targetType: "attachment", targetId: "att-2", reason: "spam",
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.reason, "already_removed");
+});
+
+test("a message/attachment report supports moderator Remove Content afterward (report resolves normally)", async () => {
+  reset();
+  db.message_threads.push({ id: "t1", campaign_slug: SLUG });
+  db.messages.push({ id: "msg-4", thread_id: "t1", deleted_at: null });
+  const created = await createReport({
+    campaignSlug: SLUG, reporter: { kind: "member", id: "mem-1" }, reporterName: "Casey",
+    targetType: "message", targetId: "msg-4", reason: "harassment",
+  });
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  assert.equal(created.report.target_type, "message");
+  assert.equal(created.report.target_id, "msg-4");
+  const resolved = await resolveReport(created.report.id, SLUG, { kind: "coach", id: "hc-1" }, "actioned", "Content removed by moderator.");
+  assert.equal(resolved.ok, true);
 });
 
 test("reporting a nonexistent target is rejected", async () => {

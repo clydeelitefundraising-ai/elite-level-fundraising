@@ -586,6 +586,36 @@ export async function getThreadParticipants(
   return rows.map(resolveParticipant);
 }
 
+// Phase A37 fix: resolveOrCreateThreadForRecipient's block check only
+// ever ran on the thread-creation/lookup path — it was never consulted
+// when sending into an ALREADY-OPEN thread the caller already has a
+// thread_id for, which is how every message after the first one in a
+// conversation is actually sent (see
+// api/team/[slug]/messages/threads/[threadId]/messages/route.ts). This
+// is the fix: checked against EVERY other participant in the thread
+// (not just a single "recipient"), since a thread can include
+// auto-included family/oversight participants — if the actor has a
+// block relationship (either direction) with ANY of them, the message
+// would still reach a blocked party, so the whole send is refused. A
+// participant who IS the actor themself is obviously excluded.
+export async function isThreadBlockedForActor(
+  threadId: string,
+  slug: string,
+  actor: ActorKey,
+): Promise<boolean> {
+  const { isBlockedEitherDirection } = await import("./moderation/blocks.ts");
+  const participants = await getThreadParticipants(threadId);
+  for (const p of participants) {
+    const otherId = p.actor_type === "coach" ? p.coach_id : p.actor_type === "member" ? p.member_id : p.platform_admin_id;
+    if (!otherId) continue;
+    if (p.actor_type === actor.kind && otherId === actor.id) continue; // self
+    if (await isBlockedEitherDirection(slug, actor, { kind: p.actor_type, id: otherId })) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function isParticipant(
   threadId: string,
   actor: ActorKey,

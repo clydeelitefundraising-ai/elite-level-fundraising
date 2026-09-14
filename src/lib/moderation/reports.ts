@@ -52,11 +52,13 @@ const MAX_DETAILS_LENGTH = 1000;
 // campaign-scoped — used only to confirm the reported row actually exists
 // in THIS campaign before accepting the report (same
 // validate-before-trust convention as validateAnnouncementForCampaign).
-const TARGET_TABLE: Record<Exclude<ReportTargetType, "user">, string> = {
+// announcement/comment carry campaign_slug directly. message/attachment
+// deliberately do NOT (confirmed against the actual schema) — only their
+// message_threads row does — so those two are resolved via a dedicated
+// path below, not this generic one.
+const TARGET_TABLE: Record<"announcement" | "comment", string> = {
   announcement: "announcements",
   comment:      "announcement_comments",
-  message:      "messages",
-  attachment:   "message_attachments",
 };
 
 // The table a reported *person* lives in, keyed by target_kind — used
@@ -67,32 +69,66 @@ const USER_TABLE: Record<"coach" | "member" | "platform_admin", string> = {
   platform_admin: "platform_admins",
 };
 
+export type TargetCheckResult = "ok" | "not_found" | "already_removed";
+
+// message/attachment existence+scope, resolved via their thread's
+// campaign_slug (neither table has that column itself) — and rejects a
+// target that's already been moderator-removed (deleted_at/removed_at
+// set), per the explicit requirement that a removed message/attachment
+// can't be reported again.
+async function messageOrAttachmentCheck(
+  campaignSlug: string,
+  targetType:   "message" | "attachment",
+  targetId:     string,
+): Promise<TargetCheckResult> {
+  const table = targetType === "message" ? "messages" : "message_attachments";
+  const removedColumn = targetType === "message" ? "deleted_at" : "removed_at";
+  const rows = await restList<{ id: string; thread_id: string; deleted_at?: string | null; removed_at?: string | null }>(
+    `${table}?id=eq.${encodeURIComponent(targetId)}&select=id,thread_id,${removedColumn}&limit=1`,
+  );
+  const row = rows[0];
+  if (!row) return "not_found";
+
+  const threadRows = await restList<{ id: string }>(
+    `message_threads?id=eq.${encodeURIComponent(row.thread_id)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id&limit=1`,
+  );
+  if (!threadRows.length) return "not_found"; // wrong campaign — never disclose cross-team existence
+
+  const removedAt = targetType === "message" ? row.deleted_at : row.removed_at;
+  if (removedAt) return "already_removed";
+  return "ok";
+}
+
 async function targetExists(
   campaignSlug: string,
   targetType:   ReportTargetType,
   targetId:     string,
   targetKind:   "coach" | "member" | "platform_admin" | null,
-): Promise<boolean> {
+): Promise<TargetCheckResult> {
   if (targetType === "user") {
-    if (!targetKind) return false;
+    if (!targetKind) return "not_found";
     const table = USER_TABLE[targetKind];
     // platform_admins has no campaign_slug column (a platform admin isn't
     // scoped to one team) — id existence alone is the correct check there.
     const scope = table === "platform_admins" ? "" : `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}`;
     const rows = await restList<{ id: string }>(`${table}?id=eq.${encodeURIComponent(targetId)}${scope}&select=id&limit=1`);
-    return rows.length > 0;
+    return rows.length > 0 ? "ok" : "not_found";
+  }
+  if (targetType === "message" || targetType === "attachment") {
+    return messageOrAttachmentCheck(campaignSlug, targetType, targetId);
   }
   const table = TARGET_TABLE[targetType];
   const rows = await restList<{ id: string }>(
     `${table}?id=eq.${encodeURIComponent(targetId)}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id&limit=1`,
   );
-  return rows.length > 0;
+  return rows.length > 0 ? "ok" : "not_found";
 }
 
 export type CreateReportResult =
   | { ok: true;  report: ContentReportRow }
   | { ok: false; reason: "validation"; message: string }
   | { ok: false; reason: "target_not_found" }
+  | { ok: false; reason: "already_removed" }
   | { ok: false; reason: "server_error" };
 
 export async function createReport(input: {
@@ -119,8 +155,9 @@ export async function createReport(input: {
     return { ok: false, reason: "validation", message: `Details must be ${MAX_DETAILS_LENGTH} characters or fewer.` };
   }
 
-  const exists = await targetExists(input.campaignSlug, input.targetType, input.targetId, input.targetKind ?? null);
-  if (!exists) return { ok: false, reason: "target_not_found" };
+  const check = await targetExists(input.campaignSlug, input.targetType, input.targetId, input.targetKind ?? null);
+  if (check === "not_found") return { ok: false, reason: "target_not_found" };
+  if (check === "already_removed") return { ok: false, reason: "already_removed" };
 
   const payload = {
     campaign_slug: input.campaignSlug,

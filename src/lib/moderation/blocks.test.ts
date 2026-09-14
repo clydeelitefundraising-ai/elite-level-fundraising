@@ -163,6 +163,18 @@ test("INTEGRATION GUARD: resolveOrCreateThreadForRecipient actually calls isBloc
   assert.ok(fnBody.includes("isBlockedEitherDirection"), "resolveOrCreateThreadForRecipient must check isBlockedEitherDirection before creating/reusing a thread");
 });
 
+// Fix 3 (QA follow-up): the resolve/create path above was never the gap
+// — sending into an ALREADY-OPEN thread (the actual send path for every
+// message after the first) never consulted blocking at all. This proves
+// that route now does.
+test("INTEGRATION GUARD: the existing-thread send route actually calls isThreadBlockedForActor before sending", () => {
+  const source = readFileSync(
+    join(process.cwd(), "src/app/api/team/[slug]/messages/threads/[threadId]/messages/route.ts"),
+    "utf8",
+  );
+  assert.ok(source.includes("isThreadBlockedForActor"), "the existing-thread send route must check isThreadBlockedForActor before inserting a message");
+});
+
 test("REGRESSION: announcement visibility source files never import user_blocks or moderation/blocks", () => {
   const files = [
     join(process.cwd(), "src/lib/announcementVisibility.ts"),
