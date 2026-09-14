@@ -51,7 +51,7 @@ export default function DeleteAccountModal({ slug, onClose }: { slug: string; on
     <div
       role="dialog"
       aria-modal="true"
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "auto" }}
       onClick={onClose}
     >
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "12px", padding: "1.35rem", maxWidth: "440px", width: "100%", boxShadow: "0 8px 30px rgba(0,0,0,.25)" }}>

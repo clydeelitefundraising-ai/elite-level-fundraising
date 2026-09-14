@@ -147,6 +147,23 @@ test("getBlockedByMeWithDisplay returns the blocked COACH's real name and a prop
   assert.equal(list[0].blocked_role, "Head Coach");
 });
 
+// Exact wire shape: the API route does `NextResponse.json({ blocks })`
+// with these objects completely unmodified — this pins the precise key
+// names a client actually receives (round-tripped through JSON, exactly
+// as the browser would see it), so a rename here would be caught
+// immediately rather than only failing silently in the UI.
+test("getBlockedByMeWithDisplay's exact JSON wire shape includes blocked_name/blocked_role (not name/role or any other key)", async () => {
+  reset();
+  db.team_coaches.push({ id: "coach-1", campaign_slug: SLUG, name: "Mike Owens", role: "head_coach" });
+  await blockUser(SLUG, { kind: "member", id: "mem-1" }, "coach", "coach-1");
+  const list = await getBlockedByMeWithDisplay(SLUG, { kind: "member", id: "mem-1" });
+  const wire = JSON.parse(JSON.stringify({ blocks: list }));
+  assert.equal(wire.blocks[0].blocked_name, "Mike Owens");
+  assert.equal(wire.blocks[0].blocked_role, "Head Coach");
+  assert.equal(wire.blocks[0].name, undefined, "must not also/instead expose a bare 'name' key");
+  assert.equal(wire.blocks[0].role, undefined, "must not also/instead expose a bare 'role' key");
+});
+
 test("getBlockedByMeWithDisplay returns the blocked MEMBER's real name and role (athlete/parent/booster)", async () => {
   reset();
   db.team_members.push({ id: "mem-9", campaign_slug: SLUG, name: "Jamie Rivera", role: "parent" });

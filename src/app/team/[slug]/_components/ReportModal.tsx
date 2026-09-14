@@ -71,7 +71,7 @@ export default function ReportModal({
     <div
       role="dialog"
       aria-modal="true"
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "auto" }}
       onClick={onClose}
     >
       <div

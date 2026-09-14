@@ -56,7 +56,7 @@ export default function BlockUserModal({
     <div
       role="dialog"
       aria-modal="true"
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", pointerEvents: "auto" }}
       onClick={onClose}
     >
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "12px", padding: "1.25rem", maxWidth: "400px", width: "100%", boxShadow: "0 8px 30px rgba(0,0,0,.2)" }}>
