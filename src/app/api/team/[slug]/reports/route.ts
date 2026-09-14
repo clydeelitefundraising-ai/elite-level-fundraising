@@ -45,6 +45,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
 
   if (!result.ok) {
     if (result.reason === "target_not_found") return NextResponse.json({ error: "Reported item not found." }, { status: 404 });
+    if (result.reason === "already_removed") return NextResponse.json({ error: "This content has already been removed by a moderator." }, { status: 409 });
     if (result.reason === "validation") return NextResponse.json({ error: result.message }, { status: 400 });
     return NextResponse.json({ error: "Failed to submit report." }, { status: 500 });
   }

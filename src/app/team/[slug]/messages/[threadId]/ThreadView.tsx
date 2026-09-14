@@ -45,12 +45,20 @@ function MessageBubble({
   isSelf,
   showSenderInfo,
   primaryColor,
+  onReportMessage,
+  onReportAttachment,
 }: {
   slug: string;
   msg: ResolvedMessage;
   isSelf: boolean;
   showSenderInfo: boolean;
   primaryColor: string;
+  // Fix 1/2 (per-message and per-attachment reporting): omitted entirely
+  // for the sender's own messages — reporting your own content has no
+  // moderation purpose — and for an already-removed message, which has
+  // nothing left to report.
+  onReportMessage: (messageId: string) => void;
+  onReportAttachment: (attachmentId: string) => void;
 }) {
   // An attachment-only message has an empty body — never render the
   // speech-bubble text container for it (an empty rounded bubble reads
@@ -114,14 +122,36 @@ function MessageBubble({
         {hasAttachments && (
           <div style={{ display: "flex", flexDirection: "column", gap: ".35rem", maxWidth: "100%" }}>
             {msg.attachments.map(a => (
-              <AttachmentCard key={a.id} slug={slug} attachment={a} />
+              <div key={a.id}>
+                <AttachmentCard slug={slug} attachment={a} />
+                {!isSelf && (
+                  <button
+                    onClick={() => onReportAttachment(a.id)}
+                    className="elf-focus-ring"
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: ".15rem 0 0", fontSize: ".62rem", fontWeight: 600, color: "#9ca3af" }}
+                  >
+                    Report attachment
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}
 
-        <span style={{ fontSize: ".6rem", color: "#c1c7d0" }}>
-          {relativeTime(msg.created_at)}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+          <span style={{ fontSize: ".6rem", color: "#c1c7d0" }}>
+            {relativeTime(msg.created_at)}
+          </span>
+          {!isSelf && !msg.removed && (
+            <button
+              onClick={() => onReportMessage(msg.id)}
+              className="elf-focus-ring"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: ".6rem", fontWeight: 600, color: "#c1c7d0" }}
+            >
+              Report
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -158,6 +188,19 @@ export default function ThreadView({
   const [reportingUser, setReportingUser] = useState(false);
   const [blockingUser, setBlockingUser] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  // Distinct from `blocked` (server truth: is this conversation blocked,
+  // in EITHER direction) — only ever set true when THIS session just
+  // performed the block itself, so the "you can unblock" hint is only
+  // ever shown to the person who can actually act on it. Never inferred
+  // from the block-status check alone, which deliberately doesn't reveal
+  // direction (see the neutral message below).
+  const [iBlockedThem, setIBlockedThem] = useState(false);
+  // Fix 1/2: separate from reportingUser (target_type "user") — these are
+  // content-level reports (target_type "message"/"attachment"). Both
+  // remain available at once; they are different report target types,
+  // not alternatives to each other.
+  const [reportingMessageId, setReportingMessageId] = useState<string | null>(null);
+  const [reportingAttachmentId, setReportingAttachmentId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected, selectionError, addFiles, removeFile, updateStatus, reset: resetSelected } = useSelectedAttachments();
@@ -174,6 +217,19 @@ export default function ThreadView({
       .then(() => {
         window.dispatchEvent(new CustomEvent("elf:messages-changed"));
       })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.id]);
+
+  // Phase A37 fix: server-side truth for whether THIS thread is
+  // currently blocked (either direction) — not just the in-session
+  // "I just clicked Block" flag `blocked` already tracks below, since a
+  // block placed earlier, or from another device, needs to disable the
+  // composer on a fresh page load too.
+  useEffect(() => {
+    fetch(`/api/team/${slug}/messages/threads/${thread.id}/block-status`)
+      .then(r => r.ok ? r.json() : { blocked: false })
+      .then(d => { if (d.blocked) setBlocked(true); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.id]);
@@ -329,7 +385,7 @@ export default function ThreadView({
       : primaryOther.member_id!
     : null;
 
-  const canSend = !sending && (replyBody.trim().length > 0 || selected.length > 0);
+  const canSend = !sending && !blocked && (replyBody.trim().length > 0 || selected.length > 0);
 
   const handleSend = useCallback(async () => {
     const body = replyBody.trim();
@@ -532,12 +588,19 @@ export default function ThreadView({
 
       {blocked && (
         <div style={{ padding: ".5rem .65rem", marginBottom: ".65rem", background: "#fef3c7", borderRadius: 8, fontSize: ".78rem", color: "#92400e" }}>
-          You&apos;ve blocked {primaryOther?.name}. You can unblock them from Settings.
+          Messaging is unavailable for this conversation.
+          {iBlockedThem && " You can unblock from this menu or Settings to resume messaging."}
         </div>
       )}
 
       {reportingUser && primaryOther && primaryOtherIdentityId && (
         <ReportModal slug={slug} targetType="user" targetId={primaryOtherIdentityId} targetKind={primaryOther.actor_type} onClose={() => setReportingUser(false)} />
+      )}
+      {reportingMessageId && (
+        <ReportModal slug={slug} targetType="message" targetId={reportingMessageId} onClose={() => setReportingMessageId(null)} />
+      )}
+      {reportingAttachmentId && (
+        <ReportModal slug={slug} targetType="attachment" targetId={reportingAttachmentId} onClose={() => setReportingAttachmentId(null)} />
       )}
       {blockingUser && primaryOther && primaryOtherIdentityId && (
         <BlockUserModal
@@ -546,7 +609,7 @@ export default function ThreadView({
           blockedId={primaryOtherIdentityId}
           blockedName={primaryOther.name}
           onClose={() => setBlockingUser(false)}
-          onBlocked={() => { setBlockingUser(false); setBlocked(true); }}
+          onBlocked={() => { setBlockingUser(false); setBlocked(true); setIBlockedThem(true); }}
         />
       )}
 
@@ -596,6 +659,8 @@ export default function ThreadView({
                 isSelf={isOwnMessage(m, actorKind, actorId)}
                 showSenderInfo={!sameSenderAsPrev}
                 primaryColor={primaryColor}
+                onReportMessage={setReportingMessageId}
+                onReportAttachment={setReportingAttachmentId}
               />
             );
           })
@@ -630,21 +695,22 @@ export default function ThreadView({
         <AttachmentComposerBar
           selected={selected}
           onRemove={removeFile}
-          disabled={sending}
+          disabled={sending || blocked}
           selectionError={selectionError}
         />
 
         <div style={{ display: "flex", gap: ".5rem", alignItems: "flex-end" }}>
-          <AttachmentPickerButton onFilesSelected={addFiles} disabled={sending} />
+          <AttachmentPickerButton onFilesSelected={addFiles} disabled={sending || blocked} />
           <textarea
             ref={textareaRef}
             value={replyBody}
             onChange={e => setReplyBody(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Reply… (⌘+Enter to send)"
+            placeholder={blocked ? "Messaging is unavailable for this conversation." : "Reply… (⌘+Enter to send)"}
             maxLength={3000}
             rows={2}
             aria-label="Reply"
+            disabled={blocked}
             style={{
               flex: 1,
               padding: ".55rem .7rem",
@@ -654,7 +720,7 @@ export default function ThreadView({
               color: "#374151",
               resize: "none",
               lineHeight: 1.5,
-              background: "#fff",
+              background: blocked ? "#f3f4f6" : "#fff",
             }}
           />
           <button
