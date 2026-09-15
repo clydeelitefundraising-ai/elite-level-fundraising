@@ -272,22 +272,16 @@ function AthleteProgressCard({
                   </span>
                 </div>
 
-                <div style={{ fontSize: ".68rem", color: "#9ca3af", marginBottom: a.pct !== null ? ".3rem" : 0 }}>
+                {/* QA fix: no per-athlete percent-funded progress bar here —
+                    same fix/rationale as FundraiserView.tsx's
+                    LeaderboardSection (this row had the identical
+                    inconsistency, driven by whether goal_cents happened
+                    to be set rather than any real difference). */}
+                <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>
                   {a.class_year ?? a.event}
                   {a.donorCount > 0 ? ` · ${a.donorCount} donor${a.donorCount !== 1 ? "s" : ""}` : " · No donors"}
                   {a.lastDonationAt && ` · Last: ${timeAgo(a.lastDonationAt)}`}
                 </div>
-
-                {a.pct !== null && (
-                  <div>
-                    <div style={{ height: 5, background: "#f3f4f6", borderRadius: 100, overflow: "hidden", marginBottom: ".2rem" }}>
-                      <div style={{ height: "100%", width: `${a.pct}%`, background: primary, borderRadius: 100 }} />
-                    </div>
-                    <div style={{ fontSize: ".63rem", fontWeight: 700, color: primary }}>
-                      {a.pct}% of goal
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           );
