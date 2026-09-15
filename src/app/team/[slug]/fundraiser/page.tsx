@@ -343,10 +343,11 @@ function TeamCampaignView({
             </div>
           ) : (
           <div style={{ padding: ".25rem 0" }}>
+            {/* QA fix: no per-row individual percent-funded progress bar — see
+                FundraiserView.tsx's LeaderboardSection for the full
+                rationale (this coach-facing leaderboard has the same row
+                shape and had the exact same inconsistency). */}
             {leaderboard.map((entry, i) => {
-              const pctEntry = entry.goalCents && entry.goalCents > 0
-                ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
-                : null;
               const bg = avatarBg(entry.name);
               return (
                 <div
@@ -381,18 +382,8 @@ function TeamCampaignView({
                       </span>
                     </div>
                     {(entry.class_year || entry.event) && (
-                      <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginBottom: ".25rem" }}>
+                      <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)" }}>
                         {entry.class_year ?? entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
-                      </div>
-                    )}
-                    {pctEntry !== null && (
-                      <div>
-                        <div style={{ height: 5, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden", marginBottom: ".18rem" }}>
-                          <div style={{ height: "100%", width: `${pctEntry}%`, background: "var(--team-primary)", borderRadius: 100 }} />
-                        </div>
-                        <div style={{ fontSize: ".63rem", color: "var(--team-primary)", fontWeight: 700 }}>
-                          {pctEntry}% of goal
-                        </div>
                       </div>
                     )}
                   </div>

@@ -181,6 +181,19 @@ function PeopleToContactCard({ slug, primary }: { slug: string; primary: string 
 
 // ── Leaderboard section ───────────────────────────────────────────────────────
 
+// QA fix: this used to conditionally render an individual percent-funded
+// progress bar per row whenever entry.goalCents was a positive number —
+// which only happens for an athlete whose individual goal_cents was
+// explicitly set (the coach Add/Edit Athlete form's optional "Fundraising
+// Goal" field, reachable for both a manually-added athlete and one
+// created by approving an "I don't see my name" join request). Bulk
+// admin-imported rosters never populate that field, so those athletes'
+// rows never had the bar — making otherwise-identical rows look
+// inconsistent purely based on how the athlete record was created, not
+// any actual difference the leaderboard should surface. Removed entirely
+// so every row uses the same compact rank/avatar/name/grade/amount
+// treatment regardless of goalCents. Purely a display change — goalCents
+// itself is untouched on LeaderboardEntry/the underlying athlete row.
 function LeaderboardSection({
   leaderboard,
   currentAthleteId,
@@ -227,9 +240,6 @@ function LeaderboardSection({
       <div style={{ padding: ".2rem 0" }}>
         {leaderboard.map((entry, i) => {
           const isCurrent = entry.id === currentAthleteId;
-          const pct = entry.goalCents && entry.goalCents > 0
-            ? Math.min(100, Math.round((entry.raisedCents / entry.goalCents) * 100))
-            : null;
           const bg = avatarColor(entry.name);
 
           return (
@@ -290,23 +300,12 @@ function LeaderboardSection({
                   </span>
                 </div>
 
-                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginBottom: pct !== null ? ".3rem" : 0 }}>
+                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)" }}>
                   {entry.class_year ?? entry.event}
                   {entry.donorCount > 0
                     ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}`
                     : ""}
                 </div>
-
-                {pct !== null && (
-                  <div>
-                    <div style={{ height: 5, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden", marginBottom: ".2rem" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: isCurrent ? primary : "#d1d5db", borderRadius: 100 }} />
-                    </div>
-                    <div style={{ fontSize: ".63rem", fontWeight: 700, color: isCurrent ? primary : "var(--text-muted-app)" }}>
-                      {pct}% of goal
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           );
