@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
 
 declare global {
   interface Window {
@@ -52,8 +53,9 @@ export default function AccountMenu({
   isMember?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   // QA fix: the dropdown (backdrop + panel) used to render inline here,
@@ -77,9 +79,38 @@ export default function AccountMenu({
   // when the menu opens.
   const openMenu = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    if (rect) {
+      // Panel size isn't known yet (nothing's rendered), so this first
+      // pass just gets the panel roughly in place — the layout effect
+      // below immediately re-clamps it against its real measured size
+      // before the browser paints, so there's no visible jump.
+      setMenuPos(computeClampedMenuPosition(
+        rect,
+        { width: 0, height: 0 },
+        { width: window.innerWidth, height: window.innerHeight },
+      ));
+    }
     setOpen(true);
   };
+
+  // Re-clamps the panel against its OWN real rendered size (not the
+  // width:0 guess above) — runs before paint, so any correction is
+  // invisible. Converges after at most one extra pass: the second run
+  // measures the same panel size at the now-correct position and finds
+  // nothing left to clamp.
+  useLayoutEffect(() => {
+    if (!open || !menuPos || !panelRef.current || !buttonRef.current) return;
+    const triggerRect = buttonRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const clamped = computeClampedMenuPosition(
+      triggerRect,
+      { width: panelRect.width, height: panelRect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    if (clamped.top !== menuPos.top || clamped.left !== menuPos.left) {
+      setMenuPos(clamped);
+    }
+  }, [open, menuPos]);
 
   // Lets the Android shell's hardware back button close this dropdown instead of
   // exiting the app (MainActivity.java checks window.__elfHasOpenOverlay before
@@ -144,18 +175,22 @@ export default function AccountMenu({
             onClick={() => setOpen(false)}
             style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)", pointerEvents: "auto" }}
           />
-          <div style={{
-            position: "fixed",
-            top: menuPos.top,
-            right: menuPos.right,
-            zIndex: 100,
-            background: "#fff",
-            borderRadius: ".85rem",
-            boxShadow: "0 8px 32px rgba(0,0,0,.22)",
-            minWidth: 230,
-            overflow: "hidden",
-            pointerEvents: "auto",
-          }}>
+          <div
+            ref={panelRef}
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              zIndex: 100,
+              background: "#fff",
+              borderRadius: ".85rem",
+              boxShadow: "0 8px 32px rgba(0,0,0,.22)",
+              minWidth: 230,
+              maxWidth: `calc(100vw - ${MENU_VIEWPORT_PADDING * 2}px)`,
+              overflow: "hidden",
+              pointerEvents: "auto",
+            }}
+          >
 
             {/* Account identity */}
             {accountName && (

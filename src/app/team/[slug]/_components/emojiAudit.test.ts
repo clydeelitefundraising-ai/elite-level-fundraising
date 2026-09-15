@@ -1,10 +1,21 @@
-// Apple-review UI polish: the authenticated ELF Team app's UI used to use
-// hardcoded pictographic emoji (🔔👤⚙️🚫🗑️📎🎥📄 etc.) as faux-icons
-// instead of the lucide-react icon library already used everywhere else
-// (TeamNav, DesktopSidebar). This is a static source guard against that
-// regression — it scans every .tsx source file under
-// src/app/team/[slug]/** for genuine pictographic emoji and fails if one
-// reappears in a hardcoded string/JSX literal.
+// Apple-review UI polish: the ELF Team app's UI used to use hardcoded
+// pictographic emoji (🔔👤⚙️🚫🗑️📎🎥📄🏅🔗👋 etc.) as faux-icons instead
+// of the lucide-react icon library already used everywhere else (TeamNav,
+// DesktopSidebar). This is a static source guard against that
+// regression — it scans every .tsx source file under each of ELF_TEAM_ROOTS
+// below for genuine pictographic emoji and fails if one reappears in a
+// hardcoded string/JSX literal.
+//
+// ELF_TEAM_ROOTS is every screen a signed-in (or signing-in) ELF Team user
+// actually passes through — login/entry, Choose Your Team, add/join team,
+// and the full authenticated team app — desktop and mobile alike (the same
+// components render both). It deliberately does NOT include src/app/admin,
+// src/app/platform-admin, src/app/campaign, or the (marketing) route
+// group: those are Elite's internal ops tooling and the public donor
+// site — a different audience/product than "ELF Team" (see
+// capacitor.config.ts's appName), not screens an Apple reviewer signed in
+// as a coach/athlete/parent/booster would ever reach. If a future export
+// of the ELF Team app onboards more entry screens, add their root here.
 //
 // Deliberately narrow to the "real emoji" Unicode ranges (the main
 // pictograph blocks, misc symbols, and dingbats) — NOT the broader
@@ -18,7 +29,17 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = join(process.cwd(), "src/app/team/[slug]");
+const ELF_TEAM_ROOTS = [
+  "src/app/team/[slug]",  // authenticated team app (all roles)
+  "src/app/teams",        // Choose Your Team / team selector
+  "src/app/join",         // add/join team (legacy compatibility route)
+  "src/app/enter-code",   // add/join team (canonical route)
+  "src/app/coach-login",  // coach login
+  "src/app/login",        // account login
+  "src/app/forgot-password",
+  "src/app/reset-password",
+  "src/app/staff-invite",  // staff invite acceptance (authenticated transition)
+].map(root => join(process.cwd(), root));
 
 // U+1F300–1FAFF: the main modern emoji blocks (faces, objects, symbols,
 // supplemental symbols/pictographs). U+2600–27BF: misc symbols + dingbats
@@ -52,9 +73,9 @@ function walk(dir: string, out: string[]): void {
   }
 }
 
-test("no hardcoded pictographic emoji remain as UI icons anywhere under the authenticated team app", () => {
+test("no hardcoded pictographic emoji remain as UI icons anywhere in the ELF Team app (login/entry, Choose Your Team, join, authenticated team UI)", () => {
   const files: string[] = [];
-  walk(ROOT, files);
+  for (const root of ELF_TEAM_ROOTS) walk(root, files);
   assert.ok(files.length > 50, "sanity check: this should have found a substantial number of .tsx files");
 
   const offenders: { file: string; line: number; match: string }[] = [];
@@ -78,4 +99,17 @@ test("no hardcoded pictographic emoji remain as UI icons anywhere under the auth
     offenders, [],
     `Found pictographic emoji used as UI icons — replace with a lucide-react icon:\n${offenders.map(o => `  ${o.file}:${o.line} (${o.match})`).join("\n")}`,
   );
+});
+
+// The specific regression QA reported on "Choose Your Team": a medal emoji
+// beside the Head Coach role badge, and a lightbulb emoji in the "Need
+// another team?" footer. Named separately from the broad scan above so a
+// future regression on this exact screen fails with a message that points
+// straight at it, not just "some file somewhere."
+test("Choose Your Team (TeamsView.tsx) uses lucide-react icons, not medal/lightbulb emoji, for the Head Coach badge and the \"Need another team?\" footer", () => {
+  const source = readFileSync(join(process.cwd(), "src/app/teams/TeamsView.tsx"), "utf8");
+  assert.ok(!/🏅|💡/.test(source), "medal (🏅) and lightbulb (💡) emoji must not appear in TeamsView.tsx");
+  assert.ok(source.includes('import { Footprints, Medal, ClipboardList, Users, Handshake, Star, User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School, Lightbulb'), "must import the lucide-react icons that replaced the removed emoji");
+  assert.ok(/head_coach:\s*Medal/.test(source), "Head Coach role badge must use the Medal icon");
+  assert.ok(source.includes("<Lightbulb"), "the \"Need another team?\" footer must render the Lightbulb icon");
 });

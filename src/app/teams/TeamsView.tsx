@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Footprints, Medal, ClipboardList, Users, Handshake, Star, User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School, Lightbulb, type LucideIcon } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
@@ -35,12 +36,12 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const ROLE_ICON: Record<string, string> = {
-  athlete:         "🏃",
-  head_coach:      "🏅",
-  assistant_coach: "📋",
-  parent:          "👪",
-  booster:         "🤝",
+const ROLE_ICON: Record<string, LucideIcon> = {
+  athlete:         Footprints,
+  head_coach:      Medal,
+  assistant_coach: ClipboardList,
+  parent:          Users,
+  booster:         Handshake,
 };
 
 // ── Profile menu ──────────────────────────────────────────────────────────────
@@ -80,16 +81,16 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
 
             {firstTeamSlug && (
               <a href={`/team/${firstTeamSlug}/profile`} onClick={() => setOpen(false)} style={menuItemStyle}>
-                <span style={{ fontSize: ".9rem" }}>👤</span> My Profile
+                <User size={16} aria-hidden="true" /> My Profile
               </a>
             )}
             {firstTeamSlug && (
               <a href={`/team/${firstTeamSlug}/settings`} onClick={() => setOpen(false)} style={menuItemStyle}>
-                <span style={{ fontSize: ".9rem" }}>⚙️</span> Settings
+                <SettingsIcon size={16} aria-hidden="true" /> Settings
               </a>
             )}
             <a href="mailto:support@elitelevelfundraising.com" style={menuItemStyle}>
-              <span style={{ fontSize: ".9rem" }}>❓</span> Help
+              <HelpCircle size={16} aria-hidden="true" /> Help
             </a>
 
             <form
@@ -103,7 +104,7 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
               }}
             >
               <button type="submit" style={{ ...menuItemStyle, width: "100%", border: "none", background: "none", cursor: "pointer", textAlign: "left", color: "#9ca3af" }}>
-                <span style={{ fontSize: ".9rem" }}>↩</span> Sign Out
+                <LogOut size={16} aria-hidden="true" /> Sign Out
               </button>
             </form>
           </div>
@@ -140,9 +141,11 @@ function PendingCard({ card }: { card: PendingTeamCard }) {
         <div style={{
           width: 56, height: 56, borderRadius: "1rem", flexShrink: 0,
           background: isDeclined ? "#fef2f2" : "#eef1f6",
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem",
+          display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          {isDeclined ? "🚫" : "⏳"}
+          {isDeclined
+            ? <Ban size={24} aria-hidden="true" style={{ color: "#b91c1c" }} />
+            : <Clock size={24} aria-hidden="true" style={{ color: "#6b7280" }} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: "1.02rem", color: "#121110", lineHeight: 1.25 }}>
@@ -268,7 +271,7 @@ export default function TeamsView({
 
           {teams.length === 0 && pendingCards.length === 0 ? (
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
-              <div style={{ fontSize: "2.5rem", marginBottom: ".75rem" }}>🏫</div>
+              <School size={40} aria-hidden="true" style={{ color: "#9ca3af", marginBottom: ".75rem" }} />
               <p style={{ color: "#6b7280", margin: "0 0 1.25rem", fontSize: ".9rem", lineHeight: 1.5 }}>
                 No teams linked yet.
               </p>
@@ -336,17 +339,20 @@ export default function TeamsView({
                         {[team.mascot, team.sport_name].filter(Boolean).join(" · ") || "Team Hub"}
                         {team.season && ` · ${team.season}`}
                       </div>
-                      {team.role && (
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", gap: ".3rem",
-                          marginTop: ".55rem", background: hexToRgba(color, 0.1), color,
-                          borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
-                          padding: ".25rem .6rem .25rem .5rem", textTransform: "uppercase", letterSpacing: ".03em",
-                        }}>
-                          <span style={{ fontSize: ".75rem" }}>{ROLE_ICON[team.role] ?? "⭐"}</span>
-                          {teamRoleLabel(team.role, team.role_kind)}
-                        </span>
-                      )}
+                      {team.role && (() => {
+                        const RoleIcon = ROLE_ICON[team.role] ?? Star;
+                        return (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", gap: ".3rem",
+                            marginTop: ".55rem", background: hexToRgba(color, 0.1), color,
+                            borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
+                            padding: ".25rem .6rem .25rem .5rem", textTransform: "uppercase", letterSpacing: ".03em",
+                          }}>
+                            <RoleIcon size={11} aria-hidden="true" />
+                            {teamRoleLabel(team.role, team.role_kind)}
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     {/* Chevron — the entire card is the tap target */}
@@ -381,7 +387,7 @@ export default function TeamsView({
               margin: ".25rem 0 1.5rem", padding: "1rem 1.1rem",
               background: "#F5F0E6", borderRadius: "1rem",
             }}>
-              <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>💡</span>
+              <Lightbulb size={18} aria-hidden="true" style={{ flexShrink: 0, color: "#92400e" }} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#121110", marginBottom: ".2rem" }}>
                   Need another team?

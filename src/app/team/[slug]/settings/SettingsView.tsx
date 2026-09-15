@@ -13,6 +13,7 @@ import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
 import CoachFundraisingSection from "./CoachFundraisingSection";
 import AccountPrivacySection from "./AccountPrivacySection";
+import IdentityAvatar from "./IdentityAvatar";
 
 type Props = {
   slug: string;
@@ -27,9 +28,13 @@ type Props = {
   // Phase A35: whether coach fundraising is currently enabled for this
   // campaign — Head-Coach-only section below.
   allowCoachFundraising: boolean;
+  // QA fix: same elf_accounts.profile_photo_url source AccountMenu already
+  // displays (threaded from settings/page.tsx's getAccountSession() call) —
+  // null for a legacy team_coach-cookie-only session, same as AccountMenu.
+  photoUrl: string | null;
 };
 
-export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding, allowCoachFundraising }: Props) {
+export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding, allowCoachFundraising, photoUrl }: Props) {
   const router = useRouter();
   const [code, setCode]       = useState<ActiveJoinCode | null>(initialCode);
   const [working, setWorking] = useState(false);
@@ -133,22 +138,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         alignItems: "center",
         gap: ".75rem",
       }}>
-        <div style={{
-          width: 38,
-          height: 38,
-          borderRadius: "50%",
-          background: "var(--team-primary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: ".7rem",
-          fontWeight: 800,
-          color: "var(--team-primary-foreground)",
-          flexShrink: 0,
-          letterSpacing: ".02em",
-        }}>
-          {coach.name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")}
-        </div>
+        <IdentityAvatar name={coach.name} photoUrl={photoUrl} />
         <div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{coach.name}</div>
           <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".05rem" }}>{staffRoleLabel(coach.role)}</div>

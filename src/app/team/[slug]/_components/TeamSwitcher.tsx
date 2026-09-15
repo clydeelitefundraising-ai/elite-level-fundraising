@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, User } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { resolveTeamTheme } from "@/lib/theme/teamTheme";
+import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
 
 export default function TeamSwitcher({
   currentSlug,
@@ -16,8 +17,9 @@ export default function TeamSwitcher({
   teams: TeamSummary[];
 }) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const router          = useRouter();
 
   // Hide only when no account teams at all (not logged in via elf_session)
@@ -43,11 +45,40 @@ export default function TeamSwitcher({
   // `position: absolute` anchor to this button breaks once portaled, so
   // its position is computed from the button's real screen coordinates
   // instead, captured when the menu opens.
+  //
+  // QA fix: this button lives in DesktopSidebar, at the LEFT edge of the
+  // screen on desktop — anchoring the panel purely to the button's right
+  // edge (assuming a fixed panel width) could push its computed left edge
+  // negative, off-screen. computeClampedMenuPosition (shared with
+  // AccountMenu, same bug there) clamps against the panel's own measured
+  // size instead, so it always stays fully inside the viewport.
   const openMenu = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    if (rect) {
+      setMenuPos(computeClampedMenuPosition(
+        rect,
+        { width: 0, height: 0 },
+        { width: window.innerWidth, height: window.innerHeight },
+      ));
+    }
     setOpen(true);
   };
+
+  // Re-clamps against the panel's real rendered size before paint — see
+  // AccountMenu.tsx's identical effect for why this needs no extra frame.
+  useLayoutEffect(() => {
+    if (!open || !menuPos || !panelRef.current || !buttonRef.current) return;
+    const triggerRect = buttonRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const clamped = computeClampedMenuPosition(
+      triggerRect,
+      { width: panelRect.width, height: panelRect.height },
+      { width: window.innerWidth, height: window.innerHeight },
+    );
+    if (clamped.top !== menuPos.top || clamped.left !== menuPos.left) {
+      setMenuPos(clamped);
+    }
+  }, [open, menuPos]);
 
   return (
     <div style={{ position: "relative" }}>
@@ -93,18 +124,22 @@ export default function TeamSwitcher({
           {/* Dropdown panel — fixed + computed coordinates, not
               absolute + calc(), since portaling to document.body breaks
               the old anchor to this button. */}
-          <div style={{
-            position: "fixed",
-            top: menuPos.top,
-            right: menuPos.right,
-            zIndex: 100,
-            background: "#fff",
-            borderRadius: ".75rem",
-            boxShadow: "0 8px 32px rgba(0,0,0,.22)",
-            minWidth: 210,
-            overflow: "hidden",
-            pointerEvents: "auto",
-          }}>
+          <div
+            ref={panelRef}
+            style={{
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              zIndex: 100,
+              background: "#fff",
+              borderRadius: ".75rem",
+              boxShadow: "0 8px 32px rgba(0,0,0,.22)",
+              minWidth: 210,
+              maxWidth: `calc(100vw - ${MENU_VIEWPORT_PADDING * 2}px)`,
+              overflow: "hidden",
+              pointerEvents: "auto",
+            }}
+          >
             <div style={{ padding: ".6rem 1rem", fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", borderBottom: "1px solid #f0f0f0" }}>
               Your Teams
             </div>

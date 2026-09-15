@@ -1,10 +1,7 @@
 "use client";
 
 import AccountPrivacySection from "./AccountPrivacySection";
-
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
-}
+import IdentityAvatar from "./IdentityAvatar";
 
 // General/account settings for every role that isn't a real coach
 // (athlete, parent, booster, and a platform admin browsing this team's
@@ -17,10 +14,12 @@ export default function MemberSettingsView({
   slug,
   name,
   roleLabel,
+  photoUrl,
 }: {
   slug: string;
   name: string;
   roleLabel: string;
+  photoUrl: string | null;
 }) {
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 700, margin: "0 auto" }}>
@@ -34,22 +33,7 @@ export default function MemberSettingsView({
         alignItems: "center",
         gap: ".75rem",
       }}>
-        <div style={{
-          width: 38,
-          height: 38,
-          borderRadius: "50%",
-          background: "var(--team-primary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: ".7rem",
-          fontWeight: 800,
-          color: "var(--team-primary-foreground)",
-          flexShrink: 0,
-          letterSpacing: ".02em",
-        }}>
-          {initials(name)}
-        </div>
+        <IdentityAvatar name={name} photoUrl={photoUrl} />
         <div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{name}</div>
           <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".05rem" }}>{roleLabel}</div>

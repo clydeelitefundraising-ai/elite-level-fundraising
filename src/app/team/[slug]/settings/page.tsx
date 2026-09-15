@@ -3,6 +3,7 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { memberRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
 import { getActiveJoinCode } from "@/lib/teamData";
 import { getCampaignSettings } from "@/lib/supabase";
+import { getAccountSession } from "@/lib/accountSession";
 import SettingsView from "./SettingsView";
 import MemberSettingsView from "./MemberSettingsView";
 
@@ -26,6 +27,14 @@ export default async function SettingsPage({
   // Public visitors → coach login
   if (actor.kind === "public") redirect(`/coach-login`);
 
+  // Same elf_accounts.profile_photo_url source AccountMenu already
+  // displays (see layout.tsx) — memoized per-request via React cache(), so
+  // this doesn't add a duplicate fetch beyond the one layout.tsx already
+  // makes. null for a legacy team_coach/team_member-cookie-only session,
+  // same as AccountMenu's fallback (no second photo system).
+  const accountSession = await getAccountSession();
+  const photoUrl = accountSession?.profile_photo_url ?? null;
+
   if (actor.kind === "coach") {
     const [activeCode, settings] = await Promise.all([
       getActiveJoinCode(slug),
@@ -36,6 +45,7 @@ export default async function SettingsPage({
         slug={slug}
         coach={actor.session}
         initialCode={activeCode}
+        photoUrl={photoUrl}
         joinCodeSettings={{
           school_name:   settings?.school_name ?? "",
           sport_name:    settings?.sport_name ?? "",
@@ -58,5 +68,5 @@ export default async function SettingsPage({
   // Member (athlete/parent/booster) or a Platform Admin browsing this
   // team's Settings page — general account settings only.
   const roleLabel = actor.kind === "member" ? memberRoleLabel(actor.session.role) : platformAdminRoleLabel();
-  return <MemberSettingsView slug={slug} name={actor.session.name} roleLabel={roleLabel} />;
+  return <MemberSettingsView slug={slug} name={actor.session.name} roleLabel={roleLabel} photoUrl={photoUrl} />;
 }
