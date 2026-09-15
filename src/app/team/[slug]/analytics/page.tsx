@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import { getTeamAthletes } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { Lock } from "lucide-react";
 import AnalyticsView from "./AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "./AnalyticsView";
 
@@ -161,7 +162,7 @@ function CoachOnlyGate({ slug }: { slug: string }) {
         background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
         textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
       }}>
-        <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>🔒</div>
+        <div style={{ marginBottom: ".65rem", opacity: .35, display: "flex", justifyContent: "center" }}><Lock size={32} strokeWidth={1.75} aria-hidden="true" /></div>
         <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
           Coach Access Only
         </div>

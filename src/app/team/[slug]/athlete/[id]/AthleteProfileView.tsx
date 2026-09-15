@@ -5,6 +5,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../../_components/Modal";
 import { buildShareText, buildAthleteShareUrl } from "@/lib/shareCopy";
+import { Star } from "lucide-react";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -336,7 +337,7 @@ export default function AthleteProfileView({
             alignItems: "center",
             gap: ".5rem",
           }}>
-            <span style={{ fontSize: ".82rem" }}>⭐</span>
+            <Star size={14} strokeWidth={2} aria-hidden="true" style={{ color: "#f59e0b", flexShrink: 0 }} />
             <div style={{ fontSize: ".72rem", color: "#6b7280" }}>
               <span style={{ fontWeight: 700, color: "#0b1e3d" }}>
                 {topSupporter.name ?? "Anonymous"}

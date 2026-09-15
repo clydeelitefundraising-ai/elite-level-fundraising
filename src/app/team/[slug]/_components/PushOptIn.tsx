@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Bell, BellOff } from "lucide-react";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
 
 export default function PushOptIn({ slug }: { slug: string }) {
@@ -41,7 +42,9 @@ export default function PushOptIn({ slug }: { slug: string }) {
         position: "relative",
       }}
     >
-      {subscribed ? "🔔" : "🔕"}
+      {subscribed
+        ? <Bell size={15} strokeWidth={2} aria-hidden="true" style={{ color: "#fff" }} />
+        : <BellOff size={15} strokeWidth={2} aria-hidden="true" style={{ color: "#fff" }} />}
       {/* Dot indicator when not subscribed */}
       {!subscribed && (
         <span style={{

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { CampaignSettings } from "@/lib/supabase";
 import type { TeamProductRow } from "@/lib/teamData";
 import { isStaff, type TeamActor } from "@/lib/permissions";
+import { Link as LinkIcon, ShoppingBag } from "lucide-react";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 
@@ -119,8 +120,8 @@ function ProductCard({
           {hasVariants && <span style={{ fontSize: ".65rem", color: "#9ca3af", marginLeft: ".3rem", fontWeight: 400 }}>+ options</span>}
         </div>
         {isCoach && externalUrl && (
-          <div style={{ marginTop: ".3rem", fontSize: ".65rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            🔗 {externalUrl}
+          <div style={{ marginTop: ".3rem", fontSize: ".65rem", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: ".25rem" }}>
+            <LinkIcon size={11} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> {externalUrl}
           </div>
         )}
       </div>
@@ -595,7 +596,7 @@ export default function ShopView({
       {/* ── Gallery ── */}
       {isEmpty ? (
         <div style={{ background: "#fff", borderRadius: 14, padding: "3rem 1.5rem", textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)" }}>
-          <div style={{ fontSize: "2.25rem", marginBottom: ".75rem", opacity: .3 }}>👕</div>
+          <div style={{ marginBottom: ".75rem", opacity: .3, display: "flex", justifyContent: "center" }}><ShoppingBag size={36} strokeWidth={1.75} aria-hidden="true" /></div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
             {isCoach ? "No products yet" : "Gallery coming soon"}
           </div>

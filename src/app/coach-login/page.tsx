@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Trophy } from "lucide-react";
 
 export default function CoachLoginPage() {
   const router = useRouter();
@@ -66,9 +67,8 @@ export default function CoachLoginPage() {
           alignItems: "center",
           justifyContent: "center",
           marginBottom: "1.25rem",
-          fontSize: "1.3rem",
         }}>
-          🏆
+          <Trophy size={22} aria-hidden="true" style={{ color: "#fff" }} />
         </div>
 
         <h1 style={{ margin: "0 0 .3rem", fontSize: "1.3rem", fontWeight: 800, color: "#0b1e3d" }}>

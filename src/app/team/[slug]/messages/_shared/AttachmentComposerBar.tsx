@@ -1,12 +1,12 @@
 "use client";
 
+import { Video, Image as ImageIcon, Paperclip } from "lucide-react";
 import { readableFileSize } from "./attachmentClient";
 import type { SelectedAttachment } from "./useSelectedAttachments";
 
-function kindIcon(kind: SelectedAttachment["kind"]): string {
-  if (kind === "video") return "🎥";
-  if (kind === "image") return "📷";
-  return "📎";
+function KindIcon({ kind }: { kind: SelectedAttachment["kind"] }) {
+  const Icon = kind === "video" ? Video : kind === "image" ? ImageIcon : Paperclip;
+  return <Icon size={16} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} />;
 }
 
 /** The selected-but-not-yet-sent attachment chip strip, shared by the
@@ -57,7 +57,7 @@ export default function AttachmentComposerBar({
                   style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
                 />
               ) : (
-                <span aria-hidden="true" style={{ fontSize: "1.1rem", flexShrink: 0 }}>{kindIcon(item.kind)}</span>
+                <KindIcon kind={item.kind} />
               )}
 
               <div style={{ minWidth: 0, flex: 1 }}>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { AthleteSummary, CoachSummaryResponse } from "@/app/api/team/[slug]/contacts/coach/summary/route";
 import Modal from "../../_components/Modal";
 import { downloadViaFetch } from "../../_components/fileDownload";
+import { Phone, Mail, Users } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -200,8 +201,8 @@ function AthleteContactList({
               <div style={{ fontWeight: 700, fontSize: ".85rem", color: "#0b1e3d" }}>{displayContactName(c)}</div>
               {rel && <div style={{ fontSize: ".7rem", color: "#6b7280" }}>{rel}</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: ".05rem", marginTop: ".1rem" }}>
-                {c.phone && <div style={{ fontSize: ".75rem", color: "#374151" }}>📱 {c.phone}</div>}
-                {c.email && <div style={{ fontSize: ".75rem", color: "#374151", wordBreak: "break-all" }}>✉️ {c.email}</div>}
+                {c.phone && <div style={{ fontSize: ".75rem", color: "#374151", display: "flex", alignItems: "center", gap: ".3rem" }}><Phone size={12} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> {c.phone}</div>}
+                {c.email && <div style={{ fontSize: ".75rem", color: "#374151", wordBreak: "break-all", display: "flex", alignItems: "center", gap: ".3rem" }}><Mail size={12} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> {c.email}</div>}
               </div>
               <div style={{ fontSize: ".65rem", color: "#b0b7c3", marginTop: ".1rem" }}>
                 Added by {c.added_by_type} · {fmtDate(c.created_at)}
@@ -301,8 +302,8 @@ function AthleteRow({
 
         {/* Sub-stats */}
         <div style={{ display: "flex", gap: ".75rem", marginTop: ".55rem" }}>
-          <div style={{ fontSize: ".68rem", color: "#6b7280" }}>📱 {a.phone_count}</div>
-          <div style={{ fontSize: ".68rem", color: "#6b7280" }}>✉️ {a.email_count}</div>
+          <div style={{ fontSize: ".68rem", color: "#6b7280", display: "flex", alignItems: "center", gap: ".25rem" }}><Phone size={11} strokeWidth={2} aria-hidden="true" /> {a.phone_count}</div>
+          <div style={{ fontSize: ".68rem", color: "#6b7280", display: "flex", alignItems: "center", gap: ".25rem" }}><Mail size={11} strokeWidth={2} aria-hidden="true" /> {a.email_count}</div>
           <div style={{ fontSize: ".68rem", color: "#6b7280" }}>Both: {a.both_count}</div>
           <div style={{ flex: 1 }} />
           <div style={{ fontSize: ".68rem", color: "#9ca3af" }}>
@@ -487,8 +488,8 @@ export default function CoachContactsView({
           }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: ".7rem", opacity: .8 }}>
-            📱 {data.team_phone} phone · ✉️ {data.team_email} email
+          <div style={{ fontSize: ".7rem", opacity: .8, display: "flex", alignItems: "center", gap: ".3rem", flexWrap: "wrap" }}>
+            <Phone size={11} strokeWidth={2} aria-hidden="true" /> {data.team_phone} phone · <Mail size={11} strokeWidth={2} aria-hidden="true" /> {data.team_email} email
           </div>
           <div style={{ fontSize: ".75rem", fontWeight: 700 }}>{teamPct}%</div>
         </div>
@@ -519,7 +520,7 @@ export default function CoachContactsView({
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>👥</div>
+          <div style={{ marginBottom: ".65rem", opacity: .35, display: "flex", justifyContent: "center" }}><Users size={32} strokeWidth={1.75} aria-hidden="true" /></div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151" }}>No athletes found</div>
         </div>
       ) : (

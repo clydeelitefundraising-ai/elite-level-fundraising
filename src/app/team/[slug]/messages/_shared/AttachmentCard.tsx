@@ -5,6 +5,7 @@
 // bundle. This is the same pattern ThreadView.tsx already uses for
 // MessageThread/ResolvedParticipant/ResolvedMessage.
 import { Capacitor } from "@capacitor/core";
+import { Video, Paperclip } from "lucide-react";
 import type { MessageAttachmentPublic } from "@/lib/messages";
 import { attachmentAnchorProps, attachmentApiHref, attachmentAnchorHref } from "./attachmentClient";
 
@@ -68,7 +69,7 @@ export default function AttachmentCard({
   // the thread itself — the actual video/document EXPERIENCE (playback,
   // PDF preview, etc.) lives in the attachment viewer page on native, and
   // in whatever the browser does with the raw route on web.
-  const icon = attachment.attachment_kind === "video" ? "🎥" : "📎";
+  const Icon = attachment.attachment_kind === "video" ? Video : Paperclip;
   return (
     <a
       href={anchorHref}
@@ -81,7 +82,7 @@ export default function AttachmentCard({
         textDecoration: "none",
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: "1.3rem", flexShrink: 0 }}>{icon}</span>
+      <Icon size={20} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0, color: "#374151" }} />
       <div style={{ minWidth: 0 }}>
         <div
           title={attachment.original_filename}

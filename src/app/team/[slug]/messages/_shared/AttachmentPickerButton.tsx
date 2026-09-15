@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Paperclip } from "lucide-react";
 import { ACCEPTED_FILE_INPUT_ACCEPT } from "./attachmentClient";
 
 export default function AttachmentPickerButton({
@@ -50,7 +51,7 @@ export default function AttachmentPickerButton({
           opacity:      disabled ? .5 : 1,
         }}
       >
-        <span aria-hidden="true">📎</span>
+        <Paperclip size={17} strokeWidth={2} aria-hidden="true" />
       </button>
     </>
   );

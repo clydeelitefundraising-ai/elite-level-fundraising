@@ -1,9 +1,21 @@
 import { redirect } from "next/navigation";
 import { getTeamActor } from "@/lib/permissions.server";
+import { memberRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
 import { getActiveJoinCode } from "@/lib/teamData";
 import { getCampaignSettings } from "@/lib/supabase";
+import { getAccountSession } from "@/lib/accountSession";
 import SettingsView from "./SettingsView";
+import MemberSettingsView from "./MemberSettingsView";
 
+// Settings is reachable by every authenticated team role:
+//   - Head Coach / Assistant Coach (actor.kind === "coach"): the full
+//     SettingsView — general/account settings (AccountPrivacySection)
+//     PLUS all existing coach/team settings (branding, staff, join
+//     codes, coach fundraising, etc.), unchanged.
+//   - Athlete / Parent / Booster, and a Platform Admin browsing this
+//     team's settings (everyone else): MemberSettingsView — general/
+//     account settings only (AccountPrivacySection: Blocked Users,
+//     Delete Account). No coach-only control is ever exposed here.
 export default async function SettingsPage({
   params,
 }: {
@@ -15,72 +27,46 @@ export default async function SettingsPage({
   // Public visitors → coach login
   if (actor.kind === "public") redirect(`/coach-login`);
 
-  // Members (athlete / parent) → friendly gate, not a login redirect
-  if (actor.kind !== "coach") {
-    return <CoachOnlyGate slug={slug} />;
+  // Same elf_accounts.profile_photo_url source AccountMenu already
+  // displays (see layout.tsx) — memoized per-request via React cache(), so
+  // this doesn't add a duplicate fetch beyond the one layout.tsx already
+  // makes. null for a legacy team_coach/team_member-cookie-only session,
+  // same as AccountMenu's fallback (no second photo system).
+  const accountSession = await getAccountSession();
+  const photoUrl = accountSession?.profile_photo_url ?? null;
+
+  if (actor.kind === "coach") {
+    const [activeCode, settings] = await Promise.all([
+      getActiveJoinCode(slug),
+      getCampaignSettings(slug),
+    ]);
+    return (
+      <SettingsView
+        slug={slug}
+        coach={actor.session}
+        initialCode={activeCode}
+        photoUrl={photoUrl}
+        joinCodeSettings={{
+          school_name:   settings?.school_name ?? "",
+          sport_name:    settings?.sport_name ?? "",
+          mascot:        settings?.mascot ?? null,
+          season:        settings?.season ?? null,
+          primary_color: settings?.primary_color ?? "#0b1e3d",
+        }}
+        branding={{
+          school_name:          settings?.school_name ?? "",
+          logo_url:             settings?.logo_url ?? "",
+          primary_color:        settings?.primary_color ?? null,
+          secondary_color:      settings?.secondary_color ?? null,
+          branding_customized:  settings?.branding_customized ?? false,
+        }}
+        allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
+      />
+    );
   }
 
-  const [activeCode, settings] = await Promise.all([
-    getActiveJoinCode(slug),
-    getCampaignSettings(slug),
-  ]);
-  return (
-    <SettingsView
-      slug={slug}
-      coach={actor.session}
-      initialCode={activeCode}
-      joinCodeSettings={{
-        school_name:   settings?.school_name ?? "",
-        sport_name:    settings?.sport_name ?? "",
-        mascot:        settings?.mascot ?? null,
-        season:        settings?.season ?? null,
-        primary_color: settings?.primary_color ?? "#0b1e3d",
-      }}
-      branding={{
-        school_name:          settings?.school_name ?? "",
-        logo_url:             settings?.logo_url ?? "",
-        primary_color:        settings?.primary_color ?? null,
-        secondary_color:      settings?.secondary_color ?? null,
-        branding_customized:  settings?.branding_customized ?? false,
-      }}
-      allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
-    />
-  );
-}
-
-function CoachOnlyGate({ slug }: { slug: string }) {
-  return (
-    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: 14,
-        padding: "2.5rem 1.5rem",
-        textAlign: "center",
-        boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-      }}>
-        <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>🔒</div>
-        <div style={{ fontWeight: 800, fontSize: "1rem", color: "#0b1e3d", marginBottom: ".3rem" }}>
-          Coach Access Only
-        </div>
-        <p style={{ margin: "0 0 1.25rem", fontSize: ".85rem", color: "#6b7280", lineHeight: 1.5 }}>
-          This page is only available to coaches. Contact your coach if you need help.
-        </p>
-        <a
-          href={`/team/${slug}/home`}
-          style={{
-            display: "inline-block",
-            padding: ".55rem 1.25rem",
-            background: "#0b1e3d",
-            color: "#fff",
-            borderRadius: 9,
-            fontSize: ".875rem",
-            fontWeight: 700,
-            textDecoration: "none",
-          }}
-        >
-          Back to Home
-        </a>
-      </div>
-    </div>
-  );
+  // Member (athlete/parent/booster) or a Platform Admin browsing this
+  // team's Settings page — general account settings only.
+  const roleLabel = actor.kind === "member" ? memberRoleLabel(actor.session.role) : platformAdminRoleLabel();
+  return <MemberSettingsView slug={slug} name={actor.session.name} roleLabel={roleLabel} photoUrl={photoUrl} />;
 }

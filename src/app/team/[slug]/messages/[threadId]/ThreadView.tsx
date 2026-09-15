@@ -16,6 +16,7 @@ import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
 import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
 import ReportModal from "../../_components/ReportModal";
 import BlockUserModal from "../../_components/BlockUserModal";
+import { Shield, Eye } from "lucide-react";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -623,13 +624,13 @@ export default function ThreadView({
         }}>
           {family && (
             <div style={{ display: "flex", alignItems: "center", gap: ".3rem" }}>
-              <span aria-hidden="true">🛡️</span>
+              <Shield size={13} strokeWidth={2} aria-hidden="true" />
               <span>Parent/guardian included</span>
             </div>
           )}
           {observers.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: ".3rem" }}>
-              <span aria-hidden="true">👁</span>
+              <Eye size={13} strokeWidth={2} aria-hidden="true" />
               <span>{observers.map(o => o.name).join(", ")} included for oversight</span>
             </div>
           )}

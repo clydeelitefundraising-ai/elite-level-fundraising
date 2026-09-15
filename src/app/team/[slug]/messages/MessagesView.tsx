@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Plus } from "lucide-react";
+import { MessageCircle, Plus, Shield } from "lucide-react";
 import type { ThreadWithDetails } from "@/lib/messages";
 import {
   roleLabel, otherParticipants, conversationDisplayName, isFamilyThread, selfParticipantRow,
@@ -491,7 +491,7 @@ function ComposeModal({
                 fontSize: ".75rem", color: "#166534",
                 marginBottom: ".9rem", display: "flex", gap: ".35rem", alignItems: "flex-start",
               }}>
-                <span>🛡️</span>
+                <Shield size={13} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0, marginTop: "1px" }} />
                 <span>{safetyNote}</span>
               </div>
             )}

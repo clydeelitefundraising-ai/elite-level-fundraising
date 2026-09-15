@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Modal from "../_components/Modal";
+import { Phone, Mail, PartyPopper, ClipboardList } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -126,10 +127,10 @@ function ContactCard({
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: ".1rem" }}>
           {contact.phone && (
-            <div style={{ fontSize: ".78rem", color: "#374151" }}>📱 {contact.phone}</div>
+            <div style={{ fontSize: ".78rem", color: "#374151", display: "flex", alignItems: "center", gap: ".3rem" }}><Phone size={12} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> {contact.phone}</div>
           )}
           {contact.email && (
-            <div style={{ fontSize: ".78rem", color: "#374151", wordBreak: "break-all" }}>✉️ {contact.email}</div>
+            <div style={{ fontSize: ".78rem", color: "#374151", wordBreak: "break-all", display: "flex", alignItems: "center", gap: ".3rem" }}><Mail size={12} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> {contact.email}</div>
           )}
         </div>
         {contact.notes && (
@@ -338,8 +339,8 @@ export default function ContactsView({
         </div>
         <ProgressBar pct={pct} color={pct >= 100 ? "#059669" : primaryColor} />
         {pct >= 100 && (
-          <p style={{ margin: ".5rem 0 0", fontSize: ".75rem", color: "#059669", fontWeight: 700 }}>
-            🎉 Goal reached! Keep adding contacts to maximize your fundraiser.
+          <p style={{ margin: ".5rem 0 0", fontSize: ".75rem", color: "#059669", fontWeight: 700, display: "flex", alignItems: "center", gap: ".35rem" }}>
+            <PartyPopper size={13} strokeWidth={2} aria-hidden="true" style={{ flexShrink: 0 }} /> Goal reached! Keep adding contacts to maximize your fundraiser.
           </p>
         )}
       </div>
@@ -374,7 +375,7 @@ export default function ContactsView({
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
-          <div style={{ fontSize: "2rem", marginBottom: ".65rem", opacity: .35 }}>📋</div>
+          <div style={{ marginBottom: ".65rem", opacity: .35, display: "flex", justifyContent: "center" }}><ClipboardList size={32} strokeWidth={1.75} aria-hidden="true" /></div>
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "#374151", marginBottom: ".3rem" }}>
             No contacts yet
           </div>

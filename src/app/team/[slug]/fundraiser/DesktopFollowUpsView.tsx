@@ -1,6 +1,7 @@
 "use client";
 
 import type { FollowUpSort, FollowUpFilter } from "@/lib/followUps";
+import { CheckCircle2 } from "lucide-react";
 import styles from "./Fundraiser.module.css";
 import { STATUS_STYLE, SORT_OPTIONS, FOLLOWUP_FILTER_OPTIONS, fmtCents, fmtDate, desktopFollowUpStatusLabel } from "./followUpsFormat";
 import type { FollowUpsWorkspaceState } from "./useFollowUpsWorkspace";
@@ -105,7 +106,7 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
           background: "#fff", borderRadius: 14, padding: "2.5rem 1.5rem",
           textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
-          <div style={{ fontSize: "1.75rem", marginBottom: ".5rem", opacity: .35 }}>✅</div>
+          <div style={{ marginBottom: ".5rem", opacity: .35, display: "flex", justifyContent: "center" }}><CheckCircle2 size={28} strokeWidth={1.75} aria-hidden="true" /></div>
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>
             {filter === "needs_follow_up" ? "No one currently needs follow-up." : "No athletes on the roster yet."}
           </p>

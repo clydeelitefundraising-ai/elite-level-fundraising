@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
+import { Phone, Mail } from "lucide-react";
 import Modal from "../../_components/Modal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -590,12 +591,12 @@ export default function CoachAthleteView({
           <div style={{ marginTop: ".85rem", paddingTop: ".85rem", borderTop: "1px solid #f3f4f6", display: "flex", flexDirection: "column", gap: ".3rem" }}>
             {athlete.contact_phone && (
               <a href={`tel:${athlete.contact_phone}`} style={{ fontSize: ".8rem", color: "#1d4ed8", textDecoration: "none", display: "flex", alignItems: "center", gap: ".35rem" }}>
-                <span style={{ fontSize: ".85rem" }}>📞</span> {athlete.contact_phone}
+                <Phone size={13} strokeWidth={2} aria-hidden="true" /> {athlete.contact_phone}
               </a>
             )}
             {athlete.contact_email && (
               <a href={`mailto:${athlete.contact_email}`} style={{ fontSize: ".8rem", color: "#1d4ed8", textDecoration: "none", display: "flex", alignItems: "center", gap: ".35rem" }}>
-                <span style={{ fontSize: ".85rem" }}>✉️</span> {athlete.contact_email}
+                <Mail size={13} strokeWidth={2} aria-hidden="true" /> {athlete.contact_email}
               </a>
             )}
           </div>

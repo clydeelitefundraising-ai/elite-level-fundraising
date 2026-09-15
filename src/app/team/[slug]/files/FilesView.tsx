@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { Paperclip, FileText, Image as ImageIcon, FileType as FileTypeIcon, type LucideIcon, UploadCloud } from "lucide-react";
 import type { TeamFileRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
@@ -24,11 +24,11 @@ const ALLOWED_MIME = [
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
-const FILE_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
-  pdf:   { bg: "#fee2e2", color: "#dc2626", icon: "📄" },
-  image: { bg: "#dbeafe", color: "#1d4ed8", icon: "🖼️" },
-  doc:   { bg: "#ede9fe", color: "#6d28d9", icon: "📝" },
-  other: { bg: "#f3f4f6", color: "#374151", icon: "📎" },
+const FILE_STYLE: Record<string, { bg: string; color: string; icon: LucideIcon }> = {
+  pdf:   { bg: "#fee2e2", color: "#dc2626", icon: FileText },
+  image: { bg: "#dbeafe", color: "#1d4ed8", icon: ImageIcon },
+  doc:   { bg: "#ede9fe", color: "#6d28d9", icon: FileTypeIcon },
+  other: { bg: "#f3f4f6", color: "#374151", icon: Paperclip },
 };
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
@@ -285,7 +285,7 @@ export default function FilesView({
             transition: "all .15s ease",
           }}
         >
-          <div style={{ fontSize: "1.5rem", marginBottom: ".35rem", opacity: dragOver ? 1 : .5 }}>☁️</div>
+          <div style={{ marginBottom: ".35rem", opacity: dragOver ? 1 : .5, display: "flex", justifyContent: "center" }}><UploadCloud size={24} strokeWidth={2} aria-hidden="true" /></div>
           <div style={{ fontSize: ".82rem", fontWeight: 700, color: dragOver ? "var(--team-primary)" : "#6b7280" }}>
             {dragOver ? "Drop to upload" : "Tap to upload"}
           </div>
@@ -378,7 +378,7 @@ export default function FilesView({
                   transition: "transform .13s ease",
                   transform: hovered ? "scale(1.06)" : "scale(1)",
                 }}>
-                  {s.icon}
+                  <s.icon size={18} strokeWidth={2} aria-hidden="true" style={{ color: s.color }} />
                 </div>
 
                 {/* Info */}

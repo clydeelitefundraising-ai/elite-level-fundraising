@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import { Unlink2, DoorClosed } from "lucide-react";
 import { resolveJoinCode } from "@/lib/teamData";
 import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
 import { authDisplayFont } from "@/components/auth/authDisplayFont";
@@ -112,7 +113,7 @@ function InvalidCode({ code, photo }: { code: string; photo: EntryPhoto }) {
       <div className={joinStyles.cardArea}>
         <div style={cardStyle()}>
           <CardWordmark />
-          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>🔗</div>
+          <Unlink2 size={32} aria-hidden="true" style={{ color: "#9ca3af", marginBottom: "1rem" }} />
           <h1 style={{ margin: "0 0 .5rem", fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.3rem", fontWeight: 400, color: "#121110" }}>
             Invalid Join Code
           </h1>
@@ -136,7 +137,7 @@ function ArchivedTeam({ photo }: { photo: EntryPhoto }) {
       <div className={joinStyles.cardArea}>
         <div style={cardStyle()}>
           <CardWordmark />
-          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>👋</div>
+          <DoorClosed size={32} aria-hidden="true" style={{ color: "#9ca3af", marginBottom: "1rem" }} />
           <h1 style={{ margin: "0 0 .5rem", fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.3rem", fontWeight: 400, color: "#121110" }}>
             Not Accepting New Members
           </h1>
