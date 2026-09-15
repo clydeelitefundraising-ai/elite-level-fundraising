@@ -101,15 +101,24 @@ test("no hardcoded pictographic emoji remain as UI icons anywhere in the ELF Tea
   );
 });
 
-// The specific regression QA reported on "Choose Your Team": a medal emoji
-// beside the Head Coach role badge, and a lightbulb emoji in the "Need
-// another team?" footer. Named separately from the broad scan above so a
-// future regression on this exact screen fails with a message that points
-// straight at it, not just "some file somewhere."
-test("Choose Your Team (TeamsView.tsx) uses lucide-react icons, not medal/lightbulb emoji, for the Head Coach badge and the \"Need another team?\" footer", () => {
+// The specific regression QA originally reported on "Choose Your Team": a
+// medal emoji beside the Head Coach role badge, and a lightbulb emoji in
+// the "Need another team?" footer. Those emoji were first replaced with
+// lucide-react icons (Medal, Lightbulb) — a follow-up visual QA pass then
+// asked for the icons to be removed entirely on THIS page only (role
+// badges should read as plain text, "Need another team?" should have no
+// icon), while every OTHER lucide-react icon this same PR added elsewhere
+// in the ELF Team app (AccountMenu, TeamsView's own profile menu/pending-
+// card/empty-state icons, coach-login, join) stays. This test now asserts
+// the settled state: no emoji (regression), AND no decorative icon
+// specifically on the role badge or the "Need another team?" footer
+// (the deliberate follow-up design change) — without over-constraining
+// the rest of the page's icons, which the broad scan above already covers.
+test("Choose Your Team (TeamsView.tsx): role badges and the \"Need another team?\" footer are plain text/no icon — no medal/lightbulb emoji, and no decorative icon reintroduced in either spot", () => {
   const source = readFileSync(join(process.cwd(), "src/app/teams/TeamsView.tsx"), "utf8");
   assert.ok(!/🏅|💡/.test(source), "medal (🏅) and lightbulb (💡) emoji must not appear in TeamsView.tsx");
-  assert.ok(source.includes('import { Footprints, Medal, ClipboardList, Users, Handshake, Star, User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School, Lightbulb'), "must import the lucide-react icons that replaced the removed emoji");
-  assert.ok(/head_coach:\s*Medal/.test(source), "Head Coach role badge must use the Medal icon");
-  assert.ok(source.includes("<Lightbulb"), "the \"Need another team?\" footer must render the Lightbulb icon");
+  assert.ok(!source.includes("ROLE_ICON"), "the role-badge icon lookup must be removed — role badges are plain text");
+  assert.ok(!source.includes("Lightbulb"), "no Lightbulb icon (import or usage) — the \"Need another team?\" footer has no icon");
+  assert.ok(source.includes("Need another team?"), "the footer's heading text must still render");
+  assert.ok(source.includes("teamRoleLabel(team.role, team.role_kind)"), "role badges must still render the role label text");
 });

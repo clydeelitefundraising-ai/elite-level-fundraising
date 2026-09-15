@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Footprints, Medal, ClipboardList, Users, Handshake, Star, User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School, Lightbulb, type LucideIcon } from "lucide-react";
+import { User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
@@ -35,14 +35,6 @@ function hexToRgba(hex: string, alpha: number): string {
   const b = parseInt(h.substring(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
-
-const ROLE_ICON: Record<string, LucideIcon> = {
-  athlete:         Footprints,
-  head_coach:      Medal,
-  assistant_coach: ClipboardList,
-  parent:          Users,
-  booster:         Handshake,
-};
 
 // ── Profile menu ──────────────────────────────────────────────────────────────
 
@@ -339,20 +331,16 @@ export default function TeamsView({
                         {[team.mascot, team.sport_name].filter(Boolean).join(" · ") || "Team Hub"}
                         {team.season && ` · ${team.season}`}
                       </div>
-                      {team.role && (() => {
-                        const RoleIcon = ROLE_ICON[team.role] ?? Star;
-                        return (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: ".3rem",
-                            marginTop: ".55rem", background: hexToRgba(color, 0.1), color,
-                            borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
-                            padding: ".25rem .6rem .25rem .5rem", textTransform: "uppercase", letterSpacing: ".03em",
-                          }}>
-                            <RoleIcon size={11} aria-hidden="true" />
-                            {teamRoleLabel(team.role, team.role_kind)}
-                          </span>
-                        );
-                      })()}
+                      {team.role && (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center",
+                          marginTop: ".55rem", background: hexToRgba(color, 0.1), color,
+                          borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
+                          padding: ".25rem .6rem", textTransform: "uppercase", letterSpacing: ".03em",
+                        }}>
+                          {teamRoleLabel(team.role, team.role_kind)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Chevron — the entire card is the tap target */}
@@ -383,18 +371,14 @@ export default function TeamsView({
           {/* Informational footer — replaces empty whitespace below the cards */}
           {(teams.length > 0 || pendingCards.length > 0) && (
             <div style={{
-              display: "flex", gap: ".7rem", alignItems: "flex-start",
               margin: ".25rem 0 1.5rem", padding: "1rem 1.1rem",
               background: "#F5F0E6", borderRadius: "1rem",
             }}>
-              <Lightbulb size={18} aria-hidden="true" style={{ flexShrink: 0, color: "#92400e" }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#121110", marginBottom: ".2rem" }}>
-                  Need another team?
-                </div>
-                <div style={{ fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
-                  Use your coach&apos;s team code to connect another athlete, parent, booster, or coach account.
-                </div>
+              <div style={{ fontWeight: 700, fontSize: ".84rem", color: "#121110", marginBottom: ".2rem" }}>
+                Need another team?
+              </div>
+              <div style={{ fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
+                Use your coach&apos;s team code to connect another athlete, parent, booster, or coach account.
               </div>
             </div>
           )}
