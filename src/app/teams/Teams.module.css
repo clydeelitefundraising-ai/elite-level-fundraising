@@ -75,6 +75,24 @@
     overflow: hidden;
   }
 
+  /* QA fix: entryStyles.photoFill's shared `img { object-fit: cover }`
+     rule (authEntry.module.css) defaults object-position to its 50% 50%
+     center, which at this band's 190px desktop height crops the
+     athlete's head off the top of the photo. Scoped to ONLY this
+     page's desktop photo band — not entryStyles.photoFill globally,
+     which the mobile hero (TeamsView's .mobileHero, hidden here via the
+     same 1024px breakpoint) and every other auth/entry screen sharing
+     that class also use and which already looked correct. The child
+     combinator (.photoBand > div > img, matching photoBand's direct
+     child .photoFill wrapper and ITS direct child <img>) gives this
+     higher specificity than `.photoFill img` so it wins regardless of
+     CSS source/import order, with no !important and no JSX change.
+     object-fit: cover is left exactly as-is (inherited from
+     .photoFill img) — only object-position shifts the crop upward. */
+  .photoBand > div > img {
+    object-position: center 25%;
+  }
+
   .page {
     align-items: center;
     padding: 2rem;
