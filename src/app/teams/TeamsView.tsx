@@ -394,7 +394,7 @@ export default function TeamsView({
           <div className={entryStyles.photoScrim} />
           <div className={entryStyles.photoContent} style={{ padding: "0 1.75rem 1.25rem" }}>
             <p className={entryStyles.handwritten} style={{ fontSize: "1.05rem", margin: 0 }}>
-              Good people. Great teams.
+              Where teams come together.
             </p>
           </div>
         </div>
