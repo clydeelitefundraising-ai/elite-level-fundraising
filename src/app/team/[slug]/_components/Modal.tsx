@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 // iOS-safe body scroll lock. Plain `overflow:hidden` on body still allows
 // rubber-band scroll-through on iOS Safari/WKWebView, so this pins body in
@@ -70,6 +71,7 @@ export default function Modal({
 }) {
   useBodyScrollLock();
   useBlurOnUnmount();
+  useAndroidBackClose(onClose);
 
   // Desktop affordance — mirrors the existing backdrop-tap-to-close and X
   // button, which already call the same onClose. No focus trap here (out

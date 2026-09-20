@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 // Phase A38: self-service account deletion, reachable from AccountMenu
 // (mounted for every role — coach, member, platform admin) rather than
@@ -16,6 +17,8 @@ export default function DeleteAccountModal({ slug, onClose }: { slug: string; on
   const [step, setStep] = useState<"confirm" | "submitting" | "error">("confirm");
   const [error, setError] = useState("");
   const [blockedCampaigns, setBlockedCampaigns] = useState<string[] | null>(null);
+
+  useAndroidBackClose(onClose);
 
   const canSubmit = confirmText.trim().toUpperCase() === "DELETE";
 

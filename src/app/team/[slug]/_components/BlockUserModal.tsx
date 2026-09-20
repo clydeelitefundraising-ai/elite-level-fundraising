@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 // Confirmation dialog for blocking an interpersonal contact. Deliberately
 // says exactly what a block does and does NOT do, per the Apple-review
@@ -25,6 +26,8 @@ export default function BlockUserModal({
 }) {
   const [step, setStep] = useState<"confirm" | "submitting" | "error">("confirm");
   const [error, setError] = useState("");
+
+  useAndroidBackClose(onClose);
 
   const submit = async () => {
     setStep("submitting");

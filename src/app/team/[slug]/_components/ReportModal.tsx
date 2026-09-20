@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 export type ReportTargetType = "announcement" | "comment" | "message" | "attachment" | "user";
 
@@ -36,6 +37,8 @@ export default function ReportModal({
   const [details, setDetails] = useState("");
   const [step, setStep]       = useState<"form" | "submitting" | "done" | "error">("form");
   const [error, setError]     = useState("");
+
+  useAndroidBackClose(onClose);
 
   const submit = async () => {
     if (!reason) return;

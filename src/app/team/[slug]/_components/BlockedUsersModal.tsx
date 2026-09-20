@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 type BlockRow = { id: string; blocked_kind: string; blocked_id: string; blocked_name: string; blocked_role: string; created_at: string };
 
@@ -14,6 +15,8 @@ type BlockRow = { id: string; blocked_kind: string; blocked_id: string; blocked_
 export default function BlockedUsersModal({ slug, onClose }: { slug: string; onClose: () => void }) {
   const [blocks, setBlocks] = useState<BlockRow[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useAndroidBackClose(onClose);
 
   const load = () => {
     fetch(`/api/team/${slug}/blocks`)

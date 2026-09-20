@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react";
@@ -8,12 +8,7 @@ import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
-
-declare global {
-  interface Window {
-    __elfHasOpenOverlay?: () => boolean;
-  }
-}
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 export default function AccountMenu({
   currentSlug,
@@ -115,16 +110,7 @@ export default function AccountMenu({
   // Lets the Android shell's hardware back button close this dropdown instead of
   // exiting the app (MainActivity.java checks window.__elfHasOpenOverlay before
   // deciding what back should do). No-op outside the Capacitor Android WebView.
-  useEffect(() => {
-    if (!open) return;
-    window.__elfHasOpenOverlay = () => true;
-    const handleAndroidBack = () => setOpen(false);
-    window.addEventListener("elfAndroidBackButton", handleAndroidBack);
-    return () => {
-      window.__elfHasOpenOverlay = undefined;
-      window.removeEventListener("elfAndroidBackButton", handleAndroidBack);
-    };
-  }, [open]);
+  useAndroidBackClose(() => setOpen(false), open);
 
   const initial = accountName
     ? accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")
