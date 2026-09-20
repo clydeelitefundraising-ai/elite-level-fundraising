@@ -4,6 +4,7 @@ import { useState, type RefObject } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { renderElementToImage, shareFileOrFallback } from "../_components/nativeFileShare";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 type Status =
   | { enabled: false }
@@ -37,6 +38,8 @@ export default function ExportMenu({
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [preparingPrint, setPreparingPrint] = useState(false);
+
+  useAndroidBackClose(() => setOpen(false), open);
 
   const refreshStatus = () => {
     setLoadingStatus(true);

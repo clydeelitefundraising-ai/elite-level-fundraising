@@ -65,7 +65,7 @@ export default function BlockUserModal({
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: "12px", padding: "1.25rem", maxWidth: "400px", width: "100%", boxShadow: "0 8px 30px rgba(0,0,0,.2)" }}>
         <h3 style={{ margin: "0 0 .5rem", fontSize: "1.05rem", fontWeight: 800 }}>Block {blockedName}?</h3>
         <p style={{ margin: "0 0 .5rem", fontSize: ".85rem", color: "#374151", lineHeight: 1.5 }}>
-          {blockedName} won&apos;t be able to start a new direct message with you, and you won&apos;t be able to message them.
+          {blockedName}{" "}won&apos;t be able to start a new direct message with you, and you won&apos;t be able to message them.
         </p>
         <p style={{ margin: "0 0 1rem", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
           This does <strong>not</strong> affect official team announcements, schedules, or safety information — those always come through, even from a blocked coach or teammate. You can unblock at any time from Settings.

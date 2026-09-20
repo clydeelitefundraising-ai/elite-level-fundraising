@@ -17,6 +17,7 @@ import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMes
 import ReportModal from "../../_components/ReportModal";
 import BlockUserModal from "../../_components/BlockUserModal";
 import { Shield, Eye } from "lucide-react";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -186,6 +187,7 @@ export default function ThreadView({
   const [uploadPhase, setUploadPhase] = useState<"idle" | "uploading" | "sending">("idle");
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  useAndroidBackClose(() => setMenuOpen(false), menuOpen);
   const [reportingUser, setReportingUser] = useState(false);
   const [blockingUser, setBlockingUser] = useState(false);
   const [blocked, setBlocked] = useState(false);

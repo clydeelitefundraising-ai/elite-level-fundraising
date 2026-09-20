@@ -12,6 +12,7 @@ import AttachmentPickerButton from "./_shared/AttachmentPickerButton";
 import AttachmentComposerBar from "./_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "./_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "./_shared/uploadMessageAttachments";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -177,6 +178,8 @@ function ComposeModal({
   const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { selected, selectionError, addFiles, removeFile, updateStatus } = useSelectedAttachments();
+
+  useAndroidBackClose(onClose);
 
   useEffect(() => {
     fetch(`/api/team/${slug}/messages/directory`)

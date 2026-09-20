@@ -7,6 +7,7 @@ import { User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School 
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
 import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
 import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import entryStyles from "@/components/auth/authEntry.module.css";
@@ -40,6 +41,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firstTeamSlug: string | null }) {
   const [open, setOpen] = useState(false);
+  useAndroidBackClose(() => setOpen(false), open);
   const router = useRouter();
   const initial = accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
 
