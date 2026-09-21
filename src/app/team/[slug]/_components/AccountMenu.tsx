@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
-import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
 import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
@@ -385,7 +385,7 @@ export default function AccountMenu({
             </div>
 
             {/* Sign Out — plain browser/PWA form POST is left completely
-                unchanged; on the installed iOS app only, this is
+                unchanged; in the installed iOS/Android apps only, this is
                 intercepted to route through the native-aware logout
                 helper so this device's own APNs token gets deactivated
                 too (see nativePushDevice.ts). */}
@@ -393,7 +393,7 @@ export default function AccountMenu({
               method="POST"
               action="/api/auth/logout"
               onSubmit={e => {
-                if (!isNativeIosApp()) return;
+                if (!isNativeApp()) return;
                 e.preventDefault();
                 void performNativeAwareLogout(router);
               }}

@@ -6,7 +6,7 @@ import Image from "next/image";
 import { User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
-import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
 import type { EntryPhoto } from "@/components/auth/entryPhotos";
@@ -92,7 +92,7 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
               action="/api/auth/logout"
               style={{ borderTop: "1px solid #f0f0f0" }}
               onSubmit={e => {
-                if (!isNativeIosApp()) return;
+                if (!isNativeApp()) return;
                 e.preventDefault();
                 void performNativeAwareLogout(router);
               }}

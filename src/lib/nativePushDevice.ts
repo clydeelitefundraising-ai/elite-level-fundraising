@@ -22,6 +22,38 @@ export function isNativeIosApp(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 }
 
+/** Pure mapping from Capacitor's (isNativePlatform, getPlatform) to the
+ *  push_devices platform, or null for a browser/PWA or any other host.
+ *  Split out so the native branches are testable without a Capacitor
+ *  runtime. */
+export function resolveNativePlatform(isNative: boolean, platform: string): NativeDevicePlatform | null {
+  if (!isNative) return null;
+  return platform === "ios" || platform === "android" ? platform : null;
+}
+
+/** The installed app's own platform ("ios" | "android"), or null on the
+ *  web. Used by logout so a device token is always deactivated under the
+ *  platform it was registered with. */
+export function getNativePlatform(): NativeDevicePlatform | null {
+  return resolveNativePlatform(Capacitor.isNativePlatform(), Capacitor.getPlatform());
+}
+
+/** True inside either installed app (iOS or Android), never on the web.
+ *  Gates the native-aware logout only; push registration stays gated on
+ *  isNativeIosApp() until Android push (FCM) exists. */
+export function isNativeApp(): boolean {
+  return getNativePlatform() !== null;
+}
+
+/** Body for POST /api/auth/logout: the device's own (platform, token) pair
+ *  when both are known, else an empty object (the server tolerates it). */
+export function buildLogoutBody(
+  platform: NativeDevicePlatform | null,
+  token: string | null,
+): { platform: NativeDevicePlatform; device_token: string } | Record<string, never> {
+  return platform && token ? { platform, device_token: token } : {};
+}
+
 export function getSavedNativeDeviceToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(NATIVE_DEVICE_TOKEN_KEY);
@@ -69,7 +101,7 @@ export async function registerNativeDeviceToken(platform: NativeDevicePlatform, 
  * combination server-side — see api/auth/logout/route.ts. Deliberately
  * does not call the separate /api/push/devices/deactivate endpoint too;
  * that would be a second path to the same outcome. On the plain web/PWA
- * path (no saved token, isNativeIosApp() false everywhere this is called)
+ * path (no saved token, isNativeApp() false everywhere this is called)
  * this sends the same request the existing SettingsView.tsx flow already
  * sent, just as an explicit JSON body instead of none — functionally
  * identical, since the server already tolerates a missing/empty body.
@@ -86,7 +118,7 @@ export async function performNativeAwareLogout(router: { push: (href: string) =>
     await fetch("/api/auth/logout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(token ? { platform: "ios", device_token: token } : {}),
+      body: JSON.stringify(buildLogoutBody(getNativePlatform(), token)),
     });
   } catch {
     // Silent — logout must still proceed below even if this failed.
