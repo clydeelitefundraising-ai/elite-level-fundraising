@@ -6,7 +6,7 @@ import { sendPushToScope } from "@/lib/push";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
 import { getAccountIdsForScope } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -117,7 +117,7 @@ export async function POST(
   // on Vercel's standard Node.js serverless runtime, which can freeze a
   // function's execution the moment its response is sent; an un-awaited
   // promise racing that freeze is a real, previously undiagnosed risk for
-  // dispatchApnsPush's outbound HTTP/2 connection to Apple. after() is
+  // dispatchPush's outbound HTTP/2 connection to Apple. after() is
   // Next.js's own built-in mechanism (stable since Next 15, confirmed
   // exported from this project's installed next/server — no new
   // dependency) for exactly this case: it runs the callback after the
@@ -168,7 +168,7 @@ export async function POST(
 
       try {
         const accountIds = await getAccountIdsForScope(slug, safeScope, recipientAthleteId);
-        await dispatchApnsPush({
+        await dispatchPush({
           accountIds,
           category: "team_updates",
           kind: "announcement",
@@ -176,7 +176,7 @@ export async function POST(
           url: `/team/${slug}/notifications`,
         });
       } catch (err) {
-        console.error("[announcements] dispatchApnsPush failed:", err);
+        console.error("[announcements] dispatchPush failed:", err);
       }
     }
   });

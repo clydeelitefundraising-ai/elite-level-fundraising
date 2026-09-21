@@ -4,7 +4,7 @@ import { createPendingRequest } from "@/lib/platform/athleteRequests";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       // same as every other type), this filter applies only to who
       // actually gets a native push.
       const accountIds = await getHeadCoachAccountIds(campaign_slug);
-      await dispatchApnsPush({
+      await dispatchPush({
         accountIds,
         category: "requests",
         kind: "request",

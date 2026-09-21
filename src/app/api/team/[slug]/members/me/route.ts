@@ -4,7 +4,7 @@ import { linkMemberToAthlete } from "@/lib/platform/athletes";
 import { createPendingRequest } from "@/lib/platform/parentAccessRequests";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 // Athlete role: unchanged immediate self-link (never went through
 // approval — only a parent's relationship to a child requires Head Coach
@@ -79,7 +79,7 @@ export async function PATCH(
           reference_url: `/team/${slug}/requests`,
         });
         const accountIds = await getHeadCoachAccountIds(slug);
-        await dispatchApnsPush({
+        await dispatchPush({
           accountIds,
           category: "requests",
           kind: "request",
