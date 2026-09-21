@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar notification icon: a plain crown silhouette. Android renders notification small
+     icons from the alpha channel only (tinted by the system), so this is a single flat color on a
+     transparent background: no text, no gradients, no brand colors. Whole-pixel edges at 24dp keep
+     it crisp at status-bar size; content stays inside a 24dp box with padding so it is never cropped. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- crown body: three peaks -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,17 L4.6,9.4 L8.8,12.8 L12,6.4 L15.2,12.8 L19.4,9.4 L18,17 Z" />
+    <!-- jewels on the three peaks -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.1,8.0 A1.5,1.5 0 1,0 3.1,8.0 A1.5,1.5 0 1,0 6.1,8.0 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.5,4.8 A1.5,1.5 0 1,0 10.5,4.8 A1.5,1.5 0 1,0 13.5,4.8 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20.9,8.0 A1.5,1.5 0 1,0 17.9,8.0 A1.5,1.5 0 1,0 20.9,8.0 Z" />
+    <!-- base band -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,19 L18,19 L18,21 L6,21 Z" />
+</vector>

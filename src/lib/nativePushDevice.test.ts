@@ -86,8 +86,9 @@ for (const file of LOGOUT_GATE_FILES) {
   });
 }
 
-test("NativePushRegistrar.tsx stays iOS-only (Android push registration is FCM work, not this phase)", () => {
+test("NativePushRegistrar.tsx registers on any native platform (Phase 2C: iOS APNs + Android FCM), never on the web", () => {
   const source = read("src/app/team/[slug]/_components/NativePushRegistrar.tsx");
-  assert.ok(source.includes("if (!isNativeIosApp()) return;"));
-  assert.ok(!source.includes("isNativeApp"));
+  assert.ok(source.includes("const platform = getNativePlatform();"));
+  assert.ok(source.includes("if (!platform) return;"));
+  assert.ok(!source.includes("isNativeIosApp"));
 });

@@ -52,6 +52,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Android FCM: notification messages that arrive while the app is in the background or
+             closed are shown by the system in this channel. The channel itself is created at
+             runtime by NativePushRegistrar (src/lib/nativePushRegistration.ts) and the ID must
+             match FCM_ANDROID_CHANNEL_ID in src/lib/fcm.ts. The small icon is the monochrome
+             crown silhouette in res/drawable/ic_stat_elf.xml (not the launcher icon, which the
+             system would render as a white square). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_elf" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="elf_default" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

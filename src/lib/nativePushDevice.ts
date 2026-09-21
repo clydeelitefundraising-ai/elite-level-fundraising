@@ -1,6 +1,7 @@
 "use client";
 
 import { Capacitor } from "@capacitor/core";
+import { registerDeviceTokenWithRotation } from "./nativePushRegistration.ts";
 
 // Phase 10: client-side persistence + registration for this installed
 // app's own APNs device token, and the shared helpers that wire it into
@@ -14,10 +15,9 @@ const NATIVE_DEVICE_TOKEN_KEY = "elf_native_push_device_token";
 
 export type NativeDevicePlatform = "ios" | "android";
 
-/** True only inside the installed iOS app (never in a browser/PWA, and
- *  never on Android yet -- that platform's push setup is a future,
- *  separate phase; @capacitor/push-notifications is installed but never
- *  invoked there). */
+/** True only inside the installed iOS app (never in a browser/PWA and never
+ *  on Android). Push registration itself now goes through getNativePlatform()
+ *  so Android registers for FCM too; this stays for iOS-only call sites. */
 export function isNativeIosApp(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 }
@@ -39,8 +39,7 @@ export function getNativePlatform(): NativeDevicePlatform | null {
 }
 
 /** True inside either installed app (iOS or Android), never on the web.
- *  Gates the native-aware logout only; push registration stays gated on
- *  isNativeIosApp() until Android push (FCM) exists. */
+ *  Gates the native-aware logout. */
 export function isNativeApp(): boolean {
   return getNativePlatform() !== null;
 }
@@ -70,7 +69,7 @@ function clearSavedNativeDeviceToken(): void {
 }
 
 /**
- * Registers this device's APNs token with the existing Phase 10 server API
+ * Registers this device's push token (APNs on iOS, FCM on Android) with the existing Phase 10 server API
  * (POST /api/push/devices — account-scoped via the session cookie, which
  * the installed app already carries since it loads the same origin the
  * cookie was set on). Saves the token locally regardless of whether the
@@ -79,19 +78,23 @@ function clearSavedNativeDeviceToken(): void {
  * this on every team page mount, so a transient failure self-corrects).
  * Fails silently — push setup must never surface an error to the user or
  * block anything else, same philosophy as every other push write in this
- * codebase (see src/lib/apns.ts, src/lib/push.ts).
+ * codebase (see src/lib/apns.ts, src/lib/push.ts). On Android, when FCM
+ * rotates the token, the previously saved token is deactivated after the new
+ * one registers (see registerDeviceTokenWithRotation).
  */
 export async function registerNativeDeviceToken(platform: NativeDevicePlatform, token: string): Promise<void> {
-  saveNativeDeviceToken(token);
-  try {
-    await fetch("/api/push/devices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ platform, device_token: token }),
-    });
-  } catch {
-    // Silent — see function header.
-  }
+  await registerDeviceTokenWithRotation(platform, token, {
+    getSaved: getSavedNativeDeviceToken,
+    save: saveNativeDeviceToken,
+    post: async (path, body) => {
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return res.ok;
+    },
+  });
 }
 
 /**
