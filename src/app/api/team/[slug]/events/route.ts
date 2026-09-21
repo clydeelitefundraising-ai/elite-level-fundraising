@@ -4,7 +4,7 @@ import { sendPushToTeam } from "@/lib/push";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { getAccountIdsForScope } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -80,7 +80,7 @@ export async function POST(
         recipient_scope: "everyone",
       });
       const accountIds = await getAccountIdsForScope(slug, "everyone", null);
-      await dispatchApnsPush({
+      await dispatchPush({
         accountIds,
         category: "calendar",
         kind: "calendar_event",

@@ -4,7 +4,7 @@ import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession } from "@/lib/accountSession";
 import { approveRequest, declineRequest } from "@/lib/platform/parentAccessRequests";
 import { getCampaignSettings } from "@/lib/supabase";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 type RouteCtx = { params: Promise<{ slug: string; id: string }> };
@@ -84,7 +84,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     try {
       const settings = await getCampaignSettings(slug);
       const teamLabel = settings ? [settings.school_name, settings.sport_name].filter(Boolean).join(" ") : undefined;
-      await dispatchApnsPush({
+      await dispatchPush({
         accountIds: [result.request.account_id],
         category:   "requests",
         kind:       "request_approved",
