@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <external-path name="my_images" path="." />
-    <cache-path name="my_cache_images" path="." />
+    <!-- Camera capture for the attachment picker (Capacitor BridgeWebChromeClient writes to
+         getExternalFilesDir(DIRECTORY_PICTURES)). -->
+    <external-files-path name="camera_captures" path="Pictures/" />
+    <!-- Files handed to the share sheet / viewer by AndroidFileBridge. -->
+    <cache-path name="shared_files" path="shared_files/" />
 </paths>

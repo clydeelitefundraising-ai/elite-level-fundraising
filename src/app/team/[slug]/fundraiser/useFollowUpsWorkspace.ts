@@ -13,6 +13,7 @@ import {
 } from "@/lib/followUps";
 import type { OutreachRow } from "@/lib/teamData";
 import { shareFileOrFallback } from "../_components/nativeFileShare";
+import { isAndroidNativeApp, androidErrorMessage } from "@/lib/androidFileBridge";
 
 // D6: the row array, sort/filter state, and Update/History modal-open
 // state previously owned directly inside FollowUpsView.tsx (verbatim
@@ -75,7 +76,10 @@ export function useFollowUpsWorkspace(
       a.click();
       URL.revokeObjectURL(url);
     };
-    void shareFileOrFallback(file, fallback);
+    void shareFileOrFallback(file, fallback).catch(err => {
+      if (isAndroidNativeApp()) window.alert(androidErrorMessage(err));
+      else throw err;
+    });
   };
 
   const handlePrint = () => window.print();

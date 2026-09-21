@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
+import { OpenPdfButton } from "../_components/AndroidPdfActions";
+import { isAndroidNativeApp } from "@/lib/androidFileBridge";
 
 type Attachment = { id: string; name: string; file_type: "pdf" | "image" | "doc"; size_bytes: number };
 
@@ -299,6 +301,8 @@ export default function ClearanceView({ slug }: { slug: string }) {
     setViewingAttachment(attachment);
     setViewUrl(null);
     setViewError("");
+    // Android's WebView cannot render PDFs: the modal offers Open PDF instead of fetching a blank preview.
+    if (isAndroidNativeApp() && attachment.file_type === "pdf") return;
     setViewLoading(true);
     try {
       const { blob } = await fetchFileBlob(`/api/team/${slug}/files/${attachment.id}?mode=view`);
@@ -427,6 +431,9 @@ export default function ClearanceView({ slug }: { slug: string }) {
           )}
           {!viewLoading && !viewError && viewUrl && viewingAttachment.file_type === "pdf" && (
             <iframe src={viewUrl} title={viewingAttachment.name} style={{ width: "100%", height: "70vh", border: "none", borderRadius: 10 }} />
+          )}
+          {isAndroidNativeApp() && viewingAttachment.file_type === "pdf" && (
+            <OpenPdfButton url={`/api/team/${slug}/files/${viewingAttachment.id}?mode=view`} fileName={viewingAttachment.name} />
           )}
         </Modal>
       )}

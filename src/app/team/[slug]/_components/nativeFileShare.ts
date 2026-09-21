@@ -13,6 +13,8 @@
 // available) are completely unaffected — callers always keep their
 // original <a download> / window.print() as the `fallback` argument below.
 
+import { isAndroidNativeApp, saveAndShareOnAndroid } from "@/lib/androidFileBridge";
+
 type ShareNavigator = Navigator & {
   canShare?: (data: { files: File[] }) => boolean;
   share?:    (data: { files: File[] }) => Promise<void>;
@@ -41,6 +43,15 @@ export async function dataUrlToFile(dataUrl: string, filename: string, mimeType:
  * fallback.
  */
 export async function shareFileOrFallback(file: File, fallback: () => void): Promise<void> {
+  // Android's WebView has no Web Share API, no download manager and no
+  // window.print(): hand the file to the native share sheet instead. Failures
+  // throw (with a user-presentable message) rather than falling through to a
+  // fallback that would be another silent no-op there.
+  if (isAndroidNativeApp()) {
+    await saveAndShareOnAndroid(file, file.name, file.type);
+    return;
+  }
+
   const nav = navigator as ShareNavigator;
   const canShareFiles =
     typeof nav.canShare === "function" &&

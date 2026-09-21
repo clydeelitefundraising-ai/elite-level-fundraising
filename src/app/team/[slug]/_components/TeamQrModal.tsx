@@ -6,6 +6,7 @@ import type { JoinCode, JoinCodeSettings } from "./useTeamJoinCode";
 import type { SignupSheetData } from "@/lib/teamJoinQr";
 import { buildSignupSheetFilename } from "@/lib/teamJoinQr";
 import { dataUrlToFile, shareFileOrFallback, renderSignupSheetImage } from "./nativeFileShare";
+import { isAndroidNativeApp, androidErrorMessage } from "@/lib/androidFileBridge";
 
 // Phase 5: purely presentational — all fetching/QR-generation state lives
 // in useTeamJoinCode.ts (shared with the print sheet). Staff-only,
@@ -75,8 +76,10 @@ export default function TeamQrModal({
     try {
       const file = await dataUrlToFile(qrDataUrl, qrFilename, "image/png");
       await shareFileOrFallback(file, fallback);
-    } catch {
-      fallback();
+    } catch (err) {
+      // Android has no <a download>: the fallback would be a silent no-op, so surface the error.
+      if (isAndroidNativeApp()) setError(androidErrorMessage(err));
+      else fallback();
     } finally {
       setPreparingDownload(false);
     }
@@ -96,8 +99,10 @@ export default function TeamQrModal({
       const filename = buildSignupSheetFilename(settings.school_name, settings.sport_name);
       const file = await renderSignupSheetImage(signupData, qrDataUrl, settings.primary_color, filename);
       await shareFileOrFallback(file, fallback);
-    } catch {
-      fallback();
+    } catch (err) {
+      // Android has no window.print(): the image goes through the share sheet, and failures are shown.
+      if (isAndroidNativeApp()) setError(androidErrorMessage(err));
+      else fallback();
     } finally {
       setPreparingPrint(false);
     }

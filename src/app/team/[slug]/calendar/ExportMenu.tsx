@@ -4,6 +4,8 @@ import { useState, type RefObject } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AppLauncher } from "@capacitor/app-launcher";
 import { renderElementToImage, shareFileOrFallback } from "../_components/nativeFileShare";
+import { downloadViaFetch } from "../_components/fileDownload";
+import { isAndroidNativeApp, androidErrorMessage } from "@/lib/androidFileBridge";
 import { useAndroidBackClose } from "@/hooks/useAndroidBackClose";
 
 type Status =
@@ -74,8 +76,10 @@ export default function ExportMenu({
     try {
       const file = await renderElementToImage(node, { width: 850, filename: printFilename });
       await shareFileOrFallback(file, fallback);
-    } catch {
-      fallback();
+    } catch (err) {
+      // Android has no window.print(): the rendered image goes through the share sheet, failures are shown.
+      if (isAndroidNativeApp()) window.alert(androidErrorMessage(err));
+      else fallback();
     } finally {
       setPreparingPrint(false);
     }
@@ -83,6 +87,11 @@ export default function ExportMenu({
 
   const handleDownload = () => {
     setOpen(false);
+    if (isAndroidNativeApp()) {
+      // A top-level navigation to an attachment is dropped by the Android WebView (no download manager).
+      downloadViaFetch(`/api/team/${slug}/calendar/download`).catch(err => window.alert(androidErrorMessage(err)));
+      return;
+    }
     window.location.href = `/api/team/${slug}/calendar/download`;
   };
 
@@ -179,7 +188,10 @@ export default function ExportMenu({
                       inside the native app — see that handler above for
                       why a plain webcal:// link can't be trusted to reach
                       the OS reliably from inside Capacitor's WebView. */}
-                  <a href={status.webcalUrl} target="_blank" rel="noopener noreferrer" onClick={openAppleCalendar} style={linkButton}>Add to Apple Calendar</a>
+                  {/* Apple-branded and webcal: has no handler on Android; the .ics share and Google Calendar cover it. */}
+                  {!isAndroidNativeApp() && (
+                    <a href={status.webcalUrl} target="_blank" rel="noopener noreferrer" onClick={openAppleCalendar} style={linkButton}>Add to Apple Calendar</a>
+                  )}
                   <a href={status.googleUrl} target="_blank" rel="noopener noreferrer" style={linkButton}>Add to Google Calendar</a>
                   {canManage && (
                     <>

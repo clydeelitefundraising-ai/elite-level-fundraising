@@ -10,6 +10,7 @@ import Modal from "../_components/Modal";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
+import { openAttachmentLinkOnAndroid } from "../_components/fileDownload";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
 import { shouldShowCoachDashboard, buildQuickActions } from "./coachDashboardHelpers";
 import CoachDashboard from "./CoachDashboard";
@@ -166,6 +167,7 @@ function AnnouncementCard({
           href={`/api/team/${a.campaign_slug}/files/${att.id}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={e => openAttachmentLinkOnAndroid(e, `/api/team/${a.campaign_slug}/files/${att.id}`, att.name)}
           className="elf-focus-ring"
           style={{ display: "flex", alignItems: "center", gap: ".4rem", marginTop: ".5rem", padding: ".45rem .65rem", background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", borderRadius: 9, textDecoration: "none" }}
         >

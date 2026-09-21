@@ -5,6 +5,7 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { Paperclip } from "lucide-react";
 import { resolveAuthorizedAttachment, type ActorKey } from "@/lib/messages";
 import { attachmentApiHref, readableFileSize } from "../../../_shared/attachmentClient";
+import { PdfViewerFallback } from "../../../../_components/AndroidPdfActions";
 
 export const dynamic = "force-dynamic";
 
@@ -110,11 +111,9 @@ export default async function AttachmentViewerPage({
         )}
 
         {attachment.attachment_kind === "file" && isPdf && (
-          <iframe
-            src={apiHref}
-            title={attachment.original_filename}
-            style={{ display: "block", width: "100%", height: "80vh", border: "none" }}
-          />
+          // Android's WebView has no PDF renderer (blank iframe): the client component
+          // renders the same iframe on web/iOS and an Open PDF action on Android.
+          <PdfViewerFallback apiHref={apiHref} fileName={attachment.original_filename} />
         )}
 
         {attachment.attachment_kind === "file" && !isPdf && (

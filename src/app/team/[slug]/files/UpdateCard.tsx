@@ -13,6 +13,7 @@ import LikeButton from "./LikeButton";
 import Avatar from "../messages/_shared/Avatar";
 import ReportModal from "../_components/ReportModal";
 import { useSeenTracker } from "../_components/useSeenTracker";
+import { openAttachmentLinkOnAndroid } from "../_components/fileDownload";
 import { type RecipientScope, SCOPE_LABELS } from "./useUpdatesWorkspace";
 
 // D5: the announcement card, its section-divider label, and the lazy
@@ -273,6 +274,7 @@ export function UpdateCard({
           href={`/api/team/${slug}/files/${att.id}`}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={e => openAttachmentLinkOnAndroid(e, `/api/team/${slug}/files/${att.id}`, att.name)}
           style={{
             display: "flex", alignItems: "center", gap: ".55rem",
             marginTop: ".6rem", padding: ".5rem .65rem",

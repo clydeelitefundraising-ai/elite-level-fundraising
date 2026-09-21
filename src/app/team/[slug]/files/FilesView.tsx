@@ -7,6 +7,8 @@ import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
+import { OpenPdfButton } from "../_components/AndroidPdfActions";
+import { isAndroidNativeApp } from "@/lib/androidFileBridge";
 
 // Only these can be shown inline (img/iframe) in the VIEW modal. DOC/DOCX
 // has no in-WebView preview path — those fall back to Download-only.
@@ -109,6 +111,8 @@ export default function FilesView({
     setViewUrl(null);
     setViewError("");
     if (!PREVIEWABLE_TYPES.has(file.file_type)) return;
+    // Android's WebView cannot render PDFs: the modal offers Open PDF instead of fetching a blank preview.
+    if (isAndroidNativeApp() && file.file_type === "pdf") return;
     setViewLoading(true);
     try {
       const { blob } = await fetchFileBlob(`/api/team/${slug}/files/${file.id}?mode=view`);
@@ -506,6 +510,9 @@ export default function FilesView({
           )}
           {!viewLoading && !viewError && viewUrl && viewingFile.file_type === "pdf" && (
             <iframe src={viewUrl} title={viewingFile.name} style={{ width: "100%", height: "70vh", border: "none", borderRadius: 10 }} />
+          )}
+          {isAndroidNativeApp() && viewingFile.file_type === "pdf" && (
+            <OpenPdfButton url={`/api/team/${slug}/files/${viewingFile.id}?mode=view`} fileName={viewingFile.name} />
           )}
           {!viewLoading && !viewError && !PREVIEWABLE_TYPES.has(viewingFile.file_type) && (
             <p style={{ textAlign: "center", color: "#6b7280", fontSize: ".85rem" }}>
