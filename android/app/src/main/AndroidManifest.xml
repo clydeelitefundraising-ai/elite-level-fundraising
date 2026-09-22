@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -21,11 +22,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- App Links: opens invite/join links from email/SMS directly in the app instead
-                 of a browser. Scoped to the two flows actually distributed via external links —
-                 not a blanket deep-link scheme for the whole site. Verified via
-                 public/.well-known/assetlinks.json (autoVerify checks it over HTTPS at install
-                 time). -->
+            <!-- App Links: opens invite / activation / password-reset / staff-invite links from
+                 email or SMS directly in the app instead of a browser. Scoped to exactly the four
+                 link families distributed externally — not a blanket deep-link scheme for the
+                 whole site. The trailing slash in each prefix means /join, /joinfoo and
+                 /coach-activatefoo are NOT claimed; MainActivity re-validates every link in
+                 DeepLinkValidator. Verified via public/.well-known/assetlinks.json (autoVerify
+                 checks it over HTTPS at install time). -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -33,13 +36,34 @@
                 <data
                     android:scheme="https"
                     android:host="app.elitelevelfundraising.com"
-                    android:pathPrefix="/join" />
+                    android:pathPrefix="/join/" />
                 <data
                     android:scheme="https"
                     android:host="app.elitelevelfundraising.com"
-                    android:pathPrefix="/coach-activate" />
+                    android:pathPrefix="/coach-activate/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.elitelevelfundraising.com"
+                    android:pathPrefix="/reset-password/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.elitelevelfundraising.com"
+                    android:pathPrefix="/staff-invite/" />
             </intent-filter>
         </activity>
+
+        <!-- Android FCM: notification messages that arrive while the app is in the background or
+             closed are shown by the system in this channel. The channel itself is created at
+             runtime by NativePushRegistrar (src/lib/nativePushRegistration.ts) and the ID must
+             match FCM_ANDROID_CHANNEL_ID in src/lib/fcm.ts. The small icon is the monochrome
+             crown silhouette in res/drawable/ic_stat_elf.xml (not the launcher icon, which the
+             system would render as a white square). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_elf" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="elf_default" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
