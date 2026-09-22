@@ -1,9 +1,7 @@
 // Phase 2D-B.1: focused web-only coverage for the platform-aware logout path
 // introduced by this scoped production integration. Deliberately independent
 // of every Android-native file (AndroidManifest.xml, google-services.json,
-// ic_stat_elf.xml, MainActivity.java, DeepLinkValidator.java) and of any file
-// not included in this PR (TeamsView.tsx, PlatformAdminHeader.tsx,
-// TeamSwitcher.tsx) -- those remain out of scope, see the PR description.
+// ic_stat_elf.xml, MainActivity.java, DeepLinkValidator.java).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -79,26 +77,57 @@ test("buildLogoutBody: neither platform nor token -> empty body", () => {
   assert.deepEqual(buildLogoutBody(null, null), {});
 });
 
-// ── AccountMenu.tsx wiring (in scope for this PR) ────────────────────────────
+// ── Every real "Sign Out" form-based logout surface in the app ───────────────
+//
+// Each of these renders its own <form method="POST" action="/api/auth/logout">
+// with an onSubmit intercept for installed native apps. All four were found
+// (by grepping every isNativeIosApp()/performNativeAwareLogout()/
+// /api/auth/logout usage in src/) to share the exact same iOS-only gate bug —
+// Android fell through to a plain, unauthenticated form POST that never
+// deactivated the device's push token. Covered together so no future logout
+// surface can regress silently.
+const FORM_LOGOUT_SURFACES = [
+  "src/app/team/[slug]/_components/AccountMenu.tsx",
+  "src/app/teams/TeamsView.tsx",
+  "src/app/platform-admin/_components/PlatformAdminHeader.tsx",
+  "src/app/team/[slug]/_components/TeamSwitcher.tsx",
+];
 
-const ACCOUNT_MENU = "src/app/team/[slug]/_components/AccountMenu.tsx";
+for (const file of FORM_LOGOUT_SURFACES) {
+  test(`${file}: imports isNativeApp, not the iOS-only isNativeIosApp`, () => {
+    const source = read(file);
+    assert.ok(source.includes("isNativeApp"), "must import isNativeApp");
+    assert.ok(!source.includes("isNativeIosApp"), "iOS-only gate must not remain");
+  });
 
-test("AccountMenu.tsx: imports isNativeApp, not the iOS-only isNativeIosApp", () => {
-  const source = read(ACCOUNT_MENU);
-  assert.ok(source.includes("isNativeApp"), "must import isNativeApp");
-  assert.ok(!source.includes("isNativeIosApp"), "iOS-only gate must not remain");
-});
+  test(`${file}: Sign Out form gates the native intercept on isNativeApp() (Android intercepts too)`, () => {
+    const source = read(file);
+    assert.ok(source.includes("if (!isNativeApp()) return;"), "must gate on isNativeApp(), not isNativeIosApp()");
+    assert.ok(source.includes("performNativeAwareLogout(router)"), "must still route through the native-aware logout helper");
+  });
 
-test("AccountMenu.tsx: Sign Out form gates the native intercept on isNativeApp(), covering both platforms", () => {
-  const source = read(ACCOUNT_MENU);
-  assert.ok(source.includes("if (!isNativeApp()) return;"), "must gate on isNativeApp(), not isNativeIosApp()");
-  assert.ok(source.includes("performNativeAwareLogout(router)"), "must still route through the native-aware logout helper");
-});
+  test(`${file}: plain browser/PWA form POST target and method are unchanged`, () => {
+    const source = read(file);
+    assert.ok(source.includes('method="POST"'));
+    assert.ok(source.includes('action="/api/auth/logout"'));
+  });
+}
 
-test("AccountMenu.tsx: plain browser/PWA form POST target and method are unchanged", () => {
-  const source = read(ACCOUNT_MENU);
-  assert.ok(source.includes('method="POST"'));
-  assert.ok(source.includes('action="/api/auth/logout"'));
+// ── SettingsView.tsx: a genuine logout surface with no gate at all ───────────
+//
+// Unlike the form-based surfaces above, this one already called
+// performNativeAwareLogout() unconditionally (no isNativeIosApp()/isNativeApp()
+// gate whatsoever) -- correct as-is, since the helper itself resolves the
+// platform internally via getNativePlatform() and is a safe no-op body on the
+// web. No code change was needed here; this test only guards against a future
+// edit accidentally adding a narrowing gate.
+test("SettingsView.tsx: Sign Out calls performNativeAwareLogout unconditionally (already platform-safe)", () => {
+  const source = read("src/app/team/[slug]/settings/SettingsView.tsx");
+  assert.ok(
+    /const handleSignOut = \(\) => performNativeAwareLogout\(router\);/.test(source),
+    "must call performNativeAwareLogout directly, with no isNativeIosApp/isNativeApp gate narrowing it to one platform",
+  );
+  assert.ok(!source.includes("isNativeIosApp"), "must not gain an iOS-only gate");
 });
 
 // ── NativePushRegistrar.tsx wiring (registration context) ────────────────────

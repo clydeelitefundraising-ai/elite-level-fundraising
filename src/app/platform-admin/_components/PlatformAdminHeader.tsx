@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
 export default function PlatformAdminHeader({ name, email }: { name: string; email: string }) {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function PlatformAdminHeader({ name, email }: { name: string; ema
           method="POST"
           action="/api/auth/logout"
           onSubmit={e => {
-            if (!isNativeIosApp()) return;
+            if (!isNativeApp()) return;
             e.preventDefault();
             void performNativeAwareLogout(router);
           }}
