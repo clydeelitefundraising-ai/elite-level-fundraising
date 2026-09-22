@@ -116,7 +116,8 @@ test(".env.example documents the FCM variable names with empty values only", () 
   assert.doesNotMatch(env, /BEGIN PRIVATE KEY-----\\n[A-Za-z0-9+/]{20,}/);
 });
 
-test("Android client registration is not enabled yet (Phase 2A is server-only)", () => {
+test("Android client registration is enabled by Phase 2C through the shared native-platform gate (iOS unchanged)", () => {
   const registrar = read(join(SRC, "app/team/[slug]/_components/NativePushRegistrar.tsx"));
-  assert.match(registrar, /isNativeIosApp\(\)/);
+  assert.match(registrar, /getNativePlatform\(\)/);
+  assert.doesNotMatch(registrar, /isNativeIosApp\(\)/);
 });
