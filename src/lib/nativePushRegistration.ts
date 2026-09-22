@@ -68,23 +68,31 @@ export const defaultPermissionPromptSession: PermissionPromptSession = {
   },
 };
 
-export interface NativePushRegistrationDeps {
+export interface AttachNativePushListenersDeps {
   platform: NativeDevicePlatform;
   plugin: PushPluginLike;
   registerToken: (platform: NativeDevicePlatform, token: string) => Promise<void>;
   navigate: (url: string) => void;
   isCancelled: () => boolean;
-  promptSession?: PermissionPromptSession;
 }
 
 /**
- * Attaches the listeners, resolves notification permission and registers.
- * Resolves with a function that removes the listeners (called by the caller's
- * effect cleanup). Never logs tokens or error payloads.
+ * Phase 2E: attaches the three native push listeners ONLY -- registration,
+ * registrationError, pushNotificationActionPerformed -- and nothing else.
+ * This is the single call site for these three events across the whole app;
+ * it is mounted once, unconditionally (for any native platform, regardless
+ * of authentication or current route) from a root-layout-level component, so
+ * a cold-start notification tap is never delivered to zero listeners no
+ * matter which route the app happens to land on first (previously this only
+ * mounted inside an authenticated team page, which a multi-team account's
+ * cold start never reaches before Capacitor already tried to deliver the
+ * queued tap action once).
+ *
+ * Resolves with a function that removes the listeners (called by the
+ * caller's effect cleanup). Never logs tokens or error payloads.
  */
-export async function startNativePushRegistration(deps: NativePushRegistrationDeps): Promise<() => void> {
+export async function attachNativePushListeners(deps: AttachNativePushListenersDeps): Promise<() => void> {
   const { platform, plugin, registerToken, navigate, isCancelled } = deps;
-  const promptSession = deps.promptSession ?? defaultPermissionPromptSession;
 
   const [regHandle, errHandle, tapHandle] = await Promise.all([
     plugin.addListener("registration", token => {
@@ -102,46 +110,67 @@ export async function startNativePushRegistration(deps: NativePushRegistrationDe
       if (isSafeInternalPath(url)) navigate(url);
     }),
   ]);
-  const remove = () => {
+
+  return () => {
     void regHandle.remove();
     void errHandle.remove();
     void tapHandle.remove();
   };
+}
+
+export interface ResolveNativePushPermissionDeps {
+  platform: NativeDevicePlatform;
+  plugin: PushPluginLike;
+  isCancelled: () => boolean;
+  promptSession?: PermissionPromptSession;
+}
+
+/**
+ * Phase 2E: resolves notification permission, creates the Android channel
+ * and calls register() -- deliberately separate from listener attachment
+ * (see attachNativePushListeners) so this can stay authenticated/contextual
+ * (called from NativePushRegistrar, mounted only on authenticated team
+ * pages) while listeners exist app-wide from app start. register() firing
+ * here is what triggers the native "registration" event that the
+ * already-attached root listener receives -- registration behavior itself
+ * is unchanged from before the split.
+ */
+export async function resolveNativePushPermissionAndRegister(deps: ResolveNativePushPermissionDeps): Promise<void> {
+  const { platform, plugin, isCancelled } = deps;
+  const promptSession = deps.promptSession ?? defaultPermissionPromptSession;
 
   if (platform === "ios") {
     let status = await plugin.checkPermissions();
     if (status.receive === "prompt") {
       status = await plugin.requestPermissions();
     }
-    if (status.receive !== "granted") return remove;
+    if (status.receive !== "granted") return;
+    if (isCancelled()) return;
     await plugin.register();
-    return remove;
+    return;
   }
 
-  // Android. Effect already torn down while the listeners attached: the next
-  // mount repeats this whole flow, so stop here instead of leaking listeners.
-  if (isCancelled()) {
-    remove();
-    return remove;
-  }
+  // Android.
+  if (isCancelled()) return;
 
   let status = await plugin.checkPermissions();
   if (status.receive === "prompt" || status.receive === "prompt-with-rationale") {
     // Android 13+ runtime prompt, at most once per app session. Android 12
     // and below report "granted" and never reach this branch.
-    if (promptSession.wasPrompted()) return remove;
+    if (promptSession.wasPrompted()) return;
     promptSession.markPrompted();
     status = await plugin.requestPermissions();
   }
-  if (status.receive !== "granted") return remove;
+  if (status.receive !== "granted") return;
+  if (isCancelled()) return;
 
   try {
     await plugin.createChannel(ANDROID_PUSH_CHANNEL); // idempotent on the native side
   } catch {
     // A channel failure must never block registration (FCM falls back to its default channel).
   }
+  if (isCancelled()) return;
   await plugin.register();
-  return remove;
 }
 
 /** IO the token registration needs, injected so the rotation rules are testable. */
