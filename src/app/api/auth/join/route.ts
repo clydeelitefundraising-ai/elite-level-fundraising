@@ -6,7 +6,7 @@ import { createPendingRequest } from "@/lib/platform/parentAccessRequests";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 const LIMIT = { limit: 10, windowSeconds: 60 * 60 };
 
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
           reference_url: `/team/${campaign_slug}/requests`,
         });
         const accountIds = await getHeadCoachAccountIds(campaign_slug);
-        await dispatchApnsPush({
+        await dispatchPush({
           accountIds,
           category: "requests",
           kind: "request",

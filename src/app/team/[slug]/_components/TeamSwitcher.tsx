@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowLeftRight, User } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
-import { isNativeIosApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
+import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
 
@@ -211,7 +211,7 @@ export default function TeamSwitcher({
               action="/api/auth/logout"
               style={{ borderTop: "1px solid #f0f0f0" }}
               onSubmit={e => {
-                if (!isNativeIosApp()) return;
+                if (!isNativeApp()) return;
                 e.preventDefault();
                 void performNativeAwareLogout(router);
               }}

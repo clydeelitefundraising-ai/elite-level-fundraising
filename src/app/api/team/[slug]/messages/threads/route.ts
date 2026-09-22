@@ -12,7 +12,7 @@ import {
 import { sendPushToParticipants } from "@/lib/push";
 import { getTeamIdBySlug, createNotification, buildMessageReferenceUrl } from "@/lib/notifications";
 import { getAccountIdsForThreadParticipants } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 // Phase 10: canonical notification row + native push for a new message —
 // shared by both the reused-thread and brand-new-thread paths below, so
@@ -33,7 +33,7 @@ function notifyNewMessage(slug: string, threadId: string, senderKey: string, sen
         reference_url: buildMessageReferenceUrl(slug, threadId, senderKey),
       });
       const accountIds = await getAccountIdsForThreadParticipants(threadId, senderKey);
-      await dispatchApnsPush({
+      await dispatchPush({
         accountIds,
         category: "messages",
         kind: "message",

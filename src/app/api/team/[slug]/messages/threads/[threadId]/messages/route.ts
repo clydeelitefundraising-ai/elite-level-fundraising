@@ -20,7 +20,7 @@ import {
 import { sendPushToParticipants } from "@/lib/push";
 import { getTeamIdBySlug, createNotification, buildMessageReferenceUrl } from "@/lib/notifications";
 import { getAccountIdsForThreadParticipants } from "@/lib/pushRecipients";
-import { dispatchApnsPush } from "@/lib/apns";
+import { dispatchPush } from "@/lib/pushDispatch";
 
 type RouteCtx = { params: Promise<{ slug: string; threadId: string }> };
 
@@ -169,7 +169,7 @@ export async function POST(
         reference_url: buildMessageReferenceUrl(slug, threadId, senderKey),
       });
       const accountIds = await getAccountIdsForThreadParticipants(threadId, senderKey);
-      await dispatchApnsPush({
+      await dispatchPush({
         accountIds,
         category: "messages",
         kind: "message",
