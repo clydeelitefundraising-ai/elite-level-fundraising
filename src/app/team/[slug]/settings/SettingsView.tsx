@@ -13,6 +13,7 @@ import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
 import CoachFundraisingSection from "./CoachFundraisingSection";
 import AccountPrivacySection from "./AccountPrivacySection";
+import NotificationPreferencesSection from "./NotificationPreferencesSection";
 import IdentityAvatar from "./IdentityAvatar";
 
 type Props = {
@@ -418,6 +419,11 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           </div>
         </div>
       </div>
+
+      {/* ── Notification Preferences — which categories of native app push
+          (iOS APNs / Android FCM) this account receives. Existing backend
+          (push_preferences + isCategoryEnabled), no UI previously existed. ── */}
+      <NotificationPreferencesSection />
 
       {/* ── Account & Privacy (Blocked Users, Delete Account) — moved here
           from the AccountMenu flyout so every role can reach them from

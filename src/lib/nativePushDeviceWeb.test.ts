@@ -151,3 +151,61 @@ test("NativePushRegistrar.tsx: is mounted exactly once, inside the authenticated
   const layout = read("src/app/team/[slug]/layout.tsx");
   assert.equal(layout.split("<NativePushRegistrar").length - 1, 1);
 });
+
+// ── Phase 2E: cold-start tap routing -- listener/permission split ────────────
+//
+// pushNotificationActionPerformed used to be attached only inside
+// NativePushRegistrar (mounted exclusively on an authenticated team/[slug]
+// page). A multi-team account's cold start lands on /teams first, so that
+// listener never existed yet when Capacitor tried to deliver a queued
+// cold-start tap, and the tap was silently dropped. Listener attachment now
+// lives permanently in NativePushListenerBootstrap, mounted once in the root
+// layout so it exists on every cold-start route.
+
+const BOOTSTRAP = "src/app/_components/NativePushListenerBootstrap.tsx";
+const ROOT_LAYOUT = "src/app/layout.tsx";
+
+test("NativePushListenerBootstrap.tsx: attaches listeners via attachNativePushListeners, not the permission/register helper", () => {
+  const source = read(BOOTSTRAP);
+  assert.ok(source.includes("attachNativePushListeners"), "must call the listener-only attach function");
+  assert.ok(!source.includes("resolveNativePushPermissionAndRegister"), "must not also resolve permission/register -- that stays in NativePushRegistrar");
+});
+
+test("NativePushListenerBootstrap.tsx: gated only on native platform, never on authentication", () => {
+  const source = read(BOOTSTRAP);
+  assert.ok(source.includes("getNativePlatform()"), "must check platform");
+  assert.ok(!source.includes("isAuthenticated"), "must not gate on auth -- attaching a listener has no auth requirement");
+});
+
+test("NativePushListenerBootstrap.tsx: effect has an empty dependency array (mounts exactly once for the app's lifetime)", () => {
+  const source = read(BOOTSTRAP);
+  assert.match(source, /\}, \[\]\);/, "useEffect must depend on nothing so it never re-runs on route/team changes");
+});
+
+test("NativePushListenerBootstrap.tsx: removes listeners on its own cleanup (no leak if it ever unmounts)", () => {
+  const source = read(BOOTSTRAP);
+  assert.ok(source.includes("removeListeners?.()"), "cleanup must detach whatever was attached");
+});
+
+test("Root layout mounts NativePushListenerBootstrap exactly once, alongside NativeBootstrap", () => {
+  const layout = read(ROOT_LAYOUT);
+  assert.equal(layout.split("<NativePushListenerBootstrap").length - 1, 1);
+  assert.ok(layout.includes("<NativeBootstrap"), "must sit beside the existing native bootstrap, not replace it");
+});
+
+test("NativePushRegistrar.tsx no longer attaches any listener itself -- exactly one addListener call site exists app-wide (in nativePushRegistration.ts)", () => {
+  const registrar = read(REGISTRAR);
+  assert.ok(!registrar.includes("addListener"), "listener attachment must not remain duplicated here");
+  assert.ok(registrar.includes("resolveNativePushPermissionAndRegister"), "must still resolve permission/register, just not attach listeners");
+
+  const lib = read("src/lib/nativePushRegistration.ts");
+  const addListenerCallSites = (lib.match(/plugin\.addListener\(/g) || []).length;
+  assert.equal(addListenerCallSites, 3, "exactly one attach function owns the three addListener calls -- registration, registrationError, pushNotificationActionPerformed");
+});
+
+test("attachNativePushListeners and resolveNativePushPermissionAndRegister are two distinct exported functions (no second competing listener/navigation system)", () => {
+  const lib = read("src/lib/nativePushRegistration.ts");
+  assert.ok(lib.includes("export async function attachNativePushListeners("));
+  assert.ok(lib.includes("export async function resolveNativePushPermissionAndRegister("));
+  assert.ok(!lib.includes("export async function startNativePushRegistration("), "the old combined function must be fully replaced, not kept alongside the split as a second path");
+});

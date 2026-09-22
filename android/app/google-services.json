@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1045719263980",
+    "project_id": "elite-level-fundraising",
+    "storage_bucket": "elite-level-fundraising.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1045719263980:android:f3c1f1d8f778ca700853c9",
+        "android_client_info": {
+          "package_name": "com.elitelevelfundraising.team"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJ-kLjhLU-p7wWLLd3Y2j4Ci8O1vtwueE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

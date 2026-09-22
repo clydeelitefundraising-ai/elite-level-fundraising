@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./design-system.css";
 import { NativeBootstrap } from "./_components/NativeBootstrap";
+import { NativePushListenerBootstrap } from "./_components/NativePushListenerBootstrap";
 
 // Same build-time switch as page.tsx: NEXT_PUBLIC_APP_URL is set only in the
 // ELF Team App Vercel project, so this resolves to the right canonical domain
@@ -63,7 +64,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body><NativeBootstrap />{children}</body>
+      <body><NativeBootstrap /><NativePushListenerBootstrap />{children}</body>
     </html>
   );
 }

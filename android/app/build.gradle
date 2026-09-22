@@ -2,10 +2,27 @@ apply plugin: 'com.android.application'
 
 def keystorePropertiesFile = rootProject.file('keystore.properties')
 def keystoreProperties = new Properties()
-def hasReleaseSigning = keystorePropertiesFile.exists()
-if (hasReleaseSigning) {
+if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+// Release signing is only "available" when every required field is present and the keystore
+// file it points at exists. Release packaging is refused otherwise (see the guard at the bottom
+// of this file) -- it must never fall back to the debug key.
+def releaseSigningProblems = []
+if (!keystorePropertiesFile.exists()) {
+    releaseSigningProblems << "android/keystore.properties does not exist"
+} else {
+    ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each { key ->
+        if (!keystoreProperties[key]?.toString()?.trim()) {
+            releaseSigningProblems << "keystore.properties is missing '${key}'".toString()
+        }
+    }
+    if (keystoreProperties['storeFile']?.toString()?.trim() &&
+            !rootProject.file(keystoreProperties['storeFile'].toString().trim()).exists()) {
+        releaseSigningProblems << "keystore file '${keystoreProperties['storeFile']}' does not exist".toString()
+    }
+}
+def hasReleaseSigning = releaseSigningProblems.isEmpty()
 
 android {
     namespace = "com.elitelevelfundraising.team"
@@ -37,9 +54,11 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // Falls back to debug signing when keystore.properties is absent (e.g. CI checkout
-            // without release credentials) so `assembleRelease` doesn't hard-fail locally.
-            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            // No debug-key fallback: without release credentials the build is refused by the
+            // guard at the bottom of this file, so a debug-signed release can never be produced.
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
@@ -63,6 +82,24 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Release-signing guard: fails the build at task-graph time (before any compilation) whenever a
+// release packaging task (assembleRelease / bundleRelease / packageRelease) is requested without
+// complete release signing credentials. Debug builds, lint and Android Studio sync are unaffected.
+gradle.taskGraph.whenReady { graph ->
+    def releasePackaging = graph.allTasks.any { task ->
+        task.project == project && task.name ==~ /^(assemble|bundle|package)\w*Release(Bundle)?$/
+    }
+    if (releasePackaging && !hasReleaseSigning) {
+        throw new GradleException(
+            "Refusing to build a release artifact without release signing credentials " +
+            "(it would otherwise be signed with the debug key).\n" +
+            "Problems: ${releaseSigningProblems.join('; ')}.\n" +
+            "Create android/keystore.properties (copy android/keystore.properties.example) " +
+            "pointing at your release keystore, then re-run. Debug builds are unaffected."
+        )
+    }
+}
 
 try {
     def servicesJSON = file('google-services.json')

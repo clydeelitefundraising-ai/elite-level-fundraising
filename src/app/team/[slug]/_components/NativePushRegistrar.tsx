@@ -1,49 +1,49 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getNativePlatform, registerNativeDeviceToken } from "@/lib/nativePushDevice";
-import { startNativePushRegistration } from "@/lib/nativePushRegistration";
+import { getNativePlatform } from "@/lib/nativePushDevice";
+import { resolveNativePushPermissionAndRegister } from "@/lib/nativePushRegistration";
 
-// Phase 10 / Phase 2C: native-only push registration + tap-routing bootstrap
-// (APNs on iOS, FCM on Android) — sibling to ServiceWorkerRegistrar (the
-// equivalent bootstrap for web push), mounted the same way in
-// team/[slug]/layout.tsx. Never requests permission for browser/PWA users
-// (gated on getNativePlatform(), the same Capacitor.isNativePlatform()
-// convention NativeBootstrap.tsx already uses), and never prompts before the
-// account is actually authenticated — an unauthenticated visitor would just
-// get a 401 from POST /api/push/devices anyway, and prompting for
-// notification permission before login is bad UX and not this app's pattern
-// anywhere else.
+// Phase 10 / Phase 2C / Phase 2E: native-only push permission + registration
+// bootstrap (APNs on iOS, FCM on Android). Never requests permission for
+// browser/PWA users (gated on getNativePlatform(), the same
+// Capacitor.isNativePlatform() convention NativeBootstrap.tsx already uses),
+// and never prompts before the account is actually authenticated — an
+// unauthenticated visitor would just get a 401 from POST /api/push/devices
+// anyway, and prompting for notification permission before login is bad UX
+// and not this app's pattern anywhere else.
 //
-// All decisions (permission flow, Android channel, tap routing, token
-// rotation) live in src/lib/nativePushRegistration.ts so they are unit-tested.
+// Phase 2E split this component: it used to also attach the native push
+// listeners (registration/registrationError/pushNotificationActionPerformed),
+// but that only ever mounted on an authenticated team page, so a cold-start
+// notification tap landing on /teams (or /login, or any other route outside
+// team/[slug]/*) fired to zero listeners and was silently dropped. Listener
+// attachment now lives permanently in NativePushListenerBootstrap
+// (src/app/_components/NativePushListenerBootstrap.tsx), mounted once in the
+// root layout for the life of the app. This component now only ever resolves
+// permission/channel/register() — see nativePushRegistration.ts for both
+// halves.
 //
-// Re-mounts (and re-registers/re-attaches listeners) on every team page
-// visit — harmless: registerPushDevice()'s upsert on
-// (platform, device_token) makes a repeat registration of the same token
-// a safe no-op refresh, not a duplicate row, and PushNotifications.
-// register() is cheap/idempotent on the native side too. On Android the
-// notification permission prompt is additionally limited to once per app
-// session, so navigating between team pages never nags.
+// Re-mounts (and re-resolves permission/registers) on every team page visit
+// — harmless: registerPushDevice()'s upsert on (platform, device_token)
+// makes a repeat registration of the same token a safe no-op refresh, not a
+// duplicate row, and PushNotifications.register() is cheap/idempotent on the
+// native side too. On Android the notification permission prompt is
+// additionally limited to once per app session, so navigating between team
+// pages never nags.
 export default function NativePushRegistrar({ isAuthenticated }: { isAuthenticated: boolean }) {
-  const router = useRouter();
-
   useEffect(() => {
     if (!isAuthenticated) return;
     const platform = getNativePlatform();
     if (!platform) return;
 
     let cancelled = false;
-    let removeListeners: (() => void) | undefined;
 
     (async () => {
       const { PushNotifications } = await import("@capacitor/push-notifications");
-      removeListeners = await startNativePushRegistration({
+      await resolveNativePushPermissionAndRegister({
         platform,
         plugin: PushNotifications,
-        registerToken: registerNativeDeviceToken,
-        navigate: url => router.push(url),
         isCancelled: () => cancelled,
       });
     })().catch(() => {
@@ -52,9 +52,7 @@ export default function NativePushRegistrar({ isAuthenticated }: { isAuthenticat
 
     return () => {
       cancelled = true;
-      removeListeners?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- router identity is stable; re-running on every render would re-request permission
   }, [isAuthenticated]);
 
   return null;
