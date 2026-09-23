@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "com.elitelevelfundraising.team",
       "sha256_cert_fingerprints": [
-        "6A:64:EF:BA:AD:09:9D:3A:1C:E4:ED:BF:CB:48:0B:3E:F6:AA:7C:0F:B4:2C:25:07:B3:ED:13:BE:0D:C6:AE:D4"
+        "6A:64:EF:BA:AD:09:9D:3A:1C:E4:ED:BF:CB:48:0B:3E:F6:AA:7C:0F:B4:2C:25:07:B3:ED:13:BE:0D:C6:AE:D4",
+        "57:9C:5C:64:29:16:61:FC:84:CB:74:6B:B9:00:EC:C4:F7:69:60:61:F2:73:79:22:2A:21:6F:C4:37:09:00:EA"
       ]
     }
   }
