@@ -12,11 +12,67 @@
 // Desktop/browser environments (where `navigator.canShare({files})` isn't
 // available) are completely unaffected — callers always keep their
 // original <a download> / window.print() as the `fallback` argument below.
+//
+// Android follow-up: `navigator.share`/`canShare` is not implemented by
+// Android's embedded WebView (unlike WKWebView on iOS), so on Android this
+// always fell through to `fallback` — which is itself a silent no-op there
+// too (a `blob:` URL `<a download>` click has no native download handling
+// in an embedded WebView; `WebView.setDownloadListener` never fires for
+// blob: URLs). MainActivity already registers a native bridge for exactly
+// this — `window.ElfAndroidFiles` (see AndroidFileBridge.java) — but no web
+// code called it. When present, it's used in preference to both
+// `navigator.share` and `fallback`; the existing chain below is otherwise
+// untouched, so iOS/web behavior is unchanged.
 
 type ShareNavigator = Navigator & {
   canShare?: (data: { files: File[] }) => boolean;
   share?:    (data: { files: File[] }) => Promise<void>;
 };
+
+/** The exact contract already implemented by AndroidFileBridge.java's
+ *  saveAndShare — returns a JSON string, never throws into JS. */
+interface NativeFileBridge {
+  saveAndShare(base64Data: string, fileName: string, mimeType: string): string;
+}
+
+function getNativeFileBridge(): NativeFileBridge | null {
+  const bridge = (globalThis as { ElfAndroidFiles?: NativeFileBridge }).ElfAndroidFiles;
+  return bridge && typeof bridge.saveAndShare === "function" ? bridge : null;
+}
+
+type BridgeResult = { ok: true } | { ok: false; error?: string };
+
+/** Never throws — an unparsable/unexpected response is treated as failure,
+ *  never as a false success. */
+function parseBridgeResult(raw: string): BridgeResult {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && (parsed as { ok?: unknown }).ok === true) {
+      return { ok: true };
+    }
+    if (parsed && typeof parsed === "object" && (parsed as { ok?: unknown }).ok === false) {
+      const error = (parsed as { error?: unknown }).error;
+      return { ok: false, error: typeof error === "string" ? error : undefined };
+    }
+  } catch {
+    // fall through to the ok:false default below
+  }
+  return { ok: false, error: "bad_response" };
+}
+
+/** Base64-encodes bytes for AndroidFileBridge.saveAndShare, chunked to
+ *  avoid a call-stack overflow from String.fromCharCode(...bytes) on large
+ *  files. Uses only globals available in both a WebView and a plain
+ *  browser (no Buffer). */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
 
 /**
  * Convert a data: URL (e.g. the QR code's `qrDataUrl`) into a File, so it
@@ -39,8 +95,25 @@ export async function dataUrlToFile(dataUrl: string, filename: string, mimeType:
  * silent no-op. A user dismissing the native share sheet (AbortError) is
  * expected, normal behavior, not a failure, so it does NOT trigger the
  * fallback.
+ *
+ * On Android, `window.ElfAndroidFiles` (see AndroidFileBridge.java) is
+ * checked first and used instead of both `navigator.share` and `fallback`
+ * when present — neither of those actually works in Android's embedded
+ * WebView. A bridge failure throws (never a silent/false success) so
+ * callers' existing catch/setError handling surfaces it.
  */
 export async function shareFileOrFallback(file: File, fallback: () => void): Promise<void> {
+  const bridge = getNativeFileBridge();
+  if (bridge) {
+    const base64 = arrayBufferToBase64(await file.arrayBuffer());
+    const mimeType = file.type || "application/octet-stream";
+    const result = parseBridgeResult(bridge.saveAndShare(base64, file.name, mimeType));
+    if (!result.ok) {
+      throw new Error(result.error ? `Couldn't save file (${result.error}).` : "Couldn't save file.");
+    }
+    return;
+  }
+
   const nav = navigator as ShareNavigator;
   const canShareFiles =
     typeof nav.canShare === "function" &&
