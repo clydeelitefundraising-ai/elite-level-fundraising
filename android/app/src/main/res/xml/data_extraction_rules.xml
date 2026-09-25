@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Android 12+ (API 31+) backup/transfer scoping. Excludes the WebView's own
+     data directory (app_webview) from both cloud backup and device-to-device
+     transfer: that directory holds cookies, localStorage, IndexedDB and the
+     service worker cache, which is where the web app's auth/session state
+     lives (this app has no native Capacitor Preferences/SharedPreferences
+     auth storage to exclude separately). Restoring that directory onto a
+     different device would replay one user's authenticated session there.
+     Everything else (app-specific files used for camera captures / share
+     sheet, see file_paths.xml) is left backed up normally.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_webview" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="app_webview" />
+    </device-transfer>
+</data-extraction-rules>

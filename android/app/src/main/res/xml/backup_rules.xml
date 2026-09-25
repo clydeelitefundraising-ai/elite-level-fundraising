@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Pre-Android-12 (API < 31) equivalent of data_extraction_rules.xml: same
+     exclusion (the WebView's app_webview data directory, which holds the
+     auth/session cookies, localStorage, IndexedDB and service worker cache)
+     so Auto Backup on older devices can't restore one user's session onto
+     another device.
+-->
+<full-backup-content>
+    <exclude domain="root" path="app_webview" />
+</full-backup-content>
