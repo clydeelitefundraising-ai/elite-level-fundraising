@@ -4,6 +4,7 @@ import {
   shouldShowDesktopCalendar,
   splitDayEvents,
   DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY,
+  findEventById,
 } from "./calendarHelpers.ts";
 import { isStaff, type TeamActor } from "../../../../lib/permissions.ts";
 
@@ -123,4 +124,34 @@ test("splitDayEvents: respects a custom max", () => {
 
 test("DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY is 3", () => {
   assert.equal(DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY, 3);
+});
+
+// ─── findEventById ──────────────────────────────────────────────────────────
+//
+// Regression coverage for the calendar/event notification deep-link fix —
+// mirrors src/lib/notifications.test.ts's findAnnouncementNotification.
+
+function ev(id: string) {
+  return { id };
+}
+
+test("findEventById: finds the event matching the id", () => {
+  const events = [ev("e1"), ev("e2")];
+  assert.deepEqual(findEventById(events, "e2"), ev("e2"));
+});
+
+test("findEventById: null eventId (param absent) returns null — normal calendar view, no deep link", () => {
+  const events = [ev("e1")];
+  assert.equal(findEventById(events, null), null);
+});
+
+test("findEventById: malformed/unknown id matches nothing and safely returns null", () => {
+  const events = [ev("e1")];
+  assert.equal(findEventById(events, "not-a-real-id"), null);
+  assert.equal(findEventById(events, ""), null);
+});
+
+test("findEventById: only searches the already-authorized list — an id for another team's event (never present in `events`) matches nothing", () => {
+  const events = [ev("e1")]; // this actor's own, already-scoped events (initialEvents)
+  assert.equal(findEventById(events, "someone-elses-event-id"), null);
 });

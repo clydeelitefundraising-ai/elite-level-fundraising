@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import type { CalendarEventRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
-import { buildCalendarPrintFilename } from "@/lib/calendarShared";
+import { buildCalendarPrintFilename, monthKeyFromISO } from "@/lib/calendarShared";
 import { useCalendarWorkspace } from "./useCalendarWorkspace";
-import { shouldShowDesktopCalendar } from "./calendarHelpers";
+import { shouldShowDesktopCalendar, findEventById } from "./calendarHelpers";
 import CalendarView from "./CalendarView";
 import DesktopCalendarView from "./DesktopCalendarView";
 import EventFormModal from "./EventFormModal";
@@ -44,6 +45,27 @@ export default function CalendarWorkspaceView({
 }) {
   const cal = useCalendarWorkspace(slug, initialEvents, actor, teamName);
   const showDesktop = shouldShowDesktopCalendar(actor);
+  const searchParams = useSearchParams();
+
+  // Deep link from a calendar/event push/notification tap (see
+  // src/app/api/team/[slug]/events/route.ts and events/[id]/route.ts):
+  // ?eventId=<id> surfaces that event's month and opens the existing
+  // EventDetailsModal — reuses the exact same "view an event" mechanism a
+  // normal calendar tap already uses, no new UI. `cal.events` is already
+  // scoped server-side to what this actor can see (initialEvents), so a
+  // malformed, unknown, or cross-team event id simply matches nothing and
+  // this is a silent no-op — the normal calendar view renders exactly as
+  // it would without the param.
+  useEffect(() => {
+    const match = findEventById(cal.events, searchParams.get("eventId"));
+    if (!match) return;
+    cal.changeVisibleMonth(monthKeyFromISO(match.event_date));
+    cal.setViewing(match);
+    // Runs once per mount against the initial list/query — re-opening the
+    // modal on every unrelated `cal.events` mutation (add/edit/delete)
+    // would be jarring.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Phase 8c pattern, unchanged in behavior — just relocated here so ONE
   // ref/filename pair is shared by the wrapper's hidden print DOM node and

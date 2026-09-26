@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { NotificationRow } from "@/lib/notifications";
+import { findAnnouncementNotification } from "@/lib/notifications";
 import { Megaphone, MessageCircle, Paperclip, Calendar, DollarSign, Bell, type LucideIcon } from "lucide-react";
 
 const TYPE_META: Record<string, { icon: LucideIcon; label: string; accent: string; bg: string }> = {
@@ -48,6 +49,7 @@ function NotifCard({
   hasMember,
   isCoach,
   expanded,
+  highlighted,
   onTap,
   onDismiss,
   onToggleExpand,
@@ -56,6 +58,7 @@ function NotifCard({
   hasMember: boolean;
   isCoach: boolean;
   expanded: boolean;
+  highlighted: boolean;
   onTap: (n: NotificationRow) => void;
   onDismiss: (id: string) => void;
   onToggleExpand: (id: string) => void;
@@ -69,6 +72,7 @@ function NotifCard({
 
   return (
     <div
+      id={`notif-${notif.id}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -76,7 +80,9 @@ function NotifCard({
         borderRadius:  12,
         padding:       ".75rem .9rem",
         marginBottom:  ".45rem",
-        boxShadow:     hovered
+        boxShadow:     highlighted
+          ? "0 0 0 2px #3b82f6, 0 4px 14px rgba(59,130,246,.25)"
+          : hovered
           ? "0 4px 14px rgba(0,0,0,.09), 0 0 0 1px rgba(0,0,0,.05)"
           : "0 1px 3px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         borderLeft:    `3px solid ${isUnread ? meta.accent : "#e5e7eb"}`,
@@ -84,7 +90,7 @@ function NotifCard({
         gap:           ".65rem",
         cursor:        "pointer",
         transform:     hovered ? "translateY(-1px)" : "none",
-        transition:    "transform .13s ease, box-shadow .13s ease",
+        transition:    "transform .13s ease, box-shadow .3s ease",
         position:      "relative",
       }}
       onClick={() => onTap(notif)}
@@ -208,14 +214,41 @@ export default function NotificationsView({
   isCoach?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [items,       setItems]       = useState<NotificationRow[]>(initial);
   const [marking,     setMarking]     = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const unreadItems = items.filter(n => !n.read_at);
   const readItems   = items.filter(n => n.read_at);
   const unreadCount = unreadItems.length;
   const canMarkRead = hasMember || isCoach;
+
+  // Deep link from an announcement push/notification tap (see
+  // src/app/api/team/[slug]/announcements/route.ts): ?announcementId=<id>
+  // scrolls to and briefly highlights the matching notification row. `items`
+  // is already scoped to what this actor can see (getNotificationsForMember),
+  // so a malformed, unknown, or cross-team/account id simply matches nothing
+  // and this is a silent no-op — the normal /notifications page renders
+  // exactly as it would without the param.
+  useEffect(() => {
+    const match = findAnnouncementNotification(items, searchParams.get("announcementId"));
+    if (!match) return;
+
+    const el = document.getElementById(`notif-${match.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Deferred a tick: setting state synchronously in an effect body risks
+    // a cascading render (react-hooks/set-state-in-effect); this is a
+    // one-time "sync from the URL on mount" action, not a per-render
+    // synchronization, so the defer changes nothing observable.
+    const highlightTimer = setTimeout(() => setHighlightedId(match.id), 0);
+    const clearTimer = setTimeout(() => setHighlightedId(null), 2500);
+    return () => { clearTimeout(highlightTimer); clearTimeout(clearTimer); };
+    // Runs once per mount against the initial list/query — re-scrolling on
+    // every unrelated `items` mutation (dismiss, mark-read) would be jarring.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTap = async (notif: NotificationRow) => {
     if (canMarkRead && !notif.read_at) {
@@ -340,6 +373,7 @@ export default function NotificationsView({
               hasMember={hasMember}
               isCoach={isCoach}
               expanded={expandedIds.has(n.id)}
+              highlighted={highlightedId === n.id}
               onTap={handleTap}
               onDismiss={handleDismiss}
               onToggleExpand={handleToggleExpand}
@@ -359,6 +393,7 @@ export default function NotificationsView({
               hasMember={hasMember}
               isCoach={isCoach}
               expanded={expandedIds.has(n.id)}
+              highlighted={highlightedId === n.id}
               onTap={handleTap}
               onDismiss={handleDismiss}
               onToggleExpand={handleToggleExpand}

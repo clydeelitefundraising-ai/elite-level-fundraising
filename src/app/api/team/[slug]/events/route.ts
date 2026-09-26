@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
-import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getTeamIdBySlug, createNotification, buildCalendarEventUrl } from "@/lib/notifications";
 import { getAccountIdsForScope } from "@/lib/pushRecipients";
 import { dispatchPush } from "@/lib/pushDispatch";
 
@@ -58,11 +58,13 @@ export async function POST(
   }
 
   const rows = await res.json();
+  const newEventId: string | null = rows[0]?.id ?? null;
+  const calendarUrl = newEventId ? buildCalendarEventUrl(slug, newEventId) : `/team/${slug}/calendar`;
 
   void sendPushToTeam(slug, {
     title: `Event Added: ${title.trim()}`,
     body:  [event_date, location?.trim()].filter(Boolean).join(" · "),
-    url:   `/team/${slug}/calendar`,
+    url:   calendarUrl,
   });
 
   // Phase 10: canonical notification row + native push, fire-and-forget —
@@ -75,8 +77,8 @@ export async function POST(
         type: "calendar_event",
         title: "Calendar Updated",
         body: `${title.trim()} added to the calendar`.slice(0, 140),
-        reference_id: rows[0]?.id ?? null,
-        reference_url: `/team/${slug}/calendar`,
+        reference_id: newEventId,
+        reference_url: calendarUrl,
         recipient_scope: "everyone",
       });
       const accountIds = await getAccountIdsForScope(slug, "everyone", null);
@@ -85,7 +87,7 @@ export async function POST(
         category: "calendar",
         kind: "calendar_event",
         ctx: { eventTitle: title.trim() },
-        url: `/team/${slug}/calendar`,
+        url: calendarUrl,
       });
     } catch (err) {
       console.error("[events] notification/push failed:", err);

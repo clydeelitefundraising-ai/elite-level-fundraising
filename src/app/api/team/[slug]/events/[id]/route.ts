@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
-import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getTeamIdBySlug, createNotification, buildCalendarEventUrl } from "@/lib/notifications";
 import { getAccountIdsForScope } from "@/lib/pushRecipients";
 import { dispatchPush } from "@/lib/pushDispatch";
 
 // Phase 10: shared by both edit and cancel below — a failure here must
 // never fail the event mutation that already succeeded.
 function notifyCalendarChange(slug: string, eventId: string, eventTitle: string | undefined, changeLabel: string) {
+  const calendarUrl = buildCalendarEventUrl(slug, eventId);
   void (async () => {
     try {
       const teamId = await getTeamIdBySlug(slug);
@@ -17,7 +18,7 @@ function notifyCalendarChange(slug: string, eventId: string, eventTitle: string 
         title: "Calendar Updated",
         body: `${eventTitle ?? "An event"} ${changeLabel}`.slice(0, 140),
         reference_id: eventId,
-        reference_url: `/team/${slug}/calendar`,
+        reference_url: calendarUrl,
         recipient_scope: "everyone",
       });
       const accountIds = await getAccountIdsForScope(slug, "everyone", null);
@@ -26,7 +27,7 @@ function notifyCalendarChange(slug: string, eventId: string, eventTitle: string 
         category: "calendar",
         kind: "calendar_event",
         ctx: {},
-        url: `/team/${slug}/calendar`,
+        url: calendarUrl,
       });
     } catch (err) {
       console.error("[events] notification/push failed:", err);

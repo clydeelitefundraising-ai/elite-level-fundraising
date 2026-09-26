@@ -3,7 +3,7 @@ import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { staffRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { sendPushToScope } from "@/lib/push";
-import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
+import { getTeamIdBySlug, createNotification, buildAnnouncementReferenceUrl } from "@/lib/notifications";
 import type { RecipientScope } from "@/lib/notifications";
 import { getAccountIdsForScope } from "@/lib/pushRecipients";
 import { dispatchPush } from "@/lib/pushDispatch";
@@ -146,7 +146,7 @@ export async function POST(
           title:                title.trim(),
           body:                 (msgBody?.trim() ?? "").slice(0, 140),
           reference_id:         newAnnouncement.id,
-          reference_url:        `/team/${slug}/notifications`,
+          reference_url:        buildAnnouncementReferenceUrl(slug, newAnnouncement.id),
           recipient_scope:      safeScope,
           recipient_athlete_id: recipientAthleteId,
         });
@@ -156,11 +156,12 @@ export async function POST(
     }
 
     if (shouldPush) {
+      const pushUrl = buildAnnouncementReferenceUrl(slug, newAnnouncement.id);
       try {
         await sendPushToScope(slug, safeScope, recipientAthleteId, {
           title: "New Update",
           body:  title.trim().slice(0, 100),
-          url:   `/team/${slug}/notifications`,
+          url:   pushUrl,
         });
       } catch (err) {
         console.error("[announcements] sendPushToScope failed:", err);
@@ -173,7 +174,7 @@ export async function POST(
           category: "team_updates",
           kind: "announcement",
           ctx: { actorName: authorName },
-          url: `/team/${slug}/notifications`,
+          url: pushUrl,
         });
       } catch (err) {
         console.error("[announcements] dispatchPush failed:", err);

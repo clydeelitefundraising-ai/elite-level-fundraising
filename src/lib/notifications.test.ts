@@ -5,6 +5,9 @@ import {
   mergeReadReceipts,
   parseSenderKeyFromReferenceUrl,
   buildMessageReferenceUrl,
+  buildAnnouncementReferenceUrl,
+  buildCalendarEventUrl,
+  findAnnouncementNotification,
   filterMessageNotifications,
   isTypeVisibleToMember,
 } from "./notifications.ts";
@@ -101,6 +104,62 @@ test("buildMessageReferenceUrl: builds a valid deep link with an encoded sender 
     buildMessageReferenceUrl("monroe-valley", "t1", "member:xyz"),
     "/team/monroe-valley/messages/t1?sender=member%3Axyz",
   );
+});
+
+// ── buildAnnouncementReferenceUrl / buildCalendarEventUrl ────────────────────
+//
+// Regression coverage for the generic-destination bug: announcement and
+// calendar/event push/reference URLs previously carried no entity id at
+// all (every announcement pushed the same `/team/{slug}/notifications`,
+// every event pushed the same `/team/{slug}/calendar`), so a tap could
+// never land on the specific item — only the DM path (buildMessageReferenceUrl
+// above) included its entity id. These two mirror that same shape.
+
+test("buildAnnouncementReferenceUrl: includes the persisted announcement id", () => {
+  assert.equal(
+    buildAnnouncementReferenceUrl("monroe-valley", "ann-123"),
+    "/team/monroe-valley/notifications?announcementId=ann-123",
+  );
+});
+
+test("buildCalendarEventUrl: includes the persisted event id", () => {
+  assert.equal(
+    buildCalendarEventUrl("monroe-valley", "evt-456"),
+    "/team/monroe-valley/calendar?eventId=evt-456",
+  );
+});
+
+// ── findAnnouncementNotification ─────────────────────────────────────────────
+
+function announcementNotif(id: string, referenceId: string | null) {
+  return { id, type: "announcement", reference_id: referenceId };
+}
+
+test("findAnnouncementNotification: finds the notification matching the announcement id", () => {
+  const notifs = [announcementNotif("n1", "ann-1"), announcementNotif("n2", "ann-2")];
+  const found = findAnnouncementNotification(notifs, "ann-2");
+  assert.equal(found?.id, "n2");
+});
+
+test("findAnnouncementNotification: null announcementId (param absent) returns null — normal page, no deep link", () => {
+  const notifs = [announcementNotif("n1", "ann-1")];
+  assert.equal(findAnnouncementNotification(notifs, null), null);
+});
+
+test("findAnnouncementNotification: malformed/unknown id matches nothing and safely returns null", () => {
+  const notifs = [announcementNotif("n1", "ann-1")];
+  assert.equal(findAnnouncementNotification(notifs, "not-a-real-id"), null);
+  assert.equal(findAnnouncementNotification(notifs, ""), null);
+});
+
+test("findAnnouncementNotification: an id belonging to a different notification type never matches — a message notification can't be spoofed as an announcement deep link", () => {
+  const notifs = [{ id: "n1", type: "message", reference_id: "ann-1" }];
+  assert.equal(findAnnouncementNotification(notifs, "ann-1"), null);
+});
+
+test("findAnnouncementNotification: only searches the already-authorized list — an id for another team/account's announcement (never present in `notifs`) matches nothing", () => {
+  const notifs = [announcementNotif("n1", "ann-1")]; // this actor's own, already-scoped notifications
+  assert.equal(findAnnouncementNotification(notifs, "someone-elses-ann-id"), null);
 });
 
 function messageNotif(id: string, teamId: string, threadId: string | null, senderKey: string | null) {

@@ -42,3 +42,15 @@ export function splitDayEvents<T>(
   if (evs.length <= max) return { visible: evs, overflowCount: 0 };
   return { visible: evs.slice(0, max), overflowCount: evs.length - max };
 }
+
+// ─── Event-notification deep link ────────────────────────────────────────────
+
+/** Pure — locates the event a tapped calendar/event push/deep link
+ *  (?eventId=) should surface. `events` is already scoped to what the
+ *  current actor can see (initialEvents, from getCalendarEvents), so an
+ *  unknown, malformed, or cross-team eventId simply matches nothing — the
+ *  caller treats that as "no deep link", never an error. */
+export function findEventById<T extends { id: string }>(events: T[], eventId: string | null): T | null {
+  if (!eventId) return null;
+  return events.find(e => e.id === eventId) ?? null;
+}
