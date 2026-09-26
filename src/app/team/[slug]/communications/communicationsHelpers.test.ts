@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shouldShowDesktopCommunications } from "./communicationsHelpers.ts";
+import { shouldShowDesktopCommunications, findAnnouncementById } from "./communicationsHelpers.ts";
 import { isStaff, isHeadCoach, type TeamActor } from "../../../../lib/permissions.ts";
 
 // Same fixture convention as rosterHelpers.test.ts / calendarHelpers.test.ts.
@@ -90,4 +90,37 @@ test("Head Coach is desktop-eligible and retains full isStaff + isHeadCoach perm
   assert.equal(shouldShowDesktopCommunications(headCoach), true);
   assert.equal(isStaff(headCoach), true);
   assert.equal(isHeadCoach(headCoach), true);
+});
+
+// ─── findAnnouncementById ────────────────────────────────────────────────────
+//
+// Regression coverage for the announcement-content deep-link fix — mirrors
+// calendarHelpers.test.ts's findEventById. `items` here stands in for
+// useUpdatesWorkspace's already-authorized workspace.items (getAnnouncements
+// -> isAnnouncementVisibleToActor), so these tests exercise the exact same
+// "search only what's already authorized" safety property.
+
+function announcement(id: string) {
+  return { id };
+}
+
+test("findAnnouncementById: finds the announcement matching the id", () => {
+  const items = [announcement("a1"), announcement("a2")];
+  assert.deepEqual(findAnnouncementById(items, "a2"), announcement("a2"));
+});
+
+test("findAnnouncementById: null announcementId (param absent) returns null — normal Updates feed, no deep link", () => {
+  const items = [announcement("a1")];
+  assert.equal(findAnnouncementById(items, null), null);
+});
+
+test("findAnnouncementById: malformed/unknown id matches nothing and safely returns null", () => {
+  const items = [announcement("a1")];
+  assert.equal(findAnnouncementById(items, "not-a-real-id"), null);
+  assert.equal(findAnnouncementById(items, ""), null);
+});
+
+test("findAnnouncementById: only searches the already-authorized list — a deleted/foreign/inaccessible announcement (never present in `items`) matches nothing", () => {
+  const items = [announcement("a1")]; // this actor's own, already-scoped announcements
+  assert.equal(findAnnouncementById(items, "someone-elses-or-deleted-announcement-id"), null);
 });

@@ -189,11 +189,12 @@ export function buildMessageReferenceUrl(slug: string, threadId: string, senderK
 }
 
 /** Pure — builds the deep-link reference/push URL for a new announcement,
- *  carrying its persisted id so the tap destination can locate and
- *  highlight the specific announcement instead of landing on the generic
- *  inbox (see NotificationsView.tsx's findAnnouncementNotification). */
+ *  carrying its persisted id so the tap destination (both the push and the
+ *  in-app Notifications-inbox row) opens the actual announcement content in
+ *  Communications -> Updates, not just a generic inbox entry — see
+ *  UpdatesWorkspaceView.tsx's findAnnouncementById. */
 export function buildAnnouncementReferenceUrl(slug: string, announcementId: string): string {
-  return `/team/${slug}/notifications?announcementId=${announcementId}`;
+  return `/team/${slug}/communications?tab=updates&announcementId=${announcementId}`;
 }
 
 /** Pure — builds the deep-link reference/push URL for a calendar event
@@ -202,19 +203,6 @@ export function buildAnnouncementReferenceUrl(slug: string, announcementId: stri
  *  findEventById). */
 export function buildCalendarEventUrl(slug: string, eventId: string): string {
   return `/team/${slug}/calendar?eventId=${eventId}`;
-}
-
-/** Pure — locates the notification row a tapped announcement push/deep
- *  link should surface. `notifs` is already scoped to what the current
- *  actor can see (getNotificationsForMember), so an unknown, malformed, or
- *  cross-team/account announcementId simply matches nothing — the caller
- *  treats that as "no deep link", never an error. */
-export function findAnnouncementNotification<T extends { type: string; reference_id: string | null }>(
-  notifs: T[],
-  announcementId: string | null,
-): T | null {
-  if (!announcementId) return null;
-  return notifs.find(n => n.type === "announcement" && n.reference_id === announcementId) ?? null;
 }
 
 type MessageVisibilityNotif = {

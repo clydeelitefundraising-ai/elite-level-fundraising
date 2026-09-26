@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import { useUpdatesWorkspace } from "./useUpdatesWorkspace";
-import { shouldShowDesktopCommunications } from "../communications/communicationsHelpers";
+import { shouldShowDesktopCommunications, findAnnouncementById } from "../communications/communicationsHelpers";
 import UpdatesView from "./UpdatesView";
 import DesktopUpdatesView from "./DesktopUpdatesView";
 import AnnouncementFormModal from "./AnnouncementFormModal";
@@ -52,6 +54,41 @@ export default function UpdatesWorkspaceView({
 }) {
   const workspace = useUpdatesWorkspace(slug, initialUpdates, actor);
   const showDesktop = shouldShowDesktopCommunications(actor);
+  const searchParams = useSearchParams();
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  // Deep link from an announcement push/notification tap (see
+  // src/app/api/team/[slug]/announcements/route.ts, buildAnnouncementReferenceUrl):
+  // ?announcementId=<id> scrolls to and briefly highlights the matching
+  // UpdateCard, resetting the category filter to "all" first if it would
+  // otherwise hide it. `workspace.items` is already scoped to what this
+  // actor can see (getAnnouncements -> isAnnouncementVisibleToActor), so a
+  // malformed, unknown, deleted, or cross-team announcementId simply
+  // matches nothing and this is a silent no-op — the normal Updates feed
+  // renders exactly as it would without the param, with no information
+  // about the inaccessible announcement ever exposed.
+  useEffect(() => {
+    const match = findAnnouncementById(workspace.items, searchParams.get("announcementId"));
+    if (!match) return;
+
+    if (workspace.filterCat !== "all" && workspace.filterCat !== match.category) {
+      workspace.setFilterCat("all");
+    }
+
+    const el = document.getElementById(`update-${match.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Deferred a tick: setting state synchronously in an effect body risks
+    // a cascading render (react-hooks/set-state-in-effect); this is a
+    // one-time "sync from the URL on mount" action, not a per-render
+    // synchronization, so the defer changes nothing observable.
+    const highlightTimer = setTimeout(() => setHighlightedId(match.id), 0);
+    const clearTimer = setTimeout(() => setHighlightedId(null), 2500);
+    return () => { clearTimeout(highlightTimer); clearTimeout(clearTimer); };
+    // Runs once per mount against the initial list/query — re-scrolling on
+    // every unrelated `workspace.items` mutation (edit, delete, new post)
+    // would be jarring.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -64,11 +101,11 @@ export default function UpdatesWorkspaceView({
           fix as TeamView.tsx's mobileOnly/memberRosterDesktop split — see
           Communications.module.css. */}
       <div className={showDesktop ? styles.mobileOnly : styles.memberUpdatesDesktop}>
-        <UpdatesView workspace={workspace} />
+        <UpdatesView workspace={workspace} highlightedId={highlightedId} />
       </div>
       {showDesktop && (
         <div className={styles.desktopOnly}>
-          <DesktopUpdatesView workspace={workspace} />
+          <DesktopUpdatesView workspace={workspace} highlightedId={highlightedId} />
         </div>
       )}
 

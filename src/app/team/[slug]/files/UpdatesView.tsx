@@ -20,8 +20,10 @@ import type { UpdatesWorkspaceState } from "./useUpdatesWorkspace";
 // instances instead of one.
 export default function UpdatesView({
   workspace,
+  highlightedId = null,
 }: {
   workspace: UpdatesWorkspaceState;
+  highlightedId?: string | null;
 }) {
   const {
     slug, canEdit, canDelete,
@@ -105,25 +107,25 @@ export default function UpdatesView({
           {pinned.length > 0 && (
             <>
               <SectionLabel label="Pinned" icon={Pin} />
-              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {pinned.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} highlighted={a.id === highlightedId} />)}
             </>
           )}
           {todayItems.length > 0 && (
             <>
               <SectionLabel label="Today" />
-              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {todayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} highlighted={a.id === highlightedId} />)}
             </>
           )}
           {yesterdayItems.length > 0 && (
             <>
               <SectionLabel label="Yesterday" />
-              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {yesterdayItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} highlighted={a.id === highlightedId} />)}
             </>
           )}
           {earlierItems.length > 0 && (
             <>
               <SectionLabel label="Earlier" />
-              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} />)}
+              {earlierItems.map(a => <UpdateCard key={a.id} a={a} slug={slug} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={handleDelete} highlighted={a.id === highlightedId} />)}
             </>
           )}
         </>

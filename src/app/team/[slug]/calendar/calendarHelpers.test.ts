@@ -129,7 +129,7 @@ test("DESKTOP_MAX_VISIBLE_EVENTS_PER_DAY is 3", () => {
 // ─── findEventById ──────────────────────────────────────────────────────────
 //
 // Regression coverage for the calendar/event notification deep-link fix —
-// mirrors src/lib/notifications.test.ts's findAnnouncementNotification.
+// mirrors communicationsHelpers.test.ts's findAnnouncementById.
 
 function ev(id: string) {
   return { id };

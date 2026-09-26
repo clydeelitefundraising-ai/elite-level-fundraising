@@ -22,3 +22,17 @@ import { isCoachOnly, type TeamActor } from "../../../../lib/permissions.ts";
 export function shouldShowDesktopCommunications(actor: TeamActor): boolean {
   return isCoachOnly(actor);
 }
+
+// ─── Announcement-notification deep link ─────────────────────────────────────
+
+/** Pure — locates the announcement a tapped announcement push/deep link
+ *  (?announcementId=) should surface. `items` is already scoped to what the
+ *  current actor can see (getAnnouncements -> isAnnouncementVisibleToActor),
+ *  so an unknown, malformed, or cross-team/inaccessible announcementId
+ *  simply matches nothing — the caller treats that as "no deep link", never
+ *  an error, and no information about the inaccessible announcement is ever
+ *  exposed. Mirrors calendarHelpers.ts's findEventById. */
+export function findAnnouncementById<T extends { id: string }>(items: T[], announcementId: string | null): T | null {
+  if (!announcementId) return null;
+  return items.find(a => a.id === announcementId) ?? null;
+}

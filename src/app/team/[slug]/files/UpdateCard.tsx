@@ -171,6 +171,7 @@ export function UpdateCard({
   canDelete,
   onEdit,
   onDelete,
+  highlighted = false,
 }: {
   a: AnnouncementRow;
   slug: string;
@@ -178,6 +179,10 @@ export function UpdateCard({
   canDelete: boolean;
   onEdit: (a: AnnouncementRow) => void;
   onDelete: (id: string) => void;
+  /** Briefly highlighted when this is the target of an announcement
+   *  push/notification deep link (?announcementId=) — see
+   *  UpdatesWorkspaceView.tsx. Purely visual; no other behavior changes. */
+  highlighted?: boolean;
 }) {
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
@@ -201,12 +206,15 @@ export function UpdateCard({
 
   return (
     <div
+      id={`update-${a.id}`}
       ref={cardRef}
       style={{
         background: rowBg,
         borderLeft: `3px solid ${accentColor}`,
         borderBottom: "1px solid var(--border-app)",
         padding: ".75rem .85rem .75rem .75rem",
+        boxShadow: highlighted ? "0 0 0 2px #3b82f6, 0 4px 14px rgba(59,130,246,.25)" : "none",
+        transition: "box-shadow .3s ease",
       }}
     >
       {/* Row 1: avatar + name + role badge + timestamp */}
