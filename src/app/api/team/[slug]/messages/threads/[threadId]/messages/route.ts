@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { platformAdminRoleLabel } from "@/lib/permissions";
 import {
@@ -138,10 +138,27 @@ export async function POST(
   // change here. Never includes a filename.
   const preview = messagePreview(msgBody, attachmentKindsForPreview);
 
-  void updateThreadMeta(threadId, preview);
+  // Thread-metadata update, web push, and in-app notification + native
+  // push, deferred via Next.js's after() (not bare fire-and-forget
+  // `void (async () => {...})()` / `void somePromise` calls) — same fix as
+  // announcements/route.ts and events/route.ts, for the identical reason:
+  // this app runs on Vercel's standard Node.js serverless runtime, which
+  // can freeze a function's execution the moment its response is sent, and
+  // an un-awaited promise racing that freeze is a real risk for any of
+  // these three outbound calls. after() runs the callback after the
+  // response has been sent while the platform keeps the invocation alive
+  // until the callback finishes — response latency and the returned
+  // payload below are unchanged; this only removes the freeze race. Each
+  // section keeps its own try/catch exactly as before, so a failure in one
+  // (e.g. thread-metadata) can never prevent the other two from running.
+  after(async () => {
+    try {
+      await updateThreadMeta(threadId, preview);
+    } catch (err) {
+      console.error("[messages] updateThreadMeta failed:", err);
+    }
 
-  // Push to other participants
-  void (async () => {
+    // Push to other participants
     try {
       const participants = await getThreadParticipants(threadId);
       const senderKey = `${actorKey.kind}:${actorKey.id}`;
@@ -150,13 +167,13 @@ export async function POST(
         body:  preview,
         url:   `/team/${slug}/messages/${threadId}`,
       });
-    } catch {}
-  })();
+    } catch (err) {
+      console.error("[messages] sendPushToParticipants failed:", err);
+    }
 
-  // Phase 10: canonical notification row + native push, mirroring
-  // threads/route.ts's notifyNewMessage exactly (kept inline here since
-  // this route has no other shared-helper precedent to extend).
-  void (async () => {
+    // Phase 10: canonical notification row + native push, mirroring
+    // threads/route.ts's notifyNewMessage exactly (kept inline here since
+    // this route has no other shared-helper precedent to extend).
     try {
       const senderKey = `${actorKey.kind}:${actorKey.id}`;
       const teamId = await getTeamIdBySlug(slug);
@@ -179,7 +196,7 @@ export async function POST(
     } catch (err) {
       console.error("[messages] notification/push failed:", err);
     }
-  })();
+  });
 
   return NextResponse.json(responsePayload, { status: 201 });
 }
