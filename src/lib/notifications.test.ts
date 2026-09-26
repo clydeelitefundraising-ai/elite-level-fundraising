@@ -9,6 +9,9 @@ import {
   buildCalendarEventUrl,
   filterMessageNotifications,
   isTypeVisibleToMember,
+  markAllNotificationsRead,
+  markAllNotificationsReadForCoach,
+  markNotificationSeen,
 } from "./notifications.ts";
 
 // ── notificationBelongsToTeam — cross-team protection ───────────────────────
@@ -198,4 +201,131 @@ test("isTypeVisibleToMember: every other existing type stays visible to members"
   assert.equal(isTypeVisibleToMember("file_upload"), true);
   assert.equal(isTypeVisibleToMember("calendar_event"), true);
   assert.equal(isTypeVisibleToMember("fundraiser"), true);
+});
+
+// ── Mark All Read (coach + member) ───────────────────────────────────────────
+//
+// Regression coverage for the coach Mark All Read extension. These stub
+// global fetch (same technique as nativeFileShare.test.ts's globalThis
+// stubbing) since notifications.ts's write functions are thin PostgREST
+// fetch wrappers with no live DB in this test environment — the assertions
+// are on exactly which table/columns/method each call uses, which is
+// precisely what distinguishes "actor-specific read row" from "touching the
+// shared notifications row or another actor's read table".
+
+type FetchCall = { url: string; method: string; body: unknown };
+
+function mockFetchSequence(responses: { status?: number; json?: unknown }[]): { calls: FetchCall[]; restore: () => void } {
+  const calls: FetchCall[] = [];
+  let i = 0;
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const method = init?.method ?? "GET";
+    const rawBody = init?.body;
+    const body = typeof rawBody === "string" ? JSON.parse(rawBody) : undefined;
+    calls.push({ url: String(url), method, body });
+    const resp = responses[Math.min(i, responses.length - 1)];
+    i++;
+    const status = resp.status ?? 200;
+    return {
+      ok: status < 400,
+      status,
+      json: async () => resp.json ?? {},
+      text: async () => JSON.stringify(resp.json ?? {}),
+    } as Response;
+  }) as typeof fetch;
+  return { calls, restore: () => { globalThis.fetch = original; } };
+}
+
+test("markAllNotificationsReadForCoach: writes to notification_coach_reads keyed by coach_id for every team notification id, never dismissed, never the shared row", async () => {
+  const { calls, restore } = mockFetchSequence([
+    { json: [{ id: "n1" }, { id: "n2" }] }, // GET notifications for the team
+    { status: 200 },                        // POST upsert
+  ]);
+  try {
+    await markAllNotificationsReadForCoach("team-1", "coach-1");
+  } finally {
+    restore();
+  }
+
+  assert.equal(calls.length, 2, "exactly one read of the team's notifications, one write of read state");
+  assert.equal(calls[0].method, "GET");
+  assert.match(calls[0].url, /\/notifications\?team_id=eq\.team-1/, "only ever reads the given team's notifications");
+
+  assert.equal(calls[1].method, "POST");
+  assert.match(calls[1].url, /\/notification_coach_reads\?on_conflict=notification_id,coach_id/);
+  const rows = calls[1].body as Array<Record<string, unknown>>;
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.equal(row.coach_id, "coach-1");
+    assert.equal("member_id" in row, false, "must never write to the member read table's column");
+    assert.equal("dismissed" in row, false, "notification_coach_reads has no dismissed column — must never send one");
+    assert.equal(typeof row.read_at, "string");
+  }
+  assert.deepEqual(rows.map(r => r.notification_id).sort(), ["n1", "n2"]);
+});
+
+test("markAllNotificationsReadForCoach: no team notifications is a safe no-op — no write attempted", async () => {
+  const { calls, restore } = mockFetchSequence([{ json: [] }]);
+  try {
+    await markAllNotificationsReadForCoach("team-1", "coach-1");
+  } finally {
+    restore();
+  }
+  assert.equal(calls.length, 1, "only the read happens; nothing to write");
+});
+
+test("markAllNotificationsRead (member): unaffected by the coach extension — still writes notification_reads keyed by member_id with dismissed:false", async () => {
+  const { calls, restore } = mockFetchSequence([
+    { json: [{ id: "n1" }] },
+    { status: 200 },
+  ]);
+  try {
+    await markAllNotificationsRead("team-1", "member-1");
+  } finally {
+    restore();
+  }
+
+  assert.equal(calls[1].method, "POST");
+  assert.match(calls[1].url, /\/notification_reads\?on_conflict=notification_id,member_id/);
+  const rows = calls[1].body as Array<Record<string, unknown>>;
+  assert.equal(rows[0].member_id, "member-1");
+  assert.equal(rows[0].dismissed, false);
+  assert.equal("coach_id" in rows[0], false);
+});
+
+test("markNotificationSeen (coach): single-notification read still writes to notification_coach_reads, one row, team-scoped first", async () => {
+  const { calls, restore } = mockFetchSequence([
+    { json: [{ team_id: "team-1" }] }, // getNotificationTeamId lookup
+    { status: 200 },                    // the actual coach read write
+  ]);
+  let result;
+  try {
+    result = await markNotificationSeen({ kind: "coach", id: "coach-1" }, "n1", "team-1");
+  } finally {
+    restore();
+  }
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].method, "POST");
+  assert.match(calls[1].url, /\/notification_coach_reads\?on_conflict=notification_id,coach_id/);
+  const row = calls[1].body as Record<string, unknown>;
+  assert.equal(row.coach_id, "coach-1");
+  assert.equal(row.notification_id, "n1");
+});
+
+test("markNotificationSeen (coach): a notification belonging to a different team is refused before any write — cross-team bulk/single-mark protection", async () => {
+  const { calls, restore } = mockFetchSequence([
+    { json: [{ team_id: "team-B" }] }, // the notification actually belongs to team-B
+  ]);
+  let result;
+  try {
+    result = await markNotificationSeen({ kind: "coach", id: "coach-1" }, "n1", "team-A");
+  } finally {
+    restore();
+  }
+
+  assert.deepEqual(result, { ok: false, error: "Not found" });
+  assert.equal(calls.length, 1, "no write attempted once the team check fails");
 });

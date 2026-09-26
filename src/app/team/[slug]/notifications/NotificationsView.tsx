@@ -242,7 +242,7 @@ export default function NotificationsView({
   };
 
   const handleMarkAllRead = async () => {
-    if (marking || !hasMember || unreadCount === 0) return;
+    if (marking || !canMarkRead || unreadCount === 0) return;
     setMarking(true);
     const now = new Date().toISOString();
     setItems(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? now })));
@@ -293,7 +293,7 @@ export default function NotificationsView({
             </span>
           )}
           <div style={{ flex: 1 }} />
-          {hasMember && unreadCount > 0 && (
+          {canMarkRead && unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
               disabled={marking}

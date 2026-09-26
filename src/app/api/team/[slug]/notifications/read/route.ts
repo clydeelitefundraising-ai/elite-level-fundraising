@@ -4,6 +4,7 @@ import {
   getTeamIdBySlug,
   markNotificationSeen,
   markAllNotificationsRead,
+  markAllNotificationsReadForCoach,
   type ActorFilter,
 } from "@/lib/notifications";
 
@@ -22,21 +23,27 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   if (!teamId) return NextResponse.json({ error: "team not found" }, { status: 404 });
 
   // ── Coach / platform admin path ─────────────────────────────────────────────
-  // Platform admin mirrors the coach path exactly: single-id mark-seen only,
-  // no "mark all" — same MVP rationale (no bell UI drives that action for
-  // either), writing to its own notification_platform_admin_reads table
-  // (phase_a30) rather than a shared one.
+  // Single-id mark-seen: routed through the canonical markNotificationSeen
+  // (verifies the notification actually belongs to this team before
+  // writing — a Team A coach can't write a junk read against a guessed
+  // Team B notification id), for both coach and platform admin.
+  //
+  // Bulk "mark all" (no id): coach-only. Platform admin is deliberately NOT
+  // extended here — see markAllNotificationsReadForCoach's header comment
+  // in notifications.ts for the pre-existing read/write table mismatch
+  // (getNotificationsForMember reads platform-admin state from
+  // notification_coach_reads, but the single-mark-read path above writes
+  // platform-admin reads to the separate notification_platform_admin_reads
+  // table) that makes a platform-admin bulk action unsafe to add without
+  // first resolving that inconsistency, which is out of scope here.
   if (actor.kind === "coach" || actor.kind === "platform_admin") {
     if (typeof body.id === "string" && body.id) {
-      // Phase 9: routed through the canonical markNotificationSeen, which
-      // verifies the notification actually belongs to this team before
-      // writing (previously this trusted body.id with no team check — a
-      // Team A coach could write a junk read against a guessed Team B
-      // notification id).
       const actorFilter: ActorFilter = actor.kind === "coach"
         ? { kind: "coach", id: actor.session.id }
         : { kind: "platform_admin", id: actor.session.platformAdminId };
       await markNotificationSeen(actorFilter, body.id, teamId);
+    } else if (actor.kind === "coach") {
+      await markAllNotificationsReadForCoach(teamId, actor.session.id);
     }
     return NextResponse.json({ ok: true });
   }

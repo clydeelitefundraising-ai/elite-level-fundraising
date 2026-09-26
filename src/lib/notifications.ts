@@ -534,6 +534,55 @@ export async function markAllNotificationsRead(
   });
 }
 
+/** Coach equivalent of markAllNotificationsRead — same "stamp every team
+ *  notification id as read for this actor" semantics (over-inclusive but
+ *  harmless: a row a coach could never see anyway, e.g. a scope mismatch,
+ *  simply gets an unused read row), writing to notification_coach_reads
+ *  (coach_id) instead of notification_reads (member_id). This is the same
+ *  table getNotificationsForMember's coach branch already reads read_at
+ *  from, so the effect is immediately visible on next fetch. Never touches
+ *  the shared `notifications` rows themselves — actor-specific, additive
+ *  only, exactly like the member path.
+ *
+ *  Not extended to platform_admin: getNotificationsForMember's coach
+ *  branch (the fallthrough for any non-member actor) reads read state from
+ *  notification_coach_reads keyed by `coach_id = actor.id` for BOTH coach
+ *  and platform_admin actors, but the existing single-notification path
+ *  (markNotificationReadPlatformAdmin) writes to a separate
+ *  notification_platform_admin_reads table instead. That pre-existing
+ *  mismatch means a platform-admin "mark all" written the same way would
+ *  never actually be reflected back by the list read — writing it into
+ *  notification_coach_reads instead would work for the list, but would
+ *  silently diverge from how a platform admin's single mark-read already
+ *  behaves. Fixing that inconsistency is a separate, pre-existing
+ *  architecture issue outside this change's scope; supporting member +
+ *  coach only avoids either failure mode. */
+export async function markAllNotificationsReadForCoach(
+  teamId: string,
+  coachId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/rest/v1/notifications?team_id=eq.${encodeURIComponent(teamId)}&select=id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) return;
+  const notifs: { id: string }[] = await res.json();
+  if (!notifs.length) return;
+
+  const now = new Date().toISOString();
+  await fetch(`${BASE}/rest/v1/notification_coach_reads?on_conflict=notification_id,coach_id`, {
+    method:  "POST",
+    headers: h({ Prefer: "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify(
+      notifs.map(n => ({
+        notification_id: n.id,
+        coach_id:        coachId,
+        read_at:         now,
+      })),
+    ),
+  });
+}
+
 export async function dismissNotification(
   notificationId: string,
   memberId: string,
