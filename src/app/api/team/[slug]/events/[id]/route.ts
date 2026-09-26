@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
 import { getTeamIdBySlug, createNotification, buildCalendarEventUrl } from "@/lib/notifications";
@@ -6,10 +6,13 @@ import { getAccountIdsForScope } from "@/lib/pushRecipients";
 import { dispatchPush } from "@/lib/pushDispatch";
 
 // Phase 10: shared by both edit and cancel below — a failure here must
-// never fail the event mutation that already succeeded.
+// never fail the event mutation that already succeeded. Deferred via
+// Next.js's after() (not a bare fire-and-forget `void (async () => {...})()`)
+// — same fix as announcements/route.ts and events/route.ts (create), for
+// the identical Vercel serverless freeze-race reason documented there.
 function notifyCalendarChange(slug: string, eventId: string, eventTitle: string | undefined, changeLabel: string) {
   const calendarUrl = buildCalendarEventUrl(slug, eventId);
-  void (async () => {
+  after(async () => {
     try {
       const teamId = await getTeamIdBySlug(slug);
       if (!teamId) return;
@@ -32,7 +35,7 @@ function notifyCalendarChange(slug: string, eventId: string, eventTitle: string 
     } catch (err) {
       console.error("[events] notification/push failed:", err);
     }
-  })();
+  });
 }
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { sendPushToTeam } from "@/lib/push";
 import { VALID_EVENT_TYPES } from "@/lib/calendarShared";
@@ -61,15 +61,27 @@ export async function POST(
   const newEventId: string | null = rows[0]?.id ?? null;
   const calendarUrl = newEventId ? buildCalendarEventUrl(slug, newEventId) : `/team/${slug}/calendar`;
 
-  void sendPushToTeam(slug, {
-    title: `Event Added: ${title.trim()}`,
-    body:  [event_date, location?.trim()].filter(Boolean).join(" · "),
-    url:   calendarUrl,
-  });
+  // In-app notification + web push + native push, deferred via Next.js's
+  // after() (not a bare fire-and-forget `void (async () => {...})()`) —
+  // same fix as announcements/route.ts, for the identical reason: this app
+  // runs on Vercel's standard Node.js serverless runtime, which can freeze
+  // a function's execution the moment its response is sent, and an
+  // un-awaited promise racing that freeze is a real risk for
+  // sendPushToTeam's/dispatchPush's outbound network calls. after() runs
+  // the callback after the response has been sent while the platform keeps
+  // the invocation alive until the callback finishes — response latency is
+  // unchanged, this only removes the freeze race.
+  after(async () => {
+    try {
+      await sendPushToTeam(slug, {
+        title: `Event Added: ${title.trim()}`,
+        body:  [event_date, location?.trim()].filter(Boolean).join(" · "),
+        url:   calendarUrl,
+      });
+    } catch (err) {
+      console.error("[events] sendPushToTeam failed:", err);
+    }
 
-  // Phase 10: canonical notification row + native push, fire-and-forget —
-  // a failure here must never fail event creation (already succeeded above).
-  void (async () => {
     try {
       const teamId = await getTeamIdBySlug(slug);
       if (!teamId) return;
@@ -92,7 +104,7 @@ export async function POST(
     } catch (err) {
       console.error("[events] notification/push failed:", err);
     }
-  })();
+  });
 
   return NextResponse.json(rows[0]);
 }
