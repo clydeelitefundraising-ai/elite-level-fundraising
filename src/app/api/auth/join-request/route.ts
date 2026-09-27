@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { createPendingRequest } from "@/lib/platform/athleteRequests";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
@@ -92,14 +92,24 @@ export async function POST(req: NextRequest) {
   }
 
   // Phase 10: canonical notification row + native push for a new pending
-  // athlete/parent request — Head Coach's actionable queue. Fire-and-forget,
-  // after the request itself has already been successfully created above;
-  // a failure here must never fail (or roll back) the request that already
-  // exists. Comment-moderation's pending-approval queue is a completely
-  // separate system (platform/comments.ts) and deliberately gets neither a
+  // athlete/parent request — Head Coach's actionable queue. Deferred via
+  // Next.js's after() (not a bare fire-and-forget
+  // `void (async () => {...})()`) — same fix as announcements/route.ts and
+  // events/route.ts, for the identical reason: this app runs on Vercel's
+  // standard Node.js serverless runtime, which can freeze a function's
+  // execution the moment its response is sent, and an un-awaited promise
+  // racing that freeze is a real risk for createNotification's/
+  // dispatchPush's outbound calls. after() runs the callback after the
+  // response has been sent while the platform keeps the invocation alive
+  // until the callback finishes — response latency and the returned payload
+  // below are unchanged; this only removes the freeze race. The request
+  // itself has already been successfully created above; a failure here must
+  // never fail (or roll back) the request that already exists.
+  // Comment-moderation's pending-approval queue is a completely separate
+  // system (platform/comments.ts) and deliberately gets neither a
   // notification row nor push here — out of scope for V1 per product
   // decision.
-  void (async () => {
+  after(async () => {
     try {
       const teamId = await getTeamIdBySlug(campaign_slug);
       if (!teamId) return;
@@ -125,7 +135,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error("[join-request] notification/push failed:", err);
     }
-  })();
+  });
 
   const response = NextResponse.json({ ok: true, campaign_slug, request: result.request });
   if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);

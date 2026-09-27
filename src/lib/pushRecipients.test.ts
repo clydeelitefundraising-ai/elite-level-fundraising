@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAccountIdsForThreadParticipants } from "./pushRecipients.ts";
+import { getAccountIdsForThreadParticipants, getHeadCoachAccountIds } from "./pushRecipients.ts";
 
 // Small, targeted regression coverage for DM push recipient/sender
 // exclusion — the one thing the messages route's after() consolidation
@@ -78,4 +78,38 @@ test("getAccountIdsForThreadParticipants: a thread with only the sender resolves
   assert.deepEqual(result, []);
   // No coach/member account_id lookups are attempted once both id lists are empty.
   assert.equal(calls.length, 1);
+});
+
+// Small, targeted regression coverage for the Requests push recipient
+// resolution used by the join/join-request/parent-access-requests after()
+// fix — the one thing that fix must NOT change.
+
+test("getHeadCoachAccountIds: returns only Head Coach account IDs for the requested campaign", async () => {
+  const { calls, restore } = mockFetchSequence([
+    { json: [{ account_id: "acct-head-coach-1" }] },
+  ]);
+  let result: string[];
+  try {
+    result = await getHeadCoachAccountIds("team-alpha");
+  } finally {
+    restore();
+  }
+
+  assert.deepEqual(result, ["acct-head-coach-1"]);
+  assert.match(calls[0].url, /campaign_slug=eq\.team-alpha/);
+  assert.match(calls[0].url, /role=eq\.head_coach/);
+});
+
+test("getHeadCoachAccountIds: no eligible Head Coach resolves to an empty recipient list", async () => {
+  const { restore } = mockFetchSequence([
+    { json: [] },
+  ]);
+  let result: string[];
+  try {
+    result = await getHeadCoachAccountIds("team-beta");
+  } finally {
+    restore();
+  }
+
+  assert.deepEqual(result, []);
 });

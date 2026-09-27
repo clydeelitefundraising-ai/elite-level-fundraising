@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getAccountSession } from "@/lib/accountSession";
@@ -76,11 +76,21 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     user_agent:    req.headers.get("user-agent"),
   });
 
-  // Fire-and-forget push to the newly-approved parent. Best-effort, and
-  // deliberately account-device-based (not the team-scoped in-app
-  // notifications table) — the parent had no team membership to see a
-  // team-scoped notification with until this exact moment.
-  void (async () => {
+  // Push to the newly-approved parent. Best-effort, and deliberately
+  // account-device-based (not the team-scoped in-app notifications table) —
+  // the parent had no team membership to see a team-scoped notification
+  // with until this exact moment. Deferred via Next.js's after() (not a
+  // bare fire-and-forget `void (async () => {...})()`) — same fix as
+  // announcements/route.ts and events/route.ts, for the identical reason:
+  // this app runs on Vercel's standard Node.js serverless runtime, which
+  // can freeze a function's execution the moment its response is sent, and
+  // an un-awaited promise racing that freeze is a real risk for
+  // getCampaignSettings's/dispatchPush's outbound calls. after() runs the
+  // callback after the response has been sent while the platform keeps the
+  // invocation alive until the callback finishes — response latency and the
+  // returned payload below are unchanged; this only removes the freeze
+  // race.
+  after(async () => {
     try {
       const settings = await getCampaignSettings(slug);
       const teamLabel = settings ? [settings.school_name, settings.sport_name].filter(Boolean).join(" ") : undefined;
@@ -94,7 +104,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     } catch (err) {
       console.error("[parent-access-requests] approval push failed:", err);
     }
-  })();
+  });
 
   return NextResponse.json({ ok: true, request: result.request });
 }

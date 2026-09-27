@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { validateAthleteForCampaign, createLinkedAthleteMember } from "@/lib/platform/athletes";
@@ -154,11 +154,21 @@ export async function POST(req: NextRequest) {
     return response;
   }
 
-  // Fire-and-forget Head Coach notification for the new pending request —
-  // same pattern as /api/auth/join-request. Never fails (or is allowed to
-  // fail) the join that already succeeded above.
+  // Head Coach notification for the new pending request — same pattern as
+  // /api/auth/join-request. Deferred via Next.js's after() (not a bare
+  // fire-and-forget `void (async () => {...})()`) — same fix as
+  // announcements/route.ts and events/route.ts, for the identical reason:
+  // this app runs on Vercel's standard Node.js serverless runtime, which
+  // can freeze a function's execution the moment its response is sent, and
+  // an un-awaited promise racing that freeze is a real risk for
+  // createNotification's/dispatchPush's outbound calls. after() runs the
+  // callback after the response has been sent while the platform keeps the
+  // invocation alive until the callback finishes — response latency and the
+  // returned payload below are unchanged; this only removes the freeze
+  // race. Never fails (or is allowed to fail) the join that already
+  // succeeded above.
   if (!result.alreadyPending) {
-    void (async () => {
+    after(async () => {
       try {
         const teamId = await getTeamIdBySlug(campaign_slug);
         if (!teamId) return;
@@ -180,7 +190,7 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error("[auth/join] parent request notification/push failed:", err);
       }
-    })();
+    });
   }
 
   const response = NextResponse.json({ ok: true, campaign_slug, pending: true });
