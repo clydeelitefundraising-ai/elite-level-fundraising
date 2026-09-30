@@ -47,7 +47,13 @@ export default function TeamHeader({
     // up only as the thin bottom rule below, via var(--team-secondary)
     // (already branding_customized-aware through the shell root's CSS
     // vars, unlike the old raw settings.secondary_color read).
-    <div id="elf-team-header" style={{ background: "var(--canvas)", color: "var(--text-primary-app)", borderBottom: "1px solid var(--border-app)" }}>
+    // Android QA fix: paddingTop (not the inner row's own padding) so the
+    // header's background still fills the inset region behind the system
+    // status bar while its content/avatar button move below it — same
+    // env(safe-area-inset-top, 0px) convention already used by Modal.tsx/
+    // MessagesView.tsx, resolving harmlessly to 0px wherever no top inset
+    // exists (iOS non-notched, older Android, desktop web).
+    <div id="elf-team-header" style={{ background: "var(--canvas)", color: "var(--text-primary-app)", borderBottom: "1px solid var(--border-app)", paddingTop: "env(safe-area-inset-top, 0px)" }}>
       <div style={{ padding: ".55rem 1rem .85rem", display: "flex", alignItems: "center", gap: ".85rem" }}>
         {/* ELF + school/team logo — a paired brand cluster ("TEAM =
             content identity, ELF = product identity") rather than the
