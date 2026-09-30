@@ -24,6 +24,16 @@ test("buildAthleteShareUrl points to the public campaign page, not the internal 
   assert.ok(!url.includes("/team/"));
 });
 
+// Phase 3A-1 QA fix (coach athlete detail's "Donor Page" link): a relative
+// (empty-origin) call is exactly what CoachAthleteView.tsx passes — must
+// resolve to the public /campaign/[slug]?athlete=[id] route, never the
+// internal, authenticated /team/[slug]/athlete/[id] profile page.
+test("buildAthleteShareUrl with an empty origin (relative link) still points to the public campaign route", () => {
+  const url = buildAthleteShareUrl("", "monroe-valley", "athlete-123");
+  assert.equal(url, "/campaign/monroe-valley?athlete=athlete-123");
+  assert.ok(!url.includes("/team/"));
+});
+
 test("buildCampaignMetadata: athlete-specific title/description names the athlete and team", () => {
   const { title, description } = buildCampaignMetadata({
     athleteName: "Hannah Cooper",

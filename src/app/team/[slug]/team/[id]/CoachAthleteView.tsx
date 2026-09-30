@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { Phone, Mail } from "lucide-react";
 import Modal from "../../_components/Modal";
+import { buildAthleteShareUrl } from "@/lib/shareCopy";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -611,7 +612,7 @@ export default function CoachAthleteView({
             Messages
           </a>
           <a
-            href={`/team/${slug}/athlete/${athlete.id}`}
+            href={buildAthleteShareUrl("", slug, athlete.id)}
             target="_blank"
             rel="noreferrer"
             style={{ flex: 1, textAlign: "center", padding: ".42rem", background: "#f3f4f6", color: "#374151", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}

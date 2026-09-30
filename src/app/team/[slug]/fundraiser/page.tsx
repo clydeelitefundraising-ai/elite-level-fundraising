@@ -14,7 +14,8 @@ import {
   validateCoachForCampaign, getCoachFundraiserById, getCoachTotals, getContactCountsByCoach,
   getActiveCoachFundraisers, getOutreachMapByCoach,
 } from "@/lib/platform/coachFundraising";
-import { buildCoachShareUrl } from "@/lib/shareCopy";
+import { buildCoachShareUrl, buildCoachShareText } from "@/lib/shareCopy";
+import CoachShareButton from "./CoachShareButton";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
@@ -148,13 +149,15 @@ async function withCoachFollowUpRows(
 // not a separate coach-profile page, so it lives inline in the same
 // Overview tab the coach already lands on for the team campaign view.
 function MyCoachFundraiserCard({
-  slug, raisedCents, goalCents, contactCount, shareUrl,
+  slug, raisedCents, goalCents, contactCount, shareUrl, shareTitle, shareText,
 }: {
   slug: string;
   raisedCents: number;
   goalCents: number | null;
   contactCount: number;
   shareUrl: string;
+  shareTitle: string;
+  shareText: string;
 }) {
   const pct = goalCents && goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : null;
   return (
@@ -196,18 +199,7 @@ function MyCoachFundraiserCard({
           </div>
           <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
         </a>
-        <a
-          href={shareUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "var(--surface-light-elevated)", borderRadius: 10, border: "1px solid var(--border-app)", textDecoration: "none" }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)", marginBottom: ".1rem" }}>Share My Fundraiser</div>
-            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shareUrl}</div>
-          </div>
-          <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-        </a>
+        <CoachShareButton shareUrl={shareUrl} shareTitle={shareTitle} shareText={shareText} />
       </div>
     </div>
   );
@@ -552,7 +544,7 @@ export default async function FundraiserPage({
     // team_coaches row to be a participant under, so this is always
     // absent for them (matches "this is a fundraising function attached
     // to their coach identity").
-    let myFundraiser: { raisedCents: number; goalCents: number | null; contactCount: number; shareUrl: string } | null = null;
+    let myFundraiser: { raisedCents: number; goalCents: number | null; contactCount: number; shareUrl: string; shareTitle: string; shareText: string } | null = null;
     if (actor.kind === "coach") {
       const isParticipant = await validateCoachForCampaign(actor.session.id, slug);
       if (isParticipant) {
@@ -565,11 +557,13 @@ export default async function FundraiserPage({
           raisedCents:  coachTotals[actor.session.id] ?? 0,
           goalCents:    participant?.goal_cents ?? null,
           contactCount: coachContactCounts[actor.session.id] ?? 0,
-          // Relative path (empty origin) — the "Share My Fundraiser" link
-          // below opens it as a same-origin URL; buildCoachShareUrl's
-          // origin param exists for external share text that needs an
-          // absolute URL, which isn't the case for this in-app link.
+          // Relative path (empty origin) — CoachShareButton passes this
+          // straight to navigator.share/clipboard as a same-origin URL;
+          // buildCoachShareUrl's origin param exists for external share
+          // text that needs an absolute URL, which isn't the case here.
           shareUrl:     buildCoachShareUrl("", slug, actor.session.id),
+          shareTitle:   `Support Coach ${actor.session.name}`,
+          shareText:    buildCoachShareText(actor.session.name, settings.school_name, settings.sport_name),
         };
       }
     }
@@ -684,6 +678,8 @@ export default async function FundraiserPage({
                 goalCents={myFundraiser.goalCents}
                 contactCount={myFundraiser.contactCount}
                 shareUrl={myFundraiser.shareUrl}
+                shareTitle={myFundraiser.shareTitle}
+                shareText={myFundraiser.shareText}
               />
             )}
             <TeamCampaignView
