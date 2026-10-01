@@ -8,10 +8,14 @@ import { MarketingFooter } from "./MarketingFooter";
 interface MarketingShellProps {
   children: ReactNode;
   /** "overlay" = transparent/over-photo nav that solidifies on scroll — used
-   * only by the homepage hero. Every other page keeps the default solid bar. */
-  navVariant?: "overlay";
-  /** Homepage-only nav link override (exact mockup wording/order) — every
-   * other marketing page keeps the existing NAV_LINKS untouched. */
+   * only by the homepage hero. "dark" = the same approved logo/nav/Log-in/
+   * Get-Started treatment, always a solid near-black bar in normal document
+   * flow — used by every other public marketing page (see
+   * (marketing)/layout.tsx). Omitted = the original/legacy bar. */
+  navVariant?: "overlay" | "dark";
+  /** Nav link override — both branded variants (overlay/dark) pass the
+   * canonical MARKETING_NAV_LINKS from MarketingNav.tsx. Omitted (legacy
+   * bar) keeps the existing default NAV_LINKS untouched. */
   navLinks?: NavLink[];
   /** "minimal" = the mockup's 4-link footer, used only by the homepage.
    * Every other page keeps the full Platform/Company/Trust Center footer. */

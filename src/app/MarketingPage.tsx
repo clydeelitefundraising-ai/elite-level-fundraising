@@ -1,4 +1,5 @@
 import { MarketingShell } from "@/components/marketing/MarketingShell";
+import { MARKETING_NAV_LINKS } from "@/components/marketing/MarketingNav";
 import { LinkButton } from "@/components/marketing/Button";
 import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
 import Image from "next/image";
@@ -23,23 +24,11 @@ import Image from "next/image";
 // hosts the exact "How It Works" 4-step content or the Coaches/ADs/Booster
 // persona breakdown outside the homepage they used to live on).
 
-// Homepage nav uses the mockup's exact wording — every other marketing page
-// keeps the existing NAV_LINKS in MarketingNav.tsx untouched. Mapped to the
-// closest existing real route where the mockup's label has no exact match
-// (see Phase 7 report point on nav mapping):
-//   HOW IT WORKS -> /product   (closest platform-overview page; no
-//                                dedicated "how it works" route exists)
-//   TEAMS        -> /communication (team management/roster/messaging)
-//   SPONSORS     -> /sponsors  (exact match)
-//   PRICING      -> /pricing   (exact match)
-//   RESOURCES    -> /faq       (closest "resource-ish" existing page)
-const HOME_NAV_LINKS = [
-  { href: "/product", label: "How It Works" },
-  { href: "/communication", label: "Teams" },
-  { href: "/sponsors", label: "Sponsors" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/faq", label: "Resources" },
-];
+// Marketing header standardization: the homepage nav link set/order/wording
+// now lives as the single canonical MARKETING_NAV_LINKS export in
+// MarketingNav.tsx (consumed here AND by every other public marketing page
+// via (marketing)/layout.tsx) rather than a homepage-only local const — see
+// that file for the full route-mapping rationale.
 
 // Change 3 (surgical cleanup pass): the trust strip (customer-proof copy,
 // the Glendale/PVCC logo chips, "Real teams. Real results.") was removed
@@ -50,7 +39,7 @@ const HOME_NAV_LINKS = [
 
 export default function MarketingPage() {
   return (
-    <MarketingShell navVariant="overlay" navLinks={HOME_NAV_LINKS} footerVariant="minimal">
+    <MarketingShell navVariant="overlay" navLinks={MARKETING_NAV_LINKS} footerVariant="minimal">
       {/* ── HERO ──
           Full-bleed photo, nav and headline sitting directly on top of it as
           one composition — not a side-by-side split. See marketing.css for

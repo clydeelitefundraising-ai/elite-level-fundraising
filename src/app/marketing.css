@@ -272,6 +272,28 @@
 .mk-nav-hero:not(.mk-nav-overlay) .mk-nav-login { color: rgba(255,255,255,0.92); }
 .mk-nav-hero:not(.mk-nav-overlay) .mk-nav-menu-btn { border-color: rgba(255,255,255,0.6); color: #fff; }
 
+/* Marketing header standardization: the approved dark header for every
+   non-home public marketing page — deliberately a standalone selector, NOT
+   `.mk-nav-hero`, and NOT reused/shared with it. `.mk-nav-hero` also carries
+   a structural `margin-bottom: calc(-1 * var(--mk-nav-height))` (above) that
+   exists solely to pull the homepage's hero PHOTO up underneath the nav;
+   applying that here (where there is no hero photo) would open a visible
+   gap in normal document flow on every other marketing page. `.mk-nav-dark`
+   reproduces ONLY the color treatment of the homepage's own post-scroll
+   solid state (`.mk-nav-hero:not(.mk-nav-overlay)` above) — same near-black
+   `--mk-ink` background/border and white-ish link/Log-in/menu-button
+   colors — so both headers are visually identical, with zero shared
+   selector dependency between them. The base `.mk-nav` rule already
+   provides normal sticky-in-flow positioning/sizing/spacing, unchanged. */
+.mk-nav-dark {
+  background: var(--mk-ink);
+  border-bottom-color: var(--mk-ink);
+}
+.mk-nav-dark .mk-nav-links a { color: rgba(255,255,255,0.92); }
+.mk-nav-dark .mk-nav-links a:hover { color: var(--mk-yellow); border-bottom-color: var(--mk-yellow); }
+.mk-nav-dark .mk-nav-login { color: rgba(255,255,255,0.92); }
+.mk-nav-dark .mk-nav-menu-btn { border-color: rgba(255,255,255,0.6); color: #fff; }
+
 .mk-nav-links {
   display: flex;
   align-items: center;
