@@ -18,15 +18,42 @@ const NAV_LINKS: NavLink[] = [
   { href: "/faq", label: "FAQ" },
 ];
 
+// Canonical marketing navigation (approved homepage header) — single source
+// of truth for link set/order/wording, consumed by both MarketingPage.tsx
+// (variant="overlay") and the shared (marketing)/layout.tsx (variant="dark")
+// so every public marketing page presents the identical nav. Mapped to the
+// closest existing real route where the approved label has no exact-name
+// match (see the Phase 7 report / marketing header standardization audit
+// for the full rationale):
+//   HOW IT WORKS -> /product       (closest platform-overview page; no
+//                                    dedicated "how it works" route exists)
+//   TEAMS        -> /communication (team management/roster/messaging)
+//   SPONSORS     -> /sponsors      (exact match)
+//   PRICING      -> /pricing       (exact match)
+//   RESOURCES    -> /faq           (closest "resource-ish" existing page)
+export const MARKETING_NAV_LINKS: NavLink[] = [
+  { href: "/product", label: "How It Works" },
+  { href: "/communication", label: "Teams" },
+  { href: "/sponsors", label: "Sponsors" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/faq", label: "Resources" },
+];
+
 interface MarketingNavProps {
   /** "overlay" = transparent over the hero photo, white text, solidifies to
    * the normal bar once the page scrolls past the hero, mockup-style logo
-   * badge + Log in/Get Started actions. Homepage only — every other page
-   * gets the unchanged default bar below. */
-  variant?: "overlay";
-  /** Homepage-only override of the link set/order/wording — see
-   * MarketingPage.tsx for the mockup-fidelity mapping and rationale. Every
-   * other marketing page keeps the default NAV_LINKS above, untouched. */
+   * badge + Log in/Get Started actions. Homepage only.
+   * "dark" = the same approved logo/nav/Log in/Get Started treatment as
+   * "overlay", but always a solid near-black bar in normal document flow —
+   * no hero photo, no scroll-triggered transparency/elevation. Used by
+   * every other public marketing page (see (marketing)/layout.tsx).
+   * Omitted = the original/legacy bar (white background, old wordmark,
+   * old link set, "Book a Demo") — kept as-is, not removed, for any caller
+   * that doesn't pass a variant. */
+  variant?: "overlay" | "dark";
+  /** Override of the link set/order/wording — both branded variants
+   * (overlay/dark) are expected to pass MARKETING_NAV_LINKS above. Omitted
+   * (legacy bar) keeps the default NAV_LINKS above, untouched. */
   links?: NavLink[];
 }
 
@@ -35,6 +62,11 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
   const [elevated, setElevated] = useState(false);
   const navLinks = links ?? NAV_LINKS;
   const isOverlayVariant = variant === "overlay";
+  const isDarkVariant = variant === "dark";
+  // Both branded variants share the same logo/Log-in/Get-Started treatment —
+  // only "overlay" additionally gets the hero-photo transparency/scroll
+  // behavior below.
+  const isBrandedVariant = isOverlayVariant || isDarkVariant;
 
   // Close the mobile panel on route/hash change and Escape.
   useEffect(() => {
@@ -78,10 +110,10 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
   // removes that jump entirely; only its background/border repaint on scroll.
   return (
     <header
-      className={`mk-nav${elevated ? " mk-nav-elevated" : ""}${isOverlayVariant ? " mk-nav-hero" : ""}${overlayActive ? " mk-nav-overlay" : ""}`}
+      className={`mk-nav${elevated ? " mk-nav-elevated" : ""}${isOverlayVariant ? " mk-nav-hero" : ""}${overlayActive ? " mk-nav-overlay" : ""}${isDarkVariant ? " mk-nav-dark" : ""}`}
     >
       <nav className="mk-nav-inner" aria-label="Primary">
-        {isOverlayVariant ? (
+        {isBrandedVariant ? (
           <Link href="/" className="mk-nav-logo mk-nav-logo-mark" onClick={() => setOpen(false)}>
             <Image
               src="/marketing/brand/elf-logo-horizontal.png"
@@ -107,13 +139,13 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
         </ul>
 
         <div className="mk-nav-actions">
-          {isOverlayVariant && (
+          {isBrandedVariant && (
             <Link href="/login" className="mk-nav-login">
               Log in
             </Link>
           )}
           <Link href="/demo" className="mk-btn mk-btn-primary mk-btn-ghost-nav">
-            {isOverlayVariant ? "Get Started" : "Book a Demo"}
+            {isBrandedVariant ? "Get Started" : "Book a Demo"}
           </Link>
           <button
             type="button"
@@ -146,12 +178,12 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
                 </Link>
               </li>
             ))}
-            {isOverlayVariant && (
+            {isBrandedVariant && (
               <li><Link href="/login" onClick={() => setOpen(false)}>Log in</Link></li>
             )}
           </ul>
           <Link href="/demo" className="mk-btn mk-btn-primary mk-btn-lg mk-btn-block" onClick={() => setOpen(false)}>
-            {isOverlayVariant ? "Get Started" : "Book a Demo"}
+            {isBrandedVariant ? "Get Started" : "Book a Demo"}
           </Link>
         </div>
       )}
