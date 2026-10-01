@@ -31,6 +31,17 @@ const NAV_LINKS: NavLink[] = [
 //   SPONSORS     -> /sponsors      (exact match)
 //   PRICING      -> /pricing       (exact match)
 //   RESOURCES    -> /faq           (closest "resource-ish" existing page)
+// The public marketing site's "Log in" must send existing users to the
+// live ELF Team app (a separate deployment/subdomain), never to this
+// marketing site's own /login route — the two are different Next.js
+// deployments of the same repo (see IS_APP in src/app/layout.tsx /
+// src/app/page.tsx). A plain relative "/login" previously resolved to the
+// marketing site's own build of that route instead. Hardcoded (not an env
+// var) since this is the one fixed production destination for every
+// marketing-site visitor, regardless of which environment the marketing
+// site itself is deployed from.
+const TEAM_APP_LOGIN_URL = "https://app.elitelevelfundraising.com/login";
+
 export const MARKETING_NAV_LINKS: NavLink[] = [
   { href: "/product", label: "How It Works" },
   { href: "/communication", label: "Teams" },
@@ -140,7 +151,7 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
 
         <div className="mk-nav-actions">
           {isBrandedVariant && (
-            <Link href="/login" className="mk-nav-login">
+            <Link href={TEAM_APP_LOGIN_URL} className="mk-nav-login">
               Log in
             </Link>
           )}
@@ -179,7 +190,7 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
               </li>
             ))}
             {isBrandedVariant && (
-              <li><Link href="/login" onClick={() => setOpen(false)}>Log in</Link></li>
+              <li><Link href={TEAM_APP_LOGIN_URL} onClick={() => setOpen(false)}>Log in</Link></li>
             )}
           </ul>
           <Link href="/demo" className="mk-btn mk-btn-primary mk-btn-lg mk-btn-block" onClick={() => setOpen(false)}>
