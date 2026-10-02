@@ -58,7 +58,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
 
   const { slug } = await params;
 
-  const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes, contactGoalRes, perAthleteGoalsRes] = await Promise.all([
+  const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes, contactGoalRes, perAthleteGoalsRes, sponsorsRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/donations?campaign_slug=eq.${encodeURIComponent(slug)}&select=amount_cents`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,event,jersey_number,grad_year&order=created_at.asc`, { headers: h(), cache: "no-store" }),
@@ -66,6 +66,11 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     fetch(`${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,role,email`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=is.null&select=goal&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=not.is.null&select=athlete_id,goal`, { headers: h(), cache: "no-store" }),
+    // Phase 1 consolidation: read-only sponsor count only — campaign-level
+    // sponsor CRUD stays in the legacy editor (/admin/edit) for this phase.
+    // Same `sponsors` table the legacy editor's CRUD already uses — no new
+    // table, no schema change, just a count read.
+    fetch(`${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&select=id`, { headers: h(), cache: "no-store" }),
   ]);
 
   const settingsRows = settingsRes.ok ? await settingsRes.json() : [];
@@ -78,6 +83,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
   const coaches: CampaignDetail["coaches"]   = coachesRes.ok ? await coachesRes.json() : [];
   const contactGoalRows: { goal: number }[]  = contactGoalRes.ok ? await contactGoalRes.json() : [];
   const perAthleteGoals: { athlete_id: string; goal: number }[] = perAthleteGoalsRes.ok ? await perAthleteGoalsRes.json() : [];
+  const sponsorRows: { id: string }[] = sponsorsRes.ok ? await sponsorsRes.json() : [];
 
   const raisedCents     = donations.reduce((s, d) => s + (d.amount_cents || 0), 0);
   const donorCount      = donations.length;
@@ -121,6 +127,19 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     external_store_url:         settings.external_store_url  ?? "",
     store_provider:             settings.store_provider      ?? "",
     archived:                   settings.archived            ?? false,
+    // Phase 1 consolidation: Campaign Story + the four theme/"Campaign
+    // Colors" fields — same campaign_settings columns the legacy editor's
+    // Campaign Identity / Campaign Colors cards already read and write.
+    // `?? null` (never `?? ""`) deliberately preserves true column-null vs.
+    // empty-string distinction end to end, matching OptionalColorField's
+    // existing "null = not customized, falls back to the team color"
+    // semantics in the legacy editor — see CampaignControlCenter.tsx.
+    description:            settings.description            ?? null,
+    theme_primary_color:    settings.theme_primary_color    ?? null,
+    theme_secondary_color:  settings.theme_secondary_color  ?? null,
+    theme_accent_color:     settings.theme_accent_color     ?? null,
+    theme_button_color:     settings.theme_button_color     ?? null,
+    allow_coach_fundraising: settings.allow_coach_fundraising ?? false,
     // feature toggles
     show_leaderboard:       settings.show_leaderboard      ?? true,
     show_program_identity:  settings.show_program_identity ?? true,
@@ -142,6 +161,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     athlete_account_count: athleteAccounts,
     parent_account_count:  parentAccounts,
     health_score:        healthScore,
+    sponsor_count:       sponsorRows.length,
     // relational
     athletes,
     coaches,

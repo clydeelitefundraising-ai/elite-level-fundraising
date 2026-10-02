@@ -23,6 +23,16 @@ export type CampaignDetail = {
   external_store_url:         string;
   store_provider:             string;
   archived:                   boolean;
+  // Phase 1 consolidation: Campaign Story + Campaign/Theme Colors — same
+  // campaign_settings columns the legacy editor's Campaign Identity /
+  // Campaign Colors cards already read and write. null = not customized
+  // (theme colors fall back to the team color; story is simply blank).
+  description:                string | null;
+  theme_primary_color:        string | null;
+  theme_secondary_color:      string | null;
+  theme_accent_color:         string | null;
+  theme_button_color:         string | null;
+  allow_coach_fundraising:    boolean;
   // feature flags
   show_leaderboard:      boolean;
   show_program_identity: boolean;
@@ -43,12 +53,26 @@ export type CampaignDetail = {
   athlete_account_count: number;
   parent_account_count:  number;
   health_score:          number;
+  // Phase 1: read-only count only — campaign-level sponsor CRUD stays in
+  // the legacy editor (/admin/edit) for this phase. See Sponsors tab.
+  sponsor_count:         number;
   // relational
   athletes: { id: string; name: string; event: string; jersey_number: number | null; grad_year: number | null }[];
   coaches:  { id: string; name: string; role: string; email: string }[];
 };
 
 type Props = { detail: CampaignDetail };
+
+type TabId = "overview" | "fundraising" | "people" | "branding" | "sponsors" | "advanced";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview",    label: "Overview" },
+  { id: "fundraising", label: "Fundraising" },
+  { id: "people",      label: "People" },
+  { id: "branding",    label: "Branding & Page" },
+  { id: "sponsors",    label: "Sponsors" },
+  { id: "advanced",    label: "Advanced" },
+];
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -172,6 +196,64 @@ function ContactRequirementPicker({ value, onChange, needsMigration }: { value: 
   );
 }
 
+// Campaign theme colors are optional — null means "not customized, falls
+// back to the team color shown as `fallback`." Typing a value (or using the
+// picker) sets a custom color; Reset clears it back to null. Same semantics
+// as the legacy editor's OptionalColorField (AdminClient.tsx) — intentionally
+// re-implemented here rather than imported, so this file has no dependency
+// on the legacy component.
+function OptionalColorField({ label, value, fallback, onChange }: { label: string; value: string | null; fallback: string; onChange: (v: string | null) => void }) {
+  const effective = value ?? fallback;
+  return (
+    <Field label={label} note={value == null ? `Using team color (${fallback})` : undefined}>
+      <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
+        <input type="color" value={effective.match(/^#[0-9a-fA-F]{6}$/) ? effective : "#000000"}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: 38, height: 36, border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer", padding: 2, flexShrink: 0, background: "none" }} />
+        <input style={T.input} value={value ?? ""} onChange={e => onChange(e.target.value || null)} placeholder={`Default: ${fallback}`} />
+        {value != null && (
+          <button type="button" onClick={() => onChange(null)}
+            style={{ fontSize: ".68rem", fontWeight: 600, color: "#6b7280", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 6, padding: ".3rem .55rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+            Reset
+          </button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
+  return (
+    <div role="tablist" aria-label="Campaign sections" style={{ display: "flex", gap: ".25rem", borderBottom: "1px solid #e5e7eb", marginBottom: "1.25rem", overflowX: "auto" }}>
+      {TABS.map(t => {
+        const isActive = t.id === active;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(t.id)}
+            style={{
+              padding: ".6rem .9rem",
+              background: "none",
+              border: "none",
+              borderBottom: `2px solid ${isActive ? "#0b1e3d" : "transparent"}`,
+              color: isActive ? "#0b1e3d" : "#6e6e73",
+              fontWeight: isActive ? 700 : 500,
+              fontSize: ".82rem",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              marginBottom: "-1px",
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 
 function useToast() {
@@ -190,6 +272,8 @@ export default function CampaignControlCenter({ detail }: Props) {
   const { toast, show } = useToast();
   const slug = detail.campaign_slug;
 
+  const [tab, setTab] = useState<TabId>("overview");
+
   // ── Section state ─────────────────────────────────────────────────────────
 
   const [identity, setIdentity] = useState({
@@ -198,6 +282,7 @@ export default function CampaignControlCenter({ detail }: Props) {
     mascot:      detail.mascot,
     season:      detail.season,
     location:    detail.location,
+    description: detail.description ?? "",
   });
 
   const [fundraising, setFundraising] = useState({
@@ -205,6 +290,8 @@ export default function CampaignControlCenter({ detail }: Props) {
     deadline:                   detail.deadline,
     default_athlete_goal_cents: detail.default_athlete_goal_cents,
     layout_variant:             detail.layout_variant,
+    external_store_url:        detail.external_store_url,
+    store_provider:            detail.store_provider,
   });
 
   const [contact, setContact] = useState({
@@ -223,14 +310,17 @@ export default function CampaignControlCenter({ detail }: Props) {
     show_recent_donations: detail.show_recent_donations,
     show_sponsors:         detail.show_sponsors,
     show_donation_card:    detail.show_donation_card,
+    allow_coach_fundraising: detail.allow_coach_fundraising,
   });
 
   const [branding, setBranding] = useState({
     primary_color:      detail.primary_color,
     secondary_color:    detail.secondary_color,
     logo_url:           detail.logo_url,
-    external_store_url: detail.external_store_url,
-    store_provider:     detail.store_provider,
+    theme_primary_color:   detail.theme_primary_color,
+    theme_secondary_color: detail.theme_secondary_color,
+    theme_accent_color:    detail.theme_accent_color,
+    theme_button_color:    detail.theme_button_color,
   });
 
   const [archived, setArchived] = useState(detail.archived);
@@ -261,7 +351,20 @@ export default function CampaignControlCenter({ detail }: Props) {
   }
 
   async function saveIdentity() {
-    await patchCampaign("identity", identity);
+    await patchCampaign("identity", {
+      school_name: identity.school_name,
+      sport_name:  identity.sport_name,
+      mascot:      identity.mascot,
+      season:      identity.season,
+      location:    identity.location,
+      // Campaign Story — same empty-string-means-null convention as the
+      // legacy editor's PUT /api/admin/campaign route uses for this exact
+      // column, so clearing the field is an explicit, intentional null,
+      // never an accidental one from a field the admin never touched (this
+      // save always sends the field's current state value, which was
+      // itself initialized from the true current DB value above).
+      description: identity.description.trim() || null,
+    });
   }
 
   async function saveFundraising() {
@@ -270,6 +373,8 @@ export default function CampaignControlCenter({ detail }: Props) {
       deadline:                   fundraising.deadline,
       default_athlete_goal_cents: fundraising.default_athlete_goal_cents || null,
       layout_variant:             fundraising.layout_variant,
+      external_store_url:        fundraising.external_store_url || null,
+      store_provider:            fundraising.store_provider     || null,
     });
   }
 
@@ -331,8 +436,17 @@ export default function CampaignControlCenter({ detail }: Props) {
       primary_color:      branding.primary_color,
       secondary_color:    branding.secondary_color,
       logo_url:           branding.logo_url,
-      external_store_url: branding.external_store_url || null,
-      store_provider:     branding.store_provider     || null,
+      // Already string | null in state (OptionalColorField normalizes an
+      // emptied input to null immediately on change, same as the legacy
+      // editor) — sent through as-is, never coerced to "" here. Omitting a
+      // theme key entirely would leave that column untouched server-side,
+      // but this save always includes all four with their current
+      // (possibly already-null) value, so an untouched field round-trips
+      // to its existing DB value rather than being reset.
+      theme_primary_color:   branding.theme_primary_color,
+      theme_secondary_color: branding.theme_secondary_color,
+      theme_accent_color:    branding.theme_accent_color,
+      theme_button_color:    branding.theme_button_color,
     });
   }
 
@@ -393,7 +507,7 @@ export default function CampaignControlCenter({ detail }: Props) {
         <span style={{ color: "#1d1d1f", fontWeight: 500 }}>{detail.school_name || slug}</span>
       </div>
 
-      {/* Campaign header */}
+      {/* Campaign header — unchanged, always visible above the tabs */}
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f2", overflow: "hidden", marginBottom: "1.5rem" }}>
         <div style={{ height: 6, background: `linear-gradient(90deg, ${detail.primary_color}, ${detail.secondary_color})` }} />
         <div style={{ padding: "1.25rem 1.5rem", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
@@ -451,38 +565,91 @@ export default function CampaignControlCenter({ detail }: Props) {
         )}
       </div>
 
-      {/* Two-column layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.25rem", alignItems: "start" }}>
+      {/* ── Tabs ── */}
+      <TabBar active={tab} onChange={setTab} />
 
-        {/* ── Left column: settings ── */}
-        <div>
-
-          {/* Campaign Identity */}
-          <div style={T.card}>
-            <SectionHeader title="Campaign Identity" desc="School name, sport, and program details" />
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <div style={T.grid2}>
-                <Field label="School Name">
-                  <input style={T.input} value={identity.school_name} onChange={e => setIdentity(p => ({ ...p, school_name: e.target.value }))} />
+      {/* ── OVERVIEW ── */}
+      {tab === "overview" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.25rem", alignItems: "start" }}>
+          <div>
+            <div style={T.card}>
+              <SectionHeader title="Campaign Identity" desc="School name, sport, and program details" />
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={T.grid2}>
+                  <Field label="School Name">
+                    <input style={T.input} value={identity.school_name} onChange={e => setIdentity(p => ({ ...p, school_name: e.target.value }))} />
+                  </Field>
+                  <Field label="Sport Name">
+                    <input style={T.input} value={identity.sport_name} onChange={e => setIdentity(p => ({ ...p, sport_name: e.target.value }))} />
+                  </Field>
+                  <Field label="Mascot">
+                    <input style={T.input} value={identity.mascot} onChange={e => setIdentity(p => ({ ...p, mascot: e.target.value }))} placeholder="e.g. Pumas" />
+                  </Field>
+                  <Field label="Season">
+                    <input style={T.input} value={identity.season} onChange={e => setIdentity(p => ({ ...p, season: e.target.value }))} placeholder={`e.g. ${defaultSeasonLabel()}`} />
+                  </Field>
+                  <Field label="Location" note="City, State">
+                    <input style={T.input} value={identity.location} onChange={e => setIdentity(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Scottsdale, AZ" />
+                  </Field>
+                </div>
+                <Field label="Campaign Story" note={'Optional — shown as "Why We\'re Raising Funds" on the public page'}>
+                  <textarea
+                    style={{ ...T.input, height: "auto", minHeight: 90, resize: "vertical", fontFamily: "inherit" }}
+                    rows={4}
+                    value={identity.description}
+                    onChange={e => setIdentity(p => ({ ...p, description: e.target.value }))}
+                    placeholder="Our program provides a positive and competitive environment for student-athletes to grow on and off the field. Your support helps us cover travel, equipment, meet fees, and team experiences…"
+                  />
                 </Field>
-                <Field label="Sport Name">
-                  <input style={T.input} value={identity.sport_name} onChange={e => setIdentity(p => ({ ...p, sport_name: e.target.value }))} />
-                </Field>
-                <Field label="Mascot">
-                  <input style={T.input} value={identity.mascot} onChange={e => setIdentity(p => ({ ...p, mascot: e.target.value }))} placeholder="e.g. Pumas" />
-                </Field>
-                <Field label="Season">
-                  <input style={T.input} value={identity.season} onChange={e => setIdentity(p => ({ ...p, season: e.target.value }))} placeholder={`e.g. ${defaultSeasonLabel()}`} />
-                </Field>
-                <Field label="Location" note="City, State">
-                  <input style={T.input} value={identity.location} onChange={e => setIdentity(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Scottsdale, AZ" />
-                </Field>
+                <SaveBtn saving={!!saving.identity} onClick={saveIdentity} />
               </div>
-              <SaveBtn saving={!!saving.identity} onClick={saveIdentity} />
             </div>
           </div>
 
-          {/* Fundraising Settings */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={T.card}>
+              <SectionHeader title="Campaign Health" />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem" }}>
+                <HealthRing score={detail.health_score} />
+                <div style={{ width: "100%" }}>
+                  {[
+                    { label: "Athletes on roster",    ok: detail.athlete_count > 0 },
+                    { label: "Account adoption ≥ 50%",ok: detail.athlete_count > 0 && (detail.member_count / detail.athlete_count) >= 0.5 },
+                    { label: "Donations received",    ok: detail.donor_count > 0 },
+                    { label: "Fundraising goal set",  ok: detail.goal_cents > 0 },
+                    { label: "Deadline configured",   ok: !!detail.deadline },
+                    { label: "Logo uploaded",          ok: !!detail.logo_url },
+                    { label: "Campaign is active",    ok: !archived },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: "flex", alignItems: "center", gap: ".55rem", padding: ".3rem 0", borderBottom: "1px solid #f5f5f7" }}>
+                      <span style={{ fontSize: ".75rem", color: item.ok ? "#16a34a" : "#d1d5db" }}>{item.ok ? "✓" : "○"}</span>
+                      <span style={{ fontSize: ".75rem", color: item.ok ? "#1d1d1f" : "#98989d", fontWeight: item.ok ? 500 : 400 }}>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={T.card}>
+              <SectionHeader title="Team Statistics" />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <StatChip label="Athletes" value={detail.athlete_count} />
+                <StatChip label="Athlete Accounts" value={detail.athlete_account_count} />
+                <StatChip label="Parent Accounts" value={detail.parent_account_count} />
+                <StatChip label="Coaches" value={detail.coaches.length} />
+                <StatChip label="Raised" value={`$${(detail.raised_cents / 100).toFixed(0)}`} />
+                <StatChip label="Donors" value={detail.donor_count} />
+                <StatChip label="Contact Goal" value={contact.goal} sub="per athlete" />
+                <StatChip label="Adoption" value={`${adoptionPct}%`} sub="accounts/athletes" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FUNDRAISING ── */}
+      {tab === "fundraising" && (
+        <div>
           <div style={T.card}>
             <SectionHeader title="Fundraising Settings" desc="Financial goals, deadline, and layout" />
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -513,7 +680,21 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
-          {/* Contact Collection */}
+          <div style={T.card}>
+            <SectionHeader title="Store Integration" desc="Optional external store link shown on the public page" />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={T.grid2}>
+                <Field label="Store URL (optional)">
+                  <input style={T.input} value={fundraising.external_store_url} onChange={e => setFundraising(p => ({ ...p, external_store_url: e.target.value }))} placeholder="https://…" />
+                </Field>
+                <Field label="Store Provider (optional)">
+                  <input style={T.input} value={fundraising.store_provider} onChange={e => setFundraising(p => ({ ...p, store_provider: e.target.value }))} placeholder="e.g. Shopify" />
+                </Field>
+              </div>
+              <SaveBtn saving={!!saving.fundraising} onClick={saveFundraising} />
+            </div>
+          </div>
+
           <div style={T.card}>
             <SectionHeader title="Contact Collection" desc="Configure how athletes collect donor contacts" />
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -538,8 +719,27 @@ export default function CampaignControlCenter({ detail }: Props) {
               <SaveBtn saving={!!saving.contact} onClick={saveContact} label="Save contact settings" />
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Per-athlete goal overrides */}
+      {/* ── PEOPLE ── */}
+      {tab === "people" && (
+        <div>
+          <div style={T.card}>
+            <SectionHeader title="People & Accounts" desc="Roster and account-adoption snapshot" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "1rem" }}>
+              <StatChip label="Athletes" value={detail.athlete_count} />
+              <StatChip label="Athlete Accounts" value={detail.athlete_account_count} />
+              <StatChip label="Parent Accounts" value={detail.parent_account_count} />
+              <StatChip label="Coaches" value={detail.coaches.length} />
+              <StatChip label="Adoption" value={`${adoptionPct}%`} sub="accounts/athletes" />
+            </div>
+            <p style={{ margin: "1rem 0 0", fontSize: ".75rem", color: "#98989d" }}>
+              Adding, editing, or removing athletes and coaches is still managed in the{" "}
+              <a href="/admin/edit" style={{ color: "#0b1e3d", fontWeight: 600 }}>legacy editor</a> for now.
+            </p>
+          </div>
+
           {detail.athletes.length > 0 && (
             <div style={T.card}>
               <SectionHeader title="Per-Athlete Goal Overrides" desc="Override the default contact goal for individual athletes. Leave blank to use the team default." />
@@ -577,40 +777,17 @@ export default function CampaignControlCenter({ detail }: Props) {
               </div>
             </div>
           )}
+        </div>
+      )}
 
-          {/* Feature Toggles */}
+      {/* ── BRANDING & PAGE ── */}
+      {tab === "branding" && (
+        <div>
           <div style={T.card}>
-            <SectionHeader title="Feature Toggles" desc="Control which sections appear on the public campaign page" />
-            <div>
-              {([
-                ["show_donation_card",    "Donation Card",           "The main donation form on the campaign page"],
-                ["show_leaderboard",      "Athlete Leaderboard",     "Ranked list of athletes by funds raised"],
-                ["show_program_identity", "Program Identity",        "School name, mascot, and program details header"],
-                ["show_share_section",    "Share This Campaign",     "Social share and QR code section"],
-                ["show_fund_uses",        "Where Your Money Goes",   "Fund use breakdown section"],
-                ["show_recent_donations", "Recent Donations Feed",   "Live feed of recent donors"],
-                ["show_sponsors",         "Sponsors",                "Sponsor logos and tier listings"],
-              ] as [keyof typeof features, string, string][]).map(([key, label, desc]) => (
-                <ToggleRow key={key} label={label} desc={desc} checked={features[key]}
-                  onChange={v => setFeatures(p => ({ ...p, [key]: v }))} />
-              ))}
-              <div style={{ padding: ".7rem 0", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: .45 }}>
-                <div>
-                  <div style={{ fontSize: ".83rem", fontWeight: 500, color: "#1d1d1f" }}>Contact Collection Tab</div>
-                  <div style={{ fontSize: ".7rem", color: "#98989d", marginTop: ".1rem" }}>Requires DB migration (show_contacts column)</div>
-                </div>
-                <div style={{ fontSize: ".65rem", fontWeight: 700, color: "#98989d", background: "#f3f4f6", padding: ".2rem .55rem", borderRadius: 5, textTransform: "uppercase", letterSpacing: ".05em" }}>Soon</div>
-              </div>
-            </div>
-            <SaveBtn saving={!!saving.features} onClick={saveFeatures} label="Save feature toggles" />
-          </div>
-
-          {/* Branding */}
-          <div style={T.card}>
-            <SectionHeader title="Branding" desc="Colors, logo, and store integration" />
+            <SectionHeader title="Branding" desc="Team colors and logo" />
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div style={T.grid2}>
-                <Field label="Primary Color">
+                <Field label="Primary Team Color">
                   <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
                     <input type="color" value={branding.primary_color.match(/^#[0-9a-fA-F]{6}$/) ? branding.primary_color : "#000000"}
                       onChange={e => setBranding(p => ({ ...p, primary_color: e.target.value }))}
@@ -618,7 +795,7 @@ export default function CampaignControlCenter({ detail }: Props) {
                     <input style={T.input} value={branding.primary_color} onChange={e => setBranding(p => ({ ...p, primary_color: e.target.value }))} placeholder="#000000" />
                   </div>
                 </Field>
-                <Field label="Secondary Color">
+                <Field label="Secondary Team Color">
                   <div style={{ display: "flex", gap: ".5rem", alignItems: "center" }}>
                     <input type="color" value={branding.secondary_color.match(/^#[0-9a-fA-F]{6}$/) ? branding.secondary_color : "#000000"}
                       onChange={e => setBranding(p => ({ ...p, secondary_color: e.target.value }))}
@@ -628,9 +805,6 @@ export default function CampaignControlCenter({ detail }: Props) {
                 </Field>
                 <Field label="Logo URL" note="/pvcc-logo.png or full https:// URL">
                   <input style={T.input} value={branding.logo_url} onChange={e => setBranding(p => ({ ...p, logo_url: e.target.value }))} placeholder="/logo.png" />
-                </Field>
-                <Field label="Store URL (optional)">
-                  <input style={T.input} value={branding.external_store_url} onChange={e => setBranding(p => ({ ...p, external_store_url: e.target.value }))} placeholder="https://…" />
                 </Field>
               </div>
 
@@ -648,51 +822,75 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
-        </div>
-
-        {/* ── Right sidebar ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-          {/* Health Score */}
           <div style={T.card}>
-            <SectionHeader title="Campaign Health" />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1.25rem" }}>
-              <HealthRing score={detail.health_score} />
-              <div style={{ width: "100%" }}>
-                {[
-                  { label: "Athletes on roster",    ok: detail.athlete_count > 0 },
-                  { label: "Account adoption ≥ 50%",ok: detail.athlete_count > 0 && (detail.member_count / detail.athlete_count) >= 0.5 },
-                  { label: "Donations received",    ok: detail.donor_count > 0 },
-                  { label: "Fundraising goal set",  ok: detail.goal_cents > 0 },
-                  { label: "Deadline configured",   ok: !!detail.deadline },
-                  { label: "Logo uploaded",          ok: !!detail.logo_url },
-                  { label: "Campaign is active",    ok: !archived },
-                ].map(item => (
-                  <div key={item.label} style={{ display: "flex", alignItems: "center", gap: ".55rem", padding: ".3rem 0", borderBottom: "1px solid #f5f5f7" }}>
-                    <span style={{ fontSize: ".75rem", color: item.ok ? "#16a34a" : "#d1d5db" }}>{item.ok ? "✓" : "○"}</span>
-                    <span style={{ fontSize: ".75rem", color: item.ok ? "#1d1d1f" : "#98989d", fontWeight: item.ok ? 500 : 400 }}>{item.label}</span>
-                  </div>
-                ))}
+            <SectionHeader title="Campaign Colors" desc="Controls the fundraising page's look and feel — hero, buttons, section accents, headings, cards, progress bars. Independent of the team colors above; leave any field blank to use the matching team color." />
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={T.grid2}>
+                <OptionalColorField label="Primary Theme Color"   value={branding.theme_primary_color}   fallback={branding.primary_color}   onChange={v => setBranding(p => ({ ...p, theme_primary_color: v }))} />
+                <OptionalColorField label="Secondary Theme Color" value={branding.theme_secondary_color} fallback={branding.secondary_color} onChange={v => setBranding(p => ({ ...p, theme_secondary_color: v }))} />
+                <OptionalColorField label="Accent Color"          value={branding.theme_accent_color}    fallback={branding.theme_secondary_color ?? branding.secondary_color} onChange={v => setBranding(p => ({ ...p, theme_accent_color: v }))} />
+                <OptionalColorField label="Button Color"          value={branding.theme_button_color}    fallback={branding.theme_primary_color ?? branding.primary_color}     onChange={v => setBranding(p => ({ ...p, theme_button_color: v }))} />
               </div>
+
+              <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", height: 36 }}>
+                <div style={{ flex: 1, background: branding.theme_primary_color ?? branding.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: ".62rem", fontWeight: 700, color: "#fff", opacity: .85 }}>Primary</span>
+                </div>
+                <div style={{ flex: 1, background: branding.theme_secondary_color ?? branding.secondary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: ".62rem", fontWeight: 700, color: "#fff", opacity: .85 }}>Secondary</span>
+                </div>
+                <div style={{ flex: 1, background: branding.theme_accent_color ?? branding.theme_secondary_color ?? branding.secondary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: ".62rem", fontWeight: 700, color: "#fff", opacity: .85 }}>Accent</span>
+                </div>
+                <div style={{ flex: 1, background: branding.theme_button_color ?? branding.theme_primary_color ?? branding.primary_color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: ".62rem", fontWeight: 700, color: "#fff", opacity: .85 }}>Button</span>
+                </div>
+              </div>
+
+              <SaveBtn saving={!!saving.branding} onClick={saveBranding} label="Save campaign colors" />
             </div>
           </div>
 
-          {/* Team Stats */}
           <div style={T.card}>
-            <SectionHeader title="Team Statistics" />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-              <StatChip label="Athletes" value={detail.athlete_count} />
-              <StatChip label="Athlete Accounts" value={detail.athlete_account_count} />
-              <StatChip label="Parent Accounts" value={detail.parent_account_count} />
-              <StatChip label="Coaches" value={detail.coaches.length} />
-              <StatChip label="Raised" value={`$${(detail.raised_cents / 100).toFixed(0)}`} />
-              <StatChip label="Donors" value={detail.donor_count} />
-              <StatChip label="Contact Goal" value={contact.goal} sub="per athlete" />
-              <StatChip label="Adoption" value={`${adoptionPct}%`} sub="accounts/athletes" />
+            <SectionHeader title="Feature Toggles" desc="Control which sections appear on the public campaign page" />
+            <div>
+              {([
+                ["show_donation_card",    "Donation Card",           "The main donation form on the campaign page"],
+                ["show_leaderboard",      "Athlete Leaderboard",     "Ranked list of athletes by funds raised"],
+                ["show_program_identity", "Program Identity",        "School name, mascot, and program details header"],
+                ["show_share_section",    "Share This Campaign",     "Social share and QR code section"],
+                ["show_fund_uses",        "Where Your Money Goes",   "Fund use breakdown section"],
+                ["show_recent_donations", "Recent Donations Feed",   "Live feed of recent donors"],
+                ["show_sponsors",         "Sponsors",                "Sponsor logos and tier listings"],
+                ["allow_coach_fundraising", "Allow Coaches to Fundraise", "Lets coaches opt into their own personal fundraising page"],
+              ] as [keyof typeof features, string, string][]).map(([key, label, desc]) => (
+                <ToggleRow key={key} label={label} desc={desc} checked={features[key]}
+                  onChange={v => setFeatures(p => ({ ...p, [key]: v }))} />
+              ))}
             </div>
+            <SaveBtn saving={!!saving.features} onClick={saveFeatures} label="Save feature toggles" />
           </div>
+        </div>
+      )}
 
-          {/* Status & Archive */}
+      {/* ── SPONSORS ── */}
+      {tab === "sponsors" && (
+        <div>
+          <div style={T.card}>
+            <SectionHeader title="Sponsors" desc="Campaign-level sponsor logos and tiers shown on the public page" />
+            <StatChip label="Sponsors" value={detail.sponsor_count} />
+            <p style={{ margin: "1rem 0 0", fontSize: ".75rem", color: "#98989d" }}>
+              Adding, editing, or removing sponsors for this campaign is still managed in the{" "}
+              <a href="/admin/edit" style={{ color: "#0b1e3d", fontWeight: 600 }}>legacy editor</a> for now. The platform-wide{" "}
+              <a href="/admin/sponsors" style={{ color: "#0b1e3d", fontWeight: 600 }}>Sponsor CRM</a> is a separate system for tracking ELF&rsquo;s own sponsor relationships and is not affected by this page.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADVANCED ── */}
+      {tab === "advanced" && (
+        <div>
           <div style={T.card}>
             <SectionHeader title="Campaign Status" desc="Controls public visibility" />
             <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
@@ -717,21 +915,6 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
-          {/* Danger Zone — deliberately separate from Status/Archive above.
-              Archive is the recommended workflow for everything short of a
-              legal/compliance deletion request; this is not offered as an
-              equivalent alternative. */}
-          <div style={{ ...T.card, border: "1px solid #fecaca" }}>
-            <SectionHeader title="Danger Zone" desc="Irreversible. Archive is almost always what you want instead." />
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              style={{ padding: ".5rem .9rem", background: "#fff", border: "1.5px solid #fecaca", borderRadius: 8, fontSize: ".78rem", fontWeight: 600, color: "#dc2626", cursor: "pointer" }}
-            >
-              Permanently delete campaign…
-            </button>
-          </div>
-
-          {/* Quick Actions */}
           <div style={T.card}>
             <SectionHeader title="Quick Actions" />
             <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
@@ -750,8 +933,21 @@ export default function CampaignControlCenter({ detail }: Props) {
             </div>
           </div>
 
+          {/* Danger Zone — deliberately separate from Status/Archive above.
+              Archive is the recommended workflow for everything short of a
+              legal/compliance deletion request; this is not offered as an
+              equivalent alternative. */}
+          <div style={{ ...T.card, border: "1px solid #fecaca" }}>
+            <SectionHeader title="Danger Zone" desc="Irreversible. Archive is almost always what you want instead." />
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              style={{ padding: ".5rem .9rem", background: "#fff", border: "1.5px solid #fecaca", borderRadius: 8, fontSize: ".78rem", fontWeight: 600, color: "#dc2626", cursor: "pointer" }}
+            >
+              Permanently delete campaign…
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Permanent delete confirmation */}
       {showDeleteModal && (
