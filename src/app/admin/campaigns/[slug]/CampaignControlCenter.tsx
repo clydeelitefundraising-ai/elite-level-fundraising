@@ -1,8 +1,37 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback, createElement } from "react";
 import { useRouter } from "next/navigation";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
+import {
+  FUND_USE_ICON_OPTIONS,
+  DEFAULT_FUND_USE_ICON_ID,
+  normalizeFundUseIconId,
+  resolveFundUseIcon,
+} from "@/lib/fundUseIcons";
+
+// Phase 2 consolidation: campaign-level sponsors (the `sponsors` table) and
+// fund uses (`fund_uses`) are loaded/mutated client-side through the SAME
+// already-working admin APIs the legacy editor uses — /api/admin/sponsors[/id]
+// and /api/admin/fund-uses[/id]. No new backend, no parallel representation:
+// a record created here is immediately visible in the legacy editor and vice
+// versa, which is what gives us rollback safety while both surfaces coexist.
+//
+// These are NOT the platform Sponsor CRM (`sponsor_businesses`, /admin/sponsors),
+// which is a separate table and system and is untouched by this file.
+
+type CampaignSponsor = { id: string; name: string; url: string; tier: string };
+type CampaignFundUse = { id: string; title: string; description: string; icon: string; sort_order: number };
+
+// Exactly the three tiers the legacy editor offers and
+// POST /api/admin/sponsors validates — deliberately not extended here.
+const SPONSOR_TIERS = ["gold", "silver", "bronze"] as const;
+
+const TIER_COLORS: Record<string, { bg: string; color: string }> = {
+  gold:   { bg: "#fef9c3", color: "#854d0e" },
+  silver: { bg: "#f1f5f9", color: "#475569" },
+  bronze: { bg: "#fff7ed", color: "#9a3412" },
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,9 +82,6 @@ export type CampaignDetail = {
   athlete_account_count: number;
   parent_account_count:  number;
   health_score:          number;
-  // Phase 1: read-only count only — campaign-level sponsor CRUD stays in
-  // the legacy editor (/admin/edit) for this phase. See Sponsors tab.
-  sponsor_count:         number;
   // relational
   athletes: { id: string; name: string; event: string; jersey_number: number | null; grad_year: number | null }[];
   coaches:  { id: string; name: string; role: string; email: string }[];
@@ -222,9 +248,84 @@ function OptionalColorField({ label, value, fallback, onChange }: { label: strin
   );
 }
 
+function TierBadge({ tier }: { tier: string }) {
+  // Unknown/legacy tier values fall back to a neutral badge rather than
+  // being hidden — same tolerance the legacy editor's TierBadge has.
+  const s = TIER_COLORS[tier] ?? { bg: "#f3f4f6", color: "#374151" };
+  return (
+    <span style={{ padding: ".15rem .55rem", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: s.bg, color: s.color }}>
+      {tier}
+    </span>
+  );
+}
+
+// Renders a stored fund-use icon value. Uses createElement rather than
+// assigning the resolved component to a capitalized local and rendering it
+// as JSX — the latter reads as "a component created during render" to
+// react-hooks/static-components, even though the registry is static.
+function FundUseIcon({ value, size = 18 }: { value: string; size?: number }) {
+  return createElement(resolveFundUseIcon(value), { size });
+}
+
+// Same icon set and selection behavior as the legacy editor — both import
+// the shared registry in @/lib/fundUseIcons, so the options and the stored
+// values stay identical across the two surfaces.
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const selectedId = normalizeFundUseIconId(value);
+  const selectedLabel = FUND_USE_ICON_OPTIONS.find(o => o.id === selectedId)?.label ?? "";
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".5rem" }}>
+        <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 6, background: "#f0f2f7", color: "#0b1e3d", flexShrink: 0 }}>
+          <FundUseIcon value={value} size={17} />
+        </span>
+        <span style={{ fontSize: ".75rem", color: "#6e6e73", fontWeight: 500 }}>{selectedLabel}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(34px, 1fr))", gap: ".3rem", maxWidth: 300 }}>
+        {FUND_USE_ICON_OPTIONS.map(opt => {
+          const selected = opt.id === selectedId;
+          return (
+            <button key={opt.id} type="button" title={opt.label} aria-label={opt.label} onClick={() => onChange(opt.id)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: ".4rem", background: selected ? "#eff0f3" : "#fff", border: selected ? "2px solid #0b1e3d" : "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", color: "#1d1d1f" }}>
+              <opt.Icon size={16} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = { textAlign: "left", fontSize: ".65rem", fontWeight: 700, color: "#98989d", textTransform: "uppercase", letterSpacing: ".05em", padding: ".5rem .65rem", borderBottom: "1px solid #f0f0f2", whiteSpace: "nowrap" };
+const tdStyle: React.CSSProperties = { fontSize: ".8rem", color: "#1d1d1f", padding: ".55rem .65rem", borderBottom: "1px solid #f5f5f7", verticalAlign: "middle" };
+
+function MiniBtn({ label, onClick, disabled, tone = "neutral" }: { label: string; onClick: () => void; disabled?: boolean; tone?: "neutral" | "primary" | "danger" }) {
+  const palette = {
+    neutral: { bg: "#f5f5f7", color: "#1d1d1f", border: "1px solid #e5e7eb" },
+    primary: { bg: "#0b1e3d", color: "#fff",    border: "none" },
+    danger:  { bg: "#fff",    color: "#dc2626", border: "1.5px solid #fecaca" },
+  }[tone];
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ padding: ".3rem .6rem", background: palette.bg, color: palette.color, border: palette.border, borderRadius: 7, fontSize: ".72rem", fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .5 : 1, whiteSpace: "nowrap" }}>
+      {label}
+    </button>
+  );
+}
+
+// Tab-bar overflow fix: `overflowX: "auto"` alone left `overflow-y` at its
+// initial `visible`, and per the CSS overflow spec, when one axis is not
+// `visible` the other computes from `visible` to `auto` — so the bar got an
+// implicit vertical scroll container. The active tab's `marginBottom: -1px`
+// (used to lap its 2px indicator over the bar's own 1px rule) then pushed its
+// border box exactly 1px past the content box, which is enough vertical
+// overflow to render the stubby up/down scrollbar seen in production.
+// Fixed by removing that 1px overflow source (the negative margin) and
+// pinning `overflowY: "hidden"` so no future 1px rounding can reintroduce it.
+// Horizontal overflow/scrolling for genuinely narrow widths is unchanged.
 function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => void }) {
   return (
-    <div role="tablist" aria-label="Campaign sections" style={{ display: "flex", gap: ".25rem", borderBottom: "1px solid #e5e7eb", marginBottom: "1.25rem", overflowX: "auto" }}>
+    <div role="tablist" aria-label="Campaign sections" style={{ display: "flex", gap: ".25rem", borderBottom: "1px solid #e5e7eb", marginBottom: "1.25rem", overflowX: "auto", overflowY: "hidden" }}>
       {TABS.map(t => {
         const isActive = t.id === active;
         return (
@@ -243,7 +344,6 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (id: TabId) => 
               fontSize: ".82rem",
               cursor: "pointer",
               whiteSpace: "nowrap",
-              marginBottom: "-1px",
             }}
           >
             {t.label}
@@ -327,6 +427,40 @@ export default function CampaignControlCenter({ detail }: Props) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // ── Phase 2: campaign sponsors + fund uses (legacy APIs, same records) ───
+
+  const [sponsors, setSponsors] = useState<CampaignSponsor[] | null>(null);
+  const [editS, setEditS] = useState<CampaignSponsor | null>(null);
+  const [newS, setNewS] = useState({ name: "", url: "", tier: "gold" as string });
+  const [addingSponsor, setAddingSponsor] = useState(false);
+
+  const [fundUses, setFundUses] = useState<CampaignFundUse[] | null>(null);
+  const [editFU, setEditFU] = useState<CampaignFundUse | null>(null);
+  const [newFU, setNewFU] = useState({ title: "", description: "", icon: DEFAULT_FUND_USE_ICON_ID });
+  const [addingFundUse, setAddingFundUse] = useState(false);
+
+  // Loaded from the same endpoints the legacy editor reads, so both
+  // surfaces always show the same records (incl. the API's existing
+  // visible/order filtering — not re-implemented here).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch(`/api/admin/sponsors?slug=${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/admin/fund-uses?slug=${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : []),
+    ])
+      .then(([s, f]) => {
+        if (cancelled) return;
+        setSponsors(Array.isArray(s) ? s : []);
+        setFundUses(Array.isArray(f) ? f : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSponsors([]);
+        setFundUses([]);
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
 
   // ── Saving state ──────────────────────────────────────────────────────────
 
@@ -450,6 +584,106 @@ export default function CampaignControlCenter({ detail }: Props) {
     });
   }
 
+  // ── Sponsor CRUD — payloads match the legacy editor exactly ─────────────
+
+  async function addSponsor() {
+    if (!newS.name.trim() || !newS.url.trim()) { show("Sponsor name and URL are required.", "error"); return; }
+    setAddingSponsor(true);
+    try {
+      const res = await fetch("/api/admin/sponsors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaign_slug: slug, name: newS.name.trim(), url: newS.url.trim(), tier: newS.tier }),
+      });
+      if (!res.ok) { show("Failed to add sponsor.", "error"); return; }
+      const created = await res.json();
+      setSponsors(p => [...(p ?? []), created]);
+      setNewS({ name: "", url: "", tier: "gold" });
+      show("Sponsor added.");
+    } catch { show("Network error.", "error"); }
+    finally { setAddingSponsor(false); }
+  }
+
+  async function saveSponsor() {
+    if (!editS) return;
+    if (!editS.name.trim() || !editS.url.trim()) { show("Sponsor name and URL are required.", "error"); return; }
+    setSav(`sponsor_${editS.id}`, true);
+    try {
+      const res = await fetch(`/api/admin/sponsors/${editS.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editS.name, url: editS.url, tier: editS.tier }),
+      });
+      if (!res.ok) { show("Failed to update sponsor.", "error"); return; }
+      setSponsors(p => (p ?? []).map(s => s.id === editS.id ? editS : s));
+      setEditS(null);
+      show("Sponsor updated.");
+    } catch { show("Network error.", "error"); }
+    finally { setSav(`sponsor_${editS.id}`, false); }
+  }
+
+  async function deleteSponsor(id: string, name: string) {
+    if (!confirm(`Delete sponsor "${name}"? This removes it from the public campaign page.`)) return;
+    try {
+      const res = await fetch(`/api/admin/sponsors/${id}`, { method: "DELETE" });
+      if (!res.ok) { show("Failed to delete sponsor.", "error"); return; }
+      setSponsors(p => (p ?? []).filter(s => s.id !== id));
+      show("Sponsor deleted.");
+    } catch { show("Network error.", "error"); }
+  }
+
+  // ── Fund-use CRUD — payloads match the legacy editor exactly ────────────
+
+  async function addFundUse() {
+    if (!newFU.title.trim()) { show("Title is required.", "error"); return; }
+    // Same next-order rule as the legacy editor: one past the current max,
+    // or 0 for the first item.
+    const list = fundUses ?? [];
+    const nextOrder = list.length > 0 ? Math.max(...list.map(f => f.sort_order)) + 1 : 0;
+    setAddingFundUse(true);
+    try {
+      const res = await fetch("/api/admin/fund-uses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaign_slug: slug, title: newFU.title.trim(), description: newFU.description.trim(), icon: newFU.icon, sort_order: nextOrder }),
+      });
+      if (!res.ok) { show("Failed to add item.", "error"); return; }
+      const created = await res.json();
+      setFundUses(p => [...(p ?? []), created]);
+      setNewFU({ title: "", description: "", icon: DEFAULT_FUND_USE_ICON_ID });
+      show("Item added.");
+    } catch { show("Network error.", "error"); }
+    finally { setAddingFundUse(false); }
+  }
+
+  async function saveFundUse() {
+    if (!editFU) return;
+    if (!editFU.title.trim()) { show("Title is required.", "error"); return; }
+    setSav(`fundUse_${editFU.id}`, true);
+    try {
+      const res = await fetch(`/api/admin/fund-uses/${editFU.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editFU.title, description: editFU.description, icon: editFU.icon, sort_order: editFU.sort_order }),
+      });
+      if (!res.ok) { show("Failed to update item.", "error"); return; }
+      setFundUses(p => (p ?? []).map(f => f.id === editFU.id ? editFU : f));
+      setEditFU(null);
+      show("Item updated.");
+    } catch { show("Network error.", "error"); }
+    finally { setSav(`fundUse_${editFU.id}`, false); }
+  }
+
+  async function deleteFundUse(id: string, title: string) {
+    if (!confirm(`Delete "${title}"? This removes it from the public campaign page.`)) return;
+    try {
+      const res = await fetch(`/api/admin/fund-uses/${id}`, { method: "DELETE" });
+      if (!res.ok) { show("Failed to delete item.", "error"); return; }
+      setFundUses(p => (p ?? []).filter(f => f.id !== id));
+      show("Item deleted.");
+    } catch { show("Network error.", "error"); }
+  }
+
   async function toggleArchived() {
     const next = !archived;
     if (next && !confirm(`Archive "${slug}"? It will no longer be publicly visible.`)) return;
@@ -485,6 +719,10 @@ export default function CampaignControlCenter({ detail }: Props) {
   const adoptionPct = detail.athlete_count > 0 ? Math.round((detail.member_count / detail.athlete_count) * 100) : 0;
   const fmt$ = (c: number) => `$${(c / 100).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const daysLeft = detail.deadline ? Math.ceil((new Date(detail.deadline).getTime() - Date.now()) / 86400000) : null;
+  // Public display order is driven by sort_order (the API reads
+  // fund_uses ordered by sort_order.asc) — re-sorted here so an edited
+  // order is reflected immediately without a page reload.
+  const fundUsesSorted = [...(fundUses ?? [])].sort((a, b) => a.sort_order - b.sort_order);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -719,6 +957,108 @@ export default function CampaignControlCenter({ detail }: Props) {
               <SaveBtn saving={!!saving.contact} onClick={saveContact} label="Save contact settings" />
             </div>
           </div>
+
+          {/* Where Your Money Goes — fund_uses, via the legacy admin API */}
+          <div style={T.card}>
+            <SectionHeader
+              title="Where Your Money Goes"
+              desc={
+                fundUses === null
+                  ? "Fund-use breakdown shown on the public campaign page."
+                  : `${fundUsesSorted.length} item${fundUsesSorted.length !== 1 ? "s" : ""} · shown on the public page in the display order below`
+              }
+            />
+
+            {fundUses === null ? (
+              <div style={{ fontSize: ".8rem", color: "#98989d" }}>Loading…</div>
+            ) : (
+              <>
+                {!features.show_fund_uses && (
+                  <div style={{ padding: ".5rem .75rem", background: "#fef9c3", border: "1px solid #fde047", borderRadius: 7, fontSize: ".72rem", color: "#854d0e", fontWeight: 500, marginBottom: ".9rem" }}>
+                    The &ldquo;Where Your Money Goes&rdquo; section is currently hidden on the public page. Enable it under <strong>Branding &amp; Page → Feature Toggles</strong>.
+                  </div>
+                )}
+
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thStyle, width: 46 }}>Icon</th>
+                        <th style={thStyle}>Title</th>
+                        <th style={thStyle}>Description</th>
+                        <th style={{ ...thStyle, width: 74, textAlign: "center" }}>Order</th>
+                        <th style={{ ...thStyle, width: 150 }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fundUsesSorted.map(f => (
+                        editFU?.id === f.id ? (
+                          <tr key={f.id} style={{ background: "#fafafa" }}>
+                            <td style={{ ...tdStyle, verticalAlign: "top", minWidth: 200 }} colSpan={2}>
+                              <IconPicker value={editFU.icon} onChange={id => setEditFU(v => v ? { ...v, icon: id } : v)} />
+                              <input style={{ ...T.input, marginTop: ".5rem" }} value={editFU.title}
+                                onChange={e => setEditFU(v => v ? { ...v, title: e.target.value } : v)} placeholder="Title" />
+                            </td>
+                            <td style={{ ...tdStyle, verticalAlign: "top" }}>
+                              <input style={T.input} value={editFU.description}
+                                onChange={e => setEditFU(v => v ? { ...v, description: e.target.value } : v)} placeholder="Description" />
+                            </td>
+                            <td style={{ ...tdStyle, verticalAlign: "top", textAlign: "center" }}>
+                              <input type="number" style={{ ...T.input, width: 58, textAlign: "center" }} value={editFU.sort_order}
+                                onChange={e => setEditFU(v => v ? { ...v, sort_order: parseInt(e.target.value) || 0 } : v)} />
+                            </td>
+                            <td style={{ ...tdStyle, verticalAlign: "top" }}>
+                              <div style={{ display: "flex", gap: ".4rem" }}>
+                                <MiniBtn tone="primary" label={saving[`fundUse_${f.id}`] ? "Saving…" : "Save"} onClick={saveFundUse} disabled={!!saving[`fundUse_${f.id}`]} />
+                                <MiniBtn label="Cancel" onClick={() => setEditFU(null)} />
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={f.id}>
+                            <td style={{ ...tdStyle, textAlign: "center", color: "#1d1d1f" }}>
+                              <FundUseIcon value={f.icon} size={18} />
+                            </td>
+                            <td style={{ ...tdStyle, fontWeight: 600 }}>{f.title}</td>
+                            <td style={{ ...tdStyle, color: "#6e6e73" }}>{f.description}</td>
+                            <td style={{ ...tdStyle, color: "#98989d", textAlign: "center" }}>{f.sort_order}</td>
+                            <td style={tdStyle}>
+                              <div style={{ display: "flex", gap: ".4rem" }}>
+                                <MiniBtn label="Edit" onClick={() => setEditFU({ ...f })} />
+                                <MiniBtn tone="danger" label="Delete" onClick={() => deleteFundUse(f.id, f.title)} />
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      ))}
+                      {fundUsesSorted.length === 0 && (
+                        <tr><td colSpan={5} style={{ ...tdStyle, color: "#98989d", textAlign: "center", padding: "1.25rem" }}>No items yet. Add one below.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add item */}
+                <div style={{ marginTop: "1.25rem", padding: "1rem", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f2" }}>
+                  <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6e6e73", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".75rem" }}>Add Item</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: ".75rem" }}>
+                    <Field label="Title">
+                      <input style={T.input} value={newFU.title} onChange={e => setNewFU(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Travel & Transportation" />
+                    </Field>
+                    <Field label="Description">
+                      <input style={T.input} value={newFU.description} onChange={e => setNewFU(p => ({ ...p, description: e.target.value }))} placeholder="e.g. Away meets, regional championships, and travel to compete." />
+                    </Field>
+                    <Field label="Icon">
+                      <IconPicker value={newFU.icon} onChange={id => setNewFU(p => ({ ...p, icon: id }))} />
+                    </Field>
+                    <div>
+                      <MiniBtn tone="primary" label={addingFundUse ? "Adding…" : "+ Add Item"} onClick={addFundUse} disabled={addingFundUse} />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -877,13 +1217,115 @@ export default function CampaignControlCenter({ detail }: Props) {
       {tab === "sponsors" && (
         <div>
           <div style={T.card}>
-            <SectionHeader title="Sponsors" desc="Campaign-level sponsor logos and tiers shown on the public page" />
-            <StatChip label="Sponsors" value={detail.sponsor_count} />
-            <p style={{ margin: "1rem 0 0", fontSize: ".75rem", color: "#98989d" }}>
-              Adding, editing, or removing sponsors for this campaign is still managed in the{" "}
-              <a href="/admin/edit" style={{ color: "#0b1e3d", fontWeight: 600 }}>legacy editor</a> for now. The platform-wide{" "}
-              <a href="/admin/sponsors" style={{ color: "#0b1e3d", fontWeight: 600 }}>Sponsor CRM</a> is a separate system for tracking ELF&rsquo;s own sponsor relationships and is not affected by this page.
-            </p>
+            <SectionHeader
+              title="Campaign Sponsors"
+              desc={
+                sponsors === null
+                  ? "Sponsor logos and tiers shown on this campaign's public page."
+                  : `${sponsors.length} sponsor${sponsors.length !== 1 ? "s" : ""} on this campaign · shown on the public campaign page`
+              }
+            />
+
+            {sponsors === null ? (
+              <div style={{ fontSize: ".8rem", color: "#98989d" }}>Loading…</div>
+            ) : (
+              <>
+                {!features.show_sponsors && (
+                  <div style={{ padding: ".5rem .75rem", background: "#fef9c3", border: "1px solid #fde047", borderRadius: 7, fontSize: ".72rem", color: "#854d0e", fontWeight: 500, marginBottom: ".9rem" }}>
+                    The Sponsors section is currently hidden on the public page. Enable it under <strong>Branding &amp; Page → Feature Toggles</strong>.
+                  </div>
+                )}
+
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>Sponsor</th>
+                        <th style={{ ...thStyle, width: 100 }}>Tier</th>
+                        <th style={thStyle}>URL</th>
+                        <th style={{ ...thStyle, width: 150 }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sponsors.map(s => (
+                        editS?.id === s.id ? (
+                          <tr key={s.id} style={{ background: "#fafafa" }}>
+                            <td style={tdStyle}>
+                              <input style={T.input} value={editS.name}
+                                onChange={e => setEditS(v => v ? { ...v, name: e.target.value } : v)} placeholder="Business name" />
+                            </td>
+                            <td style={tdStyle}>
+                              <select style={T.input} value={editS.tier}
+                                onChange={e => setEditS(v => v ? { ...v, tier: e.target.value } : v)}>
+                                {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+                                {/* An existing record whose tier predates the three
+                                    standard options keeps its own value as a choice,
+                                    so editing name/URL can never silently rewrite it. */}
+                                {!SPONSOR_TIERS.includes(editS.tier as typeof SPONSOR_TIERS[number]) && (
+                                  <option value={editS.tier}>{editS.tier}</option>
+                                )}
+                              </select>
+                            </td>
+                            <td style={tdStyle}>
+                              <input style={T.input} value={editS.url}
+                                onChange={e => setEditS(v => v ? { ...v, url: e.target.value } : v)} placeholder="https://…" />
+                            </td>
+                            <td style={tdStyle}>
+                              <div style={{ display: "flex", gap: ".4rem" }}>
+                                <MiniBtn tone="primary" label={saving[`sponsor_${s.id}`] ? "Saving…" : "Save"} onClick={saveSponsor} disabled={!!saving[`sponsor_${s.id}`]} />
+                                <MiniBtn label="Cancel" onClick={() => setEditS(null)} />
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={s.id}>
+                            <td style={{ ...tdStyle, fontWeight: 600 }}>{s.name}</td>
+                            <td style={tdStyle}><TierBadge tier={s.tier} /></td>
+                            <td style={{ ...tdStyle, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: "#0b1e3d", fontSize: ".76rem" }}>{s.url}</a>
+                            </td>
+                            <td style={tdStyle}>
+                              <div style={{ display: "flex", gap: ".4rem" }}>
+                                <MiniBtn label="Edit" onClick={() => setEditS({ ...s })} />
+                                <MiniBtn tone="danger" label="Delete" onClick={() => deleteSponsor(s.id, s.name)} />
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      ))}
+                      {sponsors.length === 0 && (
+                        <tr><td colSpan={4} style={{ ...tdStyle, color: "#98989d", textAlign: "center", padding: "1.25rem" }}>No sponsors yet. Add one below.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add sponsor */}
+                <div style={{ marginTop: "1.25rem", padding: "1rem", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f2" }}>
+                  <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6e6e73", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".75rem" }}>Add Sponsor</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 2fr auto", gap: ".75rem", alignItems: "end" }}>
+                    <Field label="Name">
+                      <input style={T.input} value={newS.name} onChange={e => setNewS(p => ({ ...p, name: e.target.value }))} placeholder="Business name" />
+                    </Field>
+                    <Field label="Tier">
+                      <select style={T.input} value={newS.tier} onChange={e => setNewS(p => ({ ...p, tier: e.target.value }))}>
+                        {SPONSOR_TIERS.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="URL">
+                      <input style={T.input} value={newS.url} onChange={e => setNewS(p => ({ ...p, url: e.target.value }))} placeholder="https://…" />
+                    </Field>
+                    <MiniBtn tone="primary" label={addingSponsor ? "Adding…" : "+ Add Sponsor"} onClick={addSponsor} disabled={addingSponsor} />
+                  </div>
+                </div>
+
+                <p style={{ margin: "1rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
+                  These are this campaign&rsquo;s public sponsor listings. The platform-wide{" "}
+                  <a href="/admin/sponsors" style={{ color: "#0b1e3d", fontWeight: 600 }}>Sponsor CRM</a> is a separate system for
+                  tracking ELF&rsquo;s own sponsor relationships and is not affected by this page.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
