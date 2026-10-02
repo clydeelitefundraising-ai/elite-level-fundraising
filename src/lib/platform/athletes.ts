@@ -112,7 +112,10 @@ export type CreateLinkedAthleteMemberResult =
   | { ok: true;  member: TeamMemberRow }
   | { ok: false; reason: "athlete_not_found" };
 
-function normalizeName(name: string): string {
+// Exported for reuse by the roster-import pipeline (src/lib/platform/import/),
+// which must apply the exact same exact-match normalization this module uses
+// for createAthlete()'s collision check — never a reimplementation.
+export function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
@@ -136,7 +139,11 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
-function nameSimilarity(a: string, b: string): number {
+// Exported for reuse by the roster-import pipeline's fuzzy duplicate pass —
+// same similarity function findPossibleDuplicates() below uses, so an
+// imported-roster review surfaces identical "possible duplicate" judgments
+// as the rest of the admin tools.
+export function nameSimilarity(a: string, b: string): number {
   if (!a.length && !b.length) return 1;
   const dist = levenshtein(a, b);
   return 1 - dist / Math.max(a.length, b.length);
