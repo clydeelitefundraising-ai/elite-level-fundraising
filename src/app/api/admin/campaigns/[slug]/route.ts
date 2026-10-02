@@ -75,6 +75,18 @@ const KNOWN_FIELDS = new Set([
   "archived",
   "show_leaderboard", "show_program_identity", "show_share_section",
   "show_fund_uses", "show_recent_donations", "show_sponsors", "show_donation_card",
+  // Phase 1 Campaign Editor consolidation — same columns the legacy
+  // PUT /api/admin/campaign route already reads/writes; adding them here
+  // does not change that route or its behavior. Caller (CampaignControlCenter)
+  // is responsible for sending `null` (never `""`) for an intentionally
+  // cleared theme color, matching the legacy editor's own
+  // OptionalColorField convention — this route still only ever patches a
+  // key when the caller actually includes it in the request body (see the
+  // `Object.entries(body)` loop below), so an unrelated save that omits
+  // these keys entirely leaves the columns completely untouched.
+  "description",
+  "theme_primary_color", "theme_secondary_color", "theme_accent_color", "theme_button_color",
+  "allow_coach_fundraising",
 ]);
 
 // Fields that require a DB migration before they persist
