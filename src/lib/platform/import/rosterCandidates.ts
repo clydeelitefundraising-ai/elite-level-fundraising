@@ -45,12 +45,12 @@ function normHeader(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-const NAME_SINGLE_ALIASES = ["name", "athlete name", "student", "student name"];
+const NAME_SINGLE_ALIASES = ["name", "athlete name", "student", "student name", "athlete"];
 const NAME_LASTFIRST_ALIASES = ["last, first", "last,first", "lastname, firstname", "last name, first name"];
 const FIRST_ALIASES = ["first name", "first"];
 const LAST_ALIASES = ["last name", "last"];
-const CLASS_ALIASES = ["class", "class year", "grade", "grade level", "graduation year"];
-const EVENT_ALIASES = ["event", "group", "position"];
+const CLASS_ALIASES = ["class", "class year", "grade", "grade level", "graduation year", "year"];
+const EVENT_ALIASES = ["event", "group", "position", "event group"];
 
 function findCol(headers: string[], aliases: string[]): number | null {
   for (let i = 0; i < headers.length; i++) {
@@ -107,18 +107,29 @@ function extractName(cells: string[], mapping: ColumnMapping): string {
 const CANONICAL_CLASSES = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 
 // Same four labels CampaignControlCenter.tsx's ATHLETE_CLASS_OPTIONS already
-// uses — numeric US grade levels map onto them deterministically (this is
-// fixed, universal terminology, not a guess). A 4-digit year is deliberately
-// NOT reinterpreted as a class standing — ELF's class_year field means grade
-// level, not graduation year, and converting one to the other requires
-// knowing "what grade is a 2027 grad in *this* school year," which is
-// ambiguous and must go to the admin instead of being silently assumed.
-const GRADE_NUMBER_MAP: Record<string, typeof CANONICAL_CLASSES[number]> = {
-  "9": "Freshman", "09": "Freshman", "9th": "Freshman", "9th grade": "Freshman", "grade 9": "Freshman",
-  "10": "Sophomore", "10th": "Sophomore", "10th grade": "Sophomore", "grade 10": "Sophomore",
-  "11": "Junior", "11th": "Junior", "11th grade": "Junior", "grade 11": "Junior",
-  "12": "Senior", "12th": "Senior", "12th grade": "Senior", "grade 12": "Senior",
+// uses — numeric US grade levels and the standard FR/SO/JR/SR abbreviations
+// map onto them deterministically (this is fixed, universal terminology, not
+// a guess). A 4-digit year is deliberately NOT reinterpreted as a class
+// standing — ELF's class_year field means grade level, not graduation year,
+// and converting one to the other requires knowing "what grade is a 2027
+// grad in *this* school year," which is ambiguous and must go to the admin
+// instead of being silently assumed.
+const CLASS_ABBREVIATION_MAP: Record<string, typeof CANONICAL_CLASSES[number]> = {
+  "9": "Freshman", "09": "Freshman", "9th": "Freshman", "9th grade": "Freshman", "grade 9": "Freshman", "fr": "Freshman",
+  "10": "Sophomore", "10th": "Sophomore", "10th grade": "Sophomore", "grade 10": "Sophomore", "so": "Sophomore",
+  "11": "Junior", "11th": "Junior", "11th grade": "Junior", "grade 11": "Junior", "jr": "Junior",
+  "12": "Senior", "12th": "Senior", "12th grade": "Senior", "grade 12": "Senior", "sr": "Senior",
 };
+
+// "RS FR"/"RS SO"/"RS JR"/"RS SR" — a common college/HS roster convention for
+// a redshirt athlete. The redshirt designation is meaningful source
+// information (it's not the same thing as the grade alone), and ELF's
+// class_year is a free-text column with no enum constraint at the write
+// contract (POST /api/admin/athletes only requires it non-empty) — so it can
+// hold "RS Freshman" losslessly. Rather than guess whether the admin wants
+// the RS marker kept or dropped, this expands the abbreviation but keeps the
+// prefix and flags the row for review, so the admin decides.
+const REDSHIRT_RE = /^rs\s+(fr|so|jr|sr)$/;
 
 const GRAD_YEAR_RE = /^(19|20)\d{2}$/;
 
@@ -129,8 +140,17 @@ function normalizeClass(raw: string): { value: string; issue: string | null } {
   const canonical = (CANONICAL_CLASSES as readonly string[]).find(c => c.toLowerCase() === key);
   if (canonical) return { value: canonical, issue: null };
 
-  const mapped = GRADE_NUMBER_MAP[key];
+  const mapped = CLASS_ABBREVIATION_MAP[key];
   if (mapped) return { value: mapped, issue: null };
+
+  const redshirt = key.match(REDSHIRT_RE);
+  if (redshirt) {
+    const expanded = CLASS_ABBREVIATION_MAP[redshirt[1]];
+    return {
+      value: `RS ${expanded}`,
+      issue: `Class value "${trimmed}" is a redshirt designation — please confirm class placement.`,
+    };
+  }
 
   if (GRAD_YEAR_RE.test(trimmed)) {
     return { value: trimmed, issue: `Class value "${trimmed}" looks like a graduation year, not a grade — please confirm.` };

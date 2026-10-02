@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
 import { parseXlsx } from "./xlsxParse.ts";
+import { mapHeaders, buildCandidates } from "./rosterCandidates.ts";
 
 async function workbookBuffer(build: (wb: ExcelJS.Workbook) => void): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
@@ -88,6 +89,34 @@ test("parseXlsx: with multiple worksheets, the first one with real data rows is 
   });
   const result = await parseXlsx(buf);
   assert.equal(result.worksheetName, "Roster");
+});
+
+test("real-world roster shape, XLSX-derived: parseXlsx -> mapHeaders -> buildCandidates end to end", async () => {
+  const buf = await workbookBuffer(wb => {
+    // Mirrors the production QA roster: sheet named "2026 Roster", headers
+    // Gender/Athlete/Event Group/Year/Source.
+    const ws = wb.addWorksheet("2026 Roster");
+    ws.addRow(["Gender", "Athlete", "Event Group", "Year", "Source"]);
+    ws.addRow(["Women", "Nicole Alfred", "Distance", "FR", "https://example.com"]);
+    ws.addRow(["Women", "Santia Ali", "Jumps", "FR", "https://example.com"]);
+    ws.addRow(["Women", "Camryn Alo", "Throws", "JR", "https://example.com"]);
+    ws.addRow(["Women", "Makayla Anderson", "Distance", "RS SO", "https://example.com"]);
+  });
+
+  const parsed = await parseXlsx(buf);
+  assert.equal(parsed.worksheetName, "2026 Roster");
+
+  const [headerRow, ...dataRows] = parsed.rows;
+  const mapping = mapHeaders(headerRow);
+  const candidates = buildCandidates(dataRows, mapping);
+
+  assert.equal(candidates.length, 4);
+  assert.equal(candidates[0].name, "Nicole Alfred");
+  assert.equal(candidates[0].class_year, "Freshman");
+  assert.equal(candidates[0].event, "Distance");
+  assert.equal(candidates[2].class_year, "Junior");
+  assert.equal(candidates[3].class_year, "RS Sophomore");
+  assert.equal(candidates[3].status, "needs_review");
 });
 
 test("parseXlsx: an empty workbook (no non-empty rows) returns an empty row set for the first sheet", async () => {
