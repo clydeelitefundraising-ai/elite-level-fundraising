@@ -2,11 +2,12 @@ import { restList } from "./_client";
 import { getCampaignSummary, getPendingCoachInvites } from "./campaigns";
 import { getAllDonations, getDonationsSince, groupDonationsByCampaign, calculateDonationPace } from "./donations";
 import { getRecentAudit, getAuditSince, getAuditSummary, type AuditEntry } from "./audit";
-import { getFollowUps } from "./crm";
+import { getFollowUps, getContacts } from "./crm";
 import { getSummary as getAutomationSummary } from "./automation";
 import { getJobRunSummary } from "./jobs";
 import { getSponsorScoringContext, getRenewalForecast, getSponsorInsights } from "./sponsors";
 import { getRecentFailures, getStaleQueued } from "./notifications";
+import { getDemoRequests } from "./marketingDemoRequests";
 
 export type Severity = "critical" | "warning" | "info" | "ok";
 
@@ -55,7 +56,7 @@ function todayWindow() {
 export async function getNeedsAttention(): Promise<{ attention: AttentionItem[]; alertCount: number }> {
   const { todayStart, in3Days, in7Days } = todayWindow();
 
-  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorCtx, demoCheck, notificationFailures, staleQueued] = await Promise.all([
+  const [campaigns, allDonations, pendingInvites, crmFollowUpsDue, automationSummary, jobSummary, sponsorCtx, demoCheck, notificationFailures, staleQueued, demoRequests, crmContacts] = await Promise.all([
     getCampaignSummary(),
     getAllDonations(),
     getPendingCoachInvites(),
@@ -66,6 +67,8 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
     restList<{ campaign_slug: string }>("campaign_settings?campaign_slug=eq.elf-demo&select=campaign_slug&limit=1"),
     getRecentFailures(20),
     getStaleQueued(60),
+    getDemoRequests(),
+    getContacts(),
   ]);
 
   // getRenewalForecast/getSponsorInsights reuse sponsorCtx instead of each
@@ -148,6 +151,28 @@ export async function getNeedsAttention(): Promise<{ attention: AttentionItem[];
       count: pendingInvites.length,
       detail: "Unused invite links awaiting activation",
       href: "/admin/campaigns", actionLabel: "View Campaigns", icon: "✉",
+    });
+  }
+
+  // New Book-a-Demo submissions not yet converted into a CRM contact —
+  // "unconverted" is determined the exact same way CoachCrmView.tsx's
+  // MarketingRequestsPanel already determines it client-side (cross-
+  // referencing coach_crm_contacts.demo_request_id), not a separate
+  // definition. Converting a request never changes its own `status`
+  // column (see /api/admin/marketing-requests/[id]/convert), so `status`
+  // alone can't be used as the "already handled" signal.
+  const convertedDemoRequestIds = new Set(
+    crmContacts.map(c => c.demo_request_id).filter((id): id is string => Boolean(id)),
+  );
+  const newDemoRequests = demoRequests.filter(
+    r => r.status === "new" && !convertedDemoRequestIds.has(r.id),
+  );
+  if (newDemoRequests.length > 0) {
+    attention.push({
+      id: "new-demo-requests", severity: "info", title: "New Demo Requests",
+      count: newDemoRequests.length,
+      detail: `${newDemoRequests.length} new ${newDemoRequests.length === 1 ? "coach" : "coaches"} requested a demo`,
+      href: "/admin/crm", actionLabel: "Review Leads", icon: "🎯",
     });
   }
 
