@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mapHeaders, buildCandidates, annotateDuplicates, NoNameColumnError, type ExistingAthleteInfo } from "./rosterCandidates.ts";
+import { parseCsv } from "./csvParse.ts";
+
+const REAL_ROSTER_CSV =
+  "Gender,Athlete,Event Group,Year,Source\n" +
+  "Women,Nicole Alfred,Distance,FR,https://example.com\n" +
+  "Women,Santia Ali,Jumps,FR,https://example.com\n" +
+  "Women,Camryn Alo,Throws,JR,https://example.com\n" +
+  "Women,Makayla Anderson,Distance,RS SO,https://example.com";
 
 function existing(partial: Partial<ExistingAthleteInfo> & Pick<ExistingAthleteInfo, "id" | "name">): ExistingAthleteInfo {
   return { class_year: null, event: null, linked: false, hasFundraisingHistory: false, ...partial };
@@ -70,6 +78,117 @@ test("mapHeaders: header matching is case-insensitive and whitespace-normalized"
 
 test("mapHeaders: throws NoNameColumnError when no name column exists", () => {
   assert.throws(() => mapHeaders(["Class", "Event"]), NoNameColumnError);
+});
+
+// ── Phase 1 compatibility patch: "Athlete" / "Event Group" / "Year" aliases ──
+
+test("mapHeaders: 'Athlete' is a recognized name alias, identical to Name/Athlete Name/Student/Student Name", () => {
+  const mapping = mapHeaders(["Athlete", "Year", "Event Group"]);
+  const [c] = buildCandidates([["Mason Brooks", "FR", "Sprints"]], mapping);
+  assert.equal(c.name, "Mason Brooks");
+});
+
+test("mapHeaders: 'Event Group' is a recognized event alias, identical to Event/Group/Position", () => {
+  const mapping = mapHeaders(["Name", "Class", "Event Group"]);
+  const [c] = buildCandidates([["Mason Brooks", "Freshman", "Distance"]], mapping);
+  assert.equal(c.event, "Distance");
+});
+
+test("mapHeaders: 'Year' is a recognized class alias", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const [c] = buildCandidates([["Mason Brooks", "FR"]], mapping);
+  assert.equal(c.class_year, "Freshman");
+});
+
+// ── FR/SO/JR/SR abbreviation normalization ───────────────────────────────
+
+test("buildCandidates: FR/SO/JR/SR abbreviations normalize deterministically to Freshman..Senior", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const rows = [["A", "FR"], ["B", "SO"], ["C", "JR"], ["D", "SR"]];
+  const candidates = buildCandidates(rows, mapping);
+  assert.deepEqual(candidates.map(c => c.class_year), ["Freshman", "Sophomore", "Junior", "Senior"]);
+  assert.ok(candidates.every(c => c.status === "ready"));
+});
+
+test("buildCandidates: abbreviation matching is case-insensitive and whitespace-normalized", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const [c] = buildCandidates([["Mason Brooks", "  fr "]], mapping);
+  assert.equal(c.class_year, "Freshman");
+  assert.equal(c.status, "ready");
+});
+
+// ── Redshirt variants: expanded but flagged, never silently collapsed ────
+
+test("buildCandidates: 'RS SO' expands the grade but keeps the RS marker, and is flagged Needs Review", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const [c] = buildCandidates([["Makayla Anderson", "RS SO"]], mapping);
+  assert.equal(c.class_year, "RS Sophomore", "the redshirt designation must not be silently dropped");
+  assert.equal(c.status, "needs_review");
+  assert.ok(c.issues.some(i => i.includes("redshirt")));
+});
+
+test("buildCandidates: all four redshirt variants (RS FR/SO/JR/SR) expand correctly", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const rows = [["A", "RS FR"], ["B", "RS SO"], ["C", "RS JR"], ["D", "RS SR"]];
+  const candidates = buildCandidates(rows, mapping);
+  assert.deepEqual(candidates.map(c => c.class_year), ["RS Freshman", "RS Sophomore", "RS Junior", "RS Senior"]);
+  assert.ok(candidates.every(c => c.status === "needs_review"));
+});
+
+test("buildCandidates: redshirt matching is case-insensitive and whitespace-tolerant", () => {
+  const mapping = mapHeaders(["Name", "Year"]);
+  const [c] = buildCandidates([["Makayla Anderson", "  rs   so  "]], mapping);
+  assert.equal(c.class_year, "RS Sophomore");
+  assert.equal(c.status, "needs_review");
+});
+
+// ── End-to-end: the exact production roster shape that was rejected ─────
+
+test("real-world roster shape: Gender/Athlete/Event Group/Year/Source header row imports correctly, unrelated columns ignored", () => {
+  const mapping = mapHeaders(["Gender", "Athlete", "Event Group", "Year", "Source"]);
+  const rows = [
+    ["Women", "Nicole Alfred",    "Distance", "FR",    "https://example.com"],
+    ["Women", "Santia Ali",       "Jumps",    "FR",    "https://example.com"],
+    ["Women", "Camryn Alo",       "Throws",   "JR",    "https://example.com"],
+    ["Women", "Makayla Anderson", "Distance", "RS SO", "https://example.com"],
+  ];
+  const candidates = buildCandidates(rows, mapping);
+
+  assert.equal(candidates[0].name, "Nicole Alfred");
+  assert.equal(candidates[0].event, "Distance");
+  assert.equal(candidates[0].class_year, "Freshman");
+  assert.equal(candidates[0].status, "ready");
+
+  assert.equal(candidates[1].class_year, "Freshman");
+  assert.equal(candidates[2].class_year, "Junior");
+
+  assert.equal(candidates[3].name, "Makayla Anderson");
+  assert.equal(candidates[3].event, "Distance");
+  assert.equal(candidates[3].class_year, "RS Sophomore");
+  assert.equal(candidates[3].status, "needs_review");
+
+  // "Gender" and "Source" have no alias match and must never surface as
+  // name/class/event — confirmed structurally: nothing in this candidate
+  // set can originate from columns 0 or 4.
+  for (const c of candidates) {
+    assert.notEqual(c.name, "Women");
+    assert.notEqual(c.class_year, "https://example.com");
+    assert.notEqual(c.event, "https://example.com");
+  }
+});
+
+test("real-world roster shape, CSV-derived: parseCsv -> mapHeaders -> buildCandidates end to end", () => {
+  const rows = parseCsv(REAL_ROSTER_CSV);
+  const [headerRow, ...dataRows] = rows;
+  const mapping = mapHeaders(headerRow);
+  const candidates = buildCandidates(dataRows, mapping);
+
+  assert.equal(candidates.length, 4);
+  assert.equal(candidates[0].name, "Nicole Alfred");
+  assert.equal(candidates[0].class_year, "Freshman");
+  assert.equal(candidates[0].event, "Distance");
+  assert.equal(candidates[3].class_year, "RS Sophomore");
+  assert.equal(candidates[3].status, "needs_review");
 });
 
 // ── Required-field validation ────────────────────────────────────────────
