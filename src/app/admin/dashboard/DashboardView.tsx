@@ -192,7 +192,7 @@ type QuickAction = { label: string; desc: string; href: string; primary?: boolea
 
 const ACTIONS: QuickAction[] = [
   { label: "View Campaigns",         desc: "See all campaigns and their status",     href: "/admin/campaigns", primary: true },
-  { label: "Create / Manage Campaign", desc: "Edit settings, roster, coaches",        href: "/admin/edit" },
+  { label: "Create Campaign",        desc: "Launch a new school/team campaign",      href: "/admin/campaigns/new" },
   { label: "Review Leads",           desc: "New demo requests and CRM follow-ups",   href: "/admin/crm" },
   { label: "Open Demo Environment",  desc: "Explore the sales demo environment",     href: "/admin/demo" },
 ];

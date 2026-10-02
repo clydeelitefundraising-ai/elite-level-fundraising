@@ -2029,7 +2029,6 @@ export default function CampaignControlCenter({ detail }: Props) {
                 { label: "Registration dashboard",  href: `/admin/campaigns/${slug}/registration`, external: false },
                 { label: "Open campaign page",      href: `/campaign/${slug}`,                    external: true },
                 { label: "Open team hub",           href: `/team/${slug}/home`,                   external: true },
-                { label: "Open legacy editor",      href: "/admin/edit",                          external: false },
               ].map(a => (
                 <a key={a.label} href={a.href} target={a.external ? "_blank" : undefined} rel={a.external ? "noopener noreferrer" : undefined}
                   style={{ padding: ".5rem .75rem", background: "#f5f5f7", borderRadius: 8, fontSize: ".78rem", fontWeight: 500, color: "#1d1d1f", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -2037,6 +2036,23 @@ export default function CampaignControlCenter({ detail }: Props) {
                   <span style={{ color: "#98989d" }}>{a.external ? "↗" : "→"}</span>
                 </a>
               ))}
+            </div>
+
+            {/* Retirement Stage 1: the only remaining user-facing entry
+                point into /admin/edit, deliberately de-emphasized (muted
+                text style, not a MiniBtn/primary action) and scoped to its
+                actual current purpose — athlete/staff removal — rather than
+                presented as a second campaign editor. Destination and
+                behavior are unchanged; only the label/framing changed. */}
+            <div style={{ marginTop: ".75rem", paddingTop: ".75rem", borderTop: "1px solid #f5f5f7" }}>
+              <a href="/admin/edit"
+                style={{ padding: ".5rem .75rem", background: "#f5f5f7", borderRadius: 8, fontSize: ".78rem", fontWeight: 500, color: "#6e6e73", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                Legacy Removal Tools
+                <span style={{ color: "#98989d" }}>→</span>
+              </a>
+              <p style={{ margin: ".4rem 0 0", fontSize: ".7rem", color: "#98989d", lineHeight: 1.4 }}>
+                Temporarily available for athlete or staff removal while safer removal tools are being developed.
+              </p>
             </div>
           </div>
 
