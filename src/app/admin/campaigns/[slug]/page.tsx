@@ -58,7 +58,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
 
   const { slug } = await params;
 
-  const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes, contactGoalRes, perAthleteGoalsRes, sponsorsRes] = await Promise.all([
+  const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes, contactGoalRes, perAthleteGoalsRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/donations?campaign_slug=eq.${encodeURIComponent(slug)}&select=amount_cents`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,event,jersey_number,grad_year&order=created_at.asc`, { headers: h(), cache: "no-store" }),
@@ -66,11 +66,6 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     fetch(`${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,role,email`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=is.null&select=goal&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=not.is.null&select=athlete_id,goal`, { headers: h(), cache: "no-store" }),
-    // Phase 1 consolidation: read-only sponsor count only — campaign-level
-    // sponsor CRUD stays in the legacy editor (/admin/edit) for this phase.
-    // Same `sponsors` table the legacy editor's CRUD already uses — no new
-    // table, no schema change, just a count read.
-    fetch(`${BASE}/rest/v1/sponsors?campaign_slug=eq.${encodeURIComponent(slug)}&select=id`, { headers: h(), cache: "no-store" }),
   ]);
 
   const settingsRows = settingsRes.ok ? await settingsRes.json() : [];
@@ -83,7 +78,6 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
   const coaches: CampaignDetail["coaches"]   = coachesRes.ok ? await coachesRes.json() : [];
   const contactGoalRows: { goal: number }[]  = contactGoalRes.ok ? await contactGoalRes.json() : [];
   const perAthleteGoals: { athlete_id: string; goal: number }[] = perAthleteGoalsRes.ok ? await perAthleteGoalsRes.json() : [];
-  const sponsorRows: { id: string }[] = sponsorsRes.ok ? await sponsorsRes.json() : [];
 
   const raisedCents     = donations.reduce((s, d) => s + (d.amount_cents || 0), 0);
   const donorCount      = donations.length;
@@ -161,7 +155,6 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     athlete_account_count: athleteAccounts,
     parent_account_count:  parentAccounts,
     health_score:        healthScore,
-    sponsor_count:       sponsorRows.length,
     // relational
     athletes,
     coaches,
