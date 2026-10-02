@@ -29,6 +29,18 @@ const SPONSOR_TIERS = ["gold", "silver", "bronze"] as const;
 
 type CampaignAthlete = { id: string; name: string; event: string; class_year: string | null; jersey_number: number | null; grad_year: number | null; linked: boolean };
 
+// Phase 5A: coaches/staff + their fundraiser participation, loaded via the
+// SAME existing admin APIs Legacy uses — /api/admin/coaches (list/add/
+// invite) and /api/admin/coach-fundraisers (participation). Deliberately
+// excludes account_id from this client-side type even though the API
+// response includes it — never rendered, per the "do not expose account
+// IDs" requirement; `account_id` presence is only ever used as a boolean
+// (linked vs. not) before being discarded.
+type CampaignCoach = { id: string; name: string; email: string; role: string; has_pending_invite: boolean; linked: boolean };
+type CoachFundraiser = { coach_id: string; active: boolean; goal_cents: number | null };
+const COACH_ROLES = ["head_coach", "assistant_coach", "booster"] as const;
+const COACH_ROLE_LABELS: Record<string, string> = { head_coach: "Head Coach", assistant_coach: "Assistant Coach", booster: "Booster" };
+
 // Same class options the legacy editor offers (src/lib/supabase.ts's
 // ATHLETE_CLASS_OPTIONS) — duplicated as a small local constant rather than
 // imported, so this client component never pulls in lib/supabase.ts's much
@@ -276,6 +288,30 @@ function LinkStatusBadge({ linked }: { linked: boolean }) {
   );
 }
 
+// Same three-state logic Legacy already uses (AdminClient.tsx): linked
+// (has a real account_id) takes priority over pending (an unused,
+// unexpired invite token exists), which takes priority over unactivated.
+// Never inferred from name/email — only from the server-computed
+// `linked`/`has_pending_invite` flags already returned by the existing API.
+function CoachAccountBadge({ linked, pending }: { linked: boolean; pending: boolean }) {
+  const label = linked ? "Linked" : pending ? "Invite Pending" : "Unactivated";
+  const colors = linked ? { bg: "#dcfce7", color: "#15803d" } : pending ? { bg: "#dbeafe", color: "#1d4ed8" } : { bg: "#fef9c3", color: "#854d0e" };
+  return (
+    <span style={{ padding: ".15rem .55rem", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: colors.bg, color: colors.color }}>
+      {label}
+    </span>
+  );
+}
+
+function CoachRoleBadge({ role }: { role: string }) {
+  const colors = role === "head_coach" ? { bg: "#dbeafe", color: "#1d4ed8" } : role === "booster" ? { bg: "#ccfbf1", color: "#0f766e" } : { bg: "#f3f4f6", color: "#374151" };
+  return (
+    <span style={{ padding: ".15rem .55rem", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: colors.bg, color: colors.color }}>
+      {COACH_ROLE_LABELS[role] ?? role}
+    </span>
+  );
+}
+
 function TierBadge({ tier }: { tier: string }) {
   // Unknown/legacy tier values fall back to a neutral badge rather than
   // being hidden — same tolerance the legacy editor's TierBadge has.
@@ -442,6 +478,47 @@ export default function CampaignControlCenter({ detail }: Props) {
   const [editAthlete, setEditAthlete] = useState<{ id: string; name: string; class_year: string; event: string } | null>(null);
   const [newAthlete, setNewAthlete] = useState({ name: "", class_year: "", event: "" });
   const [addingAthlete, setAddingAthlete] = useState(false);
+
+  // ── Phase 5A: Coaches & Staff (legacy coach APIs, same records) ─────────
+  // coachList/coachFundraisers are loaded client-side, same pattern as
+  // sponsors/fundUses in Phase 2 — reusing the exact existing admin APIs,
+  // not a parallel representation. `inviteCache` is deliberately plain
+  // component state (never persisted to localStorage/DB/URL) so a
+  // returned invite URL exists only in memory for this browser session,
+  // exactly matching Legacy's own behavior — a page refresh clears it.
+  const [coaches, setCoaches] = useState<CampaignCoach[] | null>(null);
+  const [coachFundraisers, setCoachFundraisers] = useState<CoachFundraiser[]>([]);
+  const [newCoach, setNewCoach] = useState({ name: "", email: "", role: "assistant_coach" as string, password: "" });
+  const [addingCoach, setAddingCoach] = useState(false);
+  const [inviteLoadingId, setInviteLoadingId] = useState<string | null>(null);
+  const [inviteCache, setInviteCache] = useState<Record<string, { url: string; emailSent: boolean }>>({});
+  const [expandedInviteId, setExpandedInviteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch(`/api/admin/coaches?slug=${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : []),
+      fetch(`/api/admin/coach-fundraisers?slug=${encodeURIComponent(slug)}`).then(r => r.ok ? r.json() : []),
+    ])
+      .then(([c, cf]) => {
+        if (cancelled) return;
+        setCoaches(Array.isArray(c)
+          ? c.map((row: { id: string; name: string; email: string; role: string; account_id: string | null; has_pending_invite: boolean }) => ({
+              id: row.id, name: row.name, email: row.email, role: row.role,
+              has_pending_invite: row.has_pending_invite, linked: Boolean(row.account_id),
+            }))
+          : []);
+        setCoachFundraisers(Array.isArray(cf)
+          ? cf.map((row: { coach_id: string; active: boolean; goal_cents: number | null }) => ({ coach_id: row.coach_id, active: row.active, goal_cents: row.goal_cents }))
+          : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCoaches([]);
+        setCoachFundraisers([]);
+      });
+    return () => { cancelled = true; };
+  }, [slug]);
 
   const [features, setFeatures] = useState({
     show_leaderboard:      detail.show_leaderboard,
@@ -840,6 +917,102 @@ export default function CampaignControlCenter({ detail }: Props) {
       show("Athlete updated.");
     } catch { show("Network error.", "error"); }
     finally { setSav(`athleteEdit_${editAthlete.id}`, false); }
+  }
+
+  // ── Coach CRUD (Add/Invite/Fundraiser only) — payloads match the legacy
+  // editor exactly. No Edit, no Remove, no password-reset: those actions
+  // are deliberately not exposed here per the Phase 5A audit/decision —
+  // see the "Coaches & Staff" card's own explanatory text in the render
+  // below. DELETE/PATCH /api/admin/coaches/[id] are never called from
+  // this file. ─────────────────────────────────────────────────────────
+
+  async function addCoach() {
+    if (!newCoach.name.trim() || !newCoach.email.trim() || !newCoach.password.trim()) {
+      show("Name, email, and password are required.", "error");
+      return;
+    }
+    setAddingCoach(true);
+    try {
+      const res = await fetch("/api/admin/coaches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaign_slug: slug,
+          name:          newCoach.name.trim(),
+          email:         newCoach.email.trim(),
+          role:          newCoach.role,
+          password:      newCoach.password,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      // The temporary password is cleared from component state immediately
+      // below, in every branch (success or failure) — it is never kept
+      // around longer than the single request that needed it, and is
+      // never logged or written anywhere else.
+      setNewCoach(p => ({ ...p, password: "" }));
+      if (!res.ok) { show(body.error ?? "Failed to add coach.", "error"); return; }
+      setCoaches(p => [...(p ?? []), {
+        id: body.id, name: body.name, email: body.email, role: body.role,
+        has_pending_invite: false, linked: Boolean(body.account_id),
+      }]);
+      setNewCoach({ name: "", email: "", role: "assistant_coach", password: "" });
+      show("Coach added.");
+    } catch {
+      setNewCoach(p => ({ ...p, password: "" }));
+      show("Network error.", "error");
+    } finally {
+      setAddingCoach(false);
+    }
+  }
+
+  // Same endpoint for both "Send Invite" and "Resend Invite" — matches
+  // Legacy exactly. Each call server-side invalidates any prior unused
+  // token for this coach before issuing a new one, so there is never more
+  // than one valid link at a time. The returned URL is cached only in
+  // `inviteCache` (plain component state) — never written to
+  // localStorage, the database, logs, or a URL parameter — so it is lost
+  // on refresh, exactly like Legacy's own behavior.
+  async function sendInvite(coachId: string) {
+    setInviteLoadingId(coachId);
+    try {
+      const res = await fetch(`/api/admin/coaches/${coachId}/invite`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { show(body.error ?? "Failed to send invite.", "error"); return; }
+      setInviteCache(p => ({ ...p, [coachId]: { url: body.inviteUrl, emailSent: Boolean(body.emailSent) } }));
+      setExpandedInviteId(coachId);
+      setCoaches(p => (p ?? []).map(c => c.id === coachId ? { ...c, has_pending_invite: true } : c));
+      show(body.emailSent ? "Invite sent." : "Invite link generated (email not sent — share the link manually).");
+    } catch {
+      show("Network error.", "error");
+    } finally {
+      setInviteLoadingId(null);
+    }
+  }
+
+  // Reuses the existing non-destructive upsert — disabling participation
+  // sets active=false and NEVER deletes the campaign_coach_fundraisers
+  // row, preserving goal_cents/history exactly as the audit confirmed.
+  // Updates only the one affected coach's row in local state.
+  async function toggleCoachFundraiser(coachId: string, active: boolean, goalCents: number | null) {
+    setSav(`coachFundraiser_${coachId}`, true);
+    try {
+      const res = await fetch("/api/admin/coach-fundraisers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaign_slug: slug, coach_id: coachId, active, goal_cents: goalCents }),
+      });
+      if (!res.ok) { show("Failed to update fundraiser participation.", "error"); return; }
+      setCoachFundraisers(p => {
+        const existing = p.find(cf => cf.coach_id === coachId);
+        if (existing) return p.map(cf => cf.coach_id === coachId ? { ...cf, active, goal_cents: goalCents } : cf);
+        return [...p, { coach_id: coachId, active, goal_cents: goalCents }];
+      });
+      show("Fundraiser participation updated.");
+    } catch {
+      show("Network error.", "error");
+    } finally {
+      setSav(`coachFundraiser_${coachId}`, false);
+    }
   }
 
   async function toggleArchived() {
@@ -1249,10 +1422,6 @@ export default function CampaignControlCenter({ detail }: Props) {
               <StatChip label="Coaches" value={detail.coaches.length} />
               <StatChip label="Adoption" value={`${adoptionPct}%`} sub="accounts/athletes" />
             </div>
-            <p style={{ margin: "1rem 0 0", fontSize: ".75rem", color: "#98989d" }}>
-              Coach management is still handled in the{" "}
-              <a href="/admin/edit" style={{ color: "#0b1e3d", fontWeight: 600 }}>legacy editor</a> for now.
-            </p>
           </div>
 
           {/* Athlete Management — athletes table, via the legacy admin API */}
@@ -1376,6 +1545,168 @@ export default function CampaignControlCenter({ detail }: Props) {
             <p style={{ margin: "1rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
               Permanent athlete removal is managed separately to protect fundraising history, contacts, and outreach records.
             </p>
+          </div>
+
+          {/* Coaches & Staff — Phase 5A: list/add/invite + fundraiser
+              participation, via the legacy admin coach APIs. Deliberately
+              no Edit or Remove action — see the audit's findings on
+              coach-removal cascade risk and the absence of any existing
+              edit capability to preserve. */}
+          <div style={T.card}>
+            <SectionHeader
+              title="Coaches & Staff"
+              desc={coaches === null ? "Head coaches, assistant coaches, and boosters on this campaign." : `${coaches.length} staff member${coaches.length !== 1 ? "s" : ""} on this campaign`}
+            />
+
+            {coaches === null ? (
+              <div style={{ fontSize: ".8rem", color: "#98989d" }}>Loading…</div>
+            ) : (
+              <>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>Coach</th>
+                        <th style={thStyle}>Email</th>
+                        <th style={{ ...thStyle, width: 120 }}>Role</th>
+                        <th style={{ ...thStyle, width: 120 }}>Account</th>
+                        <th style={{ ...thStyle, width: 190 }}>Fundraising</th>
+                        <th style={{ ...thStyle, width: 170 }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coaches.map(c => {
+                        const fundraiser = coachFundraisers.find(cf => cf.coach_id === c.id);
+                        const eligible = c.role === "head_coach" || c.role === "assistant_coach";
+                        const active = eligible && (fundraiser?.active ?? false);
+                        const goalDollars = fundraiser?.goal_cents != null ? String(Math.round(fundraiser.goal_cents / 100)) : "";
+                        const cached = inviteCache[c.id];
+                        const isInviting = inviteLoadingId === c.id;
+                        return (
+                          <tr key={c.id}>
+                            <td style={{ ...tdStyle, fontWeight: 600 }}>{c.name}</td>
+                            <td style={{ ...tdStyle, color: "#6e6e73" }}>{c.email}</td>
+                            <td style={tdStyle}><CoachRoleBadge role={c.role} /></td>
+                            <td style={tdStyle}><CoachAccountBadge linked={c.linked} pending={c.has_pending_invite} /></td>
+                            <td style={tdStyle}>
+                              {!features.allow_coach_fundraising ? (
+                                <span style={{ fontSize: ".7rem", color: "#c7c7cc" }}>Not enabled</span>
+                              ) : !eligible ? (
+                                <span style={{ fontSize: ".7rem", color: "#c7c7cc" }}>Not eligible</span>
+                              ) : (
+                                <div style={{ display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
+                                  <label style={{ display: "flex", alignItems: "center", gap: ".35rem", fontSize: ".75rem", color: "#1d1d1f", cursor: "pointer" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={active}
+                                      disabled={!!saving[`coachFundraiser_${c.id}`]}
+                                      onChange={e => toggleCoachFundraiser(c.id, e.target.checked, fundraiser?.goal_cents ?? null)}
+                                      style={{ accentColor: "#0b1e3d", cursor: "pointer" }}
+                                    />
+                                    Participating
+                                  </label>
+                                  {active && (
+                                    <span style={{ display: "flex", alignItems: "center", gap: ".25rem", fontSize: ".72rem", color: "#6e6e73" }}>
+                                      Goal $
+                                      <input
+                                        type="number" min="0"
+                                        style={{ ...T.input, width: 64, padding: ".25rem .4rem", fontSize: ".72rem" }}
+                                        defaultValue={goalDollars}
+                                        onBlur={e => {
+                                          const dollars = parseFloat(e.target.value);
+                                          const cents = Number.isFinite(dollars) && dollars >= 0 ? Math.round(dollars * 100) : null;
+                                          toggleCoachFundraiser(c.id, true, cents);
+                                        }}
+                                      />
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td style={tdStyle}>
+                              <MiniBtn
+                                tone={c.linked ? "neutral" : "primary"}
+                                label={isInviting ? "…" : c.linked ? "Linked" : c.has_pending_invite ? "Resend Invite" : "Send Invite"}
+                                onClick={() => sendInvite(c.id)}
+                                disabled={isInviting || c.linked}
+                              />
+                              {cached && (
+                                <div style={{ marginTop: ".4rem" }}>
+                                  <MiniBtn label={expandedInviteId === c.id ? "Hide Link" : "Copy Link"} onClick={() => setExpandedInviteId(expandedInviteId === c.id ? null : c.id)} />
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {coaches.length === 0 && (
+                        <tr><td colSpan={6} style={{ ...tdStyle, color: "#98989d", textAlign: "center", padding: "1.25rem" }}>No coaches yet. Add one below.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!features.allow_coach_fundraising && (
+                  <p style={{ margin: "1rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
+                    Individual coach fundraising is currently disabled for this campaign. Enable it under <strong>Branding &amp; Page → Feature Toggles</strong> to let eligible coaches participate.
+                  </p>
+                )}
+
+                {/* Invite link panel — shown for the expanded coach, same
+                    "only exists this session" guarantee as Legacy. */}
+                {expandedInviteId && inviteCache[expandedInviteId] && (
+                  <div style={{ marginTop: "1rem", padding: "1rem", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
+                      <div style={{ fontWeight: 700, fontSize: ".82rem", color: "#0b1e3d" }}>
+                        Invite Link — {coaches.find(c => c.id === expandedInviteId)?.name}
+                      </div>
+                      <MiniBtn label="Dismiss" onClick={() => setExpandedInviteId(null)} />
+                    </div>
+                    <p style={{ margin: "0 0 .5rem", fontSize: ".76rem", color: "#374151" }}>
+                      {inviteCache[expandedInviteId].emailSent
+                        ? "Invite email sent. You can also share this link directly:"
+                        : "Email not sent — share this link manually:"}
+                      {" "}Expires in 24 hours, single-use.
+                    </p>
+                    <div style={{ display: "flex", gap: ".5rem", alignItems: "center", background: "#fff", border: "1px solid #d1d5db", borderRadius: 7, padding: ".45rem .65rem" }}>
+                      <span style={{ flex: 1, fontSize: ".74rem", color: "#374151", wordBreak: "break-all" }}>{inviteCache[expandedInviteId].url}</span>
+                      <button
+                        onClick={() => navigator.clipboard?.writeText(inviteCache[expandedInviteId].url).then(() => show("Link copied.")).catch(() => show("Couldn't copy link.", "error"))}
+                        style={{ fontSize: ".68rem", fontWeight: 600, color: "#0b1e3d", background: "#f0f2f7", border: "1px solid #e5e7eb", borderRadius: 6, padding: ".3rem .55rem", cursor: "pointer", flexShrink: 0 }}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add coach */}
+                <div style={{ marginTop: "1.25rem", padding: "1rem", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f2" }}>
+                  <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6e6e73", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".75rem" }}>Add Coach</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".75rem", marginBottom: ".75rem" }}>
+                    <Field label="Name">
+                      <input style={T.input} value={newCoach.name} onChange={e => setNewCoach(p => ({ ...p, name: e.target.value }))} placeholder="Coach name" />
+                    </Field>
+                    <Field label="Email">
+                      <input type="email" style={T.input} value={newCoach.email} onChange={e => setNewCoach(p => ({ ...p, email: e.target.value }))} placeholder="coach@school.edu" />
+                    </Field>
+                    <Field label="Role">
+                      <select style={T.input} value={newCoach.role} onChange={e => setNewCoach(p => ({ ...p, role: e.target.value }))}>
+                        {COACH_ROLES.map(r => <option key={r} value={r}>{COACH_ROLE_LABELS[r]}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Temporary Password" note="Lets the coach sign in right away; an invite link also works.">
+                      <input type="password" style={T.input} value={newCoach.password} onChange={e => setNewCoach(p => ({ ...p, password: e.target.value }))} placeholder="Min 8 characters" />
+                    </Field>
+                  </div>
+                  <MiniBtn tone="primary" label={addingCoach ? "Adding…" : "+ Add Coach"} onClick={addCoach} disabled={addingCoach} />
+                </div>
+
+                <p style={{ margin: "1rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
+                  The coach receives their access information through ELF&rsquo;s existing account workflow. Staff removal is managed separately to protect team communications and fundraising history.
+                </p>
+              </>
+            )}
           </div>
 
           {athletes.length > 0 && (
