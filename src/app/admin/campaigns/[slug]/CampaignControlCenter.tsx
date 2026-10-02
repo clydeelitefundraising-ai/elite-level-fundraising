@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, createElement } from "react";
 import { useRouter } from "next/navigation";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
+import RosterImportModal from "./RosterImportModal";
 import {
   FUND_USE_ICON_OPTIONS,
   DEFAULT_FUND_USE_ICON_ID,
@@ -478,6 +479,7 @@ export default function CampaignControlCenter({ detail }: Props) {
   const [editAthlete, setEditAthlete] = useState<{ id: string; name: string; class_year: string; event: string } | null>(null);
   const [newAthlete, setNewAthlete] = useState({ name: "", class_year: "", event: "" });
   const [addingAthlete, setAddingAthlete] = useState(false);
+  const [showRosterImport, setShowRosterImport] = useState(false);
 
   // ── Phase 5A: Coaches & Staff (legacy coach APIs, same records) ─────────
   // coachList/coachFundraisers are loaded client-side, same pattern as
@@ -1426,10 +1428,16 @@ export default function CampaignControlCenter({ detail }: Props) {
 
           {/* Athlete Management — athletes table, via the legacy admin API */}
           <div style={T.card}>
-            <SectionHeader
-              title="Athletes"
-              desc={`${athletes.length} athlete${athletes.length !== 1 ? "s" : ""} on this roster`}
-            />
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <SectionHeader
+                title="Athletes"
+                desc={`${athletes.length} athlete${athletes.length !== 1 ? "s" : ""} on this roster`}
+              />
+              <div style={{ display: "flex", gap: ".5rem", flexShrink: 0 }}>
+                <MiniBtn label="Download Template" onClick={() => window.open("/api/admin/athletes/import/template", "_blank")} />
+                <MiniBtn tone="primary" label="Upload Roster" onClick={() => setShowRosterImport(true)} />
+              </div>
+            </div>
 
             <div style={{ display: "flex", gap: ".75rem", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap" }}>
               <input
@@ -2070,6 +2078,23 @@ export default function CampaignControlCenter({ detail }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Roster import — parse/review/confirm, never writes until the admin confirms */}
+      {showRosterImport && (
+        <RosterImportModal
+          campaignSlug={detail.campaign_slug}
+          onClose={() => setShowRosterImport(false)}
+          onImported={created => {
+            if (created.length > 0) {
+              setAthletes(p => [
+                ...p,
+                ...created.map(a => ({ id: a.id, name: a.name, event: a.event ?? "", class_year: a.class_year, jersey_number: null, grad_year: null, linked: false })),
+              ]);
+              show(`Imported ${created.length} athlete${created.length !== 1 ? "s" : ""}.`);
+            }
+          }}
+        />
       )}
 
       {/* Permanent delete confirmation */}
