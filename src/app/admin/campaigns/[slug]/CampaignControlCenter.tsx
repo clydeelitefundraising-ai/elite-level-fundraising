@@ -463,6 +463,7 @@ export default function CampaignControlCenter({ detail }: Props) {
     theme_accent_color:    detail.theme_accent_color,
     theme_button_color:    detail.theme_button_color,
   });
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const [archived, setArchived] = useState(detail.archived);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -623,6 +624,58 @@ export default function CampaignControlCenter({ detail }: Props) {
       theme_accent_color:    branding.theme_accent_color,
       theme_button_color:    branding.theme_button_color,
     });
+  }
+
+  // Phase 4: reuses the EXACT same /api/admin/logo-upload endpoint the
+  // legacy "Launch New School" wizard already uses — same validation, same
+  // 512x512 resize, same team-logos bucket, same response shape. This
+  // route only uploads a file and returns its public URL; it never touches
+  // campaign_settings itself (confirmed by reading the route) — persisting
+  // the result is the caller's job here, same as it already is in the
+  // wizard.
+  //
+  // On success: `branding.logo_url` (the SAME state the manual URL field
+  // and the preview both already read from) is updated immediately via
+  // setBranding, then saveBranding() is called with that already-current
+  // state — so there is no separate "pending" value that a later manual
+  // Save click could ever revert. Auto-saving (rather than only updating
+  // local state) is what makes a page refresh immediately after upload
+  // still show the new logo, since the value is already persisted to
+  // campaign_settings.logo_url by the time this function returns.
+  async function uploadLogo(file: File) {
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await fetch("/api/admin/logo-upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { show(data.error ?? "Logo upload failed.", "error"); return; }
+
+      const nextBranding = { ...branding, logo_url: data.url as string };
+      setBranding(nextBranding);
+
+      const saved = await patchCampaign("branding", {
+        primary_color:      nextBranding.primary_color,
+        secondary_color:    nextBranding.secondary_color,
+        logo_url:           nextBranding.logo_url,
+        theme_primary_color:   nextBranding.theme_primary_color,
+        theme_secondary_color: nextBranding.theme_secondary_color,
+        theme_accent_color:    nextBranding.theme_accent_color,
+        theme_button_color:    nextBranding.theme_button_color,
+      });
+      if (!saved) {
+        // The file uploaded successfully but saving the association
+        // failed — surface this distinctly so the admin knows to retry
+        // Save rather than re-uploading (the uploaded file is not lost).
+        show("Logo uploaded, but saving it to the campaign failed. Click \"Save branding\" to retry.", "error");
+      } else {
+        show("Logo uploaded.");
+      }
+    } catch {
+      show("Network error during upload.", "error");
+    } finally {
+      setLogoUploading(false);
+    }
   }
 
   // ── Sponsor CRUD — payloads match the legacy editor exactly ─────────────
@@ -1388,10 +1441,46 @@ export default function CampaignControlCenter({ detail }: Props) {
                     <input style={T.input} value={branding.secondary_color} onChange={e => setBranding(p => ({ ...p, secondary_color: e.target.value }))} placeholder="#000000" />
                   </div>
                 </Field>
-                <Field label="Logo URL" note="/pvcc-logo.png or full https:// URL">
-                  <input style={T.input} value={branding.logo_url} onChange={e => setBranding(p => ({ ...p, logo_url: e.target.value }))} placeholder="/logo.png" />
-                </Field>
               </div>
+
+              {/* Logo — real upload (Phase 4), same /api/admin/logo-upload
+                  endpoint, validation, and storage bucket the legacy
+                  creation wizard already uses. Manual URL entry remains
+                  available as a fallback below. */}
+              <Field label="Campaign Logo" note="PNG, JPEG, WebP, or SVG · max 5MB · resized to fit 512×512">
+                <div style={{ display: "flex", alignItems: "center", gap: ".75rem", flexWrap: "wrap" }}>
+                  {branding.logo_url && (
+                    <img src={branding.logo_url} alt="Current logo" style={{ width: 52, height: 52, objectFit: "contain", borderRadius: 8, border: "1px solid #e5e7eb", background: "#f9fafb", padding: 4, flexShrink: 0 }} />
+                  )}
+                  <label style={{
+                    display: "inline-flex", alignItems: "center", gap: ".4rem",
+                    padding: ".5rem .9rem",
+                    background: logoUploading ? "#f9fafb" : "#f5f5f7",
+                    border: "1px solid #e5e7eb", borderRadius: 8,
+                    fontSize: ".8rem", fontWeight: 600,
+                    color: logoUploading ? "#9ca3af" : "#1d1d1f",
+                    cursor: logoUploading ? "not-allowed" : "pointer",
+                    flexShrink: 0,
+                  }}>
+                    {logoUploading ? "Uploading…" : branding.logo_url ? "Change Logo" : "Upload Logo"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      style={{ display: "none" }}
+                      disabled={logoUploading}
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        e.target.value = ""; // allow re-selecting the same file later
+                        if (f) uploadLogo(f);
+                      }}
+                    />
+                  </label>
+                </div>
+              </Field>
+
+              <Field label="Logo URL (advanced)" note="Only needed if you want to point at an external image instead of uploading one. Changing this still requires Save below.">
+                <input style={T.input} value={branding.logo_url} onChange={e => setBranding(p => ({ ...p, logo_url: e.target.value }))} placeholder="/logo.png or https://…" />
+              </Field>
 
               {/* Color preview */}
               <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", height: 36 }}>
