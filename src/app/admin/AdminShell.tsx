@@ -41,7 +41,6 @@ const NAV_GROUPS: NavGroup[] = [
     heading: "Campaigns",
     items: [
       { label: "Campaigns",       href: "/admin/campaigns", icon: "◫" },
-      { label: "Campaign Editor", href: "/admin/edit",      icon: "⊞" },
       { label: "Team Health",     href: "/admin/health",    icon: "♥" },
     ],
   },
