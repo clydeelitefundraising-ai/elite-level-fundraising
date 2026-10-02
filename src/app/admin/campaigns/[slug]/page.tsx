@@ -61,8 +61,16 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
   const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes, contactGoalRes, perAthleteGoalsRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/donations?campaign_slug=eq.${encodeURIComponent(slug)}&select=amount_cents`, { headers: h(), cache: "no-store" }),
-    fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,event,jersey_number,grad_year&order=created_at.asc`, { headers: h(), cache: "no-store" }),
-    fetch(`${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,role,athlete_id,name`, { headers: h(), cache: "no-store" }),
+    // class_year added (Phase 3): same existing athletes read, just one more
+    // column selected — needed for the Athlete Management table's "Class"
+    // column, which is part of the already-established admin write contract
+    // (POST/PUT /api/admin/athletes already require/accept class_year).
+    fetch(`${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,event,class_year,jersey_number,grad_year&order=created_at.asc`, { headers: h(), cache: "no-store" }),
+    // account_id added (Phase 3): same existing team_members read, just one
+    // more column selected — needed to determine each athlete's real
+    // account-linked status (role="athlete" row with a non-null
+    // account_id), not a new query/API.
+    fetch(`${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,role,athlete_id,name,account_id`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,role,email`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=is.null&select=goal&limit=1`, { headers: h(), cache: "no-store" }),
     fetch(`${BASE}/rest/v1/fundraising_contact_goals?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=not.is.null&select=athlete_id,goal`, { headers: h(), cache: "no-store" }),
@@ -74,7 +82,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
   const settings = settingsRows[0];
   const donations: { amount_cents: number }[] = donationsRes.ok ? await donationsRes.json() : [];
   const athletes: CampaignDetail["athletes"] = athletesRes.ok ? await athletesRes.json() : [];
-  const members: { id: string; role: string; athlete_id: string | null; name: string }[] = membersRes.ok ? await membersRes.json() : [];
+  const members: { id: string; role: string; athlete_id: string | null; name: string; account_id: string | null }[] = membersRes.ok ? await membersRes.json() : [];
   const coaches: CampaignDetail["coaches"]   = coachesRes.ok ? await coachesRes.json() : [];
   const contactGoalRows: { goal: number }[]  = contactGoalRes.ok ? await contactGoalRes.json() : [];
   const perAthleteGoals: { athlete_id: string; goal: number }[] = perAthleteGoalsRes.ok ? await perAthleteGoalsRes.json() : [];
@@ -102,6 +110,13 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
   for (const row of perAthleteGoals) {
     perAthleteGoalMap[row.athlete_id] = row.goal;
   }
+
+  // Phase 3: an athlete is "Linked" when a real team_members row with
+  // role="athlete" and a non-null account_id points at it — the actual
+  // account relationship in the data model, not a name/heuristic match.
+  const linkedAthleteIds = new Set(
+    members.filter(m => m.role === "athlete" && m.athlete_id && m.account_id).map(m => m.athlete_id as string),
+  );
 
   const detail: CampaignDetail = {
     // settings
@@ -156,7 +171,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     parent_account_count:  parentAccounts,
     health_score:        healthScore,
     // relational
-    athletes,
+    athletes: athletes.map(a => ({ ...a, linked: linkedAthleteIds.has(a.id) })),
     coaches,
   };
 

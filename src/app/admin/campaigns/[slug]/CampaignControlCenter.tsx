@@ -27,6 +27,16 @@ type CampaignFundUse = { id: string; title: string; description: string; icon: s
 // POST /api/admin/sponsors validates — deliberately not extended here.
 const SPONSOR_TIERS = ["gold", "silver", "bronze"] as const;
 
+type CampaignAthlete = { id: string; name: string; event: string; class_year: string | null; jersey_number: number | null; grad_year: number | null; linked: boolean };
+
+// Same class options the legacy editor offers (src/lib/supabase.ts's
+// ATHLETE_CLASS_OPTIONS) — duplicated as a small local constant rather than
+// imported, so this client component never pulls in lib/supabase.ts's much
+// larger server-oriented module (many functions keyed on
+// SUPABASE_SERVICE_ROLE_KEY) into the browser bundle.
+const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+const ATHLETES_PER_PAGE = 25;
+
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
   gold:   { bg: "#fef9c3", color: "#854d0e" },
   silver: { bg: "#f1f5f9", color: "#475569" },
@@ -83,7 +93,14 @@ export type CampaignDetail = {
   parent_account_count:  number;
   health_score:          number;
   // relational
-  athletes: { id: string; name: string; event: string; jersey_number: number | null; grad_year: number | null }[];
+  athletes: {
+    id: string; name: string; event: string; class_year: string | null;
+    jersey_number: number | null; grad_year: number | null;
+    // Phase 3: whether a real team_members(role="athlete") row with a
+    // non-null account_id points at this athlete — the actual account
+    // relationship, computed server-side in page.tsx. Read-only here.
+    linked: boolean;
+  }[];
   coaches:  { id: string; name: string; role: string; email: string }[];
 };
 
@@ -248,6 +265,17 @@ function OptionalColorField({ label, value, fallback, onChange }: { label: strin
   );
 }
 
+// Read-only reflection of the real account relationship (a team_members
+// row with role="athlete" and a non-null account_id) — computed
+// server-side in page.tsx, never inferred here from name or any heuristic.
+function LinkStatusBadge({ linked }: { linked: boolean }) {
+  return (
+    <span style={{ padding: ".15rem .55rem", borderRadius: 100, fontSize: ".65rem", fontWeight: 700, letterSpacing: ".04em", textTransform: "uppercase", background: linked ? "#dcfce7" : "#f3f4f6", color: linked ? "#15803d" : "#6b7280" }}>
+      {linked ? "Linked" : "Not linked"}
+    </span>
+  );
+}
+
 function TierBadge({ tier }: { tier: string }) {
   // Unknown/legacy tier values fall back to a neutral badge rather than
   // being hidden — same tolerance the legacy editor's TierBadge has.
@@ -401,6 +429,19 @@ export default function CampaignControlCenter({ detail }: Props) {
   });
 
   const [perAthleteGoals, setPerAthleteGoals] = useState<Record<string, number>>(detail.per_athlete_goals ?? {});
+
+  // ── Phase 3: Athlete Management (legacy athlete APIs, same records) ─────
+  // Single source of truth for the campaign's athlete population — seeded
+  // from the server-rendered `detail.athletes` and updated in place after a
+  // successful add/edit, so both Athlete Management and Per-Athlete Goal
+  // Overrides below always render the exact same list (no second fetch, no
+  // possibility of drift between the two sections).
+  const [athletes, setAthletes] = useState<CampaignAthlete[]>(detail.athletes);
+  const [athleteSearch, setAthleteSearch] = useState("");
+  const [athletePage, setAthletePage] = useState(0);
+  const [editAthlete, setEditAthlete] = useState<{ id: string; name: string; class_year: string; event: string } | null>(null);
+  const [newAthlete, setNewAthlete] = useState({ name: "", class_year: "", event: "" });
+  const [addingAthlete, setAddingAthlete] = useState(false);
 
   const [features, setFeatures] = useState({
     show_leaderboard:      detail.show_leaderboard,
@@ -684,6 +725,70 @@ export default function CampaignControlCenter({ detail }: Props) {
     } catch { show("Network error.", "error"); }
   }
 
+  // ── Athlete CRUD — payloads match the legacy editor exactly. No delete:
+  // DELETE /api/admin/athletes/[id] CASCADE-deletes fundraising_contacts and
+  // athlete_outreach and can orphan a linked account (team_members.athlete_id
+  // SET NULL) — confirmed in the Phase 3 pre-implementation audit. Deletion
+  // is deliberately not exposed here; it remains reachable only through the
+  // legacy editor until a safer removal design is built separately. ─────
+
+  async function addAthlete() {
+    if (!newAthlete.name.trim() || !newAthlete.class_year) { show("Name and class are required.", "error"); return; }
+    setAddingAthlete(true);
+    try {
+      const res = await fetch("/api/admin/athletes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaign_slug: slug,
+          name:          newAthlete.name.trim(),
+          event:         newAthlete.event.trim() || null,
+          class_year:    newAthlete.class_year,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Surfaces the API's own message as-is, including the existing
+        // name-collision 409 — never auto-retried with overrideCollision,
+        // never a custom duplicate-resolution flow.
+        show(body.error ?? "Failed to add athlete.", "error");
+        return;
+      }
+      setAthletes(p => [...p, { ...body, linked: false }]);
+      setNewAthlete({ name: "", class_year: "", event: "" });
+      show("Athlete added.");
+    } catch { show("Network error.", "error"); }
+    finally { setAddingAthlete(false); }
+  }
+
+  async function saveAthlete() {
+    if (!editAthlete) return;
+    if (!editAthlete.name.trim() || !editAthlete.class_year) { show("Name and class are required.", "error"); return; }
+    setSav(`athleteEdit_${editAthlete.id}`, true);
+    try {
+      const res = await fetch(`/api/admin/athletes/${editAthlete.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:       editAthlete.name.trim(),
+          event:      editAthlete.event.trim() || null,
+          class_year: editAthlete.class_year,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { show(body.error ?? "Failed to update athlete.", "error"); return; }
+      // Only name/event/class_year are touched — account linkage
+      // (`linked`) and every other field carry over unchanged from the
+      // existing record, never reset by this save.
+      setAthletes(p => p.map(a => a.id === editAthlete.id
+        ? { ...a, name: editAthlete.name.trim(), event: editAthlete.event.trim() || "", class_year: editAthlete.class_year }
+        : a));
+      setEditAthlete(null);
+      show("Athlete updated.");
+    } catch { show("Network error.", "error"); }
+    finally { setSav(`athleteEdit_${editAthlete.id}`, false); }
+  }
+
   async function toggleArchived() {
     const next = !archived;
     if (next && !confirm(`Archive "${slug}"? It will no longer be publicly visible.`)) return;
@@ -723,6 +828,23 @@ export default function CampaignControlCenter({ detail }: Props) {
   // fund_uses ordered by sort_order.asc) — re-sorted here so an edited
   // order is reflected immediately without a page reload.
   const fundUsesSorted = [...(fundUses ?? [])].sort((a, b) => a.sort_order - b.sort_order);
+
+  // Client-side search + pagination over the already-loaded athlete
+  // population — no backend pagination added; comfortably handles 100+
+  // athletes without a second query. Search matches name/class/event.
+  const athleteQuery = athleteSearch.trim().toLowerCase();
+  const athletesFiltered = athleteQuery
+    ? athletes.filter(a =>
+        a.name.toLowerCase().includes(athleteQuery) ||
+        (a.class_year ?? "").toLowerCase().includes(athleteQuery) ||
+        a.event.toLowerCase().includes(athleteQuery))
+    : athletes;
+  const athletePageCount = Math.max(1, Math.ceil(athletesFiltered.length / ATHLETES_PER_PAGE));
+  const athletePageClamped = Math.min(athletePage, athletePageCount - 1);
+  const athletesPageRows = athletesFiltered.slice(
+    athletePageClamped * ATHLETES_PER_PAGE,
+    athletePageClamped * ATHLETES_PER_PAGE + ATHLETES_PER_PAGE,
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1075,16 +1197,139 @@ export default function CampaignControlCenter({ detail }: Props) {
               <StatChip label="Adoption" value={`${adoptionPct}%`} sub="accounts/athletes" />
             </div>
             <p style={{ margin: "1rem 0 0", fontSize: ".75rem", color: "#98989d" }}>
-              Adding, editing, or removing athletes and coaches is still managed in the{" "}
+              Coach management is still handled in the{" "}
               <a href="/admin/edit" style={{ color: "#0b1e3d", fontWeight: 600 }}>legacy editor</a> for now.
             </p>
           </div>
 
-          {detail.athletes.length > 0 && (
+          {/* Athlete Management — athletes table, via the legacy admin API */}
+          <div style={T.card}>
+            <SectionHeader
+              title="Athletes"
+              desc={`${athletes.length} athlete${athletes.length !== 1 ? "s" : ""} on this roster`}
+            />
+
+            <div style={{ display: "flex", gap: ".75rem", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <input
+                style={{ ...T.input, maxWidth: 260 }}
+                value={athleteSearch}
+                onChange={e => { setAthleteSearch(e.target.value); setAthletePage(0); }}
+                placeholder="Search name, class, or event…"
+              />
+              {athleteQuery && (
+                <span style={{ fontSize: ".72rem", color: "#98989d" }}>
+                  {athletesFiltered.length} match{athletesFiltered.length !== 1 ? "es" : ""}
+                </span>
+              )}
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Athlete</th>
+                    <th style={{ ...thStyle, width: 110 }}>Class</th>
+                    <th style={thStyle}>Event</th>
+                    <th style={{ ...thStyle, width: 110 }}>Account</th>
+                    <th style={{ ...thStyle, width: 110 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {athletesPageRows.map(a => (
+                    editAthlete?.id === a.id ? (
+                      <tr key={a.id} style={{ background: "#fafafa" }}>
+                        <td style={tdStyle}>
+                          <input style={T.input} value={editAthlete.name}
+                            onChange={e => setEditAthlete(v => v ? { ...v, name: e.target.value } : v)} placeholder="Athlete name" />
+                        </td>
+                        <td style={tdStyle}>
+                          <select style={T.input} value={editAthlete.class_year}
+                            onChange={e => setEditAthlete(v => v ? { ...v, class_year: e.target.value } : v)}>
+                            <option value="">Select class…</option>
+                            {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                            {/* An existing record whose class predates these four
+                                options keeps its own value as a choice, so editing
+                                name/event can never silently rewrite it. */}
+                            {editAthlete.class_year && !ATHLETE_CLASS_OPTIONS.includes(editAthlete.class_year as typeof ATHLETE_CLASS_OPTIONS[number]) && (
+                              <option value={editAthlete.class_year}>{editAthlete.class_year}</option>
+                            )}
+                          </select>
+                        </td>
+                        <td style={tdStyle}>
+                          <input style={T.input} value={editAthlete.event}
+                            onChange={e => setEditAthlete(v => v ? { ...v, event: e.target.value } : v)} placeholder="Event / Position (optional)" />
+                        </td>
+                        <td style={tdStyle}><LinkStatusBadge linked={a.linked} /></td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", gap: ".4rem" }}>
+                            <MiniBtn tone="primary" label={saving[`athleteEdit_${a.id}`] ? "Saving…" : "Save"} onClick={saveAthlete} disabled={!!saving[`athleteEdit_${a.id}`]} />
+                            <MiniBtn label="Cancel" onClick={() => setEditAthlete(null)} />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={a.id}>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>{a.name}</td>
+                        <td style={tdStyle}>{a.class_year ?? "—"}</td>
+                        <td style={{ ...tdStyle, color: "#6e6e73" }}>{a.event || "—"}</td>
+                        <td style={tdStyle}><LinkStatusBadge linked={a.linked} /></td>
+                        <td style={tdStyle}>
+                          <MiniBtn label="Edit" onClick={() => setEditAthlete({ id: a.id, name: a.name, class_year: a.class_year ?? "", event: a.event ?? "" })} />
+                        </td>
+                      </tr>
+                    )
+                  ))}
+                  {athletesPageRows.length === 0 && (
+                    <tr><td colSpan={5} style={{ ...tdStyle, color: "#98989d", textAlign: "center", padding: "1.25rem" }}>
+                      {athleteQuery ? "No athletes match your search." : "No athletes yet. Add one below."}
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {athletePageCount > 1 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: ".9rem" }}>
+                <span style={{ fontSize: ".72rem", color: "#98989d" }}>
+                  Page {athletePageClamped + 1} of {athletePageCount}
+                </span>
+                <div style={{ display: "flex", gap: ".4rem" }}>
+                  <MiniBtn label="← Prev" onClick={() => setAthletePage(p => Math.max(0, p - 1))} disabled={athletePageClamped === 0} />
+                  <MiniBtn label="Next →" onClick={() => setAthletePage(p => Math.min(athletePageCount - 1, p + 1))} disabled={athletePageClamped >= athletePageCount - 1} />
+                </div>
+              </div>
+            )}
+
+            {/* Add athlete */}
+            <div style={{ marginTop: "1.25rem", padding: "1rem", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f2" }}>
+              <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6e6e73", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: ".75rem" }}>Add Athlete</div>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.5fr auto", gap: ".75rem", alignItems: "end" }}>
+                <Field label="Name">
+                  <input style={T.input} value={newAthlete.name} onChange={e => setNewAthlete(p => ({ ...p, name: e.target.value }))} placeholder="Athlete name" />
+                </Field>
+                <Field label="Class">
+                  <select style={T.input} value={newAthlete.class_year} onChange={e => setNewAthlete(p => ({ ...p, class_year: e.target.value }))}>
+                    <option value="">Select…</option>
+                    {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </Field>
+                <Field label="Event (optional)">
+                  <input style={T.input} value={newAthlete.event} onChange={e => setNewAthlete(p => ({ ...p, event: e.target.value }))} placeholder="e.g. Sprints" />
+                </Field>
+                <MiniBtn tone="primary" label={addingAthlete ? "Adding…" : "+ Add Athlete"} onClick={addAthlete} disabled={addingAthlete} />
+              </div>
+            </div>
+
+            <p style={{ margin: "1rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
+              Permanent athlete removal is managed separately to protect fundraising history, contacts, and outreach records.
+            </p>
+          </div>
+
+          {athletes.length > 0 && (
             <div style={T.card}>
               <SectionHeader title="Per-Athlete Goal Overrides" desc="Override the default contact goal for individual athletes. Leave blank to use the team default." />
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
-                {detail.athletes.map(a => {
+                {athletes.map(a => {
                   const override = perAthleteGoals[a.id];
                   return (
                     <div key={a.id} style={{ display: "flex", alignItems: "center", gap: ".75rem", padding: ".6rem 0", borderBottom: "1px solid #f5f5f7" }}>
