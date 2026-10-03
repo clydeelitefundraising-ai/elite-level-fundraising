@@ -1,4 +1,5 @@
-import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap, getLinkedAthleteIds } from "@/lib/teamData";
+import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap } from "@/lib/teamData";
+import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { getDonations } from "@/lib/supabase";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { requireTeamMembership } from "@/lib/permissions.server";
@@ -30,7 +31,7 @@ export default async function TeamPage({
   // server-side boundary enforced on the destination page itself; this is
   // only what drives the UI, computed the same way).
   const linkedAthleteIds = actor.kind === "member" && actor.session.role === "parent"
-    ? await getLinkedAthleteIds(actor.session.id, actor.session.athlete_id)
+    ? await getLinkedAthleteIdsForMember(actor.session.id, actor.session.athlete_id)
     : [];
 
   // D3 — desktop roster table data. All three helpers already exist and

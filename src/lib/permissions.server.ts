@@ -6,7 +6,7 @@ import { getMemberSession } from "@/lib/memberSession";
 import { getAccountSession, getActorForAccount } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { isStaff, type TeamActor } from "@/lib/permissions";
-import { getLinkedAthleteIds } from "@/lib/teamData";
+import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { canViewAthleteProfile } from "@/lib/athleteAccess";
 
 export type { TeamActor } from "@/lib/permissions";
@@ -85,7 +85,7 @@ export async function requireTeamMembership(slug: string): Promise<AuthedTeamAct
  *  covers all three) always allowed. An athlete may only view their own
  *  profile. A parent may only view athlete(s) they are actually linked to
  *  (legacy single athlete_id + team_member_athletes for multi-child
- *  support — see getLinkedAthleteIds). Everyone else, including a
+ *  support — see getLinkedAthleteIdsForMember). Everyone else, including a
  *  different athlete's own account, is denied — mirroring the UI's
  *  per-row click gating (AthleteRosterGrid.tsx) is not sufficient on its
  *  own; this is the actual security boundary. */
@@ -95,7 +95,7 @@ export async function canAccessAthleteProfile(actor: TeamActor, athleteId: strin
 
   const { session } = actor;
   const linkedAthleteIds = session.role === "parent"
-    ? await getLinkedAthleteIds(session.id, session.athlete_id)
+    ? await getLinkedAthleteIdsForMember(session.id, session.athlete_id)
     : [];
 
   return canViewAthleteProfile({

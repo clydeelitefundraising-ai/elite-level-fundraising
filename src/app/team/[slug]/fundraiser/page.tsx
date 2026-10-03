@@ -4,6 +4,7 @@ import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import type { CampaignSettings, DonationRow } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap, getContactCountsByAthlete } from "@/lib/teamData";
 import type { TeamAthleteRow } from "@/lib/teamData";
+import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff } from "@/lib/permissions";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
@@ -491,10 +492,13 @@ const DEFAULT_ATHLETE_GOAL_CENTS = 50_000;
 
 export default async function FundraiserPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ athlete?: string }>;
 }) {
   const { slug } = await params;
+  const { athlete: requestedAthleteId } = await searchParams;
 
   const [settings, actor] = await Promise.all([
     getCampaignSettings(slug),
@@ -758,12 +762,26 @@ export default async function FundraiserPage({
   }
 
   // ── Member ──
-  const { athlete_id: athleteId } = actor.session;
+  // Family Relationships Phase B: a parent may be approved for more than
+  // one athlete on this team (legacy single athlete_id column + additional
+  // team_member_athletes links) — resolve the full canonical set rather
+  // than trusting session.athlete_id alone, so a second/third linked child
+  // is never silently invisible here. An athlete-role member's own row
+  // always links only to themselves, so this is a no-op for them.
+  const linkedAthleteIds = await getLinkedAthleteIdsForMember(actor.session.id, actor.session.athlete_id);
 
-  if (!athleteId) {
+  if (linkedAthleteIds.length === 0) {
     const roster = await getTeamAthletes(slug);
     return <FundraiserView mode="claim" slug={slug} roster={roster} settings={settings} />;
   }
+
+  // The requested athlete must belong to this actor's own canonical linked
+  // set — a client-supplied ?athlete= for an unrelated athlete is silently
+  // ignored (falls back to the default) rather than honored, so a parent
+  // can never view a child they aren't approved for by editing the URL.
+  const athleteId = requestedAthleteId && linkedAthleteIds.includes(requestedAthleteId)
+    ? requestedAthleteId
+    : linkedAthleteIds[0];
 
   const [athlete, athletes, donations] = await Promise.all([
     getAthleteById(athleteId),
@@ -775,6 +793,13 @@ export default async function FundraiserPage({
     const roster = await getTeamAthletes(slug);
     return <FundraiserView mode="claim" slug={slug} roster={roster} settings={settings} />;
   }
+
+  // Only built (and only passed down) when there's an actual choice to
+  // make — single-child parents and athletes see exactly the same view as
+  // before this phase, no selector UI at all.
+  const linkedAthletes = linkedAthleteIds.length > 1
+    ? linkedAthleteIds.map(id => ({ id, name: athletes.find(a => a.id === id)?.name ?? "Unknown" }))
+    : undefined;
 
   // Per-athlete totals (id-first, name fallback for legacy donations)
   const nameToId: Record<string, string> = {};
@@ -829,6 +854,7 @@ export default async function FundraiserPage({
       recentDonations={recentDonations}
       leaderboard={leaderboard}
       teamFeed={teamFeed}
+      linkedAthletes={linkedAthletes}
     />
   );
 }

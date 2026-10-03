@@ -5,6 +5,7 @@
 // member_id/coach_id — this module is the one place that bridges the two,
 // so that bridge logic isn't duplicated per producer route.
 import type { RecipientScope } from "./notifications.ts";
+import { getFamilyMembersForAthlete } from "./familyRelationships.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -27,27 +28,53 @@ export async function getAccountIdsForScope(
   scope: RecipientScope,
   recipientAthleteId: string | null,
 ): Promise<string[]> {
-  let memberFilter = `campaign_slug=eq.${encodeURIComponent(slug)}`;
-  if (scope === "athletes") memberFilter += "&role=eq.athlete";
-  if (scope === "parents")  memberFilter += "&role=eq.parent";
-  if (scope === "boosters") memberFilter += "&role=eq.booster";
-  if (scope === "athlete_specific" && recipientAthleteId) {
-    memberFilter += `&athlete_id=eq.${encodeURIComponent(recipientAthleteId)}`;
-  }
+  const coachesPromise = fetch(
+    `${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=account_id`,
+    { headers: h(), cache: "no-store" },
+  );
 
-  const [memberRes, coachRes] = await Promise.all([
-    fetch(`${BASE}/rest/v1/team_members?${memberFilter}&select=account_id`, { headers: h(), cache: "no-store" }),
-    fetch(`${BASE}/rest/v1/team_coaches?campaign_slug=eq.${encodeURIComponent(slug)}&select=account_id`, { headers: h(), cache: "no-store" }),
-  ]);
-  const members: { account_id: string | null }[] = memberRes.ok ? await memberRes.json() : [];
-  const coaches: { account_id: string | null }[] = coachRes.ok  ? await coachRes.json()  : [];
+  // athlete_specific must go through the canonical family-relationships
+  // module (Family Relationships Phase B fix) — the old direct
+  // team_members?athlete_id=eq.<id> filter only ever saw the legacy single
+  // athlete_id column, so a parent linked to this athlete only through
+  // team_member_athletes (e.g. their second child on this team) was
+  // silently excluded from athlete-specific pushes for that child.
+  const memberAccountIdsPromise: Promise<(string | null)[]> =
+    scope === "athlete_specific" && recipientAthleteId
+      ? getFamilyMembersForAthlete(recipientAthleteId, slug).then(members => members.map(m => m.account_id))
+      : (() => {
+          let memberFilter = `campaign_slug=eq.${encodeURIComponent(slug)}`;
+          if (scope === "athletes") memberFilter += "&role=eq.athlete";
+          if (scope === "parents")  memberFilter += "&role=eq.parent";
+          if (scope === "boosters") memberFilter += "&role=eq.booster";
+          return fetch(`${BASE}/rest/v1/team_members?${memberFilter}&select=account_id`, { headers: h(), cache: "no-store" })
+            .then(async res => {
+              const rows: { account_id: string | null }[] = res.ok ? await res.json() : [];
+              return rows.map(r => r.account_id);
+            });
+        })();
 
-  return dedupe([...members.map(m => m.account_id), ...coaches.map(c => c.account_id)]);
+  const [memberAccountIds, coachRes] = await Promise.all([memberAccountIdsPromise, coachesPromise]);
+  const coaches: { account_id: string | null }[] = coachRes.ok ? await coachRes.json() : [];
+
+  return dedupe([...memberAccountIds, ...coaches.map(c => c.account_id)]);
 }
 
-/** Direct Messages — actual thread participants only, sender excluded.
- *  excludeActorKey is "coach:<id>" or "member:<id>", matching the same
- *  convention push.ts's sendPushToParticipants already uses. */
+/** Direct Messages — actual thread participants only, sender's ACCOUNT
+ *  excluded. excludeActorKey is "coach:<id>" or "member:<id>", matching the
+ *  same convention push.ts's sendPushToParticipants already uses — but the
+ *  exclusion itself is applied by resolved account_id, not by actor key
+ *  (Family Relationships Phase B fix). A coach who is also a parent can be
+ *  represented in the same thread by TWO participant rows (their coach
+ *  identity and their member identity) that both resolve to the same
+ *  account_id; excluding only the literal sending key left the other
+ *  identity's account_id in the result, so the sender could receive a push
+ *  for their own message. Resolving every participant's account_id first,
+ *  then excluding the sender's resolved account_id from the final
+ *  deduped list, closes that regardless of how many participant rows
+ *  represent the sender's account — without removing or altering any
+ *  participant row, and without weakening who is authorized to be in the
+ *  thread at all. */
 export async function getAccountIdsForThreadParticipants(
   threadId: string,
   excludeActorKey: string,
@@ -59,17 +86,24 @@ export async function getAccountIdsForThreadParticipants(
   if (!res.ok) return [];
   const rows: { actor_type: "coach" | "member"; coach_id: string | null; member_id: string | null }[] = await res.json();
 
-  const coachIds = rows.filter(r => r.actor_type === "coach" && r.coach_id && `coach:${r.coach_id}` !== excludeActorKey).map(r => r.coach_id!);
-  const memberIds = rows.filter(r => r.actor_type === "member" && r.member_id && `member:${r.member_id}` !== excludeActorKey).map(r => r.member_id!);
+  const coachIds  = [...new Set(rows.filter(r => r.actor_type === "coach"  && r.coach_id).map(r => r.coach_id!))];
+  const memberIds = [...new Set(rows.filter(r => r.actor_type === "member" && r.member_id).map(r => r.member_id!))];
 
   const [coachRes, memberRes] = await Promise.all([
-    coachIds.length ? fetch(`${BASE}/rest/v1/team_coaches?id=in.(${coachIds.join(",")})&select=account_id`, { headers: h(), cache: "no-store" }) : null,
-    memberIds.length ? fetch(`${BASE}/rest/v1/team_members?id=in.(${memberIds.join(",")})&select=account_id`, { headers: h(), cache: "no-store" }) : null,
+    coachIds.length  ? fetch(`${BASE}/rest/v1/team_coaches?id=in.(${coachIds.join(",")})&select=id,account_id`, { headers: h(), cache: "no-store" }) : null,
+    memberIds.length ? fetch(`${BASE}/rest/v1/team_members?id=in.(${memberIds.join(",")})&select=id,account_id`, { headers: h(), cache: "no-store" }) : null,
   ]);
-  const coaches: { account_id: string | null }[] = coachRes?.ok ? await coachRes.json() : [];
-  const members: { account_id: string | null }[] = memberRes?.ok ? await memberRes.json() : [];
+  const coaches:  { id: string; account_id: string | null }[] = coachRes?.ok  ? await coachRes.json()  : [];
+  const members:  { id: string; account_id: string | null }[] = memberRes?.ok ? await memberRes.json() : [];
 
-  return dedupe([...coaches.map(c => c.account_id), ...members.map(m => m.account_id)]);
+  const [excludeKind, excludeId] = excludeActorKey.split(":");
+  const senderAccountId =
+    excludeKind === "coach"  ? coaches.find(c => c.id === excludeId)?.account_id ?? null :
+    excludeKind === "member" ? members.find(m => m.id === excludeId)?.account_id ?? null :
+    null;
+
+  const accountIds = dedupe([...coaches.map(c => c.account_id), ...members.map(m => m.account_id)]);
+  return accountIds.filter(id => id !== senderAccountId);
 }
 
 /** Requests — Head Coach only (the actionable audience), even though the

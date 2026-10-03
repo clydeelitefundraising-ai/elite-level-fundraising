@@ -1,10 +1,19 @@
 // Test-only stand-in for "next/headers"'s cookies(), used solely by
 // nextStubLoader.mjs's module resolution hook. Never imported by production
-// code. The functions under test here (getActorForAccount) don't call
-// cookies() at all, but importing their containing module still requires
-// "next/headers" to resolve, since ES modules resolve every static import
-// before any module body runs — this stub only needs to exist, not be
-// exercised, for most of these tests.
+// code. A real request's cookie jar, reduced to exactly what the routes/
+// session helpers under test read via cookies().get(name)?.value.
+let store = new Map();
+
+export function __setTestCookie(name, value) {
+  if (value === undefined) store.delete(name);
+  else store.set(name, value);
+}
+
 export async function cookies() {
-  return { get() { return undefined; } };
+  return {
+    get(name) {
+      const value = store.get(name);
+      return value === undefined ? undefined : { name, value };
+    },
+  };
 }

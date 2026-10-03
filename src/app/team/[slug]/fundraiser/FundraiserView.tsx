@@ -53,6 +53,12 @@ type AthleteMode = {
   recentDonations:     RecentDonation[];
   leaderboard:         LeaderboardEntry[];
   teamFeed:            FeedDonation[];
+  // Family Relationships Phase B: present only when this parent has an
+  // approved relationship to 2+ athletes on this team — undefined (not an
+  // empty array) for every single-child parent and every athlete, so their
+  // view renders exactly as it did before this phase, with no selector at
+  // all.
+  linkedAthletes?:     { id: string; name: string }[];
 };
 
 type ClaimMode = {
@@ -544,7 +550,7 @@ function ClaimView({ slug, roster }: ClaimMode) {
 function AthleteView({
   slug, athlete, settings,
   athleteRaisedCents, goalCents, rank, totalAthletes, donorCount,
-  recentDonations, leaderboard, teamFeed,
+  recentDonations, leaderboard, teamFeed, linkedAthletes,
 }: AthleteMode) {
   const [copied,    setCopied]    = useState(false);
   const [showQr,    setShowQr]    = useState(false);
@@ -610,6 +616,31 @@ function AthleteView({
           Your Fundraiser
         </h2>
       </div>
+
+      {/* Linked-athlete selector — only rendered when this parent has an
+          approved relationship to 2+ athletes on this team (Family
+          Relationships Phase B). Plain links (?athlete=<id>), no client
+          state: a full navigation re-renders the server page with the
+          newly selected (and server-revalidated) athlete. */}
+      {linkedAthletes && linkedAthletes.length > 1 && (
+        <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", marginBottom: ".75rem" }}>
+          {linkedAthletes.map(a => (
+            <a
+              key={a.id}
+              href={`/team/${slug}/fundraiser?athlete=${a.id}`}
+              style={{
+                padding: ".35rem .75rem", borderRadius: 100, fontSize: ".78rem", fontWeight: 700,
+                textDecoration: "none",
+                background: a.id === athlete.id ? primary : "#fff",
+                color:      a.id === athlete.id ? "#fff"  : "var(--text-primary-app)",
+                border: `1.5px solid ${a.id === athlete.id ? primary : "rgba(0,0,0,.1)"}`,
+              }}
+            >
+              {a.name}
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* ── Hero card ── */}
       <div style={{
