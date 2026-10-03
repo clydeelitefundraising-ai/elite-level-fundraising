@@ -105,13 +105,61 @@ test("mergeRoleBySlug: a parent/athlete linked to multiple team_members rows (di
   assert.deepEqual(Object.keys(result).sort(), ["baseball-team", "soccer-team"]);
 });
 
-test("mergeRoleBySlug: member role wins over coach role for the same campaign_slug (matches getActorForAccount's documented precedence)", async () => {
+// Family Relationships Phase A: head_coach/assistant_coach authorization
+// must never be silently lost to a co-existing team_members row for the
+// same campaign (e.g. a coach who is also a parent) — this replaces the
+// prior "member always wins" test, which was the bug this phase fixes.
+test("mergeRoleBySlug: head_coach role wins over a co-existing member (parent) role for the same campaign_slug", async () => {
+  const { mergeRoleBySlug } = await import("./accountTeamsMerge.ts");
+  const result = mergeRoleBySlug(
+    [{ campaign_slug: "baseball-team", role: "head_coach" }],
+    [{ campaign_slug: "baseball-team", role: "parent" }],
+  );
+  assert.deepEqual(result["baseball-team"], { role: "head_coach", role_kind: "coach" });
+});
+
+test("mergeRoleBySlug: assistant_coach role wins over a co-existing member (parent) role for the same campaign_slug", async () => {
   const { mergeRoleBySlug } = await import("./accountTeamsMerge.ts");
   const result = mergeRoleBySlug(
     [{ campaign_slug: "baseball-team", role: "assistant_coach" }],
     [{ campaign_slug: "baseball-team", role: "parent" }],
   );
+  assert.deepEqual(result["baseball-team"], { role: "assistant_coach", role_kind: "coach" });
+});
+
+// Booster is the deliberate exception: a booster's team_coaches row and a
+// booster's team_members row already grant identical isStaff() access, so
+// the member row still wins here — unchanged from the original behavior —
+// preserving whatever member-specific session data (athlete_id) that row
+// carries, since overriding it would have no authorization benefit.
+test("mergeRoleBySlug: booster coach role does NOT override a co-existing member role — member still wins (unchanged booster behavior)", async () => {
+  const { mergeRoleBySlug } = await import("./accountTeamsMerge.ts");
+  const result = mergeRoleBySlug(
+    [{ campaign_slug: "baseball-team", role: "booster" }],
+    [{ campaign_slug: "baseball-team", role: "parent" }],
+  );
   assert.deepEqual(result["baseball-team"], { role: "parent", role_kind: "member" });
+});
+
+test("mergeRoleBySlug: a Head Coach on Team A who is also a Parent on Team B resolves independently per team — no cross-team leakage", async () => {
+  const { mergeRoleBySlug } = await import("./accountTeamsMerge.ts");
+  const result = mergeRoleBySlug(
+    [{ campaign_slug: "team-a", role: "head_coach" }],
+    [{ campaign_slug: "team-b", role: "parent" }],
+  );
+  assert.deepEqual(result["team-a"], { role: "head_coach", role_kind: "coach" });
+  assert.deepEqual(result["team-b"], { role: "parent", role_kind: "member" });
+});
+
+test("resolveAccountActorKind: coach-only roles (head_coach/assistant_coach) win regardless of a member row; booster and no-coach cases are unchanged", async () => {
+  const { resolveAccountActorKind } = await import("./accountTeamsMerge.ts");
+  assert.equal(resolveAccountActorKind("head_coach", true), "coach");
+  assert.equal(resolveAccountActorKind("assistant_coach", true), "coach");
+  assert.equal(resolveAccountActorKind("booster", true), "member");
+  assert.equal(resolveAccountActorKind("booster", false), "coach");
+  assert.equal(resolveAccountActorKind(null, true), "member");
+  assert.equal(resolveAccountActorKind(null, false), "none");
+  assert.equal(resolveAccountActorKind("head_coach", false), "coach");
 });
 
 test("/coach-login route file is unchanged in its credential-check logic (legacy login must keep working)", () => {
@@ -124,4 +172,16 @@ test("role-check functions were not touched by this phase — isHeadCoach/isStaf
   const src = read("src/lib/permissions.ts");
   assert.match(src, /export function isHeadCoach/);
   assert.match(src, /export function isStaff/);
+});
+
+// Family Relationships Phase A touched only accountSession.ts/accountTeamsMerge.ts
+// (plus the new isCoachOnlyRole export) — permissions.server.ts's actor
+// resolution order (platform admin checked, and returned, before the
+// elf_session/team_coaches/team_members path even runs) is untouched, so
+// platform-admin precedence cannot have been affected by this phase.
+test("getTeamActor still resolves platform admin before any account/coach/member session (permissions.server.ts untouched by this phase)", () => {
+  const src = read("src/lib/permissions.server.ts");
+  const platformAdminIdx = src.indexOf("getPlatformAdminSession()");
+  const accountIdx       = src.indexOf("getAccountSession()");
+  assert.ok(platformAdminIdx > 0 && accountIdx > 0 && platformAdminIdx < accountIdx);
 });

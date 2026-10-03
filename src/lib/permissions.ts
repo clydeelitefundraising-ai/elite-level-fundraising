@@ -110,6 +110,18 @@ export function isHeadCoachRole(role: string): boolean {
   return HEAD_COACH_ROLES.has(role);
 }
 
+/** True for head_coach/assistant_coach specifically — the coaching roles
+ *  whose authorization must never be lost. Used by accountTeamsMerge.ts's
+ *  resolveAccountActorKind() to decide when a team_coaches row must outrank
+ *  a co-existing team_members row for the same account+campaign (Family
+ *  Relationships Phase A) — deliberately excludes "booster," since a
+ *  booster's team_coaches row and a booster's team_members row already
+ *  grant identical isStaff() access, so overriding would only discard
+ *  member-specific session data (athlete_id) for no authorization benefit. */
+export function isCoachOnlyRole(role: string): boolean {
+  return COACH_ONLY_ROLES.has(role);
+}
+
 /** Display label for a platform admin acting as author/sender/creator —
  *  platform_admins has no team_coaches-shaped role string to label, so
  *  this is the single place that decides what shows up in place of
