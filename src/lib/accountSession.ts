@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
-import { mergeRoleBySlug } from "@/lib/accountTeamsMerge";
+import { mergeRoleBySlug, resolveAccountActorKind } from "@/lib/accountTeamsMerge";
 import type { TeamActor } from "@/lib/permissions";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -57,6 +57,43 @@ export const getAccountSession = cache(async (): Promise<AccountSession | null> 
   return { id: acct.id, name: acct.name, email: acct.email, profile_photo_url: acct.profile_photo_url ?? null };
 });
 
+type CoachRow  = { id: string; name: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string };
+type MemberRow = { id: string; name: string; role: "athlete" | "parent" | "booster"; campaign_slug: string; athlete_id: string | null };
+
+function toCoachActor(c: CoachRow): TeamActor {
+  return {
+    kind: "coach",
+    session: { id: c.id, name: c.name, role: c.role, campaign_slug: c.campaign_slug },
+  };
+}
+
+function toMemberActor(m: MemberRow, accountId: string): TeamActor {
+  return {
+    kind: "member",
+    session: {
+      id:            m.id,
+      name:          m.name,
+      role:          m.role,
+      campaign_slug: m.campaign_slug,
+      athlete_id:    m.athlete_id ?? null,
+      // Resolved from the account that authenticated this session — always
+      // known here (unlike the legacy-cookie path in memberSession.ts),
+      // since this branch only matched by team_members.account_id ===
+      // account.id above.
+      account_id:    accountId,
+    },
+  };
+}
+
+// Family Relationships Phase A: an account can hold BOTH a team_coaches row
+// and a team_members row for the same campaign_slug (e.g. a Head Coach who
+// is also a registered parent on that team). Which one wins is decided by
+// the single shared rule in resolveAccountActorKind() (accountTeamsMerge.ts)
+// — head_coach/assistant_coach always wins over a co-existing member row;
+// a booster coach row does not (see that function's comment for why). This
+// used to unconditionally prefer the member row whenever both existed,
+// which silently stripped Head Coach/Assistant Coach authorization from a
+// coach who also had a parent relationship — that was the bug this fixes.
 export async function getActorForAccount(
   slug:    string,
   account: AccountSession,
@@ -72,54 +109,22 @@ export async function getActorForAccount(
     ),
   ]);
 
-  if (memberRes.ok) {
-    const rows = await memberRes.json();
-    if (Array.isArray(rows) && rows.length > 0) {
-      const m = rows[0];
-      return {
-        kind: "member",
-        session: {
-          id:            m.id,
-          name:          m.name,
-          role:          m.role as "athlete" | "parent" | "booster",
-          campaign_slug: m.campaign_slug,
-          athlete_id:    m.athlete_id ?? null,
-          // Resolved from the account that authenticated this session —
-          // always known here (unlike the legacy-cookie path in
-          // memberSession.ts), since this branch only matched by
-          // team_members.account_id === account.id above.
-          account_id:    account.id,
-        },
-      };
-    }
-  }
+  const memberRow: MemberRow | null = memberRes.ok ? (await memberRes.json())[0] ?? null : null;
+  const coachRow:  CoachRow  | null = coachRes.ok  ? (await coachRes.json())[0]  ?? null : null;
 
-  if (coachRes.ok) {
-    const rows = await coachRes.json();
-    if (Array.isArray(rows) && rows.length > 0) {
-      const c = rows[0];
-      return {
-        kind: "coach",
-        session: {
-          id:            c.id,
-          name:          c.name,
-          role:          c.role as "head_coach" | "assistant_coach" | "booster",
-          campaign_slug: c.campaign_slug,
-        },
-      };
-    }
-  }
-
+  const kind = resolveAccountActorKind(coachRow?.role ?? null, memberRow != null);
+  if (kind === "coach"  && coachRow)  return toCoachActor(coachRow);
+  if (kind === "member" && memberRow) return toMemberActor(memberRow, account.id);
   return null;
 }
 
 // A single account can hold a team_coaches row and/or a team_members row for
 // the same campaign_slug (e.g. an assistant coach who is also a registered
 // parent on that team), or different rows across different teams entirely
-// (coach on one team, parent/athlete on another). Role display here mirrors
-// getActorForAccount()'s precedence — member wins when both exist for the
-// same slug — so the Team Selector's role badge always matches what the
-// actor actually resolves to once they enter that team.
+// (coach on one team, parent/athlete on another). Role display here uses
+// the same resolveAccountActorKind() precedence getActorForAccount() does
+// (via mergeRoleBySlug()), so the Team Selector's role badge always matches
+// what the actor actually resolves to once they enter that team.
 export async function getAccountTeams(accountId: string): Promise<TeamSummary[]> {
   const [coachRes, memberRes] = await Promise.all([
     fetch(
