@@ -8,7 +8,7 @@
 // no "membership_status" flag to check everywhere, because a pending
 // parent simply has no team_members row yet.
 
-import { restList, restInsert, restUpdate } from "./_client.ts";
+import { restList, restInsert, restUpdate, RestError } from "./_client.ts";
 import { validateAthleteForCampaign } from "./athletes.ts";
 import { generateMemberSalt } from "../memberAuth.ts";
 
@@ -215,15 +215,34 @@ export async function approveRequest(ctx: DecideRequestContext): Promise<Approve
     if (existingMembers[0]) {
       memberId = existingMembers[0].id;
     } else {
-      const rows = await restInsert<{ id: string }>("team_members", {
-        campaign_slug: ctx.campaignSlug,
-        role:          "parent",
-        name:          existing.parent_name,
-        salt:          generateMemberSalt(),
-        account_id:    existing.account_id,
-        athlete_id:    existing.athlete_id,
-      });
-      memberId = rows[0].id;
+      // Family Relationships Phase C1: this check-then-insert has a race —
+      // two sibling requests (e.g. Emma and Jake) approved at nearly the
+      // same moment could both observe no existing row here. The database
+      // now backstops this with a partial unique index on (account_id,
+      // campaign_slug) (see phase_c1_team_members_account_campaign_uniq.sql).
+      // On a 23505 violation, the OTHER approval won the race and already
+      // created the membership — re-read it and link onto that row instead
+      // of failing this approval. Same catch-and-reread idiom
+      // createPendingRequest() above already uses for the
+      // parent_access_requests_active_uniq race.
+      try {
+        const rows = await restInsert<{ id: string }>("team_members", {
+          campaign_slug: ctx.campaignSlug,
+          role:          "parent",
+          name:          existing.parent_name,
+          salt:          generateMemberSalt(),
+          account_id:    existing.account_id,
+          athlete_id:    existing.athlete_id,
+        });
+        memberId = rows[0].id;
+      } catch (err) {
+        if (!(err instanceof RestError) || err.code !== "23505") throw err;
+        const racedMembers = await restList<{ id: string }>(
+          `team_members?account_id=eq.${encodeURIComponent(existing.account_id)}&campaign_slug=eq.${encodeURIComponent(ctx.campaignSlug)}&select=id&limit=1`,
+        );
+        if (!racedMembers[0]) throw err; // unexpected — never silently swallow if the row still isn't there
+        memberId = racedMembers[0].id;
+      }
     }
 
     // Ensure the team_member_athletes link exists (idempotent — covers
