@@ -2,7 +2,9 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { validateAthleteForCampaign, createLinkedAthleteMember } from "@/lib/platform/athletes";
-import { createPendingRequest } from "@/lib/platform/parentAccessRequests";
+import {
+  normalizeParentAthleteIds, submitParentAthleteRequests, type ParentJoinAthleteResult,
+} from "@/lib/platform/parentJoinRequest";
 import { resolveOrCreateAccount } from "@/lib/accountJoin";
 import { getTeamIdBySlug, createNotification } from "@/lib/notifications";
 import { getHeadCoachAccountIds } from "@/lib/pushRecipients";
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
-  const { code, name, email, password, role, athlete_id } = body;
+  const { code, name, email, password, role, athlete_id, athleteIds: rawAthleteIds } = body;
 
   if (!code?.trim())  return NextResponse.json({ error: "Team code is required." }, { status: 400 });
   if (!name?.trim())  return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -78,21 +80,36 @@ export async function POST(req: NextRequest) {
   // instead and never reaches here. athlete_id is therefore REQUIRED for
   // role=athlete (never allow an athlete membership with athlete_id=null),
   // and always validated server-side against this exact campaign.
-  //
-  // Parent role: athlete_id is ALSO required (Phase 11a — Parent Access
-  // Approval). A parent request names a specific child; team access is
-  // never granted immediately here regardless — see the parent branch
-  // below, which creates a pending parent_access_requests row instead of a
-  // team_members row.
-  if (role === "athlete" || role === "parent") {
+  // Unchanged by Family Relationships Phase C2 — multi-select applies only
+  // to the parent role below.
+  if (role === "athlete") {
     if (!athlete_id || typeof athlete_id !== "string") {
-      const message = role === "athlete" ? "Please select your athlete from the roster." : "Please select your child from the roster.";
-      return NextResponse.json({ error: message }, { status: 400 });
+      return NextResponse.json({ error: "Please select your athlete from the roster." }, { status: 400 });
     }
     const athlete = await validateAthleteForCampaign(athlete_id, campaign_slug);
     if (!athlete) {
       return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
     }
+  }
+
+  // Parent role (Family Relationships Phase C2): one or more children.
+  // athleteIds (preferred, new) or the legacy singular athlete_id (still
+  // fully supported) — normalizeParentAthleteIds() decides precedence and
+  // rejects a malformed submission outright, never silently falling back.
+  // Each id is independently validated against this exact campaign inside
+  // createPendingRequest() below (via validateAthleteForCampaign) — never
+  // pre-validated here as an all-or-nothing batch, so one bad id can never
+  // block its valid siblings. Team access is never granted immediately
+  // regardless of how many ids are valid — see the parent branch below,
+  // which creates one pending parent_access_requests row per athlete,
+  // never a live team_members row directly.
+  let parentAthleteIds: string[] = [];
+  if (role === "parent") {
+    const normalized = normalizeParentAthleteIds({ athleteIds: rawAthleteIds, athlete_id });
+    if (!normalized.ok) {
+      return NextResponse.json({ error: normalized.error }, { status: 400 });
+    }
+    parentAthleteIds = normalized.athleteIds;
   }
 
   const accountResult = await resolveOrCreateAccount(req, { name, email, password });
@@ -118,82 +135,91 @@ export async function POST(req: NextRequest) {
     return response;
   }
 
-  // Parent: create a PENDING parent_access_requests row — never a live
-  // team_members row. No team_member cookie is set; the parent has an
-  // account (elf_session, set above) but no team access until a Head
-  // Coach approves. See parentAccessRequests.ts for the full rationale.
-  const result = await createPendingRequest({
+  // Parent (Family Relationships Phase C2): one independent
+  // parent_access_requests row PER selected athlete — never a live
+  // team_members row directly, and never one row holding an athlete array.
+  // Processed sequentially (not Promise.all) via the existing, unmodified
+  // createPendingRequest() — one athlete failing (not found, cross-campaign,
+  // a transient error) never rolls back or blocks its siblings. See
+  // parentJoinRequest.ts for the full per-athlete result mapping.
+  const results = await submitParentAthleteRequests(parentAthleteIds, {
     campaignSlug: campaign_slug,
     accountId,
     parentName:   (name as string).trim(),
-    athleteId:    athlete_id as string,
   });
 
-  if (!result.ok) {
-    if (result.reason === "athlete_not_found") {
-      return NextResponse.json({ error: "Athlete not found for this team." }, { status: 404 });
-    }
-    return NextResponse.json({ error: result.message }, { status: 400 });
-  }
+  const createdResults = results.filter(
+    (r): r is Extract<ParentJoinAthleteResult, { status: "created" }> => r.status === "created",
+  );
+  // At most one "already_member" result is possible in practice — Phase C1's
+  // partial unique index guarantees a single team_members row per
+  // account+campaign, so every already-approved relationship for this
+  // parent on this team shares the same memberId.
+  const alreadyMemberResult = results.find(
+    (r): r is Extract<ParentJoinAthleteResult, { status: "already_member" }> => r.status === "already_member",
+  );
 
-  // Fast path: this exact parent+child relationship is already live
-  // (e.g. re-entering a code they already used) — log them straight in,
-  // no new request needed.
-  if (result.alreadyMember) {
+  // Legacy "pending" field, generalized: false only when EVERY selected
+  // athlete already has live approved access (the original single-athlete
+  // alreadyMember fast path) — true whenever at least one still needs Head
+  // Coach review. Preserved for any caller still reading this field; new
+  // UI should read `results` directly.
+  const pending = results.some(r => r.status === "created" || r.status === "already_pending");
+
+  let response: NextResponse;
+  if (alreadyMemberResult) {
+    // Fast path: at least one requested relationship is already live, so
+    // this account already has a team_members row for this campaign
+    // (Phase C1 guarantees at most one) — reuse the exact same cookie-
+    // setting behavior the original single-athlete alreadyMember path had.
     const memberRes = await fetch(
-      `${BASE}/rest/v1/team_members?id=eq.${encodeURIComponent(result.memberId)}&select=id,salt&limit=1`,
+      `${BASE}/rest/v1/team_members?id=eq.${encodeURIComponent(alreadyMemberResult.memberId)}&select=id,salt&limit=1`,
       { headers: h(), cache: "no-store" },
     );
     const memberRows = memberRes.ok ? await memberRes.json() : [];
     const member = memberRows[0];
-    const response = NextResponse.json({ ok: true, campaign_slug, pending: false });
-    if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
+    response = NextResponse.json({ ok: true, campaign_slug, pending, results });
     if (member) {
       response.cookies.set("team_member", makeMemberCookie(member.id, member.salt), cookieOpts);
     }
-    return response;
+  } else {
+    response = NextResponse.json({ ok: true, campaign_slug, pending, results });
   }
+  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
 
-  // Head Coach notification for the new pending request — same pattern as
-  // /api/auth/join-request. Deferred via Next.js's after() (not a bare
-  // fire-and-forget `void (async () => {...})()`) — same fix as
-  // announcements/route.ts and events/route.ts, for the identical reason:
-  // this app runs on Vercel's standard Node.js serverless runtime, which
-  // can freeze a function's execution the moment its response is sent, and
-  // an un-awaited promise racing that freeze is a real risk for
-  // createNotification's/dispatchPush's outbound calls. after() runs the
-  // callback after the response has been sent while the platform keeps the
-  // invocation alive until the callback finishes — response latency and the
-  // returned payload below are unchanged; this only removes the freeze
-  // race. Never fails (or is allowed to fail) the join that already
-  // succeeded above.
-  if (!result.alreadyPending) {
+  // Head Coach notification for each NEWLY created pending request — same
+  // pattern (and same after()/freeze-race rationale) as the original
+  // single-athlete code, just once per created request instead of exactly
+  // once. Never fails (or is allowed to fail) the join that already
+  // succeeded above. Re-submitted already-pending/already-member athletes
+  // never generate a duplicate notification, matching prior behavior.
+  if (createdResults.length > 0) {
     after(async () => {
       try {
         const teamId = await getTeamIdBySlug(campaign_slug);
         if (!teamId) return;
-        await createNotification(teamId, {
-          type: "request",
-          title: "New Team Request",
-          body: "A new parent access request needs review",
-          reference_id: result.request.id,
-          reference_url: `/team/${campaign_slug}/requests`,
-        });
         const accountIds = await getHeadCoachAccountIds(campaign_slug);
-        await dispatchPush({
-          accountIds,
-          category: "requests",
-          kind: "request",
-          ctx: {},
-          url: `/team/${campaign_slug}/requests`,
-        });
+        for (const created of createdResults) {
+          await createNotification(teamId, {
+            type: "request",
+            title: "New Team Request",
+            body: "A new parent access request needs review",
+            reference_id: created.requestId,
+            reference_url: `/team/${campaign_slug}/requests`,
+          });
+          await dispatchPush({
+            accountIds,
+            category: "requests",
+            kind: "request",
+            ctx: {},
+            url: `/team/${campaign_slug}/requests`,
+          });
+        }
       } catch (err) {
         console.error("[auth/join] parent request notification/push failed:", err);
       }
     });
   }
 
-  const response = NextResponse.json({ ok: true, campaign_slug, pending: true });
-  if (newCookieValue) response.cookies.set("elf_session", newCookieValue, cookieOpts);
   return response;
 }
