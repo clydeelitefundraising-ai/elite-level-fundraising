@@ -32,9 +32,15 @@ const EXPECTED_ROUTES = [
   "src/app/api/team/[slug]/members/me/route.ts",
   "src/app/api/team/[slug]/events/route.ts",
   "src/app/api/team/[slug]/events/[id]/route.ts",
+  // Family Relationships Phase D — "My Athletes" / Link Another Athlete:
+  // replicates the same Head-Coach-notification-on-create pattern
+  // /api/auth/join's parent branch already uses, via the same shared
+  // dispatcher (see that route's own file header for why this isn't
+  // extracted into a shared helper instead).
+  "src/app/api/team/[slug]/family/requests/route.ts",
 ];
 
-test("exactly the nine expected routes import dispatchPush from the shared dispatcher", () => {
+test("exactly the ten expected routes import dispatchPush from the shared dispatcher", () => {
   const importing = allFiles
     .filter(f => /from "@\/lib\/pushDispatch"/.test(read(f)))
     .map(rel)

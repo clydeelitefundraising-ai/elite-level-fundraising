@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, User, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Bell, User, Users, Settings as SettingsIcon, LogOut } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
@@ -326,6 +326,26 @@ export default function AccountMenu({
               >
                 <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
+              </a>
+            )}
+
+            {/* My Athletes (Family Relationships Phase D) — same
+                hasAccountSession gate as My Profile: this feature is
+                entirely account-based (getAccountSession-derived identity),
+                so a legacy team_coach/team_member-cookie-only session has
+                no account_id to resolve family data with and would only
+                dead-end here, same reasoning as My Profile above. Offered
+                to every real-account session regardless of coach/member
+                role — a Head Coach who is also a parent needs this too. */}
+            {hasAccountSession && (
+              <a
+                href={`/team/${currentSlug}/family`}
+                onClick={() => setOpen(false)}
+                className="elf-focus-ring"
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              >
+                <Users size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
+                <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Athletes</span>
               </a>
             )}
             {!hasAccountSession && isMember && (
