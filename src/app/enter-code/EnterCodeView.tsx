@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { Clock, TriangleAlert } from "lucide-react";
 import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
 import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./EnterCode.module.css";
+import { buildParentJoinSummary, isFullyAlreadyMember, isTotalFailure, type ParentJoinResult } from "./parentJoinSummary";
 
 // Locally redeclared to match CampaignPageClient.tsx's established
 // convention — lib/supabase.ts is server-only (reads
@@ -42,6 +44,9 @@ export default function EnterCodeView({
   const [role, setRole]           = useState<"athlete" | "parent" | "">("");
   const [athleteMode, setAthleteMode] = useState<"select" | "not_listed">("select");
   const [athleteId, setAthleteId] = useState("");
+  // Parent role only (Family Relationships Phase C2) — the athlete role
+  // keeps its existing single `athleteId` above, untouched.
+  const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
   const [classYear, setClassYear] = useState("");
   const [event, setEvent]         = useState("");
   const [name, setName]           = useState(loggedInName ?? "");
@@ -49,6 +54,16 @@ export default function EnterCodeView({
   const [password, setPassword]   = useState("");
   const [error, setError]         = useState<string | null>(null);
   const [looking, setLooking]     = useState(false);
+  // Parent multi-athlete submission summary, shown on the shared
+  // pending_confirmation screen; the not-listed-athlete path never sets
+  // this, so that screen's original hardcoded copy is unaffected.
+  const [resultSummary, setResultSummary] = useState("");
+  // True only when EVERY selected athlete failed — i.e. zero requests
+  // actually exist after this submission. The not-listed-athlete path
+  // never sets this (it only reaches pending_confirmation on success), so
+  // it stays false there. Drives the confirmation screen's heading/icon/CTA
+  // so a parent is never told "Request Sent" when nothing was sent.
+  const [requestFailed, setRequestFailed] = useState(false);
 
   async function lookupTeam(codeToLookup: string) {
     setError(null);
@@ -92,8 +107,8 @@ export default function EnterCodeView({
       setError("Please select yourself from the roster, or choose \"I don't see my name.\"");
       return;
     }
-    if (role === "parent" && !athleteId) {
-      setError("Please select your child from the roster.");
+    if (role === "parent" && selectedAthleteIds.length === 0) {
+      setError("Please select at least one athlete.");
       return;
     }
     if (isNotListed && (!name.trim() || !classYear)) {
@@ -131,7 +146,7 @@ export default function EnterCodeView({
       }
 
       // role === "athlete" (roster selection) or "parent"
-      const body: Record<string, string> = {
+      const body: Record<string, unknown> = {
         code: code.trim().toUpperCase(),
         // Selecting yourself from the roster IS your identity — no
         // redundant separate name entry once an athlete is selected.
@@ -142,7 +157,8 @@ export default function EnterCodeView({
         body.email    = email.trim();
         body.password = password;
       }
-      if (athleteId) body.athlete_id = athleteId;
+      if (role === "athlete" && athleteId) body.athlete_id = athleteId;
+      if (role === "parent") body.athleteIds = selectedAthleteIds;
 
       const res  = await fetch("/api/auth/join", {
         method:  "POST",
@@ -155,13 +171,25 @@ export default function EnterCodeView({
         setStep("details");
         return;
       }
-      // Parent role: access is never immediate (Phase 11a) — the request
-      // now goes to the Head Coach for approval, same "sent for approval"
-      // screen the not-listed athlete path already uses.
-      if ((data as { pending?: boolean }).pending) {
+
+      if (role === "parent") {
+        const results = (data as { results?: ParentJoinResult[] }).results ?? [];
+        // Every selected athlete already had live approved access — the
+        // generalized form of the original single-athlete alreadyMember
+        // fast path, so go straight to the team instead of showing a
+        // "request sent" screen for nothing that was actually requested.
+        if (isFullyAlreadyMember(results)) {
+          router.push(`/team/${(data as { campaign_slug: string }).campaign_slug}/home`);
+          return;
+        }
+        const athleteNames = Object.fromEntries(teamInfo.athletes.map(a => [a.id, a.name]));
+        setResultSummary(buildParentJoinSummary(results, athleteNames));
+        setRequestFailed(isTotalFailure(results));
         setStep("pending_confirmation");
         return;
       }
+
+      // Athlete role: access is immediate once validated (unchanged).
       router.push(`/team/${(data as { campaign_slug: string }).campaign_slug}/home`);
     } catch {
       setError("Network error. Please try again.");
@@ -169,7 +197,6 @@ export default function EnterCodeView({
     }
   }
 
-  const needsAthleteSelect = role === "athlete" || role === "parent";
   const isSubmitting       = step === "submitting";
   // Redundant-name rule: only athlete role selecting from the roster skips
   // the name field (identity comes from the roster pick). Parents and the
@@ -285,7 +312,7 @@ export default function EnterCodeView({
                     <button
                       key={r}
                       type="button"
-                      onClick={() => { setRole(r); setAthleteId(""); setAthleteMode("select"); setError(null); }}
+                      onClick={() => { setRole(r); setAthleteId(""); setSelectedAthleteIds([]); setAthleteMode("select"); setError(null); }}
                       style={{
                         flex: 1,
                         padding: ".65rem .5rem",
@@ -305,17 +332,14 @@ export default function EnterCodeView({
                 </div>
               </div>
 
-              {/* Athlete select — required for BOTH roles: athlete must
-                  either pick themself or explicitly say they're not
-                  listed; parent must name the specific child they're
-                  requesting access to (Phase 11a — that child is now what
-                  the Head Coach approval request is FOR, so it can no
-                  longer be optional/deferred). */}
-              {needsAthleteSelect && athleteMode === "select" && (
+              {/* Athlete select — athlete must either pick themself or
+                  explicitly say they're not listed. Unchanged by Family
+                  Relationships Phase C2. */}
+              {role === "athlete" && athleteMode === "select" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
                     <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
-                      {role === "athlete" ? "Select Yourself" : "Select Your Child"}
+                      Select Yourself
                     </span>
                     <select
                       value={athleteId}
@@ -329,29 +353,83 @@ export default function EnterCodeView({
                     </select>
                   </label>
 
-                  {role === "athlete" && (
-                    <button
-                      type="button"
-                      onClick={() => { setAthleteMode("not_listed"); setAthleteId(""); setError(null); }}
-                      style={{
-                        alignSelf: "flex-start",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        minHeight: 44,
-                        padding: ".55rem 1rem",
-                        borderRadius: ".65rem",
-                        border: "1.5px solid #d1d5db",
-                        background: "#fff",
-                        fontSize: ".82rem",
-                        color: "var(--elf-orange-dark)",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      I don&apos;t see my name
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setAthleteMode("not_listed"); setAthleteId(""); setError(null); }}
+                    style={{
+                      alignSelf: "flex-start",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 44,
+                      padding: ".55rem 1rem",
+                      borderRadius: ".65rem",
+                      border: "1.5px solid #d1d5db",
+                      background: "#fff",
+                      fontSize: ".82rem",
+                      color: "var(--elf-orange-dark)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    I don&apos;t see my name
+                  </button>
+                </div>
+              )}
+
+              {/* Parent multi-athlete select (Family Relationships Phase
+                  C2) — one or more children in a single submission, each
+                  becoming its own independent pending request (Phase 11a
+                  schema unchanged: still one parent_access_requests row
+                  per athlete). Plain checkboxes, not <select multiple>, so
+                  selection state is obvious and the whole row is tappable
+                  on mobile. Works identically for a one-athlete roster —
+                  no separate "simple" code path needed. */}
+              {role === "parent" && (
+                <div
+                  role="group"
+                  aria-label="Select your child or children"
+                  style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}
+                >
+                  <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                    Select Your Child{teamInfo.athletes.length > 1 ? "ren" : ""}
+                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
+                    {teamInfo.athletes.map(a => {
+                      const checked = selectedAthleteIds.includes(a.id);
+                      return (
+                        <label
+                          key={a.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: ".65rem",
+                            padding: ".75rem .9rem",
+                            borderRadius: ".5rem",
+                            border: `2px solid ${checked ? "var(--elf-orange)" : "#d1d5db"}`,
+                            background: checked ? "var(--elf-orange)" : "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedAthleteIds(prev =>
+                                prev.includes(a.id) ? prev.filter(id => id !== a.id) : [...prev, a.id],
+                              );
+                              setError(null);
+                            }}
+                            style={{ width: 20, height: 20, flexShrink: 0, cursor: "pointer" }}
+                          />
+                          <span style={{ fontSize: ".95rem", fontWeight: 700, color: checked ? "#fff" : "#374151" }}>
+                            {a.name}
+                            {a.event ? <span style={{ fontWeight: 500, opacity: .85 }}> ({a.event})</span> : null}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -459,7 +537,7 @@ export default function EnterCodeView({
 
               <button
                 type="submit"
-                disabled={isSubmitting || !role}
+                disabled={isSubmitting || !role || (role === "parent" && selectedAthleteIds.length === 0)}
                 className={entryStyles.primaryButton}
               >
                 {isSubmitting ? "Submitting…" : isNotListed ? "Send Request →" : "Join Team →"}
@@ -467,7 +545,7 @@ export default function EnterCodeView({
 
               <button
                 type="button"
-                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setAthleteMode("select"); setError(null); }}
+                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setAthleteMode("select"); setSelectedAthleteIds([]); setResultSummary(""); setRequestFailed(false); setError(null); }}
                 style={{ background: "none", border: "none", fontSize: ".88rem", color: "#6b7280", cursor: "pointer", textDecoration: "underline" }}
               >
                 ← Try a different code
@@ -475,20 +553,39 @@ export default function EnterCodeView({
             </form>
           )}
 
-          {/* Step 3: Pending confirmation (not-listed athlete request sent) */}
+          {/* Step 3: Pending confirmation (not-listed athlete request sent,
+              or a parent multi-athlete submission). requestFailed is only
+              ever true for the parent path, and only when EVERY selected
+              athlete failed — i.e. nothing was actually submitted — so the
+              heading/icon/CTA never claim a request was sent when none
+              exists. */}
           {step === "pending_confirmation" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center", textAlign: "center", paddingTop: "2rem" }}>
-              <div style={{ fontSize: "2.5rem" }}>⏳</div>
-              <h1 style={{ margin: 0, fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.4rem", fontWeight: 400, color: "#121110" }}>Request Sent</h1>
+              {requestFailed
+                ? <TriangleAlert size={40} color="#dc2626" strokeWidth={1.75} />
+                : <Clock size={40} color="var(--elf-orange-dark)" strokeWidth={1.75} />}
+              <h1 style={{ margin: 0, fontFamily: "var(--auth-font-display, inherit)", fontSize: "1.4rem", fontWeight: 400, color: "#121110" }}>
+                {requestFailed ? "Request Not Sent" : "Request Sent"}
+              </h1>
               <p style={{ margin: 0, fontSize: ".9rem", color: "#6b7280", lineHeight: 1.5, maxWidth: 320 }}>
-                Your request has been sent to the Head Coach for approval. You&apos;ll get team access once it&apos;s approved.
+                {resultSummary || "Your request has been sent to the Head Coach for approval. You'll get team access once it's approved."}
               </p>
-              <a
-                href="/teams"
-                style={{ display: "inline-block", marginTop: ".5rem", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".75rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
-              >
-                Go to My Teams
-              </a>
+              {requestFailed ? (
+                <button
+                  type="button"
+                  onClick={() => { setError(null); setStep("details"); }}
+                  style={{ display: "inline-block", marginTop: ".5rem", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".75rem", border: "none", fontWeight: 700, fontSize: ".95rem", cursor: "pointer" }}
+                >
+                  Try Again
+                </button>
+              ) : (
+                <a
+                  href="/teams"
+                  style={{ display: "inline-block", marginTop: ".5rem", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".75rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
+                >
+                  Go to My Teams
+                </a>
+              )}
             </div>
           )}
         </div>
