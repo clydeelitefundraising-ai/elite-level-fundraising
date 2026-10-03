@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { checkContent } from "./moderation/contentFilter.ts";
+import { getLinkedAthleteIdsForMember, getFamilyMembersForAthlete } from "./familyRelationships.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -843,14 +844,20 @@ async function insertParticipantsIgnoringDuplicates(
 // ─── Canonical family participant sync ───────────────────────────────────────
 //
 // Given a set of member ids already (or about to be) in a thread, resolves
-// the COMPLETE required family group from canonical team_members/athlete_id
-// relationships only — never inferred from name/email/display data. For
-// each seed member that is an athlete or a parent, this returns every
-// team_members row sharing that athlete_id (the athlete row + every
-// currently-linked parent row), so it works identically regardless of
-// whether the athlete or a parent is the one already in the thread. Always
-// re-derives athlete_id from a fresh, campaign-scoped read — never trusts
-// a caller-supplied athlete_id or campaign.
+// the COMPLETE required family group via the canonical family-relationships
+// module (familyRelationships.ts) — never inferred from name/email/display
+// data, and never from the legacy team_members.athlete_id column alone
+// (Family Relationships Phase B fix: a parent linked to a second child only
+// through team_member_athletes used to be invisible to this function). For
+// each seed member that is an athlete or a parent, this unions every
+// athlete that seed is linked to (legacy column + join table), then returns
+// every team_members row (the athlete row + every currently-linked parent
+// row, from either relationship source) for each of those athletes — so it
+// works identically regardless of whether the athlete or a parent is the
+// one already in the thread, and regardless of which child a given seed
+// happens to be linked to. Always re-derives relationships from a fresh,
+// campaign-scoped read — never trusts a caller-supplied athlete_id or
+// campaign.
 export async function resolveRequiredFamilyParticipants(
   memberIds: string[],
   campaignSlug: string,
@@ -869,23 +876,19 @@ export async function resolveRequiredFamilyParticipants(
 
   const athleteIds = new Set<string>();
   for (const seed of seeds) {
-    if ((seed.role === "athlete" || seed.role === "parent") && seed.athlete_id) {
-      athleteIds.add(seed.athlete_id);
-    }
+    if (seed.role !== "athlete" && seed.role !== "parent") continue;
+    const linked = await getLinkedAthleteIdsForMember(seed.id, seed.athlete_id);
+    for (const id of linked) athleteIds.add(id);
   }
   if (!athleteIds.size) return [];
 
-  const familyRes = await fetch(
-    `${BASE}/rest/v1/team_members` +
-    `?athlete_id=in.(${[...athleteIds].map(encodeURIComponent).join(",")})` +
-    `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}` +
-    `&role=in.(athlete,parent)` +
-    `&select=id`,
-    { headers: h(), cache: "no-store" },
+  const familyGroups = await Promise.all(
+    [...athleteIds].map(athleteId => getFamilyMembersForAthlete(athleteId, campaignSlug)),
   );
-  const family: { id: string }[] = familyRes.ok ? await familyRes.json() : [];
+  const familyMemberIds = new Set<string>();
+  for (const group of familyGroups) for (const m of group) familyMemberIds.add(m.id);
 
-  return family.map(m => ({ actor_type: "member" as const, coach_id: null, member_id: m.id, platform_admin_id: null }));
+  return [...familyMemberIds].map(id => ({ actor_type: "member" as const, coach_id: null, member_id: id, platform_admin_id: null }));
 }
 
 // Ensures a thread's canonical family requirements are met — called at

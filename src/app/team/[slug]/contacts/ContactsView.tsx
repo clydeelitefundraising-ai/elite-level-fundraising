@@ -171,6 +171,8 @@ export default function ContactsView({
   slug,
   memberRole,
   primaryColor,
+  selectedAthleteId,
+  linkedAthletes,
 }: {
   slug: string;
   memberName: string;
@@ -181,6 +183,17 @@ export default function ContactsView({
   // parent-sharing note, gated to exactly "parent").
   memberRole: string;
   primaryColor: string;
+  // Family Relationships Phase B follow-up — undefined for a coach actor
+  // (ownership is scoped to their own coach_id, no athlete selection at
+  // all). For a member actor, the server has already validated this id
+  // against the caller's canonical family relationships; it's threaded
+  // through to the GET/POST calls below exactly as given, re-validated
+  // server-side on every request regardless.
+  selectedAthleteId?: string;
+  // Present only when this parent has an approved relationship to 2+
+  // athletes on this team — undefined for every single-child parent and
+  // every athlete, so their view renders exactly as before this follow-up.
+  linkedAthletes?: { id: string; name: string }[];
 }) {
   const [contacts, setContacts]     = useState<Contact[]>([]);
   const [goal, setGoal]             = useState(10);
@@ -195,7 +208,8 @@ export default function ContactsView({
   const pct = goal > 0 ? Math.round((contacts.length / goal) * 100) : 0;
 
   useEffect(() => {
-    fetch(`/api/team/${slug}/contacts`)
+    const query = selectedAthleteId ? `?athleteId=${encodeURIComponent(selectedAthleteId)}` : "";
+    fetch(`/api/team/${slug}/contacts${query}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (d) {
@@ -205,7 +219,7 @@ export default function ContactsView({
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [slug]);
+  }, [slug, selectedAthleteId]);
 
   const openAdd = () => {
     setForm(BLANK_FORM);
@@ -256,6 +270,10 @@ export default function ContactsView({
       relationship:       form.relationship || undefined,
       relationship_other: form.relationship === "Other" ? form.relationship_other.trim() || undefined : undefined,
       notes:              form.notes.trim() || undefined,
+      // Server re-validates this against the caller's canonical family
+      // relationships on every request — never trusted merely because it
+      // was submitted (Family Relationships Phase B follow-up).
+      athleteId:          selectedAthleteId,
     };
 
     if (editing) {
@@ -319,6 +337,32 @@ export default function ContactsView({
           </p>
         )}
       </div>
+
+      {/* Linked-athlete selector — only rendered when this parent has an
+          approved relationship to 2+ athletes on this team (Family
+          Relationships Phase B). Plain links (?athleteId=<id>), same
+          pattern as the Fundraiser selector: a full navigation re-renders
+          the server page with the newly selected (and server-revalidated)
+          athlete — no client-side state to keep in sync. */}
+      {linkedAthletes && linkedAthletes.length > 1 && (
+        <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", marginBottom: ".75rem" }}>
+          {linkedAthletes.map(a => (
+            <a
+              key={a.id}
+              href={`/team/${slug}/contacts?athleteId=${a.id}`}
+              style={{
+                padding: ".35rem .75rem", borderRadius: 100, fontSize: ".78rem", fontWeight: 700,
+                textDecoration: "none",
+                background: a.id === selectedAthleteId ? primaryColor : "#fff",
+                color:      a.id === selectedAthleteId ? "#fff"       : "#0b1e3d",
+                border: `1.5px solid ${a.id === selectedAthleteId ? primaryColor : "rgba(0,0,0,.1)"}`,
+              }}
+            >
+              {a.name}
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* Progress card */}
       <div style={{

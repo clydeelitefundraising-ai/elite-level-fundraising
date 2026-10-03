@@ -13,7 +13,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 const STUBS = {
-  "next/headers": new URL("./nextHeadersStub.mjs", import.meta.url).href,
+  "next/headers":    new URL("./nextHeadersStub.mjs", import.meta.url).href,
+  "next/server":     new URL("./nextServerStub.mjs", import.meta.url).href,
+  "next/navigation": new URL("./nextNavigationStub.mjs", import.meta.url).href,
 };
 
 function findSrcRoot(dir) {

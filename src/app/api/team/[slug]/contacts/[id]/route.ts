@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
-import { canManageContact } from "@/lib/platform/coachFundraising";
+import { canManageContactForActor } from "@/lib/platform/coachFundraising";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
-  if (!canManageContact(actor, contact)) {
+  if (!await canManageContactForActor(actor, contact)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
@@ -118,7 +118,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
-  if (!canManageContact(actor, contact)) {
+  if (!await canManageContactForActor(actor, contact)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

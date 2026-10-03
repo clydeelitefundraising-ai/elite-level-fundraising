@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { isCoachOnly } from "@/lib/permissions";
 import { validateCoachForCampaign } from "@/lib/platform/coachFundraising";
+import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
+
+// Family Relationships Phase B follow-up: a parent approved for more than
+// one athlete on this team must explicitly choose which child's contacts
+// they're viewing/creating — never silently the legacy/first-linked one.
+// Resolves the full canonical set (legacy column + team_member_athletes)
+// and validates any client-requested id against it; a tampered/unrelated
+// id is never honored, it just falls back to the default (first linked)
+// athlete — unambiguous and safe, never exposes or writes against an
+// athlete the caller isn't actually linked to. For a single-child parent
+// (or an athlete, whose own linked set is always just themselves), this
+// resolves to exactly the same one id as before — no behavior change.
+function resolveRequestedAthleteId(linkedAthleteIds: string[], requested: string | null): string {
+  return requested && linkedAthleteIds.includes(requested) ? requested : linkedAthleteIds[0];
+}
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -104,12 +119,13 @@ export async function GET(req: NextRequest, { params }: RouteCtx) {
   if (session.role !== "athlete" && session.role !== "parent") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-  if (!session.athlete_id) {
+  const linkedAthleteIds = await getLinkedAthleteIdsForMember(session.id, session.athlete_id);
+  if (!linkedAthleteIds.length) {
     return NextResponse.json({ error: "No athlete linked to this account." }, { status: 400 });
   }
 
   const isSummary = req.nextUrl.searchParams.get("summary") === "1";
-  const athleteId = session.athlete_id;
+  const athleteId = resolveRequestedAthleteId(linkedAthleteIds, req.nextUrl.searchParams.get("athleteId"));
 
   const goal = await resolveGoal(slug, { athleteId });
 
@@ -170,6 +186,9 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+
   let ownerFields: { athlete_id: string | null; coach_id: string | null; added_by_type: "athlete" | "parent" | "coach"; added_by_member_id: string | null; added_by_coach_id: string | null };
 
   if (actor.kind === "coach" && isCoachOnly(actor)) {
@@ -187,11 +206,18 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     if (isStaff(actor) || (session.role !== "athlete" && session.role !== "parent")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
-    if (!session.athlete_id) {
+    const linkedAthleteIds = await getLinkedAthleteIdsForMember(session.id, session.athlete_id);
+    if (!linkedAthleteIds.length) {
       return NextResponse.json({ error: "No athlete linked to this account." }, { status: 400 });
     }
+    // A client-requested athleteId must be one this member is actually
+    // linked to — never trusted merely because it was submitted. Falls
+    // back to the default (first linked) athlete, same as GET, rather
+    // than creating a contact for an unrelated athlete.
+    const requestedAthleteId = typeof body.athleteId === "string" ? body.athleteId : null;
+    const athleteId = resolveRequestedAthleteId(linkedAthleteIds, requestedAthleteId);
     ownerFields = {
-      athlete_id: session.athlete_id,
+      athlete_id: athleteId,
       coach_id: null,
       added_by_type: session.role === "athlete" ? "athlete" : "parent",
       added_by_member_id: session.id,
@@ -200,9 +226,6 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   } else {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
 
   const validationError = validateBody(body);
   if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });

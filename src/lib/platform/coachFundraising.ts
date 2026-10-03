@@ -13,6 +13,7 @@
 
 import { restList, restInsert, restUpdate } from "./_client.ts";
 import { isCoachOnly, isStaff, isHeadCoach } from "../permissions.ts";
+import { getLinkedAthleteIdsForMember } from "../familyRelationships.ts";
 import type { TeamActor } from "../permissions.ts";
 
 export type CoachFundraiserRow = {
@@ -269,4 +270,24 @@ export function canManageContact(
   const { session } = actor;
   if (session.role !== "athlete" && session.role !== "parent") return false;
   return Boolean(session.athlete_id) && session.athlete_id === contact.athlete_id;
+}
+
+// Family Relationships Phase B: canManageContact() above checks only the
+// legacy single session.athlete_id column, so a parent linked to a SECOND
+// athlete only through team_member_athletes could not manage that child's
+// contacts even though they're an approved guardian. This wraps the still-
+// authoritative canManageContact() check and only ever falls back to the
+// canonical multi-athlete relationship lookup for a member-parent actor it
+// would otherwise deny — every other actor kind (staff, athlete, coach-
+// owned contact) is unaffected, since canManageContact() already handles
+// those correctly and this never runs for them.
+export async function canManageContactForActor(
+  actor: TeamActor,
+  contact: { athlete_id: string | null; coach_id: string | null },
+): Promise<boolean> {
+  if (canManageContact(actor, contact)) return true;
+  if (actor.kind !== "member" || actor.session.role !== "parent" || !contact.athlete_id) return false;
+
+  const linkedAthleteIds = await getLinkedAthleteIdsForMember(actor.session.id, actor.session.athlete_id);
+  return linkedAthleteIds.includes(contact.athlete_id);
 }

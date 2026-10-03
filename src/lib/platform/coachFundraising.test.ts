@@ -12,11 +12,13 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-service-role-key";
 type Row = Record<string, unknown>;
 
 function makeFakeDb() {
-  const db: { campaign_settings: Row[]; team_coaches: Row[]; campaign_coach_fundraisers: Row[]; donations: Row[] } = {
+  const db: { campaign_settings: Row[]; team_coaches: Row[]; campaign_coach_fundraisers: Row[]; donations: Row[]; team_members: Row[]; team_member_athletes: Row[] } = {
     campaign_settings: [],
     team_coaches: [],
     campaign_coach_fundraisers: [],
     donations: [],
+    team_members: [],
+    team_member_athletes: [],
   };
   let nextId = 1;
   const genId = () => `id-${nextId++}`;
@@ -86,7 +88,7 @@ function makeFakeDb() {
 const { db, handle } = makeFakeDb();
 globalThis.fetch = (async (url: string | URL, init?: RequestInit) => handle(String(url), init)) as typeof fetch;
 
-const { getCoachFundraisers, getActiveCoachFundraisers, validateCoachForCampaign, upsertCoachParticipant, getCoachById, getCoachTotals, canManageContact, ownCoachIdForActor } =
+const { getCoachFundraisers, getActiveCoachFundraisers, validateCoachForCampaign, upsertCoachParticipant, getCoachById, getCoachTotals, canManageContact, canManageContactForActor, ownCoachIdForActor } =
   await import("./coachFundraising.ts");
 
 function resetDb() {
@@ -94,6 +96,8 @@ function resetDb() {
   db.team_coaches.length = 0;
   db.campaign_coach_fundraisers.length = 0;
   db.donations.length = 0;
+  db.team_members.length = 0;
+  db.team_member_athletes.length = 0;
 }
 
 const SLUG = "monroe-valley";
@@ -346,6 +350,48 @@ test("canManageContact REGRESSION: athlete-owned contact — matching member (at
 test("ownCoachIdForActor: resolves an eligible coach's own id, never a client-supplied one", () => {
   assert.equal(ownCoachIdForActor(headCoachActor), "head-1");
   assert.equal(ownCoachIdForActor(asstCoachActor), "asst-1");
+});
+
+// ── canManageContactForActor — Family Relationships Phase B ────────────────
+//
+// canManageContact() above checks only the legacy single session.athlete_id
+// column, so a parent linked to a SECOND athlete only through
+// team_member_athletes could not manage that child's contacts.
+// canManageContactForActor() wraps it with a canonical-relationship
+// fallback, but only ever for a member-parent actor canManageContact()
+// would otherwise deny.
+
+test("canManageContactForActor: everything canManageContact already allows still works unchanged (delegates first)", async () => {
+  assert.equal(await canManageContactForActor(asstCoachActor, coachOwnedContact), true);
+  assert.equal(await canManageContactForActor(headCoachActor, athleteOwnedContact), true);
+  assert.equal(await canManageContactForActor(athleteMemberActor, athleteOwnedContact), true);
+  assert.equal(await canManageContactForActor(parentMemberActor, athleteOwnedContact), true);
+  assert.equal(await canManageContactForActor(publicActor, coachOwnedContact), false);
+});
+
+test("canManageContactForActor: a parent CAN manage a second child's contact linked only via team_member_athletes", async () => {
+  resetDb();
+  db.team_member_athletes.push({ team_member_id: "m-par-1", athlete_id: "ath-2" });
+  const secondChildContact = { athlete_id: "ath-2", coach_id: null };
+
+  // parentMemberActor's legacy session.athlete_id is "ath-1" — canManageContact()
+  // alone denies ath-2; the canonical fallback must grant it.
+  assert.equal(canManageContact(parentMemberActor, secondChildContact), false);
+  assert.equal(await canManageContactForActor(parentMemberActor, secondChildContact), true);
+});
+
+test("canManageContactForActor: a parent still cannot manage an UNRELATED athlete's contact", async () => {
+  resetDb();
+  db.team_member_athletes.push({ team_member_id: "m-par-1", athlete_id: "ath-2" });
+  const unrelatedContact = { athlete_id: "ath-99", coach_id: null };
+  assert.equal(await canManageContactForActor(parentMemberActor, unrelatedContact), false);
+});
+
+test("canManageContactForActor: never widens access for staff, athletes, or coach-owned contacts — fallback only applies to a denied parent", async () => {
+  resetDb();
+  assert.equal(await canManageContactForActor(otherAsstActor, coachOwnedContact), false);
+  assert.equal(await canManageContactForActor(otherAthleteMemberActor, athleteOwnedContact), false);
+  assert.equal(await canManageContactForActor(boosterMemberActor, { athlete_id: "ath-1", coach_id: null }), true); // unchanged: boosters are staff
 });
 
 test("ownCoachIdForActor: null for a booster (either shape), member, platform admin, or public actor", () => {

@@ -61,7 +61,7 @@ export type CreatePendingRequestResult =
 // Does this account already have a LIVE (approved) parent relationship to
 // this exact athlete on this campaign? Checked via the same union
 // (team_members.athlete_id legacy single-FK + team_member_athletes join
-// table) that getLinkedAthleteIds() / canAccessAthleteProfile() already
+// table) that getLinkedAthleteIdsForMember() / canAccessAthleteProfile() already
 // use as the authoritative "what can this parent see" read path — so
 // "already a member" here means exactly what the rest of the app already
 // considers access-granting, nothing new.

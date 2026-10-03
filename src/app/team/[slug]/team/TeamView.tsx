@@ -39,7 +39,7 @@ export default function TeamView({
   contactCounts: Record<string, number>;
   outreachMap: Record<string, OutreachCurrentRow>;
   // Athlete ids this actor (a parent) is linked to — server-computed
-  // (team/page.tsx, via getLinkedAthleteIds). Empty for staff/athlete
+  // (team/page.tsx, via getLinkedAthleteIdsForMember). Empty for staff/athlete
   // actors, who use a different rule in AthleteRosterGrid.
   linkedAthleteIds?: string[];
 }) {
