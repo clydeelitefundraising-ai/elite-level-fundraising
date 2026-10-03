@@ -10,6 +10,7 @@ import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./EnterCode.module.css";
 import { buildParentJoinSummary, isFullyAlreadyMember, isTotalFailure, type ParentJoinResult } from "./parentJoinSummary";
+import { searchAthletes, MAX_PARENT_ATHLETES_CLIENT } from "./athleteSearch";
 
 // Locally redeclared to match CampaignPageClient.tsx's established
 // convention — lib/supabase.ts is server-only (reads
@@ -45,8 +46,16 @@ export default function EnterCodeView({
   const [athleteMode, setAthleteMode] = useState<"select" | "not_listed">("select");
   const [athleteId, setAthleteId] = useState("");
   // Parent role only (Family Relationships Phase C2) — the athlete role
-  // keeps its existing single `athleteId` above, untouched.
+  // keeps its existing single `athleteId` above, untouched. This remains
+  // the single source of truth for which athletes are selected; search and
+  // Browse roster (UX polish, below) both read/write this same state, never
+  // a separate one.
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
+  // Parent athlete picker UX polish — search-as-you-type instead of an
+  // always-expanded roster. Reset together with selectedAthleteIds.
+  const [parentSearchQuery, setParentSearchQuery] = useState("");
+  const [browseRosterOpen, setBrowseRosterOpen] = useState(false);
+  const [selectionLimitNotice, setSelectionLimitNotice] = useState(false);
   const [classYear, setClassYear] = useState("");
   const [event, setEvent]         = useState("");
   const [name, setName]           = useState(loggedInName ?? "");
@@ -98,6 +107,29 @@ export default function EnterCodeView({
 
   const selectedAthlete = teamInfo?.athletes.find(a => a.id === athleteId) ?? null;
   const isNotListed = role === "athlete" && athleteMode === "not_listed";
+
+  // Parent athlete picker UX polish — add/remove both the search-result
+  // path and the Browse-roster checkbox path fall through to these, so
+  // there is exactly one place that writes selectedAthleteIds and exactly
+  // one place the 10-athlete client-side limit is enforced.
+  function addParentAthlete(id: string) {
+    setSelectedAthleteIds(prev => {
+      if (prev.includes(id)) return prev;
+      if (prev.length >= MAX_PARENT_ATHLETES_CLIENT) {
+        setSelectionLimitNotice(true);
+        return prev;
+      }
+      return [...prev, id];
+    });
+  }
+  function removeParentAthlete(id: string) {
+    setSelectedAthleteIds(prev => prev.filter(existingId => existingId !== id));
+    setSelectionLimitNotice(false);
+  }
+
+  const parentSearchResults = teamInfo
+    ? searchAthletes(teamInfo.athletes, parentSearchQuery, selectedAthleteIds)
+    : [];
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
@@ -312,7 +344,7 @@ export default function EnterCodeView({
                     <button
                       key={r}
                       type="button"
-                      onClick={() => { setRole(r); setAthleteId(""); setSelectedAthleteIds([]); setAthleteMode("select"); setError(null); }}
+                      onClick={() => { setRole(r); setAthleteId(""); setSelectedAthleteIds([]); setParentSearchQuery(""); setBrowseRosterOpen(false); setSelectionLimitNotice(false); setAthleteMode("select"); setError(null); }}
                       style={{
                         flex: 1,
                         padding: ".65rem .5rem",
@@ -378,58 +410,154 @@ export default function EnterCodeView({
               )}
 
               {/* Parent multi-athlete select (Family Relationships Phase
-                  C2) — one or more children in a single submission, each
-                  becoming its own independent pending request (Phase 11a
-                  schema unchanged: still one parent_access_requests row
-                  per athlete). Plain checkboxes, not <select multiple>, so
-                  selection state is obvious and the whole row is tappable
-                  on mobile. Works identically for a one-athlete roster —
-                  no separate "simple" code path needed. */}
+                  C2, UX polish follow-up) — search-as-you-type is the
+                  default so a large roster (50-80 athletes) never renders
+                  as a wall of cards; "Browse roster" is a collapsed
+                  fallback for parents who'd rather scroll than search.
+                  selectedAthleteIds remains the ONLY selection state —
+                  search results and the Browse checkboxes both read/write
+                  it via addParentAthlete/removeParentAthlete, never a
+                  separate list. */}
               {role === "parent" && (
-                <div
-                  role="group"
-                  aria-label="Select your child or children"
-                  style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                   <span style={{ fontSize: ".82rem", fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: ".06em" }}>
                     Select Your Child{teamInfo.athletes.length > 1 ? "ren" : ""}
                   </span>
-                  <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
-                    {teamInfo.athletes.map(a => {
-                      const checked = selectedAthleteIds.includes(a.id);
-                      return (
-                        <label
-                          key={a.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: ".65rem",
-                            padding: ".75rem .9rem",
-                            borderRadius: ".5rem",
-                            border: `2px solid ${checked ? "var(--elf-orange)" : "#d1d5db"}`,
-                            background: checked ? "var(--elf-orange)" : "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              setSelectedAthleteIds(prev =>
-                                prev.includes(a.id) ? prev.filter(id => id !== a.id) : [...prev, a.id],
-                              );
-                              setError(null);
+
+                  <input
+                    type="text"
+                    value={parentSearchQuery}
+                    onChange={e => setParentSearchQuery(e.target.value)}
+                    placeholder="Search athlete name..."
+                    aria-label="Search athlete name"
+                    style={{ padding: ".75rem 1rem", borderRadius: ".5rem", border: "1.5px solid #d1d5db", fontSize: ".95rem", background: "#fff", outline: "none", width: "100%" }}
+                  />
+
+                  {parentSearchQuery.trim().length > 0 && (
+                    <div role="group" aria-label="Search results" style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                      {parentSearchResults.length === 0 ? (
+                        <div style={{ fontSize: ".85rem", color: "#9ca3af", padding: ".25rem .1rem" }}>No athletes found.</div>
+                      ) : (
+                        parentSearchResults.map(a => (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => { addParentAthlete(a.id); setParentSearchQuery(""); }}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem",
+                              padding: ".65rem .85rem", borderRadius: ".5rem", border: "1.5px solid #d1d5db",
+                              background: "#fff", textAlign: "left", cursor: "pointer", width: "100%",
                             }}
-                            style={{ width: 20, height: 20, flexShrink: 0, cursor: "pointer" }}
-                          />
-                          <span style={{ fontSize: ".95rem", fontWeight: 700, color: checked ? "#fff" : "#374151" }}>
-                            {a.name}
-                            {a.event ? <span style={{ fontWeight: 500, opacity: .85 }}> ({a.event})</span> : null}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                          >
+                            <span style={{ fontWeight: 700, fontSize: ".95rem", color: "#374151" }}>{a.name}</span>
+                            {a.event ? <span style={{ fontSize: ".8rem", color: "#6b7280", flexShrink: 0 }}>{a.event}</span> : null}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {selectionLimitNotice && (
+                    <div style={{ fontSize: ".82rem", color: "#b45309" }}>
+                      You can select up to {MAX_PARENT_ATHLETES_CLIENT} athletes.
+                    </div>
+                  )}
+
+                  {selectedAthleteIds.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                      <span style={{ fontSize: ".78rem", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                        Selected ({selectedAthleteIds.length})
+                      </span>
+                      {selectedAthleteIds.map(id => {
+                        const a = teamInfo.athletes.find(x => x.id === id);
+                        if (!a) return null;
+                        return (
+                          <div
+                            key={id}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem",
+                              padding: ".6rem .85rem", borderRadius: ".5rem", border: "1.5px solid var(--elf-orange)", background: "#fff",
+                            }}
+                          >
+                            <span style={{ display: "flex", alignItems: "center", gap: ".45rem", minWidth: 0 }}>
+                              <span style={{ color: "var(--elf-orange-dark)", fontWeight: 700, flexShrink: 0 }}>✓</span>
+                              <span style={{ fontWeight: 700, fontSize: ".92rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                              {a.event ? <span style={{ fontSize: ".8rem", color: "#6b7280", flexShrink: 0 }}>{a.event}</span> : null}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeParentAthlete(id)}
+                              aria-label={`Remove ${a.name}`}
+                              style={{
+                                background: "none", border: "none", color: "#9ca3af", fontSize: "1.2rem", lineHeight: 1,
+                                cursor: "pointer", flexShrink: 0, minWidth: 36, minHeight: 36,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setBrowseRosterOpen(o => !o)}
+                    aria-expanded={browseRosterOpen}
+                    aria-controls="browse-roster-list"
+                    style={{
+                      alignSelf: "flex-start", background: "none", border: "none", padding: 0,
+                      fontSize: ".82rem", color: "var(--elf-orange-dark)", fontWeight: 700,
+                      textDecoration: "underline", cursor: "pointer",
+                    }}
+                  >
+                    Browse roster {browseRosterOpen ? "↑" : "↓"}
+                  </button>
+
+                  {browseRosterOpen && (
+                    <div
+                      id="browse-roster-list"
+                      role="group"
+                      aria-label="Full roster"
+                      style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}
+                    >
+                      {teamInfo.athletes.map(a => {
+                        const checked = selectedAthleteIds.includes(a.id);
+                        return (
+                          <label
+                            key={a.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: ".65rem",
+                              padding: ".75rem .9rem",
+                              borderRadius: ".5rem",
+                              border: `2px solid ${checked ? "var(--elf-orange)" : "#d1d5db"}`,
+                              background: checked ? "var(--elf-orange)" : "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (checked) removeParentAthlete(a.id);
+                                else addParentAthlete(a.id);
+                                setError(null);
+                              }}
+                              style={{ width: 20, height: 20, flexShrink: 0, cursor: "pointer" }}
+                            />
+                            <span style={{ fontSize: ".95rem", fontWeight: 700, color: checked ? "#fff" : "#374151" }}>
+                              {a.name}
+                              {a.event ? <span style={{ fontWeight: 500, opacity: .85 }}> ({a.event})</span> : null}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -545,7 +673,7 @@ export default function EnterCodeView({
 
               <button
                 type="button"
-                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setAthleteMode("select"); setSelectedAthleteIds([]); setResultSummary(""); setRequestFailed(false); setError(null); }}
+                onClick={() => { setStep("code"); setTeamInfo(null); setRole(""); setAthleteMode("select"); setSelectedAthleteIds([]); setParentSearchQuery(""); setBrowseRosterOpen(false); setSelectionLimitNotice(false); setResultSummary(""); setRequestFailed(false); setError(null); }}
                 style={{ background: "none", border: "none", fontSize: ".88rem", color: "#6b7280", cursor: "pointer", textDecoration: "underline" }}
               >
                 ← Try a different code
