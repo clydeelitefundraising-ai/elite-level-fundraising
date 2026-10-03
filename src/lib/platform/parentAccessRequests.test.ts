@@ -24,6 +24,21 @@ function makeFakeDb() {
   let nextId = 1;
   const genId = () => `id-${nextId++}`;
 
+  // Family Relationships Phase C1 concurrency test support: when armed,
+  // pauses every "does a team_members row already exist for this
+  // account+campaign" GET lookup until exactly `needed` of them have
+  // arrived, then releases them all together — deterministically
+  // reproducing the race window two sibling approveRequest() calls hit
+  // (both must observe "no existing row" before either inserts), rather
+  // than hoping real interleaving happens to line up. Not used by any
+  // other test in this file.
+  let membershipReadGate: { arrivals: number; needed: number; release: () => void; ready: Promise<void> } | null = null;
+  function armMembershipReadGate(needed: number) {
+    let release!: () => void;
+    const ready = new Promise<void>(resolve => { release = resolve; });
+    membershipReadGate = { arrivals: 0, needed, release, ready };
+  }
+
   function parseQuery(qs: string): { table: string; filters: [string, string, string][]; select: string | null; limit: number | null } {
     const [table, query] = qs.split("?");
     const filters: [string, string, string][] = [];
@@ -76,6 +91,14 @@ function makeFakeDb() {
     db[table] = db[table] ?? [];
 
     if (method === "GET") {
+      if (
+        table === "team_members" && membershipReadGate &&
+        filters.some(([f]) => f === "account_id") && filters.some(([f]) => f === "campaign_slug")
+      ) {
+        membershipReadGate.arrivals++;
+        if (membershipReadGate.arrivals >= membershipReadGate.needed) membershipReadGate.release();
+        await membershipReadGate.ready;
+      }
       let rows = db[table].filter(r => matches(r, filters));
       if (limit != null) rows = rows.slice(0, limit);
       const projected = rows.map(r => project(r, select));
@@ -84,13 +107,21 @@ function makeFakeDb() {
 
     if (method === "POST") {
       const body = JSON.parse(String(init?.body ?? "{}"));
-      // Simulate the two partial-unique-index constraints this test suite
+      // Simulate the partial-unique-index constraints this test suite
       // actually exercises.
       if (table === "parent_access_requests" && body.status !== "declined") {
         const dup = db.parent_access_requests.find(r =>
           r.account_id === body.account_id && r.athlete_id === body.athlete_id && r.status === "pending",
         );
         if (dup) return new Response(JSON.stringify({ code: "23505", message: "duplicate" }), { status: 409 });
+      }
+      // Family Relationships Phase C1: team_members_account_campaign_uniq —
+      // UNIQUE (account_id, campaign_slug) WHERE account_id IS NOT NULL.
+      if (table === "team_members" && body.account_id != null) {
+        const dup = db.team_members.find(r =>
+          r.account_id === body.account_id && r.campaign_slug === body.campaign_slug,
+        );
+        if (dup) return new Response(JSON.stringify({ code: "23505", message: "duplicate key value violates unique constraint \"team_members_account_campaign_uniq\"" }), { status: 409 });
       }
       const now = new Date().toISOString();
       const row: Row = {
@@ -113,7 +144,7 @@ function makeFakeDb() {
     return new Response("not implemented", { status: 500 });
   }
 
-  return { db, genId, fetchImpl };
+  return { db, genId, fetchImpl, armMembershipReadGate };
 }
 
 function seedAthlete(db: ReturnType<typeof makeFakeDb>["db"], id: string, campaignSlug: string, name: string) {
@@ -307,5 +338,128 @@ test("an already-approved (pre-existing) parent-athlete relationship is treated 
     const queue = await getPendingRequestsForCampaign("wolves");
     assert.equal(queue.length, 0);
     assert.equal(db.team_members.length, 1);
+  });
+});
+
+// ─── Family Relationships Phase C1: concurrent sibling approvals ──────────
+//
+// Real race, not sequential calls labeled as one: armMembershipReadGate()
+// pauses both approveRequest() calls' "does a team_members row already
+// exist for this account+campaign" check until BOTH have arrived, then
+// releases them together — so both genuinely observe "no existing row"
+// before either inserts, exactly the window the phase_c1 unique index +
+// catch-and-reread exists to close.
+
+test("concurrent sibling approvals: two children approved at once converge on ONE team_members row, both relationships intact", async () => {
+  const { db, fetchImpl, armMembershipReadGate } = makeFakeDb();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = fetchImpl as typeof fetch;
+  try {
+    seedAthlete(db, "athlete-emma", "wolves", "Emma Wagner");
+    seedAthlete(db, "athlete-jake", "wolves", "Jake Wagner");
+    const { createPendingRequest, approveRequest } = await loadService();
+
+    const reqEmma = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Sarah Wagner", athleteId: "athlete-emma" });
+    const reqJake = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Sarah Wagner", athleteId: "athlete-jake" });
+    if (!reqEmma.ok || reqEmma.alreadyMember || !reqJake.ok || reqJake.alreadyMember) return assert.fail("setup failed");
+
+    armMembershipReadGate(2);
+    const [approveEmma, approveJake] = await Promise.all([
+      approveRequest({ requestId: reqEmma.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+      approveRequest({ requestId: reqJake.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+    ]);
+
+    if (!approveEmma.ok || !approveJake.ok) return assert.fail("an approval that should have succeeded failed");
+
+    // Exactly ONE team_members row for this account+campaign — the race was
+    // real (both inserts were attempted; the DB-simulated unique index
+    // rejected the loser, which re-read and linked onto the winner's row).
+    const membersForAccount = db.team_members.filter(r => r.account_id === "acct-1" && r.campaign_slug === "wolves");
+    assert.equal(membersForAccount.length, 1);
+    assert.equal(approveEmma.memberId, approveJake.memberId);
+    assert.equal(membersForAccount[0].id, approveEmma.memberId);
+
+    // Both children's relationships exist via team_member_athletes.
+    const links = db.team_member_athletes.filter(r => r.team_member_id === approveEmma.memberId).map(r => r.athlete_id).sort();
+    assert.deepEqual(links, ["athlete-emma", "athlete-jake"]);
+
+    // Both requests ended up approved, both pointing at the same membership.
+    const finalEmma = db.parent_access_requests.find(r => r.id === reqEmma.request.id)!;
+    const finalJake = db.parent_access_requests.find(r => r.id === reqJake.request.id)!;
+    assert.equal(finalEmma.status, "approved");
+    assert.equal(finalJake.status, "approved");
+    assert.equal(finalEmma.resulting_member_id, approveEmma.memberId);
+    assert.equal(finalJake.resulting_member_id, approveEmma.memberId);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("concurrent duplicate approval of the SAME request: exactly one wins, the other sees already_decided", async () => {
+  await withFakeDb(async db => {
+    seedAthlete(db, "athlete-1", "wolves", "Abigail Cooper");
+    const { createPendingRequest, approveRequest } = await loadService();
+    const req = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Jennifer Cooper", athleteId: "athlete-1" });
+    if (!req.ok || req.alreadyMember) return assert.fail();
+
+    const [first, second] = await Promise.all([
+      approveRequest({ requestId: req.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+      approveRequest({ requestId: req.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-2" }),
+    ]);
+
+    const outcomes = [first, second];
+    const succeeded = outcomes.filter(o => o.ok);
+    const failed = outcomes.filter(o => !o.ok);
+    assert.equal(succeeded.length, 1, "exactly one concurrent approval of the same request must win");
+    assert.equal(failed.length, 1);
+    if (!failed[0].ok) assert.equal(failed[0].reason, "already_decided");
+    assert.equal(db.team_members.length, 1, "only one membership must be created regardless of the duplicate approval attempt");
+  });
+});
+
+test("sibling approve + sibling decline overlap: Emma's approval is unaffected by Jake's concurrent decline", async () => {
+  await withFakeDb(async db => {
+    seedAthlete(db, "athlete-emma", "wolves", "Emma Wagner");
+    seedAthlete(db, "athlete-jake", "wolves", "Jake Wagner");
+    const { createPendingRequest, approveRequest, declineRequest } = await loadService();
+
+    const reqEmma = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Sarah Wagner", athleteId: "athlete-emma" });
+    const reqJake = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Sarah Wagner", athleteId: "athlete-jake" });
+    if (!reqEmma.ok || reqEmma.alreadyMember || !reqJake.ok || reqJake.alreadyMember) return assert.fail("setup failed");
+
+    const [approveEmma, declineJake] = await Promise.all([
+      approveRequest({ requestId: reqEmma.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+      declineRequest({ requestId: reqJake.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+    ]);
+
+    if (!approveEmma.ok) return assert.fail("Emma's approval must succeed");
+    if (!declineJake.ok) return assert.fail("Jake's decline must succeed");
+
+    assert.equal(declineJake.request.status, "declined");
+    const links = db.team_member_athletes.filter(r => r.team_member_id === approveEmma.memberId).map(r => r.athlete_id);
+    assert.deepEqual(links, ["athlete-emma"], "Jake's decline must not add or remove any relationship");
+    assert.equal(db.team_members.length, 1);
+  });
+});
+
+test("concurrent approvals for the SAME parent on DIFFERENT campaigns remain fully independent", async () => {
+  await withFakeDb(async db => {
+    seedAthlete(db, "athlete-1", "wolves", "Abigail Cooper");
+    seedAthlete(db, "athlete-9", "hawks", "Liam Hawk");
+    const { createPendingRequest, approveRequest } = await loadService();
+
+    const reqWolves = await createPendingRequest({ campaignSlug: "wolves", accountId: "acct-1", parentName: "Jennifer Cooper", athleteId: "athlete-1" });
+    const reqHawks  = await createPendingRequest({ campaignSlug: "hawks",  accountId: "acct-1", parentName: "Jennifer Cooper", athleteId: "athlete-9" });
+    if (!reqWolves.ok || reqWolves.alreadyMember || !reqHawks.ok || reqHawks.alreadyMember) return assert.fail("setup failed");
+
+    const [approveWolves, approveHawks] = await Promise.all([
+      approveRequest({ requestId: reqWolves.request.id, campaignSlug: "wolves", decidedByAccountId: "coach-1" }),
+      approveRequest({ requestId: reqHawks.request.id, campaignSlug: "hawks", decidedByAccountId: "coach-9" }),
+    ]);
+
+    if (!approveWolves.ok || !approveHawks.ok) return assert.fail("both approvals should succeed independently");
+    assert.notEqual(approveWolves.memberId, approveHawks.memberId, "different campaigns must never share a membership row");
+    assert.equal(db.team_members.filter(r => r.campaign_slug === "wolves").length, 1);
+    assert.equal(db.team_members.filter(r => r.campaign_slug === "hawks").length, 1);
   });
 });
