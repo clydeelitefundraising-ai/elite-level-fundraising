@@ -969,6 +969,33 @@ export async function resolveRequiredFamilyParticipants(
   return [...familyMemberIds].map(id => ({ actor_type: "member" as const, coach_id: null, member_id: id, platform_admin_id: null }));
 }
 
+// Group Messaging G3A — family resolution seeded DIRECTLY from roster
+// athlete ids (athletes.id), rather than from team_members seeds. Unlike
+// resolveRequiredFamilyParticipants() above (which must first resolve a
+// team_members seed row to an athlete_id before it can look up family),
+// this never requires the athlete to have joined at all: getFamilyMembersForAthlete()
+// already accepts an athletes.id directly and unions the legacy
+// team_members.athlete_id column with team_member_athletes, so an approved
+// parent qualifies purely from the roster id — exactly the locked G3A
+// product requirement that a parent can gain group access before their
+// child ever creates an ELF account. (This also means the result already
+// includes the athlete's OWN team_members row when one exists — callers
+// that separately add a joined athlete as a direct participant first are
+// unaffected: upsertParticipantActive() no-ops on a row that's already
+// active, regardless of which call added it.)
+export async function resolveRequiredFamilyParticipantsForRosterAthletes(
+  athleteIds: string[],
+  campaignSlug: string,
+): Promise<ParticipantRef[]> {
+  if (!athleteIds.length) return [];
+  const familyGroups = await Promise.all(
+    [...new Set(athleteIds)].map(athleteId => getFamilyMembersForAthlete(athleteId, campaignSlug)),
+  );
+  const familyMemberIds = new Set<string>();
+  for (const group of familyGroups) for (const m of group) familyMemberIds.add(m.id);
+  return [...familyMemberIds].map(id => ({ actor_type: "member" as const, coach_id: null, member_id: id, platform_admin_id: null }));
+}
+
 // Ensures a thread's canonical family requirements are met — called at
 // thread creation and before every reply, so a parent linked after the
 // thread already exists gets added the next time the thread is used
@@ -1031,54 +1058,80 @@ export async function syncParentIntoAthleteThreads(
     { headers: h(), cache: "no-store" },
   );
   const athleteMembers: { id: string }[] = athleteMemberRes.ok ? await athleteMemberRes.json() : [];
-  if (!athleteMembers.length) return;
 
-  const memberIds = athleteMembers.map(m => m.id);
-  // Group Messaging G1: only threads where the athlete is still an ACTIVE
-  // participant are backfill candidates — if a coach removed this athlete
-  // from a group, a parent newly linked afterward has no reason to be
-  // added to that group. No-op filter for DMs (removed_at never set there).
-  const ptRes = await fetch(
-    `${BASE}/rest/v1/message_thread_participants` +
-    `?actor_type=eq.member&member_id=in.(${memberIds.map(encodeURIComponent).join(",")})` +
-    `&removed_at=is.null&select=thread_id`,
-    { headers: h(), cache: "no-store" },
-  );
-  const ptRows: { thread_id: string }[] = ptRes.ok ? await ptRes.json() : [];
-  if (!ptRows.length) return;
-
-  const threadIds = [...new Set(ptRows.map(r => r.thread_id))];
-  const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
-
-  // Restrict to: same campaign, not archived, AND has at least one ACTIVE
-  // coach participant. Group Messaging G1 correction: this coach-presence
-  // check previously didn't filter removed_at, so a thread whose only
-  // coach had been soft-removed could still look like a valid sync target;
-  // every other "current/active participant" concept G1 introduced means
-  // removed_at IS NULL, and this is no exception. archived_at=is.null
-  // matches this phase's "an archived group is inaccessible, not a sync
-  // target" rule. Both filters are no-ops for DMs (neither column is ever
-  // set on a DM thread).
-  const [threadsRes, coachPartsRes] = await Promise.all([
-    fetch(
-      `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&archived_at=is.null&select=id`,
+  // Member-seeded sync (unchanged, pre-G3A behavior): only runs when the
+  // athlete has an actual team_members row of their own, e.g. for DMs and
+  // any group the athlete personally joined before this parent was linked.
+  if (athleteMembers.length) {
+    const memberIds = athleteMembers.map(m => m.id);
+    // Group Messaging G1: only threads where the athlete is still an ACTIVE
+    // participant are backfill candidates — if a coach removed this athlete
+    // from a group, a parent newly linked afterward has no reason to be
+    // added to that group. No-op filter for DMs (removed_at never set there).
+    const ptRes = await fetch(
+      `${BASE}/rest/v1/message_thread_participants` +
+      `?actor_type=eq.member&member_id=in.(${memberIds.map(encodeURIComponent).join(",")})` +
+      `&removed_at=is.null&select=thread_id`,
       { headers: h(), cache: "no-store" },
-    ),
-    fetch(
-      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&actor_type=eq.coach&removed_at=is.null&select=thread_id`,
-      { headers: h(), cache: "no-store" },
-    ),
-  ]);
-  const sameCampaignIds = new Set<string>(
-    (threadsRes.ok ? await threadsRes.json() : []).map((t: { id: string }) => t.id),
-  );
-  const coachThreadIds = new Set<string>(
-    (coachPartsRes.ok ? await coachPartsRes.json() : []).map((p: { thread_id: string }) => p.thread_id),
-  );
+    );
+    const ptRows: { thread_id: string }[] = ptRes.ok ? await ptRes.json() : [];
 
-  const targets = threadIds.filter(id => sameCampaignIds.has(id) && coachThreadIds.has(id));
-  for (const threadId of targets) {
-    await syncRequiredThreadParticipants(threadId, campaignSlug);
+    if (ptRows.length) {
+      const threadIds = [...new Set(ptRows.map(r => r.thread_id))];
+      const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
+
+      // Restrict to: same campaign, not archived, AND has at least one ACTIVE
+      // coach participant. Group Messaging G1 correction: this coach-presence
+      // check previously didn't filter removed_at, so a thread whose only
+      // coach had been soft-removed could still look like a valid sync target;
+      // every other "current/active participant" concept G1 introduced means
+      // removed_at IS NULL, and this is no exception. archived_at=is.null
+      // matches this phase's "an archived group is inaccessible, not a sync
+      // target" rule. Both filters are no-ops for DMs (neither column is ever
+      // set on a DM thread).
+      const [threadsRes, coachPartsRes] = await Promise.all([
+        fetch(
+          `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&archived_at=is.null&select=id`,
+          { headers: h(), cache: "no-store" },
+        ),
+        fetch(
+          `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&actor_type=eq.coach&removed_at=is.null&select=thread_id`,
+          { headers: h(), cache: "no-store" },
+        ),
+      ]);
+      const sameCampaignIds = new Set<string>(
+        (threadsRes.ok ? await threadsRes.json() : []).map((t: { id: string }) => t.id),
+      );
+      const coachThreadIds = new Set<string>(
+        (coachPartsRes.ok ? await coachPartsRes.json() : []).map((p: { thread_id: string }) => p.thread_id),
+      );
+
+      const targets = threadIds.filter(id => sameCampaignIds.has(id) && coachThreadIds.has(id));
+      for (const threadId of targets) {
+        await syncRequiredThreadParticipants(threadId, campaignSlug);
+      }
+    }
+  }
+
+  // Group Messaging G3A addition: roster-assignment-seeded sync — covers
+  // the case the member-seeded lookup above can never find at all, a
+  // roster-only (never-joined) athlete who has active message_thread_athletes
+  // assignments but no team_members row of their own. Deliberately the SAME
+  // centralized function (not a second synchronization architecture): this
+  // is the only other place a newly-approved parent can qualify for group
+  // access, and it is handled here, inline, every time this function runs.
+  const rosterThreadIds = await getActiveAssignedGroupThreadIds(athleteId, campaignSlug);
+  if (rosterThreadIds.length) {
+    const required = await resolveRequiredFamilyParticipantsForRosterAthletes([athleteId], campaignSlug);
+    for (const threadId of rosterThreadIds) {
+      for (const r of required) {
+        if (!r.member_id) continue;
+        await upsertParticipantActive({
+          thread_id: threadId, actor_type: "member", coach_id: null, member_id: r.member_id,
+          platform_admin_id: null, is_auto_included: true, is_observer: false,
+        });
+      }
+    }
   }
 }
 
@@ -1104,6 +1157,188 @@ export async function syncParentIntoAthleteThreads(
 // product decision) — resolveRequiredFamilyParticipants()/
 // getFamilyMembersForAthlete() (familyRelationships.ts, unmodified) remain
 // the ONLY source of parent inclusion, exactly as for DMs.
+//
+// ─── message_thread_athletes (Phase G3A — roster assignment) ────────────────
+//
+// A SEPARATE concept from message_thread_participants, by locked
+// architectural decision: message_thread_athletes records WHICH roster
+// athletes (athletes.id) a coach assigned to a group — regardless of
+// whether that athlete has ever joined ELF — while
+// message_thread_participants continues to record ONLY authenticated,
+// message-capable identities (team_members.id / team_coaches.id). Roster
+// assignment is never itself sufficient to read/send/receive; see
+// isParticipant()/getThreadParticipants() (unchanged) for the actual
+// authorization chokepoint. Never stores an athletes.id in
+// message_thread_participants.member_id.
+
+type RawRosterAssignment = { id: string; removed_at: string | null };
+
+// Reactivate-or-insert, same idiom as upsertParticipantActive() below — the
+// table's plain UNIQUE(thread_id, athlete_id) index guarantees at most one
+// row ever exists per pair, active or not.
+async function upsertRosterAssignmentActive(threadId: string, athleteId: string): Promise<void> {
+  const existingRes = await fetch(
+    `${BASE}/rest/v1/message_thread_athletes` +
+    `?thread_id=eq.${encodeURIComponent(threadId)}&athlete_id=eq.${encodeURIComponent(athleteId)}&select=id,removed_at&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const rows: RawRosterAssignment[] = existingRes.ok ? await existingRes.json() : [];
+  const existing = rows[0];
+  if (existing) {
+    if (existing.removed_at) {
+      await fetch(
+        `${BASE}/rest/v1/message_thread_athletes?id=eq.${encodeURIComponent(existing.id)}`,
+        { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ removed_at: null }) },
+      );
+    }
+    return;
+  }
+  const res = await fetch(`${BASE}/rest/v1/message_thread_athletes`, {
+    method:  "POST",
+    headers: h({ Prefer: "return=minimal" }),
+    body:    JSON.stringify({ thread_id: threadId, athlete_id: athleteId }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] upsertRosterAssignmentActive insert failed:", res.status, detail);
+    throw new ParticipantSyncError("roster-assignment-insert");
+  }
+}
+
+// Soft-remove: sets removed_at, never deletes — mirrors
+// softRemoveParticipantRow()'s exact semantics (history/read state is
+// unaffected; nothing references message_thread_athletes by FK). Idempotent.
+async function softRemoveRosterAssignment(threadId: string, athleteId: string): Promise<void> {
+  await fetch(
+    `${BASE}/rest/v1/message_thread_athletes` +
+    `?thread_id=eq.${encodeURIComponent(threadId)}&athlete_id=eq.${encodeURIComponent(athleteId)}&removed_at=is.null`,
+    { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ removed_at: new Date().toISOString() }) },
+  );
+}
+
+// Every actively-assigned roster athlete for a thread — the "who is on the
+// roster for this group" read Manage Group (G3B) will need, and the set
+// family reconciliation re-derives from after a roster removal.
+export async function getActiveRosterAssignments(threadId: string): Promise<string[]> {
+  const res = await fetch(
+    `${BASE}/rest/v1/message_thread_athletes?thread_id=eq.${encodeURIComponent(threadId)}&removed_at=is.null&select=athlete_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const rows: { athlete_id: string }[] = res.ok ? await res.json() : [];
+  return rows.map(r => r.athlete_id);
+}
+
+export type RosterAssignmentWithStatus = {
+  athlete_id: string;
+  name: string;
+  joined: boolean;
+};
+
+// Smallest safe server representation for G3B's Manage Group view: every
+// actively-assigned roster athlete for a thread, with a server-resolved
+// `joined` flag — so the client never has to infer join status from
+// anything else (e.g. presence/absence in message_thread_participants,
+// which is an authorization concept, not a display one). Deliberately
+// excludes any team_members id — the client has no legitimate use for an
+// internal joined-identity id; the server already resolves it internally
+// wherever activation/removal actually needs it.
+export async function getGroupRosterAssignments(
+  threadId: string,
+  campaignSlug: string,
+): Promise<RosterAssignmentWithStatus[]> {
+  const athleteIds = await getActiveRosterAssignments(threadId);
+  if (!athleteIds.length) return [];
+  const inClause = `(${athleteIds.map(encodeURIComponent).join(",")})`;
+
+  const [athletesRes, joinedRes] = await Promise.all([
+    fetch(
+      `${BASE}/rest/v1/athletes?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id,name`,
+      { headers: h(), cache: "no-store" },
+    ),
+    fetch(
+      `${BASE}/rest/v1/team_members?athlete_id=in.${inClause}&role=eq.athlete&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=athlete_id`,
+      { headers: h(), cache: "no-store" },
+    ),
+  ]);
+  const athletes: { id: string; name: string }[] = athletesRes.ok ? await athletesRes.json() : [];
+  const joinedIds = new Set<string>(
+    (joinedRes.ok ? await joinedRes.json() : []).map((m: { athlete_id: string }) => m.athlete_id),
+  );
+
+  return athletes.map(a => ({ athlete_id: a.id, name: a.name, joined: joinedIds.has(a.id) }));
+}
+
+// Every NON-ARCHIVED group thread (this campaign only) this athlete is
+// currently actively assigned to. The shared reverse-lookup behind BOTH
+// G3A activation hooks: "athlete joins" (activateRosterAssignmentsForJoinedAthlete)
+// and "parent approved later" (the addition inside syncParentIntoAthleteThreads
+// above). Never returns a DM thread id — message_thread_athletes rows are
+// only ever written for thread_type='group' threads by this module.
+//
+// G3A review correction: this deliberately does NOT require an active coach
+// PARTICIPANT row, unlike syncParentIntoAthleteThreads's older, member-
+// seeded lookup above. That check conflates "has an active coach
+// participant right now" with "is a legitimate, currently-manageable
+// group" — those are not the same thing. canManageGroupThread() already
+// lets a Head Coach manage ANY group on the team regardless of whether they
+// personally participate in it, and removing a coach from staff entirely
+// (removeStaffRelationship -> a hard DELETE on team_coaches, pre-existing,
+// untouched by G3A) CASCADEs their message_thread_participants rows away
+// without going through removeGroupParticipant()'s "last coach" guard at
+// all — so an otherwise perfectly valid, non-archived group CAN end up
+// with zero active coach participants today, through no fault of the
+// group itself. Requiring one here would incorrectly block a roster
+// athlete or late-approved parent from ever activating into that group
+// again, even though the team's real Head Coach can still open and manage
+// it. archived_at IS NULL is G1's actual, deliberate "this group is no
+// longer valid" signal (see phase_g1's own migration) — that is the
+// correct and sufficient validity check, kept here unchanged; it never
+// depends on a specific coach id or on the original creator remaining
+// active.
+async function getActiveAssignedGroupThreadIds(athleteId: string, campaignSlug: string): Promise<string[]> {
+  const assignRes = await fetch(
+    `${BASE}/rest/v1/message_thread_athletes?athlete_id=eq.${encodeURIComponent(athleteId)}&removed_at=is.null&select=thread_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const assignRows: { thread_id: string }[] = assignRes.ok ? await assignRes.json() : [];
+  if (!assignRows.length) return [];
+  const threadIds = [...new Set(assignRows.map(r => r.thread_id))];
+  const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
+
+  const threadsRes = await fetch(
+    `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&thread_type=eq.group&archived_at=is.null&select=id`,
+    { headers: h(), cache: "no-store" },
+  );
+  const validThreadIds = new Set<string>(
+    (threadsRes.ok ? await threadsRes.json() : []).map((t: { id: string }) => t.id),
+  );
+  return threadIds.filter(id => validThreadIds.has(id));
+}
+
+// Called from createLinkedAthleteMember() (src/lib/platform/athletes.ts) via
+// a dynamic import, immediately after an athlete's own team_members
+// identity is established — see that file's comment for the exact
+// dependency-direction rationale. Finds every active roster-group
+// assignment for this athlete in this campaign and activates their real
+// team_members.id as a direct participant, then re-runs the existing
+// family sync for that thread so a previously-roster-only-qualified parent
+// is reconciled against the athlete's now-real identity too. No-op if the
+// athlete has no roster assignments. Idempotent — safe to call on every
+// join/re-join.
+export async function activateRosterAssignmentsForJoinedAthlete(
+  athleteId: string,
+  campaignSlug: string,
+  memberId: string,
+): Promise<void> {
+  const threadIds = await getActiveAssignedGroupThreadIds(athleteId, campaignSlug);
+  for (const threadId of threadIds) {
+    await upsertParticipantActive({
+      thread_id: threadId, actor_type: "member", coach_id: null, member_id: memberId,
+      platform_admin_id: null, is_auto_included: false, is_observer: false,
+    });
+    await syncRequiredThreadParticipants(threadId, campaignSlug);
+  }
+}
 
 export const GROUP_NAME_MAX_LENGTH = 80;
 
@@ -1229,10 +1464,10 @@ export async function createGroupThread(params: {
   creatorName: string;
   creatorRole: string;
   name: string;
-  memberIds: string[]; // validated athlete team_members ids
-  coachIds: string[];  // validated staff team_coaches ids
+  rosterAthleteIds: string[]; // G3A: athletes.id — validated against this campaign by the caller (route)
+  coachIds: string[];         // validated staff team_coaches ids
 }): Promise<CreateGroupResult> {
-  const { slug, creatorCoachId, creatorName, creatorRole, name, memberIds, coachIds } = params;
+  const { slug, creatorCoachId, creatorName, creatorRole, name, rosterAthleteIds, coachIds } = params;
 
   const seen = new Set<string>();
   const participants: Omit<ParticipantInsert, "thread_id">[] = [];
@@ -1252,9 +1487,24 @@ export async function createGroupThread(params: {
 
   addParticipant("coach", creatorCoachId, false);
   for (const id of coachIds) addParticipant("coach", id, false);
-  for (const id of memberIds) addParticipant("member", id, false);
 
-  const familyParticipants = await resolveRequiredFamilyParticipants(memberIds, slug);
+  // G3A: a roster athlete who already has a joined (athlete-role)
+  // team_members identity is seeded as a DIRECT participant (same as
+  // pre-G3A behavior) — never auto-included. A roster-only athlete with no
+  // team_members row contributes NO participant row at all here; their
+  // assignment is recorded separately below, after the thread exists.
+  const dedupedRosterAthleteIds = [...new Set(rosterAthleteIds)];
+  const joinedMemberIds: string[] = [];
+  for (const athleteId of dedupedRosterAthleteIds) {
+    const joined = await fetchMembersByAthleteId(athleteId, "athlete", slug);
+    if (joined[0]) joinedMemberIds.push(joined[0].id);
+  }
+  for (const memberId of joinedMemberIds) addParticipant("member", memberId, false);
+
+  // Family resolution is seeded from the FULL roster selection (not just
+  // the joined subset) — an approved parent of a roster-only, never-joined
+  // athlete qualifies immediately, per the locked G3A product requirement.
+  const familyParticipants = await resolveRequiredFamilyParticipantsForRosterAthletes(dedupedRosterAthleteIds, slug);
   for (const fp of familyParticipants) {
     if (fp.member_id) addParticipant("member", fp.member_id, true);
   }
@@ -1284,6 +1534,9 @@ export async function createGroupThread(params: {
   const ptInserts: ParticipantInsert[] = participants.map(p => ({ ...p, thread_id: thread.id }));
   try {
     await insertParticipants(ptInserts);
+    for (const athleteId of dedupedRosterAthleteIds) {
+      await upsertRosterAssignmentActive(thread.id, athleteId);
+    }
   } catch {
     return { ok: false, error: "Failed to set up group participants. Please try again.", status: 500 };
   }
@@ -1319,10 +1572,10 @@ export async function archiveGroupThread(threadId: string): Promise<void> {
 export async function addGroupParticipants(params: {
   threadId: string;
   campaignSlug: string;
-  memberIds: string[];
+  rosterAthleteIds: string[]; // G3A: athletes.id — validated against this campaign by the caller (route)
   coachIds: string[];
 }): Promise<void> {
-  const { threadId, campaignSlug, memberIds, coachIds } = params;
+  const { threadId, campaignSlug, rosterAthleteIds, coachIds } = params;
 
   for (const id of coachIds) {
     await upsertParticipantActive({
@@ -1330,18 +1583,25 @@ export async function addGroupParticipants(params: {
       is_auto_included: false, is_observer: false,
     });
   }
-  for (const id of memberIds) {
-    await upsertParticipantActive({
-      thread_id: threadId, actor_type: "member", coach_id: null, member_id: id, platform_admin_id: null,
-      is_auto_included: false, is_observer: false,
-    });
+  for (const athleteId of new Set(rosterAthleteIds)) {
+    await upsertRosterAssignmentActive(threadId, athleteId);
+    const joined = await fetchMembersByAthleteId(athleteId, "athlete", campaignSlug);
+    if (joined[0]) {
+      await upsertParticipantActive({
+        thread_id: threadId, actor_type: "member", coach_id: null, member_id: joined[0].id, platform_admin_id: null,
+        is_auto_included: false, is_observer: false,
+      });
+    }
   }
 
-  const current = await getThreadParticipants(threadId);
-  const activeSeedMemberIds = current
-    .filter(p => p.actor_type === "member" && !p.is_auto_included)
-    .map(p => p.member_id as string);
-  const required = await resolveRequiredFamilyParticipants(activeSeedMemberIds, campaignSlug);
+  // Re-sync family inclusion from the thread's FULL current active roster
+  // assignment set (not just the newly added ones) — same "full current
+  // set, not just new" rule the pre-G3A version already followed, now
+  // seeded from message_thread_athletes instead of direct member rows, so
+  // an approved parent of a roster-only (never-joined) sibling already in
+  // the group is never missed.
+  const activeAssignments = await getActiveRosterAssignments(threadId);
+  const required = await resolveRequiredFamilyParticipantsForRosterAthletes(activeAssignments, campaignSlug);
   for (const r of required) {
     if (!r.member_id) continue;
     await upsertParticipantActive({
@@ -1398,6 +1658,112 @@ export async function removeGroupParticipant(
     await reconcileFamilyParticipantsAfterRemoval(threadId, campaignSlug);
   }
   return { ok: true };
+}
+
+export type RemoveRosterAthleteResult =
+  | { ok: true }
+  | { ok: false; error: string; status: number };
+
+// G3A — the counterpart to removeGroupParticipant() for roster athletes,
+// needed because a roster-only (never-joined) athlete has no team_members.id
+// to pass to that function at all; this takes the roster athlete's
+// athletes.id directly. Soft-removes the roster assignment, soft-removes
+// the athlete's own active participant row if one exists (the joined
+// case), then reconciles family participants from the thread's REMAINING
+// active roster assignments — so a parent linked to another still-assigned
+// sibling in this exact thread is never disturbed (same reconciliation
+// shape as reconcileFamilyParticipantsAfterRemoval, re-derived from roster
+// assignments instead of direct member seeds). Staff/coach rows are never
+// touched by this function.
+export async function removeRosterAthleteFromGroup(
+  threadId: string,
+  campaignSlug: string,
+  athleteId: string,
+): Promise<RemoveRosterAthleteResult> {
+  const activeRes = await fetch(
+    `${BASE}/rest/v1/message_thread_athletes?thread_id=eq.${encodeURIComponent(threadId)}&athlete_id=eq.${encodeURIComponent(athleteId)}&removed_at=is.null&select=id&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const rows: { id: string }[] = activeRes.ok ? await activeRes.json() : [];
+  if (!rows[0]) {
+    return { ok: false, error: "Athlete is not assigned to this group.", status: 404 };
+  }
+
+  await softRemoveRosterAssignment(threadId, athleteId);
+
+  const joined = await fetchMembersByAthleteId(athleteId, "athlete", campaignSlug);
+  if (joined[0]) {
+    await softRemoveParticipantRow(threadId, {
+      actor_type: "member", coach_id: null, member_id: joined[0].id, platform_admin_id: null,
+    });
+  }
+
+  await reconcileFamilyParticipantsAfterRosterRemoval(threadId, campaignSlug);
+  return { ok: true };
+}
+
+// Roster-assignment-seeded counterpart to reconcileFamilyParticipantsAfterRemoval
+// above — re-derives the required family set from whatever roster
+// assignments (message_thread_athletes) are STILL active after a removal,
+// and soft-removes any currently-active auto-included member participant no
+// longer justified by that recomputed set. A parent linked to two assigned
+// siblings is untouched as long as at least one sibling's assignment is
+// still active. Never touches a directly-chosen (is_auto_included=false)
+// row or a coach/staff row.
+async function reconcileFamilyParticipantsAfterRosterRemoval(
+  threadId: string,
+  campaignSlug: string,
+): Promise<void> {
+  const current = await getThreadParticipants(threadId);
+  const activeAssignments = await getActiveRosterAssignments(threadId);
+  const required = await resolveRequiredFamilyParticipantsForRosterAthletes(activeAssignments, campaignSlug);
+  const requiredIds = new Set(required.map(r => r.member_id));
+
+  const toRemove = current.filter(p => p.actor_type === "member" && p.is_auto_included && !requiredIds.has(p.member_id));
+  for (const p of toRemove) {
+    await softRemoveParticipantRow(threadId, {
+      actor_type: "member", coach_id: null, member_id: p.member_id, platform_admin_id: null,
+    });
+  }
+}
+
+// G3A review correction — called from deleteAthleteWithMessagingCleanup()
+// (src/lib/platform/athletes.ts) via a dynamic import, BEFORE an athletes
+// row is hard-deleted. Required ordering: message_thread_athletes.athlete_id
+// has an ON DELETE CASCADE FK to athletes(id), so the instant the athletes
+// row is gone, every one of this athlete's assignment rows is erased by the
+// database automatically — there would be nothing left to discover which
+// threads needed cleanup if this ran AFTER the delete. The caller is
+// responsible for calling this first and only deleting the athlete if this
+// resolves without throwing.
+//
+// Reuses removeRosterAthleteFromGroup() per thread — the exact same
+// soft-remove-assignment + soft-remove-joined-participant + family
+// reconciliation steps as a coach manually removing the athlete from one
+// group, just applied to every group at once. No duplicated removal logic.
+//
+// Throws (ParticipantSyncError) if the initial assignment lookup itself
+// fails, so the caller can safely refuse to proceed with the athlete
+// deletion rather than risk silently leaving a stale, still-authorized
+// participant behind with no supporting roster row.
+export async function removeRosterAthleteFromAllGroups(
+  athleteId: string,
+  campaignSlug: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/rest/v1/message_thread_athletes?athlete_id=eq.${encodeURIComponent(athleteId)}&removed_at=is.null&select=thread_id`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error("[messages] removeRosterAthleteFromAllGroups: assignment lookup failed:", res.status, detail);
+    throw new ParticipantSyncError("roster-delete-cleanup-lookup");
+  }
+  const rows: { thread_id: string }[] = await res.json();
+  const threadIds = [...new Set(rows.map(r => r.thread_id))];
+  for (const threadId of threadIds) {
+    await removeRosterAthleteFromGroup(threadId, campaignSlug, athleteId);
+  }
 }
 
 // ─── Canonical conversation identity + reuse (Phase 2B) ──────────────────────

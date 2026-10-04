@@ -3,9 +3,9 @@ import { getTeamActor } from "@/lib/permissions.server";
 import {
   createGroupThread,
   validateGroupName,
-  fetchMemberById,
   fetchCoachById,
 } from "@/lib/messages";
+import { validateAthleteForCampaign } from "@/lib/platform/athletes";
 
 type RouteCtx = { params: Promise<{ slug: string }> };
 
@@ -40,12 +40,25 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: nameResult.error }, { status: 400 });
   }
 
-  const rawAthleteIds: unknown = body?.athleteIds;
-  const rawStaffIds: unknown = body?.staffIds;
-  const athleteIds = Array.isArray(rawAthleteIds) ? rawAthleteIds.filter((id): id is string => typeof id === "string") : [];
-  const staffIds   = Array.isArray(rawStaffIds)   ? rawStaffIds.filter((id): id is string => typeof id === "string")   : [];
+  // G3A: group creation now selects from the FULL athletes roster, not
+  // team_members — athleteIds (team_members.id) is retired for this route
+  // and rejected outright rather than silently reinterpreted, since the
+  // same field name under the old meaning would be indistinguishable from
+  // the new one and could create a group with the wrong people. G2 UI is
+  // adapted to send rosterAthleteIds in G3B.
+  if (Array.isArray(body?.athleteIds)) {
+    return NextResponse.json(
+      { error: "athleteIds is no longer supported for group creation. Use rosterAthleteIds." },
+      { status: 400 },
+    );
+  }
 
-  if (athleteIds.length === 0 && staffIds.length === 0) {
+  const rawRosterAthleteIds: unknown = body?.rosterAthleteIds;
+  const rawStaffIds: unknown = body?.staffIds;
+  const rosterAthleteIds = Array.isArray(rawRosterAthleteIds) ? rawRosterAthleteIds.filter((id): id is string => typeof id === "string") : [];
+  const staffIds         = Array.isArray(rawStaffIds)         ? rawStaffIds.filter((id): id is string => typeof id === "string")         : [];
+
+  if (rosterAthleteIds.length === 0 && staffIds.length === 0) {
     return NextResponse.json({ error: "Select at least one athlete or staff member." }, { status: 400 });
   }
 
@@ -53,11 +66,14 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
   // client as already scoped. A cross-team id (athlete or staff) fails the
   // whole creation rather than silently being dropped, so a coach never
   // gets a group with fewer members than they thought they selected.
-  const [validatedMembers, validatedCoaches] = await Promise.all([
-    Promise.all(athleteIds.map(id => fetchMemberById(id, slug))),
+  // rosterAthleteIds are validated against the athletes roster table
+  // (validateAthleteForCampaign) — NOT team_members — since a roster
+  // athlete may not have joined yet.
+  const [validatedAthletes, validatedCoaches] = await Promise.all([
+    Promise.all(rosterAthleteIds.map(id => validateAthleteForCampaign(id, slug))),
     Promise.all(staffIds.map(id => fetchCoachById(id, slug))),
   ]);
-  if (validatedMembers.some(m => !m || m.role !== "athlete")) {
+  if (validatedAthletes.some(a => !a)) {
     return NextResponse.json({ error: "One or more selected athletes could not be found on this team." }, { status: 400 });
   }
   if (validatedCoaches.some(c => !c)) {
@@ -70,7 +86,7 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
     creatorName:    actor.session.name,
     creatorRole:    actor.session.role,
     name:           nameResult.name,
-    memberIds:      athleteIds,
+    rosterAthleteIds,
     coachIds:       staffIds,
   });
   if (!result.ok) {

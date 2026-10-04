@@ -10,7 +10,7 @@
 // numbers are intentionally not unique; exact-name collisions are an
 // application-level warning, not a DB-level rule) — see Phase 1A plan.
 
-import { restList, restInsert, restUpdate } from "./_client.ts";
+import { restList, restInsert, restUpdate, restDelete } from "./_client.ts";
 import { generateMemberSalt } from "../memberAuth.ts";
 
 export type AthleteRow = {
@@ -242,6 +242,22 @@ export async function validateAthleteForCampaign(
 // team_members row already exists for this account+campaign (e.g. a race,
 // or an account that already joined some other way), links the athlete
 // onto that existing row instead of creating a second membership.
+//
+// G3A: this is the single, canonical "roster athlete became a joined
+// identity" lifecycle event — every current join path (/enter-code
+// athlete self-join, Head Coach approval of a not-listed request) goes
+// through here and only here. After a successful link, best-effort
+// activates any roster-group assignments (message_thread_athletes) this
+// athlete already has, via a DYNAMIC import of messages.ts — never a
+// static one. athletes.ts is a platform-layer primitive (src/lib/platform/)
+// and messages.ts is a large, feature-layer module (attachments,
+// moderation, DM/group logic); a static import would pull that whole
+// feature module into the platform layer for one lifecycle hook, which is
+// poor layering even though no circular dependency actually exists today
+// (messages.ts does not import athletes.ts, directly or transitively). The
+// dynamic import mirrors the EXACT existing convention already used by
+// parentAccessRequests.ts's approveRequest() for the same reason — a sync
+// hiccup must never fail the join that already succeeded.
 export async function createLinkedAthleteMember(
   input: CreateLinkedAthleteMemberInput,
 ): Promise<CreateLinkedAthleteMemberResult> {
@@ -251,23 +267,34 @@ export async function createLinkedAthleteMember(
   const existing = await restList<TeamMemberRow>(
     `team_members?account_id=eq.${encodeURIComponent(input.accountId)}&campaign_slug=eq.${encodeURIComponent(input.campaignSlug)}&select=*&limit=1`,
   );
+
+  let member: TeamMemberRow;
   if (existing[0]) {
     const rows = await restUpdate<TeamMemberRow>(
       `team_members?id=eq.${encodeURIComponent(existing[0].id)}`,
       { athlete_id: input.athleteId },
     );
-    return { ok: true, member: rows[0] };
+    member = rows[0];
+  } else {
+    const rows = await restInsert<TeamMemberRow>("team_members", {
+      campaign_slug: input.campaignSlug,
+      account_id:    input.accountId,
+      role:          "athlete",
+      name:          input.name,
+      athlete_id:    input.athleteId,
+      salt:          generateMemberSalt(),
+    });
+    member = rows[0];
   }
 
-  const rows = await restInsert<TeamMemberRow>("team_members", {
-    campaign_slug: input.campaignSlug,
-    account_id:    input.accountId,
-    role:          "athlete",
-    name:          input.name,
-    athlete_id:    input.athleteId,
-    salt:          generateMemberSalt(),
-  });
-  return { ok: true, member: rows[0] };
+  try {
+    const { activateRosterAssignmentsForJoinedAthlete } = await import("../messages.ts");
+    await activateRosterAssignmentsForJoinedAthlete(input.athleteId, input.campaignSlug, member.id);
+  } catch (err) {
+    console.error("[athletes] activateRosterAssignmentsForJoinedAthlete failed:", err);
+  }
+
+  return { ok: true, member };
 }
 
 // Diagnostic read only — does not remediate. Identifies athlete-role team
@@ -277,4 +304,71 @@ export async function getUnlinkedAthleteMembers(campaignSlug?: string): Promise<
   return restList<UnlinkedAthleteMember>(
     `team_members?${scope}role=eq.athlete&athlete_id=is.null&select=id,campaign_slug,name,role,created_at`,
   );
+}
+
+export type DeleteAthleteResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" }
+  | { ok: false; reason: "messaging_cleanup_failed" }
+  | { ok: false; reason: "delete_failed" };
+
+// G3A review correction — the single canonical "delete a roster athlete"
+// lifecycle helper. Both DELETE /api/admin/athletes/[id] and DELETE
+// /api/team/[slug]/roster/[id] now go through this instead of deleting the
+// athletes row directly, closing a gap the architecture audit found: a
+// roster-only `athletes` row has always been hard-deleted with no
+// team_members/messaging cleanup at all, and a NEW message_thread_athletes
+// row (G3A) cascades away the instant the athletes row is gone — but
+// nothing ever cleaned up the athlete's ALREADY-ACTIVE
+// message_thread_participants row (if they'd joined) or any auto-included
+// family participant, which could otherwise let a deleted-from-the-roster
+// athlete (and their family) keep reading/sending in a group they are no
+// longer assigned to.
+//
+// Ordering is load-bearing: messaging cleanup (removeRosterAthleteFromAllGroups,
+// messages.ts) MUST run BEFORE the athletes row is deleted — its own
+// comment explains why the cascade would otherwise erase the very rows
+// needed to discover which threads to reconcile. If cleanup fails, this
+// function does NOT proceed to delete the athlete — a conservative choice:
+// an undeleted-but-still-fully-functional roster row is always safer than
+// a deleted row that may have left stale, unreconciled group access behind.
+// There is no transactional guarantee across the two REST calls (no stored
+// procedure/RPC exists in this schema for it, and introducing one is out of
+// scope here) — this ordering + abort-on-cleanup-failure is the strongest
+// consistency available without one.
+//
+// `campaignSlug` is optional because the admin tool route (unlike the team
+// roster route) does not carry a slug in its URL at all — when omitted,
+// the athlete's own campaign_slug is read from its row and used for cleanup
+// instead of trusting a caller-supplied one.
+//
+// Dynamically imports messages.ts for the exact same reason
+// createLinkedAthleteMember() above does — see that function's comment.
+export async function deleteAthleteWithMessagingCleanup(
+  athleteId: string,
+  campaignSlug?: string,
+): Promise<DeleteAthleteResult> {
+  const scoped = campaignSlug ? `&campaign_slug=eq.${encodeURIComponent(campaignSlug)}` : "";
+  const rows = await restList<Pick<AthleteRow, "id" | "campaign_slug">>(
+    `athletes?id=eq.${encodeURIComponent(athleteId)}${scoped}&select=id,campaign_slug&limit=1`,
+  );
+  const athlete = rows[0];
+  if (!athlete) return { ok: false, reason: "not_found" };
+
+  try {
+    const { removeRosterAthleteFromAllGroups } = await import("../messages.ts");
+    await removeRosterAthleteFromAllGroups(athlete.id, athlete.campaign_slug);
+  } catch (err) {
+    console.error("[athletes] deleteAthleteWithMessagingCleanup: messaging cleanup failed, athlete NOT deleted:", err);
+    return { ok: false, reason: "messaging_cleanup_failed" };
+  }
+
+  try {
+    await restDelete(`athletes?id=eq.${encodeURIComponent(athleteId)}`);
+  } catch (err) {
+    console.error("[athletes] deleteAthleteWithMessagingCleanup: delete failed after cleanup already ran:", err);
+    return { ok: false, reason: "delete_failed" };
+  }
+
+  return { ok: true };
 }
