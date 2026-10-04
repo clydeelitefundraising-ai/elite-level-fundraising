@@ -45,6 +45,12 @@ export type ResolvedParticipant = {
   platform_admin_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
+  // Group Messaging G1 — null for an active participant, set for a
+  // soft-removed one. Always null for every DM participant row. Only
+  // populated on results from getThreadParticipants({ includeRemoved: true
+  // }); the default (active-only) query never returns a removed row at
+  // all, so this is always null wherever it does appear by default.
+  removed_at: string | null;
   name: string;
   role: string;
   athlete_id: string | null;
@@ -78,6 +84,19 @@ export type MessageThread = {
   id: string;
   campaign_slug: string;
   subject: string | null;
+  // Group Messaging G1 — "dm" for every pre-existing and ordinary 1:1
+  // thread (the column default), "group" only for a coach-created named
+  // group. Never inferred from participant count: a DM can have 3+
+  // participants already (family auto-include, Head Coach oversight), so
+  // this is an explicit, stored discriminator, not derived.
+  thread_type: "dm" | "group";
+  // Required (validated server-side) for thread_type "group"; always null
+  // for "dm". A dedicated field, not a repurposing of `subject` (see the
+  // schema migration's header comment for why).
+  group_name: string | null;
+  // Group Messaging G1 — Head-Coach-only archive. Null = active. DMs never
+  // set this.
+  archived_at: string | null;
   created_by_type: "coach" | "member" | "platform_admin";
   created_by_coach_id: string | null;
   created_by_member_id: string | null;
@@ -414,6 +433,7 @@ type RawParticipant = {
   platform_admin_id: string | null;
   is_auto_included: boolean;
   is_observer: boolean;
+  removed_at: string | null;
   team_coaches: RawCoachInfo | null;
   team_members: RawMemberInfo | null;
   platform_admins: RawPlatformAdminInfo | null;
@@ -453,6 +473,7 @@ function resolveParticipant(raw: RawParticipant): ResolvedParticipant {
     platform_admin_id: raw.platform_admin_id,
     is_auto_included: raw.is_auto_included,
     is_observer: raw.is_observer,
+    removed_at: raw.removed_at,
     name: raw.team_coaches?.name ?? raw.team_members?.name ?? raw.platform_admins?.elf_accounts?.name ?? "Unknown",
     role: raw.team_coaches?.role ?? raw.team_members?.role ?? (raw.platform_admins ? "platform_admin" : ""),
     athlete_id: raw.team_members?.athlete_id ?? null,
@@ -465,7 +486,7 @@ const MEMBER_INFO_SELECT = "name,role,athlete_id,athletes!athlete_id(profile_pho
 const PLATFORM_ADMIN_INFO_SELECT = "elf_accounts!account_id(name,profile_photo_url)";
 
 const PARTICIPANT_SELECT =
-  "id,thread_id,actor_type,coach_id,member_id,platform_admin_id,is_auto_included,is_observer," +
+  "id,thread_id,actor_type,coach_id,member_id,platform_admin_id,is_auto_included,is_observer,removed_at," +
   `team_coaches!coach_id(${COACH_INFO_SELECT}),team_members!member_id(${MEMBER_INFO_SELECT}),` +
   `platform_admins!platform_admin_id(${PLATFORM_ADMIN_INFO_SELECT})`;
 
@@ -486,9 +507,15 @@ export async function getThreadsForActor(
 ): Promise<ThreadWithDetails[]> {
   const fk = fkColumn(actor.kind);
 
+  // Group Messaging G1: a soft-removed participant (removed_at set) no
+  // longer belongs to this thread at all — excluded here, which is also
+  // what keeps a removed participant's threads out of every downstream
+  // step below (unread count, participant list, etc.), since none of them
+  // see a thread_id this query didn't return. Always NULL for every DM
+  // participant row, so this is a no-op filter for existing DM behavior.
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
-    `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&select=thread_id`,
+    `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&removed_at=is.null&select=thread_id`,
     { headers: h(), cache: "no-store" },
   );
   if (!ptRes.ok) return [];
@@ -498,12 +525,19 @@ export async function getThreadsForActor(
   const inClause = `(${ptRows.map(r => r.thread_id).join(",")})`;
 
   const [threadRes, participantsRes, msgRes] = await Promise.all([
+    // Group Messaging G1: an archived group is excluded from every
+    // participant's thread list (DMs never set archived_at, so this is
+    // also a no-op filter for existing behavior).
     fetch(
-      `${BASE}/rest/v1/message_threads?id=in.${inClause}&order=last_message_at.desc&limit=50`,
+      `${BASE}/rest/v1/message_threads?id=in.${inClause}&archived_at=is.null&order=last_message_at.desc&limit=50`,
       { headers: h(), cache: "no-store" },
     ),
+    // Group Messaging G1 correction: this builds the participant list
+    // shown alongside each thread in the thread list — a removed
+    // participant must not appear there either (same removed_at=is.null
+    // consistency rule as everywhere else; no-op for DMs).
     fetch(
-      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&select=${PARTICIPANT_SELECT}`,
+      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&removed_at=is.null&select=${PARTICIPANT_SELECT}`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
@@ -560,13 +594,21 @@ export async function getThreadsForActor(
 
 // ─── Thread detail ────────────────────────────────────────────────────────────
 
+// Group Messaging G1: an archived group is treated as entirely
+// inaccessible, not a separate "view archived history" mode — this
+// function is the single chokepoint for thread detail, message send,
+// read-marking, and this phase's own group rename/participants routes
+// (every one of them calls getThreadById and already treats a null result
+// as "not found"), so filtering archived_at here centralizes the
+// enforcement instead of sprinkling an archived_at check into each route.
+// Always a no-op for DMs (archived_at is never set on a DM thread).
 export async function getThreadById(
   threadId: string,
   slug: string,
 ): Promise<MessageThread | null> {
   const res = await fetch(
     `${BASE}/rest/v1/message_threads` +
-    `?id=eq.${encodeURIComponent(threadId)}&campaign_slug=eq.${encodeURIComponent(slug)}&limit=1`,
+    `?id=eq.${encodeURIComponent(threadId)}&campaign_slug=eq.${encodeURIComponent(slug)}&archived_at=is.null&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return null;
@@ -574,12 +616,21 @@ export async function getThreadById(
   return rows[0] ?? null;
 }
 
+// Group Messaging G1: returns only ACTIVE participants by default
+// (removed_at IS NULL) — this is "who currently has access," used for the
+// UI participant list, push recipient resolution, and blocking checks.
+// Always true for every DM participant row (removed_at is only ever set by
+// group-management code), so this is a no-op filter for existing DM
+// behavior. Pass includeRemoved:true only for group-management reads that
+// need to see a removed row too (e.g. deciding whether to reactivate it).
 export async function getThreadParticipants(
   threadId: string,
+  opts?: { includeRemoved?: boolean },
 ): Promise<ResolvedParticipant[]> {
+  const removedFilter = opts?.includeRemoved ? "" : "&removed_at=is.null";
   const res = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
-    `?thread_id=eq.${encodeURIComponent(threadId)}&select=${PARTICIPANT_SELECT}`,
+    `?thread_id=eq.${encodeURIComponent(threadId)}${removedFilter}&select=${PARTICIPANT_SELECT}`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];
@@ -617,20 +668,47 @@ export async function isThreadBlockedForActor(
   return false;
 }
 
+// Group Messaging G1: this is the single authorization chokepoint every
+// route uses to gate thread detail, message send, read-marking, and
+// attachment sign/download (see call sites) — adding removed_at=is.null
+// here is therefore the one change that makes a soft-removed participant
+// immediately lose all of that access, with no other route needing to know
+// about removal at all. Always a no-op for DMs (removed_at never set).
+//
+// Group Messaging G1 (archived groups): also rejects if the THREAD itself
+// is archived — needed specifically because attachment sign/download
+// (resolveAuthorizedAttachment, below) authorizes purely via this function
+// and never calls getThreadById, so that function's own archived_at filter
+// never reaches this path. getThreadById's filter already covers thread
+// detail/send/read-marking independently; this is the second (and only
+// other) place archived-group enforcement needs to live, per the "two
+// chokepoints, not sprinkled per-route" design. Always a no-op for DMs
+// (archived_at is never set on a DM thread).
 export async function isParticipant(
   threadId: string,
   actor: ActorKey,
 ): Promise<boolean> {
   const fk = fkColumn(actor.kind);
-  const res = await fetch(
-    `${BASE}/rest/v1/message_thread_participants` +
-    `?thread_id=eq.${encodeURIComponent(threadId)}` +
-    `&actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}` +
-    `&select=id&limit=1`,
-    { headers: h(), cache: "no-store" },
-  );
-  if (!res.ok) return false;
-  const rows: { id: string }[] = await res.json();
+  const [participantRes, threadRes] = await Promise.all([
+    fetch(
+      `${BASE}/rest/v1/message_thread_participants` +
+      `?thread_id=eq.${encodeURIComponent(threadId)}` +
+      `&actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}` +
+      `&removed_at=is.null` +
+      `&select=id&limit=1`,
+      { headers: h(), cache: "no-store" },
+    ),
+    fetch(
+      `${BASE}/rest/v1/message_threads?id=eq.${encodeURIComponent(threadId)}&select=archived_at&limit=1`,
+      { headers: h(), cache: "no-store" },
+    ),
+  ]);
+  if (!threadRes.ok) return false;
+  const threadRows: { archived_at: string | null }[] = await threadRes.json();
+  if (!threadRows[0] || threadRows[0].archived_at) return false;
+
+  if (!participantRes.ok) return false;
+  const rows: { id: string }[] = await participantRes.json();
   return rows.length > 0;
 }
 
@@ -752,7 +830,7 @@ export async function getUnreadMessageCount(
 
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
-    `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&select=thread_id`,
+    `?actor_type=eq.${actor.kind}&${fk}=eq.${encodeURIComponent(actor.id)}&removed_at=is.null&select=thread_id`,
     { headers: h(), cache: "no-store" },
   );
   if (!ptRes.ok) return 0;
@@ -956,10 +1034,14 @@ export async function syncParentIntoAthleteThreads(
   if (!athleteMembers.length) return;
 
   const memberIds = athleteMembers.map(m => m.id);
+  // Group Messaging G1: only threads where the athlete is still an ACTIVE
+  // participant are backfill candidates — if a coach removed this athlete
+  // from a group, a parent newly linked afterward has no reason to be
+  // added to that group. No-op filter for DMs (removed_at never set there).
   const ptRes = await fetch(
     `${BASE}/rest/v1/message_thread_participants` +
     `?actor_type=eq.member&member_id=in.(${memberIds.map(encodeURIComponent).join(",")})` +
-    `&select=thread_id`,
+    `&removed_at=is.null&select=thread_id`,
     { headers: h(), cache: "no-store" },
   );
   const ptRows: { thread_id: string }[] = ptRes.ok ? await ptRes.json() : [];
@@ -968,14 +1050,22 @@ export async function syncParentIntoAthleteThreads(
   const threadIds = [...new Set(ptRows.map(r => r.thread_id))];
   const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
 
-  // Restrict to: same campaign, AND has at least one coach participant.
+  // Restrict to: same campaign, not archived, AND has at least one ACTIVE
+  // coach participant. Group Messaging G1 correction: this coach-presence
+  // check previously didn't filter removed_at, so a thread whose only
+  // coach had been soft-removed could still look like a valid sync target;
+  // every other "current/active participant" concept G1 introduced means
+  // removed_at IS NULL, and this is no exception. archived_at=is.null
+  // matches this phase's "an archived group is inaccessible, not a sync
+  // target" rule. Both filters are no-ops for DMs (neither column is ever
+  // set on a DM thread).
   const [threadsRes, coachPartsRes] = await Promise.all([
     fetch(
-      `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&select=id`,
+      `${BASE}/rest/v1/message_threads?id=in.${inClause}&campaign_slug=eq.${encodeURIComponent(campaignSlug)}&archived_at=is.null&select=id`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&actor_type=eq.coach&select=thread_id`,
+      `${BASE}/rest/v1/message_thread_participants?thread_id=in.${inClause}&actor_type=eq.coach&removed_at=is.null&select=thread_id`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
@@ -990,6 +1080,324 @@ export async function syncParentIntoAthleteThreads(
   for (const threadId of targets) {
     await syncRequiredThreadParticipants(threadId, campaignSlug);
   }
+}
+
+// ─── Group messaging (Phase G1) ───────────────────────────────────────────────
+//
+// A coach-created named group is still just a message_threads row + a
+// message_thread_participants join — no second messaging system. The only
+// NEW ideas here are: (1) thread_type/group_name distinguish a group from a
+// DM so it never goes through findCanonicalExistingThread()'s DM-only
+// "identical participant set = same conversation" reuse (two differently-
+// named groups with identical membership must coexist, per product
+// decision), and (2) soft removal (removed_at), reusing the EXISTING
+// is_auto_included flag as the only provenance distinction needed:
+// is_auto_included=false means "a coach directly chose this athlete/staff
+// member," is_auto_included=true means "added solely because of a family
+// relationship to a directly-chosen athlete." Family reconciliation after a
+// manual removal only ever touches is_auto_included=true member rows —
+// manually-chosen athletes, staff, and the creating coach are never
+// candidates for removal by this logic, so no new participant-provenance
+// model was needed.
+//
+// Coaches select ATHLETES and STAFF only (never parents directly, per
+// product decision) — resolveRequiredFamilyParticipants()/
+// getFamilyMembersForAthlete() (familyRelationships.ts, unmodified) remain
+// the ONLY source of parent inclusion, exactly as for DMs.
+
+export const GROUP_NAME_MAX_LENGTH = 80;
+
+export type GroupNameValidationResult =
+  | { ok: true; name: string }
+  | { ok: false; error: string };
+
+export function validateGroupName(raw: unknown): GroupNameValidationResult {
+  if (typeof raw !== "string") return { ok: false, error: "Group name is required." };
+  const trimmed = raw.trim();
+  if (!trimmed) return { ok: false, error: "Group name is required." };
+  if (trimmed.length > GROUP_NAME_MAX_LENGTH) {
+    return { ok: false, error: `Group name must be ${GROUP_NAME_MAX_LENGTH} characters or fewer.` };
+  }
+  return { ok: true, name: trimmed };
+}
+
+// Pure, independently testable — the route is responsible for first
+// confirming the actor is a real team_coaches row (never a platform admin;
+// platform-admin group management is deliberately out of scope for G1, see
+// the G1 report) before calling this. Head Coach manages every group on the
+// team; an Assistant Coach manages only the group they personally created.
+export function canManageGroupThread(
+  actorRole: "head_coach" | "assistant_coach",
+  actorCoachId: string,
+  thread: Pick<MessageThread, "created_by_type" | "created_by_coach_id">,
+): boolean {
+  if (actorRole === "head_coach") return true;
+  return thread.created_by_type === "coach" && thread.created_by_coach_id === actorCoachId;
+}
+
+// Reactivate-or-insert: looks up any EXISTING row (active or soft-removed)
+// for this exact (thread, actor) — the existing partial unique indexes
+// (mtp_coach_uniq/mtp_member_uniq) guarantee at most one such row ever
+// exists — and flips removed_at back to NULL if it was removed, inserts a
+// fresh row if none exists, or does nothing if already active. Never
+// creates a second/duplicate participant identity for the same actor.
+async function upsertParticipantActive(row: ParticipantInsert): Promise<void> {
+  const fk = fkColumn(row.actor_type);
+  const id = row.coach_id ?? row.member_id ?? row.platform_admin_id;
+  const existingRes = await fetch(
+    `${BASE}/rest/v1/message_thread_participants` +
+    `?thread_id=eq.${encodeURIComponent(row.thread_id)}&actor_type=eq.${row.actor_type}` +
+    `&${fk}=eq.${encodeURIComponent(id as string)}&select=id,removed_at&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  const existingRows: { id: string; removed_at: string | null }[] = existingRes.ok ? await existingRes.json() : [];
+  const existing = existingRows[0];
+
+  if (existing) {
+    if (existing.removed_at) {
+      const patchRes = await fetch(
+        `${BASE}/rest/v1/message_thread_participants?id=eq.${encodeURIComponent(existing.id)}`,
+        { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ removed_at: null }) },
+      );
+      if (!patchRes.ok) throw new ParticipantSyncError("reactivate");
+    }
+    return;
+  }
+
+  await insertParticipants([row]);
+}
+
+// Soft-remove: sets removed_at, never deletes the row — message_reads rows
+// referencing this participant's past messages are untouched (message_reads
+// has no FK to message_thread_participants at all), and the row itself
+// remains available for upsertParticipantActive() to reactivate later.
+// Idempotent — a no-op if already removed.
+async function softRemoveParticipantRow(threadId: string, ref: ParticipantRef): Promise<void> {
+  const fk = fkColumn(ref.actor_type);
+  const id = ref.coach_id ?? ref.member_id ?? ref.platform_admin_id;
+  await fetch(
+    `${BASE}/rest/v1/message_thread_participants` +
+    `?thread_id=eq.${encodeURIComponent(threadId)}&actor_type=eq.${ref.actor_type}` +
+    `&${fk}=eq.${encodeURIComponent(id as string)}&removed_at=is.null`,
+    { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ removed_at: new Date().toISOString() }) },
+  );
+}
+
+// After a manual removal, re-derives the required family set from whatever
+// directly-chosen (is_auto_included=false) athlete seeds are STILL active,
+// and soft-removes any currently-active auto-included member participant
+// no longer justified by that recomputed set. A parent linked to two
+// participating athletes is untouched as long as at least one of those
+// athletes is still active — resolveRequiredFamilyParticipants() already
+// unions every linked athlete per seed, so this never needs bespoke
+// per-parent bookkeeping. Never touches a manually-chosen (is_auto_included
+// =false) row or a coach/staff row — reconciliation is member+auto-included
+// only, by construction.
+async function reconcileFamilyParticipantsAfterRemoval(
+  threadId: string,
+  campaignSlug: string,
+): Promise<void> {
+  const current = await getThreadParticipants(threadId);
+  const activeSeedMemberIds = current
+    .filter(p => p.actor_type === "member" && !p.is_auto_included)
+    .map(p => p.member_id as string);
+
+  const required = await resolveRequiredFamilyParticipants(activeSeedMemberIds, campaignSlug);
+  const requiredIds = new Set(required.map(r => r.member_id));
+
+  const toRemove = current.filter(p => p.actor_type === "member" && p.is_auto_included && !requiredIds.has(p.member_id));
+  for (const p of toRemove) {
+    await softRemoveParticipantRow(threadId, {
+      actor_type: "member", coach_id: null, member_id: p.member_id, platform_admin_id: null,
+    });
+  }
+}
+
+export type CreateGroupResult =
+  | { ok: true; thread: MessageThread }
+  | { ok: false; error: string; status: number };
+
+// Always creates a brand-new thread — deliberately never calls
+// findCanonicalExistingThread() (that reuse logic is DM-only; two
+// differently-named groups with identical membership must coexist, per
+// product decision) and never calls resolveOrCreateThreadForRecipient()
+// (that function's single-recipient/member-can-message-coach-only shape
+// doesn't fit a coach-authored, multi-participant group at all).
+export async function createGroupThread(params: {
+  slug: string;
+  creatorCoachId: string;
+  creatorName: string;
+  creatorRole: string;
+  name: string;
+  memberIds: string[]; // validated athlete team_members ids
+  coachIds: string[];  // validated staff team_coaches ids
+}): Promise<CreateGroupResult> {
+  const { slug, creatorCoachId, creatorName, creatorRole, name, memberIds, coachIds } = params;
+
+  const seen = new Set<string>();
+  const participants: Omit<ParticipantInsert, "thread_id">[] = [];
+  function addParticipant(actor_type: "coach" | "member", id: string, is_auto_included: boolean) {
+    const key = `${actor_type}:${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    participants.push({
+      actor_type,
+      coach_id:          actor_type === "coach"  ? id : null,
+      member_id:         actor_type === "member" ? id : null,
+      platform_admin_id: null,
+      is_auto_included,
+      is_observer:       false,
+    });
+  }
+
+  addParticipant("coach", creatorCoachId, false);
+  for (const id of coachIds) addParticipant("coach", id, false);
+  for (const id of memberIds) addParticipant("member", id, false);
+
+  const familyParticipants = await resolveRequiredFamilyParticipants(memberIds, slug);
+  for (const fp of familyParticipants) {
+    if (fp.member_id) addParticipant("member", fp.member_id, true);
+  }
+
+  const threadRes = await fetch(`${BASE}/rest/v1/message_threads`, {
+    method:  "POST",
+    headers: h({ Prefer: "return=representation" }),
+    body:    JSON.stringify({
+      campaign_slug:        slug,
+      thread_type:          "group",
+      group_name:           name,
+      subject:              null,
+      created_by_type:      "coach",
+      created_by_coach_id:  creatorCoachId,
+      created_by_member_id: null,
+      created_by_platform_admin_id: null,
+      creator_name:         creatorName,
+      creator_role:         creatorRole,
+      last_message_preview: null,
+    }),
+  });
+  if (!threadRes.ok) {
+    return { ok: false, error: "Failed to create group.", status: 500 };
+  }
+  const [thread] = await threadRes.json();
+
+  const ptInserts: ParticipantInsert[] = participants.map(p => ({ ...p, thread_id: thread.id }));
+  try {
+    await insertParticipants(ptInserts);
+  } catch {
+    return { ok: false, error: "Failed to set up group participants. Please try again.", status: 500 };
+  }
+
+  return { ok: true, thread };
+}
+
+export async function renameGroupThread(threadId: string, name: string): Promise<void> {
+  await fetch(`${BASE}/rest/v1/message_threads?id=eq.${encodeURIComponent(threadId)}`, {
+    method:  "PATCH",
+    headers: h({ Prefer: "return=minimal" }),
+    body:    JSON.stringify({ group_name: name }),
+  });
+}
+
+export async function archiveGroupThread(threadId: string): Promise<void> {
+  await fetch(`${BASE}/rest/v1/message_threads?id=eq.${encodeURIComponent(threadId)}`, {
+    method:  "PATCH",
+    headers: h({ Prefer: "return=minimal" }),
+    body:    JSON.stringify({ archived_at: new Date().toISOString() }),
+  });
+}
+
+// Adds (or reactivates) one or more directly-chosen athlete/staff
+// participants, then re-syncs family inclusion from the thread's FULL
+// current set of active directly-chosen athlete seeds (not just the newly
+// added ones) — so a previously-removed parent who is required again (e.g.
+// their other linked athlete is still in the group, or the just-re-added
+// athlete needs them) is reactivated by the same upsert, never left behind.
+// A newly (re)added participant sees the thread's full existing history —
+// there is no join-time message filter anywhere in this schema, matching
+// the existing, unmodified late-parent-link behavior.
+export async function addGroupParticipants(params: {
+  threadId: string;
+  campaignSlug: string;
+  memberIds: string[];
+  coachIds: string[];
+}): Promise<void> {
+  const { threadId, campaignSlug, memberIds, coachIds } = params;
+
+  for (const id of coachIds) {
+    await upsertParticipantActive({
+      thread_id: threadId, actor_type: "coach", coach_id: id, member_id: null, platform_admin_id: null,
+      is_auto_included: false, is_observer: false,
+    });
+  }
+  for (const id of memberIds) {
+    await upsertParticipantActive({
+      thread_id: threadId, actor_type: "member", coach_id: null, member_id: id, platform_admin_id: null,
+      is_auto_included: false, is_observer: false,
+    });
+  }
+
+  const current = await getThreadParticipants(threadId);
+  const activeSeedMemberIds = current
+    .filter(p => p.actor_type === "member" && !p.is_auto_included)
+    .map(p => p.member_id as string);
+  const required = await resolveRequiredFamilyParticipants(activeSeedMemberIds, campaignSlug);
+  for (const r of required) {
+    if (!r.member_id) continue;
+    await upsertParticipantActive({
+      thread_id: threadId, actor_type: "member", coach_id: null, member_id: r.member_id, platform_admin_id: null,
+      is_auto_included: true, is_observer: false,
+    });
+  }
+}
+
+export type RemoveGroupParticipantResult =
+  | { ok: true }
+  | { ok: false; error: string; status: number };
+
+// Removes exactly one DIRECTLY-chosen (is_auto_included=false) participant
+// — never an auto-included family row directly (that would bypass
+// reconciliation and leave inconsistent state); removing the athlete that
+// justified a parent's inclusion removes the parent via
+// reconcileFamilyParticipantsAfterRemoval() instead. Refuses to remove the
+// last active coach from a group (never leaves a group with zero
+// management identity) — broader creator-specific removal semantics are
+// deliberately not invented here, see the G1 report.
+export async function removeGroupParticipant(
+  threadId: string,
+  campaignSlug: string,
+  ref: ParticipantRef,
+): Promise<RemoveGroupParticipantResult> {
+  const fk = fkColumn(ref.actor_type);
+  const id = ref.coach_id ?? ref.member_id ?? ref.platform_admin_id;
+  const res = await fetch(
+    `${BASE}/rest/v1/message_thread_participants` +
+    `?thread_id=eq.${encodeURIComponent(threadId)}&actor_type=eq.${ref.actor_type}` +
+    `&${fk}=eq.${encodeURIComponent(id as string)}&removed_at=is.null&select=id,is_auto_included`,
+    { headers: h(), cache: "no-store" },
+  );
+  const rows: { id: string; is_auto_included: boolean }[] = res.ok ? await res.json() : [];
+  const row = rows[0];
+  if (!row) {
+    return { ok: false, error: "Participant not found in this group.", status: 404 };
+  }
+  if (row.is_auto_included) {
+    return { ok: false, error: "This person was added automatically through a family relationship and can't be removed directly.", status: 400 };
+  }
+
+  if (ref.actor_type === "coach") {
+    const current = await getThreadParticipants(threadId);
+    const otherActiveCoaches = current.filter(p => p.actor_type === "coach" && p.coach_id !== ref.coach_id);
+    if (otherActiveCoaches.length === 0) {
+      return { ok: false, error: "A group must have at least one coach.", status: 400 };
+    }
+  }
+
+  await softRemoveParticipantRow(threadId, ref);
+  if (ref.actor_type === "member") {
+    await reconcileFamilyParticipantsAfterRemoval(threadId, campaignSlug);
+  }
+  return { ok: true };
 }
 
 // ─── Canonical conversation identity + reuse (Phase 2B) ──────────────────────
@@ -1049,9 +1457,17 @@ export async function findCanonicalExistingThread(
   const inClause = `(${threadIds.map(encodeURIComponent).join(",")})`;
 
   const [threadsRes, partsRes] = await Promise.all([
+    // Group Messaging G1: restricted to thread_type=dm — a coach-created
+    // group's participant set could coincidentally match a DM's (e.g. a
+    // 2-person "group" with one staff member and no athletes has the exact
+    // same 2-coach key a direct coach-to-coach DM would), and a DM must
+    // never silently reuse a named group's thread. Groups never reach this
+    // function from the other direction either (createGroupThread() never
+    // calls it) — this filter is the only change needed to make the
+    // exclusion symmetric.
     fetch(
       `${BASE}/rest/v1/message_threads?id=in.${inClause}` +
-      `&campaign_slug=eq.${encodeURIComponent(slug)}` +
+      `&campaign_slug=eq.${encodeURIComponent(slug)}&thread_type=eq.dm` +
       `&select=id,campaign_slug,subject,created_by_type,created_by_coach_id,created_by_member_id,created_by_platform_admin_id,creator_name,creator_role,last_message_at,last_message_preview,created_at` +
       `&order=last_message_at.desc`,
       { headers: h(), cache: "no-store" },
