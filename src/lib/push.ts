@@ -31,14 +31,19 @@ type PushSub = {
   member_id: string | null;
   coach_id: string | null;
   // Embedded from team_members when member_id is set
-  team_members: { role: string; athlete_id: string | null } | null;
+  team_members: { role: string; athlete_id: string | null; account_id: string | null } | null;
+  // Embedded from team_coaches when coach_id is set — account_id only,
+  // needed solely for the account-id resolution in sendPushToParticipants()
+  // below (Group Messaging G1 fix).
+  team_coaches: { account_id: string | null } | null;
 };
 
 async function fetchSubscriptions(slug: string): Promise<PushSub[]> {
   const url =
     `${BASE}/rest/v1/push_subscriptions` +
     `?campaign_slug=eq.${encodeURIComponent(slug)}` +
-    `&select=id,platform,endpoint,p256dh,auth_key,expo_token,member_id,coach_id,team_members!member_id(role,athlete_id)`;
+    `&select=id,platform,endpoint,p256dh,auth_key,expo_token,member_id,coach_id,` +
+    `team_members!member_id(role,athlete_id,account_id),team_coaches!coach_id(account_id)`;
   const res = await fetch(url, {
     headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
     cache: "no-store",
@@ -110,26 +115,78 @@ export async function sendPushToScope(
   await Promise.allSettled(targeted.map(sub => dispatchPush(sub, payload)));
 }
 
-/** Send push only to specific participants in a DM thread, excluding the sender. */
+/** Send push to a given list of participants (a DM/group thread's active
+ *  participants, or an arbitrary recipient list like "every Head Coach" —
+ *  this function has always been used both ways, see
+ *  notifyHeadCoachesOfPendingComment() and processPush()), excluding the
+ *  sender's ACCOUNT — not just the sender's literal actor key.
+ *
+ *  Group Messaging G1 fix: this used to dedupe/exclude by raw actor key
+ *  ("coach:<id>" / "member:<id>"), so a coach-who-is-also-a-parent
+ *  (represented by two participant rows/refs that resolve to the same
+ *  account) could still self-notify via this legacy web-push channel
+ *  through whichever row wasn't the literal sender — even though the
+ *  newer native-push path (getAccountIdsForThreadParticipants,
+ *  pushRecipients.ts) already resolved this correctly for the same
+ *  scenario. Every participant ref is now resolved to its account_id
+ *  first (same resolve-then-dedupe-then-exclude shape as that function),
+ *  so the fix applies uniformly to a thread's participant list (which
+ *  getThreadParticipants() already returns with soft-removed rows
+ *  excluded — a removed group participant is never in `participants` at
+ *  all) and to a non-thread recipient list alike. */
+// Extracted so the account-resolution/dedupe/exclusion fix is independently
+// testable without needing to mock the web-push library or push_subscriptions
+// — mirrors getAccountIdsForThreadParticipants's (pushRecipients.ts) exact
+// resolve-then-dedupe-then-exclude shape, the function this one was
+// previously NOT consistent with (see sendPushToParticipants's doc comment).
+export async function resolveEligiblePushAccountIds(
+  participants: ParticipantRef[],
+  excludeActorKey: string,
+): Promise<string[]> {
+  const coachIds  = [...new Set(participants.filter(p => p.actor_type === "coach"  && p.coach_id).map(p => p.coach_id as string))];
+  const memberIds = [...new Set(participants.filter(p => p.actor_type === "member" && p.member_id).map(p => p.member_id as string))];
+  if (!coachIds.length && !memberIds.length) return [];
+
+  const [coachRows, memberRows] = await Promise.all([
+    coachIds.length
+      ? fetch(`${BASE}/rest/v1/team_coaches?id=in.(${coachIds.join(",")})&select=id,account_id`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }, cache: "no-store" })
+          .then(async res => (res.ok ? await res.json() : []) as { id: string; account_id: string | null }[])
+      : Promise.resolve([] as { id: string; account_id: string | null }[]),
+    memberIds.length
+      ? fetch(`${BASE}/rest/v1/team_members?id=in.(${memberIds.join(",")})&select=id,account_id`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` }, cache: "no-store" })
+          .then(async res => (res.ok ? await res.json() : []) as { id: string; account_id: string | null }[])
+      : Promise.resolve([] as { id: string; account_id: string | null }[]),
+  ]);
+
+  const [excludeKind, excludeId] = excludeActorKey.split(":");
+  const senderAccountId =
+    excludeKind === "coach"  ? coachRows.find(c => c.id === excludeId)?.account_id ?? null :
+    excludeKind === "member" ? memberRows.find(m => m.id === excludeId)?.account_id ?? null :
+    null;
+
+  return [
+    ...new Set(
+      [...coachRows.map(c => c.account_id), ...memberRows.map(m => m.account_id)]
+        .filter((id): id is string => Boolean(id) && id !== senderAccountId),
+    ),
+  ];
+}
+
 export async function sendPushToParticipants(
   slug: string,
   participants: ParticipantRef[],
   excludeActorKey: string,
   payload: { title: string; body: string; url: string },
 ): Promise<void> {
+  const eligibleAccountIds = new Set(await resolveEligiblePushAccountIds(participants, excludeActorKey));
+  if (!eligibleAccountIds.size) return;
+
   const subs = await fetchSubscriptions(slug);
   if (!subs.length) return;
 
-  const targetKeys = new Set<string>(
-    participants
-      .map(p => (p.actor_type === "coach" ? `coach:${p.coach_id}` : `member:${p.member_id}`))
-      .filter(k => k !== excludeActorKey && !k.endsWith(":null")),
-  );
-
   const targeted = subs.filter(s => {
-    if (s.member_id) return targetKeys.has(`member:${s.member_id}`);
-    if (s.coach_id)  return targetKeys.has(`coach:${s.coach_id}`);
-    return false;
+    const accountId = s.member_id ? s.team_members?.account_id : s.coach_id ? s.team_coaches?.account_id : null;
+    return accountId != null && eligibleAccountIds.has(accountId);
   });
 
   await Promise.allSettled(targeted.map(sub => dispatchPush(sub, payload)));

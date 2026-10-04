@@ -79,8 +79,12 @@ export async function getAccountIdsForThreadParticipants(
   threadId: string,
   excludeActorKey: string,
 ): Promise<string[]> {
+  // Group Messaging G1: a soft-removed participant (removed_at set) must
+  // never receive a future push — excluded here, the single place native
+  // push recipients are resolved for a thread. Always null for DM
+  // participant rows, so this is a no-op filter for existing DM push.
   const res = await fetch(
-    `${BASE}/rest/v1/message_thread_participants?thread_id=eq.${encodeURIComponent(threadId)}&select=actor_type,coach_id,member_id`,
+    `${BASE}/rest/v1/message_thread_participants?thread_id=eq.${encodeURIComponent(threadId)}&removed_at=is.null&select=actor_type,coach_id,member_id`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return [];

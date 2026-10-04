@@ -12,7 +12,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-service-role-key";
 type Row = Record<string, unknown>;
 
 function makeFakeDb() {
-  const db: Record<string, Row[]> = { message_attachments: [], messages: [], message_thread_participants: [] };
+  const db: Record<string, Row[]> = { message_attachments: [], messages: [], message_thread_participants: [], message_threads: [] };
 
   function parseFilters(qs: string) {
     const [table, query] = qs.split("?");
@@ -51,8 +51,14 @@ function reset() {
   db.message_attachments.length = 0;
   db.messages.length = 0;
   db.message_thread_participants.length = 0;
+  db.message_threads.length = 0;
   db.messages.push({ id: "m1", thread_id: "t1" });
   db.message_thread_participants.push({ id: "p1", thread_id: "t1", actor_type: "member", member_id: "mem-1" });
+  // Group Messaging G1: isParticipant() now also checks the thread's own
+  // archived_at (so an archived group is inaccessible even via attachment
+  // routes, which never call getThreadById) — these tests are all about a
+  // DM-shaped, never-archived thread, so archived_at is simply null.
+  db.message_threads.push({ id: "t1", archived_at: null });
 }
 
 test("a moderation-removed attachment is rejected exactly like a pending one — old URL/path never still opens it", async () => {
