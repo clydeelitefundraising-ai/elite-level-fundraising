@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { MessageThread, ResolvedParticipant, ResolvedMessage } from "@/lib/messages";
 import {
-  roleLabel, otherParticipants, observerParticipants, conversationDisplayName, isFamilyThread,
+  roleLabel, otherParticipants, observerParticipants, isFamilyThread,
+  isGroupThread, threadDisplayTitle,
 } from "../_shared/participantDisplay";
 import Avatar from "../_shared/Avatar";
 import AttachmentCard from "../_shared/AttachmentCard";
@@ -16,7 +17,8 @@ import { uploadMessageAttachments } from "../_shared/uploadMessageAttachments";
 import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMessages";
 import ReportModal from "../../_components/ReportModal";
 import BlockUserModal from "../../_components/BlockUserModal";
-import { Shield, Eye } from "lucide-react";
+import ManageGroupModal from "../_shared/ManageGroupModal";
+import { Shield, Eye, Users } from "lucide-react";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -169,6 +171,8 @@ export default function ThreadView({
   actorId,
   actorName,
   primaryColor,
+  canManageGroup = false,
+  canArchiveGroup = false,
 }: {
   slug: string;
   thread: MessageThread;
@@ -178,6 +182,13 @@ export default function ThreadView({
   actorId: string;
   actorName: string;
   primaryColor: string;
+  // Group Messaging G2 — both computed server-side (page.tsx) via the G1
+  // canManageGroupThread() pure function, which cannot be imported into
+  // this "use client" component (server-only module). This boolean is a UX
+  // convenience only — the G1 management endpoints independently re-check
+  // the exact same rule server-side regardless of what this prop says.
+  canManageGroup?: boolean;
+  canArchiveGroup?: boolean;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ResolvedMessage[]>(initialMessages);
@@ -188,6 +199,8 @@ export default function ThreadView({
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportingUser, setReportingUser] = useState(false);
   const [blockingUser, setBlockingUser] = useState(false);
+  const [managingGroup, setManagingGroup] = useState(false);
+  const [groupName, setGroupName] = useState(thread.group_name);
   const [blocked, setBlocked] = useState(false);
   // Distinct from `blocked` (server truth: is this conversation blocked,
   // in EITHER direction) — only ever set true when THIS session just
@@ -371,10 +384,16 @@ export default function ThreadView({
   // same cast pattern already used at MessagesView.tsx:37-38 for the same
   // reason. A platform admin isn't a participant in any existing thread,
   // so this is display-only and changes nothing observable.
+  const isGroup = isGroupThread(thread);
   const others = otherParticipants(participants, actorKind as "coach" | "member", actorId);
   const observers = observerParticipants(participants);
-  const family = isFamilyThread(participants);
-  const displayName = conversationDisplayName(participants, actorKind as "coach" | "member", actorId);
+  // Group Messaging G2 — family/observer banners are DM-specific framing
+  // ("parent/guardian included," Head Coach oversight); a group's own
+  // family mirroring is already visible as plain participant rows in
+  // Manage Group, so this banner is suppressed for groups rather than
+  // reused out of context.
+  const family = !isGroup && isFamilyThread(participants);
+  const displayName = groupName && isGroup ? groupName : threadDisplayTitle(thread, participants, actorKind as "coach" | "member", actorId);
   const primaryOther = others[0];
   // ResolvedParticipant.id is the message_thread_participants row id, NOT
   // the underlying coach/member/platform_admin id — reporting/blocking
@@ -537,7 +556,11 @@ export default function ThreadView({
         >
           ←
         </button>
-        {primaryOther && <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={36} />}
+        {isGroup ? (
+          <Avatar name={displayName} photoUrl={null} size={36} />
+        ) : (
+          primaryOther && <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={36} />
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontWeight: 800, fontSize: ".95rem", color: "#0b1e3d",
@@ -545,14 +568,39 @@ export default function ThreadView({
           }}>
             {displayName}
           </div>
-          {thread.subject && (
+          {isGroup ? (
+            <div style={{ fontSize: ".68rem", color: "#9ca3af", display: "flex", alignItems: "center", gap: ".25rem" }}>
+              <Users size={11} aria-hidden="true" />
+              {participants.length} participant{participants.length !== 1 ? "s" : ""}
+            </div>
+          ) : thread.subject && (
             <div style={{ fontSize: ".68rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {thread.subject}
             </div>
           )}
         </div>
 
-        {primaryOther && (
+        {/* Group Messaging G2 — thread-level Report/Block remains strictly
+            DM-only (locked decision); a group's management entry point
+            ("Manage Group") is an entirely separate menu item, shown only
+            when the server already decided this actor may manage this
+            specific group (canManageGroup — computed in page.tsx via the
+            same canManageGroupThread() the G1 management endpoints
+            themselves enforce). Neither menu is ever shown to a group
+            participant without management rights (parent, athlete,
+            booster, or a different coach). */}
+        {isGroup ? (
+          canManageGroup && (
+            <button
+              onClick={() => setManagingGroup(true)}
+              aria-label="Manage Group"
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".78rem", fontWeight: 700, color: primaryColor, padding: ".3rem .5rem", lineHeight: 1, borderRadius: 6, flexShrink: 0 }}
+            >
+              Manage
+            </button>
+          )
+        ) : (
+          primaryOther && (
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
               onClick={() => setMenuOpen(o => !o)}
@@ -584,6 +632,7 @@ export default function ThreadView({
               </div>
             )}
           </div>
+          )
         )}
       </div>
 
@@ -611,6 +660,18 @@ export default function ThreadView({
           blockedName={primaryOther.name}
           onClose={() => setBlockingUser(false)}
           onBlocked={() => { setBlockingUser(false); setBlocked(true); setIBlockedThem(true); }}
+        />
+      )}
+      {managingGroup && (
+        <ManageGroupModal
+          slug={slug}
+          threadId={thread.id}
+          initialGroupName={groupName ?? "Group"}
+          canArchive={canArchiveGroup}
+          primaryColor={primaryColor}
+          onClose={() => setManagingGroup(false)}
+          onRenamed={newName => { setGroupName(newName); setManagingGroup(false); window.dispatchEvent(new CustomEvent("elf:messages-changed")); }}
+          onArchived={() => { window.dispatchEvent(new CustomEvent("elf:messages-changed")); router.push(`/team/${slug}/communications?tab=messages`); }}
         />
       )}
 

@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Plus, Shield } from "lucide-react";
+import { MessageCircle, Plus, Shield, Users } from "lucide-react";
 import type { ThreadWithDetails } from "@/lib/messages";
 import {
-  roleLabel, otherParticipants, conversationDisplayName, isFamilyThread, selfParticipantRow,
+  roleLabel, otherParticipants, isFamilyThread, selfParticipantRow,
+  isGroupThread, threadDisplayTitle,
 } from "./_shared/participantDisplay";
 import Avatar from "./_shared/Avatar";
 import AttachmentPickerButton from "./_shared/AttachmentPickerButton";
 import AttachmentComposerBar from "./_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "./_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "./_shared/uploadMessageAttachments";
+import CreateGroupModal from "./_shared/CreateGroupModal";
 
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -36,13 +38,19 @@ function ThreadCard({
   onClick: () => void;
 }) {
   const isUnread = thread.unread_count > 0;
+  const isGroup = isGroupThread(thread);
   const others = otherParticipants(thread.participants, actorKind as "coach" | "member", actorId);
-  const displayName = conversationDisplayName(thread.participants, actorKind as "coach" | "member", actorId);
-  const family = isFamilyThread(thread.participants);
+  const displayName = threadDisplayTitle(thread, thread.participants, actorKind as "coach" | "member", actorId);
+  const family = !isGroup && isFamilyThread(thread.participants);
   // Avatar: the single most prominent other participant. Falls back to a
   // generic conversation icon only in the edge case of no other
   // participants resolving (shouldn't normally happen).
   const primaryOther = others[0];
+  // Group Messaging G2 — the server's own participant list is already
+  // active-only (removed_at filtered server-side in getThreadsForActor),
+  // so this count never needs client-side family reconstruction or a
+  // removed-participant filter of its own.
+  const participantCount = thread.participants.length;
 
   // Phase 6: flattened from a floating card to a row + bottom divider, same
   // treatment as UpdateCard.tsx. The `primaryColor` prop (threaded raw from
@@ -67,7 +75,9 @@ function ThreadCard({
         alignItems:   "flex-start",
       }}
     >
-      {primaryOther ? (
+      {isGroup ? (
+        <Avatar name={displayName} photoUrl={null} size={36} />
+      ) : primaryOther ? (
         <Avatar name={primaryOther.name} photoUrl={primaryOther.photo_url} size={36} />
       ) : (
         <div style={{
@@ -79,9 +89,12 @@ function ThreadCard({
         </div>
       )}
 
-      {/* Content — participant name(s) are the PRIMARY identity. A legacy
-          subject (only present on threads created before Phase 2B) appears
-          as small secondary context underneath, never as the primary line. */}
+      {/* Content — participant name(s) are the PRIMARY identity for a DM. A
+          group uses its own group_name instead (threadDisplayTitle, never
+          derived from participants). A legacy subject (only present on
+          threads created before Phase 2B, DM-only — groups never set it)
+          appears as small secondary context underneath, never as the
+          primary line. */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: ".4rem" }}>
           <span style={{
@@ -99,7 +112,12 @@ function ThreadCard({
             {relativeTime(thread.last_message_at)}
           </span>
         </div>
-        {thread.subject && (
+        {isGroup ? (
+          <span style={{ fontSize: ".68rem", color: "var(--text-muted-app)", display: "flex", alignItems: "center", gap: ".25rem", marginBottom: ".1rem" }}>
+            <Users size={11} aria-hidden="true" />
+            {participantCount} participant{participantCount !== 1 ? "s" : ""}
+          </span>
+        ) : thread.subject && (
           <span style={{ fontSize: ".68rem", color: "var(--text-muted-app)", display: "block", marginBottom: ".1rem", fontStyle: "italic" }}>
             {thread.subject}
           </span>
@@ -609,6 +627,15 @@ export default function MessagesView({
   actorName,
   isStaff,
   isHeadCoach,
+  // Group Messaging G2 — true only for a REAL team_coaches row with role
+  // head_coach or assistant_coach (never booster, never a platform admin —
+  // see the G1 server's own authorization, which this must match exactly
+  // since this boolean only controls UI visibility; the server remains
+  // authoritative regardless of what this prop says). Computed by the
+  // server page (CommunicationsView's own caller) from the actual
+  // TeamActor, never inferred client-side from isStaff/isHeadCoach, which
+  // both admit booster/platform_admin in ways this must not.
+  canCreateGroup = false,
   primaryColor,
   onUnreadChange,
 }: {
@@ -619,12 +646,14 @@ export default function MessagesView({
   actorName: string;
   isStaff: boolean;
   isHeadCoach?: boolean;
+  canCreateGroup?: boolean;
   primaryColor: string;
   onUnreadChange?: (count: number) => void;
 }) {
   const router = useRouter();
   const [threads, setThreads] = useState<ThreadWithDetails[]>(initialThreads);
   const [showCompose, setShowCompose] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [hcTab, setHcTab] = useState<"forMe" | "oversight">("forMe");
 
   // Live refresh: a thread being read (ThreadView), or a new one being
@@ -690,21 +719,45 @@ export default function MessagesView({
             Messages
           </h2>
         </div>
-        <button
-          onClick={() => setShowCompose(true)}
-          aria-label="Start a new message"
-          className="elf-focus-ring"
-          style={{
-            background: "var(--team-primary)", color: "var(--team-primary-foreground)",
-            border: "none", borderRadius: "var(--radius-md)",
-            padding: ".4rem .85rem",
-            fontSize: ".78rem", fontWeight: 700,
-            cursor: "pointer",
-            display: "flex", alignItems: "center", gap: ".3rem",
-          }}
-        >
-          <Plus size={14} aria-hidden="true" /> New
-        </button>
+        <div style={{ display: "flex", gap: ".4rem" }}>
+          <button
+            onClick={() => setShowCompose(true)}
+            aria-label="Start a new message"
+            className="elf-focus-ring"
+            style={{
+              background: "var(--team-primary)", color: "var(--team-primary-foreground)",
+              border: "none", borderRadius: "var(--radius-md)",
+              padding: ".4rem .85rem",
+              fontSize: ".78rem", fontWeight: 700,
+              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: ".3rem",
+            }}
+          >
+            <Plus size={14} aria-hidden="true" /> New
+          </button>
+          {/* Group Messaging G2 — coach-only entry point. Visibility is a
+              UX convenience only; the G1 server endpoint independently
+              enforces the exact same head_coach/assistant_coach-only rule
+              regardless of what this button shows, so there's no way to
+              reach group creation by forging this prop. */}
+          {canCreateGroup && (
+            <button
+              onClick={() => setShowCreateGroup(true)}
+              aria-label="Create a new group"
+              className="elf-focus-ring"
+              style={{
+                background: "#fff", color: "var(--team-primary)",
+                border: "1.5px solid var(--team-primary)", borderRadius: "var(--radius-md)",
+                padding: ".4rem .85rem",
+                fontSize: ".78rem", fontWeight: 700,
+                cursor: "pointer",
+                display: "flex", alignItems: "center", gap: ".3rem",
+              }}
+            >
+              <Users size={14} aria-hidden="true" /> New Group
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Head Coach only: For Me / Oversight — separates threads where this
@@ -797,6 +850,15 @@ export default function MessagesView({
           primaryColor={primaryColor}
           onClose={() => setShowCompose(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          slug={slug}
+          primaryColor={primaryColor}
+          onClose={() => setShowCreateGroup(false)}
+          onCreated={threadId => { setShowCreateGroup(false); handleCreated(threadId); }}
         />
       )}
     </div>
