@@ -6,6 +6,7 @@ import {
   getThreadParticipants,
   getMessagesForThread,
   isParticipant,
+  canManageGroupThread,
   type ActorKey,
 } from "@/lib/messages";
 import ThreadView from "./ThreadView";
@@ -41,6 +42,22 @@ export default async function ThreadPage({
 
   const messages = await getMessagesForThread(threadId, actorKey);
 
+  // Group Messaging G2 — computed server-side, exactly matching the G1
+  // management endpoints' own authorization (canManageGroupThread), so the
+  // UI's "Manage Group" entry point can never show for an actor the server
+  // would reject. canManageGroupThread() is a pure function from the
+  // server-only lib/messages.ts module (reads node:crypto/service-role env
+  // at module scope) — safe to call here in a server component, but it
+  // cannot be imported into ThreadView.tsx itself ("use client"), hence
+  // passing the already-resolved boolean down instead of the raw thread
+  // metadata needed to recompute it client-side.
+  const canManageGroup =
+    thread.thread_type === "group" &&
+    actor.kind === "coach" &&
+    (actor.session.role === "head_coach" || actor.session.role === "assistant_coach") &&
+    canManageGroupThread(actor.session.role, actor.session.id, thread);
+  const canArchiveGroup = thread.thread_type === "group" && actor.kind === "coach" && actor.session.role === "head_coach";
+
   return (
     <ThreadView
       slug={slug}
@@ -51,6 +68,8 @@ export default async function ThreadPage({
       actorId={actorKey.id}
       actorName={actor.session.name}
       primaryColor={settings.primary_color}
+      canManageGroup={canManageGroup}
+      canArchiveGroup={canArchiveGroup}
     />
   );
 }

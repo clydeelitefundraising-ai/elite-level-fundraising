@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Megaphone, MessageCircle } from "lucide-react";
 import type { AnnouncementRow, TeamFileRow } from "@/lib/teamData";
-import { isHeadCoach, type TeamActor } from "@/lib/permissions";
+import { isHeadCoach, isCoachOnlyRole, type TeamActor } from "@/lib/permissions";
 import type { ThreadWithDetails } from "@/lib/messages";
 import UpdatesWorkspaceView from "../files/UpdatesWorkspaceView";
 import MessagesView from "../messages/MessagesView";
@@ -178,6 +178,15 @@ export default function CommunicationsView({
             actorName={actorName!}
             isStaff={isStaff}
             isHeadCoach={isHeadCoach(actor)}
+            // Group Messaging G2 — exactly the G1 server's own creation
+            // rule (team_coaches role head_coach/assistant_coach only),
+            // computed from the real TeamActor rather than isStaff/
+            // isHeadCoach, which both admit booster/platform_admin in ways
+            // the G1 endpoint explicitly does not. permissions.ts is
+            // client-safe (no server-only imports), so this is computed
+            // directly here rather than threaded down as a second new prop
+            // from the server page.
+            canCreateGroup={actor.kind === "coach" && isCoachOnlyRole(actor.session.role)}
             primaryColor={primaryColor}
             onUnreadChange={setDmUnreadCount}
           />
