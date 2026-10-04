@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
-import { updateAthlete, deleteAthlete } from "@/lib/supabase";
+import { updateAthlete } from "@/lib/supabase";
+import { deleteAthleteWithMessagingCleanup } from "@/lib/platform/athletes";
 import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
 
 async function authed(): Promise<boolean> {
@@ -38,7 +39,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  await deleteAthlete(id);
+  // G3A review correction: messaging access (any active group
+  // participant/auto-included family identity tied to this athlete's
+  // roster assignments) is now cleaned up BEFORE the athlete row itself is
+  // deleted — see deleteAthleteWithMessagingCleanup()'s own comment for why
+  // the ordering matters and what happens if cleanup fails.
+  const result = await deleteAthleteWithMessagingCleanup(id);
+  if (!result.ok) {
+    if (result.reason === "not_found") {
+      return NextResponse.json({ error: "Athlete not found." }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Failed to delete athlete." }, { status: 500 });
+  }
   logAuditEvent({
     actor: ADMIN_TOOL_ACTOR,
     action:      "athlete.deleted",

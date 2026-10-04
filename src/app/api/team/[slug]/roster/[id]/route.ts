@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
+import { validateAthleteForCampaign, deleteAthleteWithMessagingCleanup } from "@/lib/platform/athletes";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -63,18 +64,23 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Only head coaches can delete athletes." }, { status: 403 });
   }
 
-  // return=representation (rather than minimal) so the deleted athlete's
-  // name is available for the audit summary without a second round trip —
-  // this is a destructive, low-frequency action, worth the one extra field.
-  const res = await fetch(
-    `${BASE}/rest/v1/athletes?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
-    { method: "DELETE", headers: h({ Prefer: "return=representation" }) },
-  );
+  // Read the athlete first (for the audit summary's name, and to confirm
+  // it actually belongs to this campaign) before deleting — same campaign
+  // scoping the old raw DELETE query enforced.
+  const athlete = await validateAthleteForCampaign(id, slug);
+  if (!athlete) return NextResponse.json({ error: "Athlete not found" }, { status: 404 });
 
-  if (!res.ok) return NextResponse.json({ error: "Failed to delete athlete" }, { status: 500 });
+  // G3A review correction: messaging access (any active group
+  // participant/auto-included family identity tied to this athlete's
+  // roster assignments) is now cleaned up BEFORE the athlete row itself is
+  // deleted — see deleteAthleteWithMessagingCleanup()'s own comment for why
+  // the ordering matters and what happens if cleanup fails.
+  const result = await deleteAthleteWithMessagingCleanup(id, slug);
+  if (!result.ok) {
+    return NextResponse.json({ error: "Failed to delete athlete" }, { status: 500 });
+  }
 
-  const deleted = await res.json().catch(() => []);
-  const athleteName = Array.isArray(deleted) && deleted[0]?.name ? deleted[0].name : id;
+  const athleteName = athlete.name;
 
   logAuditEvent({
     actor: toAuditActor(actor),
