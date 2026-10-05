@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  validateGroupNameClient, searchDirectoryEntries, MAX_GROUP_NAME_LENGTH, MAX_GROUP_SEARCH_RESULTS,
+  validateGroupNameClient, searchDirectoryEntries, MAX_GROUP_NAME_LENGTH, MAX_ROSTER_SEARCH_RESULTS,
   removalPayloadForParticipant, isLastActiveCoach,
   searchRosterAthletes, athleteMetaLabel, athleteJoinStatusLabel, athleteSecondaryLabel,
   buildManageGroupRows, countGroupPeople,
@@ -51,10 +51,10 @@ test("searchDirectoryEntries: excludes already-selected/active ids", () => {
   assert.deepEqual(results.map(r => r.id), ["a2"]);
 });
 
-test("searchDirectoryEntries: results are capped at MAX_GROUP_SEARCH_RESULTS", () => {
+test("searchDirectoryEntries: results are capped at MAX_ROSTER_SEARCH_RESULTS", () => {
   const big = Array.from({ length: 20 }, (_, i) => ({ id: `id-${i}`, name: `Match Athlete ${i}` }));
   const results = searchDirectoryEntries(big, "match", new Set());
-  assert.equal(results.length, MAX_GROUP_SEARCH_RESULTS);
+  assert.equal(results.length, MAX_ROSTER_SEARCH_RESULTS);
 });
 
 test("searchDirectoryEntries: selected people remain excluded even as the query changes (simulated via excludeIds)", () => {
@@ -226,12 +226,45 @@ test("searchRosterAthletes: no match returns an empty array", () => {
   assert.deepEqual(searchRosterAthletes(FULL_ROSTER, "zzz", new Set()), []);
 });
 
-test("searchRosterAthletes: results capped at MAX_GROUP_SEARCH_RESULTS", () => {
+test("searchRosterAthletes: results capped at MAX_ROSTER_SEARCH_RESULTS", () => {
   const big: RosterAthleteEntry[] = Array.from({ length: 20 }, (_, i) => ({
     id: `id-${i}`, name: `Match Athlete ${i}`, event: null, classYear: null, joined: false,
   }));
   const results = searchRosterAthletes(big, "match", new Set());
-  assert.equal(results.length, MAX_GROUP_SEARCH_RESULTS);
+  assert.equal(results.length, MAX_ROSTER_SEARCH_RESULTS);
+});
+
+// ── G3C bugfix: searchRosterAthletes() generic reuse for the DM Athlete tab ──
+//
+// MessagesView.tsx's ComposeModal passes a richer entry (athleteId,
+// teamMemberId, photo_url, plus the RosterAthleteEntry fields via an `id`
+// alias of athleteId) — these tests prove the generic signature actually
+// preserves those extra fields through search, rather than silently
+// narrowing the result to bare RosterAthleteEntry.
+
+type DmSearchEntry = RosterAthleteEntry & { athleteId: string; teamMemberId: string | null };
+
+const DM_ROSTER: DmSearchEntry[] = [
+  { id: "athlete-carter", athleteId: "athlete-carter", teamMemberId: "m-carter", name: "Carter Sanders", event: "Long Jump", classYear: "JR", joined: true },
+  { id: "athlete-colin",  athleteId: "athlete-colin",  teamMemberId: null,       name: "Colin Morgan",   event: "Triple Jump", classYear: "SR", joined: false },
+];
+
+test("searchRosterAthletes (DM reuse): a joined roster athlete's search result still carries its teamMemberId — the only valid DM recipient id", () => {
+  const results = searchRosterAthletes(DM_ROSTER, "carter", new Set());
+  assert.equal(results.length, 1);
+  assert.equal(results[0].teamMemberId, "m-carter");
+});
+
+test("searchRosterAthletes (DM reuse): an unjoined roster athlete's search result carries teamMemberId=null — never a fallback to athleteId", () => {
+  const results = searchRosterAthletes(DM_ROSTER, "colin", new Set());
+  assert.equal(results.length, 1);
+  assert.equal(results[0].teamMemberId, null);
+  assert.notEqual(results[0].teamMemberId, results[0].athleteId);
+});
+
+test("searchRosterAthletes (DM reuse): search by event/classYear still works with the richer DM entry shape", () => {
+  assert.deepEqual(searchRosterAthletes(DM_ROSTER, "triple jump", new Set()).map(r => r.athleteId), ["athlete-colin"]);
+  assert.deepEqual(searchRosterAthletes(DM_ROSTER, "jr", new Set()).map(r => r.athleteId), ["athlete-carter"]);
 });
 
 // ── athleteMetaLabel / athleteJoinStatusLabel / athleteSecondaryLabel ───────

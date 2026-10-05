@@ -31,7 +31,9 @@ export function validateGroupNameClient(raw: string): GroupNameValidationResult 
 // this is a different directory shape (DirectoryEntry, with a `role`
 // field), and the two features shouldn't be coupled just because the
 // search behavior rhymes.
-export const MAX_GROUP_SEARCH_RESULTS = 8;
+// G3C: renamed from MAX_GROUP_SEARCH_RESULTS — this cap is now shared by
+// both the group picker and the DM Athlete tab's roster search.
+export const MAX_ROSTER_SEARCH_RESULTS = 8;
 
 export function searchDirectoryEntries<T extends { id: string; name: string }>(
   entries: T[],
@@ -45,7 +47,7 @@ export function searchDirectoryEntries<T extends { id: string; name: string }>(
     if (excludeIds.has(entry.id)) continue;
     if (!entry.name.toLowerCase().includes(q)) continue;
     results.push(entry);
-    if (results.length >= MAX_GROUP_SEARCH_RESULTS) break;
+    if (results.length >= MAX_ROSTER_SEARCH_RESULTS) break;
   }
   return results;
 }
@@ -66,20 +68,27 @@ export type RosterAthleteEntry = {
   joined:    boolean;
 };
 
-export function searchRosterAthletes(
-  entries: RosterAthleteEntry[],
+// G3C: generic over any T extending RosterAthleteEntry — lets a caller pass
+// a richer entry (e.g. the DM Athlete tab's entries, which also carry
+// athleteId/teamMemberId/photo_url) and get that same richer type back,
+// rather than losing those fields to the narrower RosterAthleteEntry return
+// type. Backward-compatible: every existing call site passing exactly
+// RosterAthleteEntry[] is unaffected (T is simply inferred as
+// RosterAthleteEntry).
+export function searchRosterAthletes<T extends RosterAthleteEntry>(
+  entries: T[],
   query: string,
   excludeIds: ReadonlySet<string>,
-): RosterAthleteEntry[] {
+): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const results: RosterAthleteEntry[] = [];
+  const results: T[] = [];
   for (const entry of entries) {
     if (excludeIds.has(entry.id)) continue;
     const haystack = `${entry.name} ${entry.event ?? ""} ${entry.classYear ?? ""}`.toLowerCase();
     if (!haystack.includes(q)) continue;
     results.push(entry);
-    if (results.length >= MAX_GROUP_SEARCH_RESULTS) break;
+    if (results.length >= MAX_ROSTER_SEARCH_RESULTS) break;
   }
   return results;
 }

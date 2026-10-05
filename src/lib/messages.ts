@@ -424,6 +424,44 @@ export function resolvePhotoUrl(
     ?? null;
 }
 
+// G3C bugfix — the identity merge behind the DM ComposeModal's Athlete tab
+// (GET /api/team/[slug]/messages/directory). Pure, no fetch: given the FULL
+// roster's athlete ids and a set of candidate team_members rows, resolves
+// which roster athletes are currently joined and what their team_members.id
+// is — the ONLY id that may ever be sent back to the server as a DM
+// recipient_id. Joins strictly by the real FK (team_members.athlete_id ===
+// athletes.id), NEVER by name — two athletes sharing a name can never be
+// confused, since the lookup key is always the exact athlete_id value.
+// Independently re-enforces both campaign scoping and role==='athlete' here
+// (never trusting the caller's query alone), so a cross-campaign
+// team_members row, or a PARENT's row (whose own athlete_id points at a
+// LINKED CHILD, not at "themselves"), can never mark a roster athlete as
+// joined — only a genuine athlete-role, same-campaign team_members row
+// ever does.
+export type AthleteMembershipLink = {
+  athleteId:    string;
+  teamMemberId: string | null;
+  joined:       boolean;
+};
+
+export function linkAthleteRosterToMembers(
+  campaignSlug: string,
+  athleteIds: string[],
+  members: { id: string; athlete_id: string | null; role: string; campaign_slug: string }[],
+): AthleteMembershipLink[] {
+  const teamMemberIdByAthleteId = new Map<string, string>();
+  for (const m of members) {
+    if (m.campaign_slug !== campaignSlug) continue;
+    if (m.role !== "athlete") continue;
+    if (!m.athlete_id) continue;
+    teamMemberIdByAthleteId.set(m.athlete_id, m.id);
+  }
+  return athleteIds.map(athleteId => {
+    const teamMemberId = teamMemberIdByAthleteId.get(athleteId) ?? null;
+    return { athleteId, teamMemberId, joined: teamMemberId !== null };
+  });
+}
+
 type RawParticipant = {
   id: string;
   thread_id: string;
