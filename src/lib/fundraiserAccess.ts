@@ -32,3 +32,41 @@ export function resolveFundraiserRouteView(fundraisingEnabled: boolean, actor: T
   }
   return "unavailable";
 }
+
+/** Minimal shape both server-side consumers below need — a real
+ *  CampaignSettings row always satisfies this; kept narrow so callers don't
+ *  need to import the full supabase.ts type into every test file. */
+export type CampaignActiveState = { archived?: boolean; fundraising_enabled?: boolean };
+
+/** Phase F1c — single shared precedence decision for "can a donation be
+ *  created for this campaign right now," reused by both /api/checkout
+ *  (the actual payment gate) and /api/campaign-stats/[slug] (deciding
+ *  whether to return full fundraising data or a minimal inactive
+ *  payload) — so the two surfaces can never disagree about what counts as
+ *  active. Precedence, exactly as locked in F1a/F1b: archived wins first
+ *  (an archived campaign never accepts donations regardless of
+ *  fundraising_enabled); otherwise fundraising_enabled decides, falling
+ *  back to `true` when the column is absent from an older/unmigrated row
+ *  (never interpret missing/null as disabled — see phase_f1a's backfill
+ *  rationale). A missing settings row entirely is NOT this function's
+ *  concern — callers keep their own existing invalid-campaign handling
+ *  for that case and never call this with an absent row. */
+export function isCampaignAcceptingDonations(settings: CampaignActiveState): boolean {
+  if (settings.archived) return false;
+  return settings.fundraising_enabled ?? true;
+}
+
+export type PublicCampaignState = "ended" | "not-started" | "live";
+
+/** Phase F1c — the same precedence as isCampaignAcceptingDonations above,
+ *  expressed as the three public-page states CampaignPageClient.tsx
+ *  already renders (archived -> ended wins; else fundraising_enabled=false
+ *  -> not-started; else live). Used server-side by
+ *  /api/campaign-stats/[slug] to decide whether to run the full
+ *  donations/leaderboard/sponsor fetch or return the minimal payload those
+ *  two inactive states actually need. */
+export function resolvePublicCampaignState(settings: CampaignActiveState): PublicCampaignState {
+  if (settings.archived) return "ended";
+  if (!(settings.fundraising_enabled ?? true)) return "not-started";
+  return "live";
+}

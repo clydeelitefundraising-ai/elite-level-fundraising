@@ -1,10 +1,39 @@
 import { NextResponse } from "next/server";
 import { getDonations, getCampaignSettings, getAthletes, getSponsors, getFundUses } from "@/lib/supabase";
+import type { CampaignSettings } from "@/lib/supabase";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { resolveTeamLogoUrl } from "@/lib/shareCopy";
 import { getActiveCoachFundraisers, getCoachTotals } from "@/lib/platform/coachFundraising";
+import { resolvePublicCampaignState } from "@/lib/fundraiserAccess";
 
 export const dynamic = "force-dynamic";
+
+// Phase F1c — the minimum public payload needed to render the existing
+// "campaign ended" (archived) or "Fundraising hasn't started yet"
+// (fundraising_enabled=false) branded states in CampaignPageClient.tsx.
+// Both of those branches only ever read school_name/sport_name/season (plus
+// the ElfMark static brand logo, not team branding) — never donations,
+// leaderboard, athlete totals, sponsor data, or fund-use copy — so none of
+// that is fetched or returned here. `raised`/`donors`/`athleteTotals`/
+// `recentDonations` are still present (zeroed/empty) because
+// CampaignPageClient's fetch handler requires `typeof data.raised ===
+// "number"` before it processes the response at all; omitting them would
+// make the response silently ignored and leave the client's state at its
+// stale/default values instead of rendering the inactive state.
+function buildInactiveCampaignStatsPayload(settings: CampaignSettings) {
+  return {
+    raised:          0,
+    donors:          0,
+    athleteTotals:   {},
+    recentDonations: [],
+    school_name:     settings.school_name,
+    sport_name:      settings.sport_name,
+    season:          settings.season,
+    archived:        settings.archived ?? false,
+    fundraising_enabled: settings.fundraising_enabled ?? true,
+    allow_coach_fundraising: false,
+  };
+}
 
 export async function GET(
   _req: Request,
@@ -13,6 +42,18 @@ export async function GET(
   const { slug } = await params;
 
   try {
+    // Phase F1c — campaign state is resolved FIRST, before any donation/
+    // athlete/sponsor/fund-use/coach-fundraising query, so an archived or
+    // not-yet-active campaign triggers none of that work (data
+    // minimization + query reduction). A missing settings row falls
+    // through to the existing full-fetch path unchanged — this route has
+    // never validated campaign existence beyond "if settings exist, use
+    // them," and F1c isn't scoped to change that.
+    const settingsForState = await getCampaignSettings(slug);
+    if (settingsForState && resolvePublicCampaignState(settingsForState) !== "live") {
+      return NextResponse.json(buildInactiveCampaignStatsPayload(settingsForState));
+    }
+
     const donations = await getDonations(slug);
 
     const raisedCents = donations.reduce((sum, d) => sum + d.amount_cents, 0);
@@ -61,7 +102,12 @@ export async function GET(
     let allowCoachFundraising = false;
 
     try {
-      const settings = await getCampaignSettings(slug);
+      // Phase F1c: reuse the row already fetched above to resolve the
+      // campaign state — never re-fetch it. At this point it's either
+      // null (invalid/missing campaign, unchanged pre-F1c behavior) or a
+      // "live" (not archived, fundraising_enabled) row, since anything
+      // else already returned the minimal payload above.
+      const settings = settingsForState;
       if (settings) {
         goal = settings.goal_cents / 100;
         // Phase 3D: additive, fundraising-facing-only field — derived

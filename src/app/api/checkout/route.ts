@@ -3,6 +3,8 @@ import { validateAthleteForCampaign } from "@/lib/platform/athletes";
 import { validateCoachForCampaign, getCoachById } from "@/lib/platform/coachFundraising";
 import { consumeRateLimit, rateLimitKey } from "@/lib/rateLimit";
 import { getDonationAmountError } from "@/lib/checkoutLimits";
+import { getCampaignSettings } from "@/lib/supabase";
+import { isCampaignAcceptingDonations } from "@/lib/fundraiserAccess";
 
 export async function POST(req: NextRequest) {
   const rl = await consumeRateLimit(rateLimitKey("checkout", req), {
@@ -31,6 +33,33 @@ export async function POST(req: NextRequest) {
 
   if (!campaignSlug) {
     return NextResponse.json({ error: "campaignSlug is required." }, { status: 400 });
+  }
+
+  // Phase F1c — server-authoritative state gate, BEFORE any Stripe call or
+  // other validation work below. Never trusts the client/public-page state:
+  // loads campaign_settings itself and applies the same archived-first,
+  // then-fundraising_enabled precedence as the public page and the
+  // fundraiser route (src/lib/fundraiserAccess.ts). campaign_settings is
+  // now the authoritative source for whether a fundraiser may accept
+  // donations at all — a slug with NO settings row is rejected here too
+  // (distinct 404, never silently allowed through to Stripe), same as
+  // every other campaign-scoped route's "Campaign not found." convention
+  // (see e.g. src/app/api/admin/campaigns/[slug]/route.ts,
+  // src/app/api/team/[slug]/fundraising-inquiries/route.ts). This is
+  // deliberately distinct from the 403 below: 404 means "this fundraiser
+  // doesn't exist," 403 means "it exists but isn't currently accepting
+  // donations" — a real settings row with fundraising_enabled missing/null
+  // still passes (isCampaignAcceptingDonations' own `?? true` fallback),
+  // which is the one backwards-compatibility case this gate must preserve.
+  const campaignSettings = await getCampaignSettings(campaignSlug);
+  if (!campaignSettings) {
+    return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
+  }
+  if (!isCampaignAcceptingDonations(campaignSettings)) {
+    return NextResponse.json(
+      { error: "This fundraiser is not currently accepting donations." },
+      { status: 403 },
+    );
   }
 
   // A donation is never attributed to both an athlete and a coach — reject
