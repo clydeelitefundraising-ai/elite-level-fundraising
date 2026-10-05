@@ -8,6 +8,9 @@ import {
   roleLabel, otherParticipants, isFamilyThread, selfParticipantRow,
   isGroupThread, threadDisplayTitle,
 } from "./_shared/participantDisplay";
+import {
+  searchRosterAthletes, athleteMetaLabel, athleteJoinStatusLabel, type RosterAthleteEntry,
+} from "./_shared/groupMessaging";
 import Avatar from "./_shared/Avatar";
 import AttachmentPickerButton from "./_shared/AttachmentPickerButton";
 import AttachmentComposerBar from "./_shared/AttachmentComposerBar";
@@ -164,7 +167,26 @@ function ThreadCard({
 // ─── Compose modal ────────────────────────────────────────────────────────────
 
 type DirectoryEntry = { id: string; name: string; role: string; athlete_id?: string | null; photo_url?: string | null };
-type Directory = { coaches: DirectoryEntry[]; athletes: DirectoryEntry[]; parents: DirectoryEntry[] };
+// G3C bugfix — the Athlete tab's entries are no longer joined-only
+// team_members rows. athleteId (athletes.id) is ALWAYS present (used for
+// display/search/keys); teamMemberId (team_members.id) is the ONLY field
+// that may ever be sent back to the server as a DM recipient_id, and is
+// null for a roster athlete who hasn't joined ELF yet.
+type DmAthleteEntry = {
+  athleteId: string;
+  teamMemberId: string | null;
+  name: string;
+  event: string | null;
+  classYear: string | null;
+  joined: boolean;
+  photo_url: string | null;
+};
+// Satisfies groupMessaging.ts's RosterAthleteEntry (id/name/event/classYear/
+// joined) via its `id` alias of athleteId, so searchRosterAthletes() can be
+// reused as-is — never a second, duplicated search implementation for this
+// surface.
+type DmAthleteSearchEntry = RosterAthleteEntry & DmAthleteEntry;
+type Directory = { coaches: DirectoryEntry[]; athletes: DmAthleteEntry[]; parents: DirectoryEntry[] };
 
 type RecipientType = "athlete" | "parent" | "coach";
 type ComposeStep = "recipient" | "message";
@@ -183,6 +205,12 @@ function ComposeModal({
   onCreated: (threadId: string) => void;
 }) {
   const [dir, setDir] = useState<Directory | null>(null);
+  // G3C bugfix — same fetchFailed distinction already shipped for the Group
+  // picker (GroupParticipantPicker.tsx): a failed directory fetch previously
+  // left `dir` null forever, rendering an indefinite "Loading…" rather than
+  // a retryable error. Scoped to the Athlete tab's own render branch below —
+  // Parent/Coach tabs are explicitly left exactly as they were.
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [recipientType, setRecipientType] = useState<RecipientType | null>(
     isStaff ? null : "coach",
   );
@@ -198,9 +226,9 @@ function ComposeModal({
 
   useEffect(() => {
     fetch(`/api/team/${slug}/messages/directory`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d && setDir(d))
-      .catch(() => {});
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`directory fetch failed: ${r.status}`))))
+      .then(d => setDir(d))
+      .catch(() => setFetchFailed(true));
   }, [slug]);
 
   useEffect(() => {
@@ -216,11 +244,22 @@ function ComposeModal({
     if (step === "message") textareaRef.current?.focus();
   }, [step]);
 
+  const isAthleteTab = recipientType === "athlete";
+
+  // G3C bugfix — the Athlete tab is search-first over the FULL roster
+  // (joined or not). teamMemberId is the only field ever written into
+  // recipientId; an unjoined athlete's row never produces one.
+  const athletePool: DmAthleteSearchEntry[] = (dir?.athletes ?? []).map(a => ({ id: a.athleteId, ...a }));
+  const athleteQuery = search.trim();
+  const athleteResults = athleteQuery ? searchRosterAthletes(athletePool, athleteQuery, new Set<string>()) : [];
+
+  // Parent/Coach tabs — UNCHANGED data source, shape, and non-search-first
+  // (always-shown) behavior.
   const recipients: DirectoryEntry[] = recipientType === "coach"
     ? (dir?.coaches ?? [])
-    : recipientType === "athlete"
-      ? (dir?.athletes ?? [])
-      : (dir?.parents ?? []);
+    : recipientType === "parent"
+      ? (dir?.parents ?? [])
+      : [];
 
   const query = search.trim().toLowerCase();
   const filteredRecipients = query
@@ -231,7 +270,14 @@ function ComposeModal({
     : recipientType === "parent" ? "Search parents"
     : "Search coaches";
 
-  const selectedRecipient = recipients.find(r => r.id === recipientId);
+  // G3C bugfix: an athlete recipient's id is now teamMemberId, resolved
+  // from athletePool (not `recipients`, which the Athlete tab no longer
+  // populates) and reshaped into the same DirectoryEntry display shape
+  // Step 2's header already expects.
+  const selectedAthlete = isAthleteTab ? athletePool.find(a => a.teamMemberId === recipientId) : undefined;
+  const selectedRecipient: DirectoryEntry | undefined = selectedAthlete
+    ? { id: selectedAthlete.teamMemberId as string, name: selectedAthlete.name, role: "athlete", photo_url: selectedAthlete.photo_url }
+    : recipients.find(r => r.id === recipientId);
   const actorType = recipientType === "coach" ? "coach" : "member";
 
   const safetyNote = recipientType === "athlete"
@@ -447,57 +493,131 @@ function ComposeModal({
                 <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280", marginBottom: ".5rem" }}>
                   {isStaff ? "Choose recipient" : "Choose coach"}
                 </div>
-                {dir && recipients.length > 0 && (
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder={searchLabel}
-                    aria-label={searchLabel}
-                    style={{
-                      width: "100%", padding: ".55rem .7rem", marginBottom: ".5rem",
-                      borderRadius: 10, border: "1.5px solid #e5e7eb",
-                      fontSize: "1rem", color: "#374151", boxSizing: "border-box",
-                    }}
-                  />
-                )}
-                {dir ? (
-                  recipients.length === 0 ? (
-                    <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No one to message here yet.</div>
-                  ) : filteredRecipients.length === 0 ? (
-                    <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: ".4rem 0" }}>
-                      No matches for &ldquo;{search.trim()}&rdquo;.
-                    </div>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
-                      {filteredRecipients.map(r => {
-                        const active = r.id === recipientId;
-                        return (
-                          <button
-                            key={r.id}
-                            onClick={() => setRecipientId(r.id)}
-                            style={{
-                              display: "flex", alignItems: "center", gap: ".6rem",
-                              padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
-                              border: `1.5px solid ${active ? primaryColor : "#e5e7eb"}`,
-                              background: active ? `${primaryColor}12` : "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <Avatar name={r.name} photoUrl={r.photo_url ?? null} size={34} />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {r.name}
+
+                {isAthleteTab ? (
+                  <>
+                    {/* G3C bugfix — search-first over the FULL roster. The
+                        search box itself is hidden only when there's
+                        genuinely no roster to search (distinct from "roster
+                        exists but search hasn't started yet", which shows
+                        the box plus a neutral prompt below). */}
+                    {dir && athletePool.length > 0 && (
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder={searchLabel}
+                        aria-label={searchLabel}
+                        style={{
+                          width: "100%", padding: ".55rem .7rem", marginBottom: ".5rem",
+                          borderRadius: 10, border: "1.5px solid #e5e7eb",
+                          fontSize: "1rem", color: "#374151", boxSizing: "border-box",
+                        }}
+                      />
+                    )}
+                    {fetchFailed ? (
+                      <div role="alert" style={{ fontSize: ".82rem", color: "#dc2626" }}>
+                        Couldn&apos;t load the roster. Try again.
+                      </div>
+                    ) : !dir ? (
+                      <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
+                    ) : athletePool.length === 0 ? (
+                      <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No athletes are on the roster yet.</div>
+                    ) : !athleteQuery ? (
+                      <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>Search your roster to message an athlete.</div>
+                    ) : athleteResults.length === 0 ? (
+                      <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: ".4rem 0" }}>No matching athletes.</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                        {athleteResults.map(a => {
+                          const selectable = a.teamMemberId !== null;
+                          const active = selectable && a.teamMemberId === recipientId;
+                          const meta = athleteMetaLabel(a.event, a.classYear);
+                          const joinStatus = athleteJoinStatusLabel(a.joined);
+                          return (
+                            <button
+                              key={a.athleteId}
+                              type="button"
+                              disabled={!selectable}
+                              aria-disabled={!selectable}
+                              onClick={() => selectable && setRecipientId(a.teamMemberId as string)}
+                              style={{
+                                display: "flex", alignItems: "center", gap: ".6rem",
+                                padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
+                                border: `1.5px solid ${active ? primaryColor : "#e5e7eb"}`,
+                                background: active ? `${primaryColor}12` : "#fff",
+                                cursor: selectable ? "pointer" : "default",
+                              }}
+                            >
+                              <Avatar name={a.name} photoUrl={a.photo_url} size={34} />
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {a.name}
+                                </div>
+                                {meta && <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{meta}</div>}
+                                {joinStatus && <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{joinStatus}</div>}
                               </div>
-                              <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{roleLabel(r.role)}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
+                  <>
+                    {dir && recipients.length > 0 && (
+                      <input
+                        type="text"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder={searchLabel}
+                        aria-label={searchLabel}
+                        style={{
+                          width: "100%", padding: ".55rem .7rem", marginBottom: ".5rem",
+                          borderRadius: 10, border: "1.5px solid #e5e7eb",
+                          fontSize: "1rem", color: "#374151", boxSizing: "border-box",
+                        }}
+                      />
+                    )}
+                    {dir ? (
+                      recipients.length === 0 ? (
+                        <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No one to message here yet.</div>
+                      ) : filteredRecipients.length === 0 ? (
+                        <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: ".4rem 0" }}>
+                          No matches for &ldquo;{search.trim()}&rdquo;.
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+                          {filteredRecipients.map(r => {
+                            const active = r.id === recipientId;
+                            return (
+                              <button
+                                key={r.id}
+                                onClick={() => setRecipientId(r.id)}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: ".6rem",
+                                  padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
+                                  border: `1.5px solid ${active ? primaryColor : "#e5e7eb"}`,
+                                  background: active ? `${primaryColor}12` : "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Avatar name={r.name} photoUrl={r.photo_url ?? null} size={34} />
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {r.name}
+                                  </div>
+                                  <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{roleLabel(r.role)}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )
+                    ) : (
+                      <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
+                    )}
+                  </>
                 )}
               </div>
             )}

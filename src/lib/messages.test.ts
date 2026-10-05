@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolvePhotoUrl,
+  linkAthleteRosterToMembers,
   classifyAttachmentMime,
   safeExtensionForMime,
   validateAttachmentFile,
@@ -66,6 +67,103 @@ test("resolvePhotoUrl: platform admin resolves via its own elf_accounts join whe
 test("resolvePhotoUrl: null when no actor has a resolvable photo at all", () => {
   assert.equal(resolvePhotoUrl(null, null, null), null);
   assert.equal(resolvePhotoUrl(null, null, { elf_accounts: null }), null);
+});
+
+// ─── G3C bugfix: linkAthleteRosterToMembers (DM Athlete tab identity merge) ────
+//
+// The single pure function behind GET /messages/directory's athlete branch.
+// Joins strictly by the real FK (team_members.athlete_id === athletes.id),
+// never by name — these tests specifically lock that in, plus the
+// campaign-isolation and role-enforcement the function independently
+// re-checks rather than trusting its caller's query alone.
+
+const SLUG = "wolves";
+const OTHER_SLUG = "hawks";
+
+test("linkAthleteRosterToMembers: a joined athlete resolves joined=true with the exact team_members.id", () => {
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter"],
+    [{ id: "m-carter", athlete_id: "athlete-carter", role: "athlete", campaign_slug: SLUG }],
+  );
+  assert.deepEqual(result, [{ athleteId: "athlete-carter", teamMemberId: "m-carter", joined: true }]);
+});
+
+test("linkAthleteRosterToMembers: an unjoined athlete resolves joined=false, teamMemberId=null", () => {
+  const result = linkAthleteRosterToMembers(SLUG, ["athlete-colin"], []);
+  assert.deepEqual(result, [{ athleteId: "athlete-colin", teamMemberId: null, joined: false }]);
+});
+
+test("linkAthleteRosterToMembers: athleteId in the result always equals the input athletes.id, never a team_members id", () => {
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter"],
+    [{ id: "m-carter", athlete_id: "athlete-carter", role: "athlete", campaign_slug: SLUG }],
+  );
+  assert.equal(result[0].athleteId, "athlete-carter");
+  assert.notEqual(result[0].athleteId, result[0].teamMemberId);
+});
+
+test("linkAthleteRosterToMembers: joins strictly by athlete_id — same-named athletes are never confused", () => {
+  // Two different roster athletes who happen to share a name; only one has
+  // joined. If this ever matched by name instead of athlete_id, both would
+  // incorrectly resolve to the same team_members row.
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-1", "athlete-2"],
+    [{ id: "m-1", athlete_id: "athlete-1", role: "athlete", campaign_slug: SLUG }],
+  );
+  const byId = new Map(result.map(r => [r.athleteId, r]));
+  assert.equal(byId.get("athlete-1")?.teamMemberId, "m-1");
+  assert.equal(byId.get("athlete-1")?.joined, true);
+  assert.equal(byId.get("athlete-2")?.teamMemberId, null);
+  assert.equal(byId.get("athlete-2")?.joined, false);
+});
+
+test("linkAthleteRosterToMembers: a cross-campaign team_members row can NEVER mark a roster athlete joined", () => {
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter"],
+    [{ id: "m-other-team", athlete_id: "athlete-carter", role: "athlete", campaign_slug: OTHER_SLUG }],
+  );
+  assert.deepEqual(result, [{ athleteId: "athlete-carter", teamMemberId: null, joined: false }]);
+});
+
+test("linkAthleteRosterToMembers: a PARENT's team_members row can NEVER mark the linked athlete joined", () => {
+  // A parent's own team_members.athlete_id points at their LINKED CHILD,
+  // not at "themselves" — this is the legacy family-link column, and must
+  // never be read as "this athlete has an account."
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter"],
+    [{ id: "m-mom", athlete_id: "athlete-carter", role: "parent", campaign_slug: SLUG }],
+  );
+  assert.deepEqual(result, [{ athleteId: "athlete-carter", teamMemberId: null, joined: false }]);
+});
+
+test("linkAthleteRosterToMembers: a member row with a null athlete_id is safely skipped", () => {
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter"],
+    [{ id: "m-unlinked", athlete_id: null, role: "athlete", campaign_slug: SLUG }],
+  );
+  assert.deepEqual(result, [{ athleteId: "athlete-carter", teamMemberId: null, joined: false }]);
+});
+
+test("linkAthleteRosterToMembers: full mixed roster resolves each athlete independently and in input order", () => {
+  const result = linkAthleteRosterToMembers(
+    SLUG,
+    ["athlete-carter", "athlete-colin", "athlete-abby"],
+    [
+      { id: "m-carter", athlete_id: "athlete-carter", role: "athlete", campaign_slug: SLUG },
+      { id: "m-mom", athlete_id: "athlete-abby", role: "parent", campaign_slug: SLUG }, // must not affect Abby
+    ],
+  );
+  assert.deepEqual(result, [
+    { athleteId: "athlete-carter", teamMemberId: "m-carter", joined: true },
+    { athleteId: "athlete-colin", teamMemberId: null, joined: false },
+    { athleteId: "athlete-abby", teamMemberId: null, joined: false },
+  ]);
 });
 
 // ─── Phase 2: attachment validation (locked limits) ───────────────────────────
