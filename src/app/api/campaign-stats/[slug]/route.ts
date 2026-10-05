@@ -51,6 +51,7 @@ export async function GET(
     let logoUrl: string | undefined;
     let description: string | undefined;
     let archived: boolean | undefined;
+    let fundraisingEnabled: boolean | undefined;
     let layoutVariant: "classic" | "premium" | undefined;
     let visibility: Record<string, boolean> | undefined;
     let athletes: { id: string; name: string; event: string | null; class_year: string | null }[] | undefined;
@@ -88,6 +89,13 @@ export async function GET(
         if (resolvedLogo)             logoUrl        = resolvedLogo;
         if (settings.description)     description    = settings.description;
         archived = settings.archived ?? false;
+        // Phase F1b: orthogonal to `archived` (that one takes precedence —
+        // see CampaignPageClient.tsx's rendering order). Defaults to true
+        // for a campaign that predates the F1a column (matching the F1a
+        // backfill, which set every pre-existing row to true), so an
+        // older campaign row shape never regresses to the new "not
+        // started" empty state.
+        fundraisingEnabled = settings.fundraising_enabled ?? true;
         allowCoachFundraising = settings.allow_coach_fundraising ?? false;
         layoutVariant = settings.layout_variant ?? "classic";
         visibility = {
@@ -169,6 +177,7 @@ export async function GET(
       ...(athletes       !== undefined && { athletes }),
       ...(sponsors       !== undefined && { sponsors }),
       ...(archived       !== undefined && { archived }),
+      ...(fundraisingEnabled !== undefined && { fundraising_enabled: fundraisingEnabled }),
       ...(layoutVariant  !== undefined && { layout_variant: layoutVariant }),
       ...(visibility     !== undefined && visibility),
       ...(fundUses    !== undefined && { fund_uses: fundUses }),

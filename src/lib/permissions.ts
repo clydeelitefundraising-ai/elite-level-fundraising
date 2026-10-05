@@ -103,6 +103,22 @@ export function canManageStaff(actor: TeamActor): boolean {
   return isHeadCoach(actor);
 }
 
+/** Phase F1b — single source of truth for "should this actor see the
+ *  Fundraising nav item/route right now," shared by the mobile bottom nav
+ *  (TeamNav.tsx), the desktop sidebar (desktopNavItems.ts), and the
+ *  fundraiser route's own server-side gate, so the three surfaces can never
+ *  disagree. When fundraising is enabled for the team, this preserves the
+ *  EXACT existing behavior (visible to every role) — the flag only ever
+ *  narrows visibility when false, to coaching staff only (head_coach,
+ *  assistant_coach, or a platform admin — isCoachOnly's existing set,
+ *  reused rather than re-implemented), who still have an inquiry action
+ *  available. Booster, parent, and athlete never see it once fundraising
+ *  is disabled, matching the locked product decision exactly. */
+export function shouldShowFundraisingNav(fundraisingEnabled: boolean, actor: TeamActor): boolean {
+  if (fundraisingEnabled) return true;
+  return isCoachOnly(actor);
+}
+
 // ── Role-string helpers (for use with raw CoachSession.role values) ───────────
 
 /** True if a raw team_coaches role string carries destructive access. */

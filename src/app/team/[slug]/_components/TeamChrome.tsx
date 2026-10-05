@@ -24,6 +24,7 @@ export default function TeamChrome({
   settings,
   showSponsors,
   showRequests,
+  showFundraiser,
   announcementCount,
   latestAnnouncementAt,
   pendingAthleteRequestCount = 0,
@@ -38,6 +39,10 @@ export default function TeamChrome({
   settings: CampaignSettings;
   showSponsors: boolean;
   showRequests: boolean;
+  // Phase F1b — computed once in layout.tsx via permissions.ts's
+  // shouldShowFundraisingNav(), shared by both shells below so they can
+  // never disagree.
+  showFundraiser: boolean;
   announcementCount: number;
   latestAnnouncementAt: string | null;
   pendingAthleteRequestCount?: number;
@@ -109,6 +114,7 @@ export default function TeamChrome({
         <TeamNav
           slug={slug}
           showSponsors={showSponsors}
+          showFundraiser={showFundraiser}
           // D2a: no fundraiser badge — see desktopNavItems.ts's comment on
           // why donationStats.donor_count was removed from this slot.
           badgeCounts={{ communications: badge + messageBadge, team: pendingAthleteRequestCount }}
@@ -120,6 +126,7 @@ export default function TeamChrome({
           settings={settings}
           showSponsors={showSponsors}
           showRequests={showRequests}
+          showFundraiser={showFundraiser}
           communicationsBadge={badge}
           messagesBadge={messageBadge}
           pendingRequestCount={pendingAthleteRequestCount}

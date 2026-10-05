@@ -28,6 +28,11 @@ export type DesktopNavItem = {
 export function buildDesktopNavItems(params: {
   showSponsors: boolean;
   showRequests: boolean;
+  // Phase F1b — computed server-side via permissions.ts's
+  // shouldShowFundraisingNav(), the single shared source of truth also
+  // used by TeamNav.tsx (mobile) and the fundraiser route's own
+  // server-side gate. This function never re-derives the decision itself.
+  showFundraiser: boolean;
   communicationsBadge: number;
   messagesBadge: number;
   pendingRequestCount: number;
@@ -38,6 +43,9 @@ export function buildDesktopNavItems(params: {
     { key: "calendar", href: "calendar", label: "Calendar", icon: Calendar },
     { key: "communications", href: "communications", label: "Communications", icon: Megaphone, badge: params.communicationsBadge },
     { key: "messages", href: "messages", label: "Messages", icon: MessageCircle, badge: params.messagesBadge },
+  ];
+
+  if (params.showFundraiser) {
     // D2a: deliberately NO badge here. This item's badge used to be
     // donationStats.donor_count — an all-time donation-record count, not
     // an unread/pending/attention signal — which misused the same red
@@ -45,8 +53,8 @@ export function buildDesktopNavItems(params: {
     // The number itself is still shown, correctly, as plain informational
     // text on the Coach Dashboard's Fundraising card and the Fundraising
     // page — this only removes it from the nav badge slot.
-    { key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: DollarSign },
-  ];
+    items.push({ key: "fundraiser", href: "fundraiser", label: "Fundraising", icon: DollarSign });
+  }
 
   if (params.showSponsors) {
     items.push({ key: "sponsors", href: "sponsors", label: "Sponsors", icon: Handshake });

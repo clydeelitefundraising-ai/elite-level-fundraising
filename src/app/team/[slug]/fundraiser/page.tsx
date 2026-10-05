@@ -7,6 +7,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff } from "@/lib/permissions";
+import { resolveFundraiserRouteView } from "@/lib/fundraiserAccess";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { buildFollowUpRows, buildCoachFollowUpRows } from "@/lib/followUps";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/platform/coachFundraising";
 import { buildCoachShareUrl, buildCoachShareText } from "@/lib/shareCopy";
 import CoachShareButton from "./CoachShareButton";
+import FundraisingInquiryState from "./FundraisingInquiryState";
 import FundraiserView from "./FundraiserView";
 import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
 import AnalyticsView from "../analytics/AnalyticsView";
@@ -507,8 +509,21 @@ export default async function FundraiserPage({
 
   if (!settings) notFound();
 
+  // Phase F1b — single shared decision (src/lib/fundraiserAccess.ts) for
+  // every branch below. "dashboard" is byte-for-byte the pre-F1b behavior
+  // (all 8 production campaigns have fundraising_enabled=true today — see
+  // phase_f1a_fundraising_toggle.sql's backfill). Never relies on the nav
+  // being hidden as the actual security boundary — this is it. Fallback is
+  // `?? true`, matching layout.tsx's showFundraiser computation (and
+  // /api/campaign-stats/[slug] for the public page) — a missing column
+  // must fail toward the existing visible behavior, never toward silently
+  // locking every member out of a team whose fundraiser is actually fine.
+  const routeView = resolveFundraiserRouteView(settings.fundraising_enabled ?? true, actor);
+
   // ── Public visitor — read-only campaign view (no analytics, no donate modal) ──
   if (actor.kind === "public") {
+    if (routeView !== "dashboard") notFound();
+
     const [athletes, donations] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),
@@ -526,6 +541,16 @@ export default async function FundraiserPage({
         displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
       />
     );
+  }
+
+  // ── Coach, fundraising OFF ── Platform Admin always resolves to
+  // "dashboard" (see resolveFundraiserRouteView) — the locked product
+  // decision is "Platform Admin behavior remains unchanged" regardless of
+  // fundraising_enabled, since they're the ones who control the toggle.
+  // Never loads athletes/donations/analytics — this is a feature-not-
+  // yet-on state, not a degraded dashboard.
+  if (routeView === "coach-inquiry") {
+    return <FundraisingInquiryState slug={slug} />;
   }
 
   // ── Coach / staff / platform admin ── (read-only analytics view; no
@@ -717,6 +742,13 @@ export default async function FundraiserPage({
   // (which contains coach-only donor/pace/needs-attention tooling) —
   // isStaff() alone must never widen access to that existing surface.
   if (actor.kind === "member" && isStaff(actor)) {
+    // Phase F1b: a booster always resolves to "unavailable" when
+    // fundraising is off (resolveFundraiserRouteView) — hidden from nav
+    // too (shouldShowFundraisingNav), so a direct URL visit must not
+    // expose the dashboard either. No inquiry state for boosters — that's
+    // coach-only.
+    if (routeView !== "dashboard") notFound();
+
     const [athletes, donations, outreachMap, contactCounts] = await Promise.all([
       getTeamAthletes(slug),
       getDonations(slug),
@@ -761,7 +793,13 @@ export default async function FundraiserPage({
     );
   }
 
-  // ── Member ──
+  // ── Member (athlete/parent) ── Phase F1b: a plain member always
+  // resolves to "unavailable" when fundraising is off (hidden from nav
+  // too, per shouldShowFundraisingNav), so a direct URL visit must not
+  // expose the athlete/claim dashboard either — checked before any
+  // athlete/donation data is fetched.
+  if (routeView !== "dashboard") notFound();
+
   // Family Relationships Phase B: a parent may be approved for more than
   // one athlete on this team (legacy single athlete_id column + additional
   // team_member_athletes links) — resolve the full canonical set rather

@@ -40,10 +40,17 @@ const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Spo
 export default function TeamNav({
   slug,
   showSponsors = false,
+  // Phase F1b — computed once in layout.tsx via permissions.ts's
+  // shouldShowFundraisingNav(), the same shared decision
+  // desktopNavItems.ts's buildDesktopNavItems() uses. Defaults to true so
+  // this never silently hides the tab for a caller that hasn't been
+  // updated to pass it explicitly.
+  showFundraiser = true,
   badgeCounts = {},
 }: {
   slug: string;
   showSponsors?: boolean;
+  showFundraiser?: boolean;
   badgeCounts?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -51,7 +58,8 @@ export default function TeamNav({
   // athletes) — Sponsors is view-only for non-coach roles, not hidden from
   // them entirely. Write access is enforced separately (isCoachOnly) inside
   // the page and API routes.
-  const tabs = showSponsors ? [...BASE_TABS, STAFF_TAB] : BASE_TABS;
+  const baseTabs = showFundraiser ? BASE_TABS : BASE_TABS.filter(t => t.href !== "fundraiser");
+  const tabs = showSponsors ? [...baseTabs, STAFF_TAB] : baseTabs;
 
   return (
     <div role="navigation" style={{

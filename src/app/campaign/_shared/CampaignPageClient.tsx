@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import "./campaign.css";
 import PublicCampaignPage from "./PublicCampaignPage";
@@ -101,6 +102,12 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [logoUrl,         setLogoUrl]         = useState("");
   const [description,     setDescription]     = useState("");
   const [archived,        setArchived]        = useState(false);
+  // Phase F1b: orthogonal to `archived` above (archived takes precedence —
+  // see the rendering branches near the bottom of this component). Defaults
+  // to true (matches the API's own fallback) so a response that omits this
+  // field — e.g. a request that raced the fetch failing entirely — never
+  // flips a live campaign into the "not started" state by default.
+  const [fundraisingEnabled, setFundraisingEnabled] = useState(true);
   const [missionItems,    setMissionItems]    = useState(FALLBACK_MISSION);
 
   const [showLeaderboard,     setShowLeaderboard]     = useState(true);
@@ -125,8 +132,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           logo_url: fetchedLogoUrl,
           description: fetchedDescription,
           archived: fetchedArchived,
+          fundraising_enabled: fetchedFundraisingEnabled,
         } = data;
         setArchived(fetchedArchived === true);
+        setFundraisingEnabled(fetchedFundraisingEnabled !== false);
         setAllowCoachFundraising(data.allow_coach_fundraising === true);
         if (Array.isArray(data.coaches)) {
           setCoaches(data.coaches.map((c: { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null }) => c));
@@ -368,6 +377,41 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
           <div style={{ textAlign: "center", maxWidth: 480, padding: "2rem" }}>
             <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#12151c", margin: "0 0 .75rem" }}>This fundraising campaign has ended.</h1>
             <p style={{ color: "#6b7280", fontSize: "1rem", margin: 0 }}>Thank you to everyone who supported {schoolName} {sportName}.</p>
+          </div>
+        </div>
+        <footer className="pc-footer">
+          <div className="pc-footer-inner">
+            <p className="pc-footer-team">{schoolName} · {sportName} · {season}</p>
+            <div className="pc-footer-powered">
+              <ElfMark size={20} />
+              <span>Powered by Elite Level Fundraising · © {currentCopyrightYear()}</span>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  // Phase F1b — precedence: archived (above) wins unchanged; otherwise a
+  // disabled fundraiser shows this dedicated not-started state; otherwise
+  // the existing live fundraiser page renders unchanged. Never a 404,
+  // never a redirect — same branded shell as the archived state above
+  // (nav + footer), no donation controls/leaderboard/progress/recent
+  // donations/sponsors-as-fundraiser/athlete CTAs.
+  if (!fundraisingEnabled) {
+    return (
+      <div className="pc-page">
+        <nav className="pc-nav">
+          <div className="pc-nav-inner">
+            <Link href="/" className="pc-nav-brand">
+              <ElfMark size={32} />
+            </Link>
+          </div>
+        </nav>
+        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ textAlign: "center", maxWidth: 480, padding: "2rem" }}>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "#12151c", margin: "0 0 .75rem" }}>Fundraising hasn&rsquo;t started yet.</h1>
+            <p style={{ color: "#6b7280", fontSize: "1rem", margin: 0 }}>{schoolName} {sportName} isn&rsquo;t currently running an active fundraiser.</p>
           </div>
         </div>
         <footer className="pc-footer">
