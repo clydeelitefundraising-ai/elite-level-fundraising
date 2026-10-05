@@ -1,27 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { searchDirectoryEntries } from "./groupMessaging";
+import { searchDirectoryEntries, searchRosterAthletes, athleteMetaLabel, athleteJoinStatusLabel, type RosterAthleteEntry } from "./groupMessaging";
 import Avatar from "./Avatar";
 import { roleLabel } from "./participantDisplay";
 
-export type DirectoryEntry = { id: string; name: string; role: string; athlete_id?: string | null; photo_url?: string | null };
-type Directory = { coaches: DirectoryEntry[]; athletes: DirectoryEntry[]; parents: DirectoryEntry[] };
+type StaffEntry = { id: string; name: string; role: string };
+type Directory = { athletes: RosterAthleteEntry[]; staff: StaffEntry[] };
 
-// Group Messaging G2 — shared search/select UI for both "Create Group" and
+// Group Messaging G3B — shared search/select UI for both "Create Group" and
 // "Add People" (Manage Group). Search-first, same lesson Phase C2's athlete
 // picker already proved for a large roster: an empty query shows nothing,
 // a query shows a small capped set of matches grouped by type. Coaches
-// select ATHLETES and STAFF only — the directory's own `parents` list is
-// never rendered here, since G1 mirrors linked parents in automatically;
-// exposing them as selectable would let a coach "double-add" a parent the
-// server already handles on its own.
+// select ATHLETES and STAFF only — parents are never selectable here at
+// all (G1 mirrors linked parents in automatically; exposing them would let
+// a coach "double-add" a parent the server already handles on its own).
 //
-// Reuses the existing /messages/directory endpoint (already built for the
-// DM compose picker) rather than a second roster API — that endpoint
-// already excludes the calling coach's own id from `coaches`, so the
-// creator/current-manager never appears as a selectable row here without
-// any extra logic.
+// G3B: switched from /messages/directory (joined team_members only — still
+// correct for DM compose, which stays on that endpoint) to
+// /messages/group-directory (G3A) — the FULL athletes roster, including
+// athletes who have never joined ELF. Selected/excluded athlete ids are now
+// athletes.id throughout, never team_members.id.
 export default function GroupParticipantPicker({
   slug,
   excludeAthleteIds,
@@ -32,30 +31,46 @@ export default function GroupParticipantPicker({
   primaryColor,
 }: {
   slug: string;
-  excludeAthleteIds: Set<string>;
-  excludeStaffIds: Set<string>;
-  selectedAthleteIds: string[];
-  selectedStaffIds: string[];
+  excludeAthleteIds: Set<string>; // athletes.id
+  excludeStaffIds: Set<string>;   // team_coaches.id
+  selectedAthleteIds: string[];   // athletes.id
+  selectedStaffIds: string[];     // team_coaches.id
   onChange: (athleteIds: string[], staffIds: string[]) => void;
   primaryColor: string;
 }) {
   const [dir, setDir] = useState<Directory | null>(null);
+  // G3 bugfix (preserved from the original diagnostic): a failed directory
+  // fetch previously left `dir` at its initial null forever —
+  // indistinguishable from "still loading," and easy to misread as "no
+  // results" once a search is typed. fetchFailed makes a real fetch
+  // failure its own distinct, retryable state instead.
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch(`/api/team/${slug}/messages/directory`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => d && setDir(d))
-      .catch(() => {});
+    // No explicit reset of fetchFailed here: this component is always
+    // freshly mounted per modal open (CreateGroupModal/ManageGroupModal
+    // each instantiate their own GroupParticipantPicker), so the initial
+    // `useState(false)` already covers the only case that matters — a
+    // synchronous setState at the top of an effect is otherwise flagged
+    // as a cascading-render risk.
+    fetch(`/api/team/${slug}/messages/group-directory`)
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(`group-directory fetch failed: ${r.status}`))))
+      .then(d => setDir(d))
+      .catch(() => setFetchFailed(true));
   }, [slug]);
 
   const athletePool = dir?.athletes ?? [];
-  const staffPool = dir?.coaches ?? [];
-  const byId = new Map<string, DirectoryEntry>([...athletePool, ...staffPool].map(e => [e.id, e]));
+  const staffPool = dir?.staff ?? [];
+  const athleteById = new Map<string, RosterAthleteEntry>(athletePool.map(a => [a.id, a]));
+  const staffById = new Map<string, StaffEntry>(staffPool.map(s => [s.id, s]));
 
+  // Selection persists across search changes by construction: selected ids
+  // are looked up directly in athleteById/staffById (the full, unfiltered
+  // roster), never derived from the current search results.
   const excludedAthletes = new Set([...excludeAthleteIds, ...selectedAthleteIds]);
   const excludedStaff = new Set([...excludeStaffIds, ...selectedStaffIds]);
-  const athleteResults = searchDirectoryEntries(athletePool, query, excludedAthletes);
+  const athleteResults = searchRosterAthletes(athletePool, query, excludedAthletes);
   const staffResults = searchDirectoryEntries(staffPool, query, excludedStaff);
 
   function addAthlete(id: string) {
@@ -75,6 +90,7 @@ export default function GroupParticipantPicker({
 
   const hasQuery = query.trim().length > 0;
   const hasAnyResults = athleteResults.length > 0 || staffResults.length > 0;
+  const hasFullRoster = athletePool.length > 0 || staffPool.length > 0;
   const selectedCount = selectedAthleteIds.length + selectedStaffIds.length;
 
   return (
@@ -96,10 +112,16 @@ export default function GroupParticipantPicker({
 
       {hasQuery && (
         <div role="group" aria-label="Search results" style={{ display: "flex", flexDirection: "column", gap: ".6rem" }}>
-          {!dir ? (
-            <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading…</div>
+          {fetchFailed ? (
+            <div role="alert" style={{ fontSize: ".82rem", color: "#dc2626" }}>
+              Couldn&apos;t load athletes and staff. Try again.
+            </div>
+          ) : !dir ? (
+            <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>Loading athletes and staff…</div>
           ) : !hasAnyResults ? (
-            <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No athletes or staff found.</div>
+            <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>
+              {hasFullRoster ? "No matching athletes or staff." : "No athletes or staff are available yet."}
+            </div>
           ) : (
             <>
               {athleteResults.length > 0 && (
@@ -108,21 +130,29 @@ export default function GroupParticipantPicker({
                     Athletes
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
-                    {athleteResults.map(a => (
-                      <button
-                        key={a.id}
-                        type="button"
-                        onClick={() => addAthlete(a.id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: ".6rem",
-                          padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
-                          border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", width: "100%",
-                        }}
-                      >
-                        <Avatar name={a.name} photoUrl={a.photo_url ?? null} size={32} />
-                        <span style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d" }}>{a.name}</span>
-                      </button>
-                    ))}
+                    {athleteResults.map(a => {
+                      const meta = athleteMetaLabel(a.event, a.classYear);
+                      const joinStatus = athleteJoinStatusLabel(a.joined);
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => addAthlete(a.id)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: ".6rem",
+                            padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
+                            border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", width: "100%",
+                          }}
+                        >
+                          <Avatar name={a.name} photoUrl={null} size={32} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d" }}>{a.name}</div>
+                            {meta && <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{meta}</div>}
+                            {joinStatus && <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{joinStatus}</div>}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -143,7 +173,7 @@ export default function GroupParticipantPicker({
                           border: "1.5px solid #e5e7eb", background: "#fff", cursor: "pointer", width: "100%",
                         }}
                       >
-                        <Avatar name={s.name} photoUrl={s.photo_url ?? null} size={32} />
+                        <Avatar name={s.name} photoUrl={null} size={32} />
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d" }}>{s.name}</div>
                           <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{roleLabel(s.role)}</div>
@@ -165,7 +195,7 @@ export default function GroupParticipantPicker({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".35rem" }}>
             {selectedAthleteIds.map(id => {
-              const entry = byId.get(id);
+              const entry = athleteById.get(id);
               return (
                 <div
                   key={id}
@@ -189,7 +219,7 @@ export default function GroupParticipantPicker({
               );
             })}
             {selectedStaffIds.map(id => {
-              const entry = byId.get(id);
+              const entry = staffById.get(id);
               return (
                 <div
                   key={id}

@@ -18,7 +18,7 @@ import { reconcileMessages, hasNewServerMessages } from "../_shared/reconcileMes
 import ReportModal from "../../_components/ReportModal";
 import BlockUserModal from "../../_components/BlockUserModal";
 import ManageGroupModal from "../_shared/ManageGroupModal";
-import { Shield, Eye, Users } from "lucide-react";
+import { Shield, Eye } from "lucide-react";
 
 function relativeTime(iso: string): string {
   const d = new Date(iso);
@@ -568,12 +568,18 @@ export default function ThreadView({
           }}>
             {displayName}
           </div>
-          {isGroup ? (
-            <div style={{ fontSize: ".68rem", color: "#9ca3af", display: "flex", alignItems: "center", gap: ".25rem" }}>
-              <Users size={11} aria-hidden="true" />
-              {participants.length} participant{participants.length !== 1 ? "s" : ""}
-            </div>
-          ) : thread.subject && (
+          {/* G3B review correction: a group's people count is intentionally
+              NOT shown here. `participants` (this page's own server-side
+              getThreadParticipants() load — a separate code path from the
+              GET /messages/threads/[threadId] API route, which the poll
+              loop above only ever reads `.messages` from) has no roster-
+              assignment data, so participants.length alone undercounts a
+              roster-only, never-joined assigned athlete. The accurate
+              count (countGroupPeople) is only available in Manage Group,
+              which already loads both data sources it needs. Showing no
+              count here is preferred over a known-inaccurate one or a
+              second fetch added solely for this cosmetic header line. */}
+          {!isGroup && thread.subject && (
             <div style={{ fontSize: ".68rem", color: "#9ca3af", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {thread.subject}
             </div>

@@ -46,12 +46,6 @@ function ThreadCard({
   // generic conversation icon only in the edge case of no other
   // participants resolving (shouldn't normally happen).
   const primaryOther = others[0];
-  // Group Messaging G2 — the server's own participant list is already
-  // active-only (removed_at filtered server-side in getThreadsForActor),
-  // so this count never needs client-side family reconstruction or a
-  // removed-participant filter of its own.
-  const participantCount = thread.participants.length;
-
   // Phase 6: flattened from a floating card to a row + bottom divider, same
   // treatment as UpdateCard.tsx. The `primaryColor` prop (threaded raw from
   // settings.primary_color, not the branding-aware var(--team-primary) CSS
@@ -112,12 +106,18 @@ function ThreadCard({
             {relativeTime(thread.last_message_at)}
           </span>
         </div>
-        {isGroup ? (
-          <span style={{ fontSize: ".68rem", color: "var(--text-muted-app)", display: "flex", alignItems: "center", gap: ".25rem", marginBottom: ".1rem" }}>
-            <Users size={11} aria-hidden="true" />
-            {participantCount} participant{participantCount !== 1 ? "s" : ""}
-          </span>
-        ) : thread.subject && (
+        {/* G3B review correction: a group's people count is intentionally
+            NOT shown here. thread.participants.length (all this inbox row
+            has) undercounts a roster-only, never-joined assigned athlete —
+            showing it, under any wording, would be a known-inaccurate
+            number. The accurate count (countGroupPeople, which needs BOTH
+            roster assignments and participants) is only available in
+            Manage Group. Fixing this would require getThreadsForActor — a
+            hot, frequently-polled list across potentially many threads —
+            to also batch-query message_thread_athletes per group thread;
+            left as flagged future work rather than a second fetch here or
+            a misleading display. */}
+        {!isGroup && thread.subject && (
           <span style={{ fontSize: ".68rem", color: "var(--text-muted-app)", display: "block", marginBottom: ".1rem", fontStyle: "italic" }}>
             {thread.subject}
           </span>

@@ -4,13 +4,17 @@ import { useState } from "react";
 import { validateGroupNameClient, MAX_GROUP_NAME_LENGTH } from "./groupMessaging";
 import GroupParticipantPicker from "./GroupParticipantPicker";
 
-// Group Messaging G2 — coach-only group creation. Reuses the exact modal
-// chrome (backdrop, panel, header, bottom primary button) already
+// Group Messaging G2/G3B — coach-only group creation. Reuses the exact
+// modal chrome (backdrop, panel, header, bottom primary button) already
 // established by MessagesView.tsx's ComposeModal for DM compose, so this
 // reads as the same product rather than a second visual language. Submits
-// only {name, athleteIds, staffIds} to the existing G1 endpoint — campaign,
-// creator identity, and creator role are never sent from the client; the
-// server derives all of that from the session and the URL slug.
+// {name, rosterAthleteIds, staffIds} to the G3A endpoint — rosterAthleteIds
+// are athletes.id (the FULL roster, joined or not), never team_members.id.
+// Campaign, creator identity, and creator role are never sent from the
+// client; the server derives all of that from the session and the URL
+// slug. A group containing only never-joined roster athletes is a normal,
+// valid group — the creating coach is always the required authenticated
+// participant, so creation is never blocked on anyone else's join status.
 export default function CreateGroupModal({
   slug,
   primaryColor,
@@ -23,16 +27,16 @@ export default function CreateGroupModal({
   onCreated: (threadId: string) => void;
 }) {
   const [name, setName] = useState("");
-  const [athleteIds, setAthleteIds] = useState<string[]>([]);
+  const [rosterAthleteIds, setRosterAthleteIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
   const nameResult = validateGroupNameClient(name);
-  // The G1 server already rejects a creator-only group (requires at least
+  // The G3A server already rejects a creator-only group (requires at least
   // one selected athlete or staff member) — mirrored here so the button
   // disables before a doomed request round-trips, not as a new rule.
-  const hasParticipant = athleteIds.length + staffIds.length > 0;
+  const hasParticipant = rosterAthleteIds.length + staffIds.length > 0;
   const canCreate = nameResult.ok && hasParticipant && !creating;
 
   async function handleCreate() {
@@ -43,7 +47,7 @@ export default function CreateGroupModal({
       const res = await fetch(`/api/team/${slug}/messages/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, athleteIds, staffIds }),
+        body: JSON.stringify({ name, rosterAthleteIds, staffIds }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -122,9 +126,9 @@ export default function CreateGroupModal({
           slug={slug}
           excludeAthleteIds={new Set()}
           excludeStaffIds={new Set()}
-          selectedAthleteIds={athleteIds}
+          selectedAthleteIds={rosterAthleteIds}
           selectedStaffIds={staffIds}
-          onChange={(a, s) => { setAthleteIds(a); setStaffIds(s); }}
+          onChange={(a, s) => { setRosterAthleteIds(a); setStaffIds(s); }}
           primaryColor={primaryColor}
         />
 
