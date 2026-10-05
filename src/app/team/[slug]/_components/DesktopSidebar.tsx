@@ -27,6 +27,7 @@ export default function DesktopSidebar({
   settings,
   showSponsors,
   showRequests,
+  showFundraiser,
   communicationsBadge,
   messagesBadge,
   pendingRequestCount,
@@ -41,6 +42,9 @@ export default function DesktopSidebar({
   settings: CampaignSettings;
   showSponsors: boolean;
   showRequests: boolean;
+  // Phase F1b — computed once in layout.tsx via permissions.ts's
+  // shouldShowFundraisingNav(), the same shared decision TeamNav.tsx uses.
+  showFundraiser: boolean;
   communicationsBadge: number;
   messagesBadge: number;
   pendingRequestCount: number;
@@ -57,6 +61,7 @@ export default function DesktopSidebar({
   const items = buildDesktopNavItems({
     showSponsors,
     showRequests,
+    showFundraiser,
     communicationsBadge,
     messagesBadge,
     pendingRequestCount,

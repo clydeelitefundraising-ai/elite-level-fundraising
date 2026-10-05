@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncementMeta } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
-import { isHeadCoach } from "@/lib/permissions";
+import { isHeadCoach, shouldShowFundraisingNav } from "@/lib/permissions";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getUnreadCount } from "@/lib/notifications";
 import { getPendingRequestCount } from "@/lib/platform/athleteRequests";
@@ -77,6 +77,21 @@ export default async function TeamLayout({
   const showRequests = isHeadCoach(actor);
   const pendingAthleteRequestCount = showRequests ? await getPendingRequestCount(slug) : 0;
 
+  // Phase F1b — single shared decision (permissions.ts) also used by the
+  // fundraiser route's own server-side gate, so the nav and the route it
+  // links to can never disagree about who should see Fundraising.
+  // Fallback is `?? true` (fundraising ON), not false: `settings` is
+  // already guaranteed non-null here (notFound() above), so this only
+  // matters when the fundraising_enabled column itself is absent from the
+  // row (e.g. an environment where the F1a migration hasn't run yet) —
+  // failing toward "visible" reproduces exactly the pre-F1b behavior for
+  // every such row, rather than silently hiding Fundraising from every
+  // non-coach team member because of a schema/migration gap that has
+  // nothing to do with that team's actual fundraising status. Matches the
+  // same fallback already used by /api/campaign-stats/[slug] and
+  // CampaignPageClient.tsx for the public page.
+  const showFundraiser = shouldShowFundraisingNav(settings.fundraising_enabled ?? true, actor);
+
   // Phase 2/3: dynamic team theming. Resolves to ELF-orange defaults
   // whenever branding_customized is false (the default for every team
   // today — see phase_a32_team_branding_customized.sql; `?? false` also
@@ -134,6 +149,7 @@ export default async function TeamLayout({
           settings={settings}
           showSponsors={isAuthenticated}
           showRequests={showRequests}
+          showFundraiser={showFundraiser}
           announcementCount={announcementMeta.count}
           latestAnnouncementAt={announcementMeta.latestAt}
           pendingAthleteRequestCount={pendingAthleteRequestCount}

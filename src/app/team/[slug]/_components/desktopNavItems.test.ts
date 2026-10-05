@@ -5,6 +5,12 @@ import { buildDesktopNavItems, isDesktopNavItemActive } from "./desktopNavItems.
 const BASE_PARAMS = {
   showSponsors: false,
   showRequests: false,
+  // Phase F1b: fundraising_enabled=true is the existing-campaign default
+  // (see the F1a migration backfill) — true here preserves every
+  // pre-F1b test's original "fundraiser always included" expectation
+  // exactly, matching the locked "fundraising ON = unchanged behavior"
+  // requirement.
+  showFundraiser: true,
   communicationsBadge: 0,
   messagesBadge: 0,
   pendingRequestCount: 0,
@@ -14,6 +20,24 @@ test("buildDesktopNavItems: always includes the core destinations regardless of 
   const items = buildDesktopNavItems(BASE_PARAMS);
   const keys = items.map(i => i.key);
   assert.deepEqual(keys, ["home", "team", "calendar", "communications", "messages", "fundraiser", "settings"]);
+});
+
+// ─── Phase F1b: showFundraiser (fundraising_enabled × role) ────────────────
+
+test("buildDesktopNavItems: Fundraising is included when showFundraiser is true (fundraising_enabled, or fundraising_enabled=false but a coach)", () => {
+  const items = buildDesktopNavItems({ ...BASE_PARAMS, showFundraiser: true });
+  assert.equal(items.some(i => i.key === "fundraiser"), true);
+});
+
+test("buildDesktopNavItems: Fundraising is excluded when showFundraiser is false (fundraising_enabled=false, non-coach)", () => {
+  const items = buildDesktopNavItems({ ...BASE_PARAMS, showFundraiser: false });
+  assert.equal(items.some(i => i.key === "fundraiser"), false);
+});
+
+test("buildDesktopNavItems: hiding Fundraising never hides unrelated nav items", () => {
+  const items = buildDesktopNavItems({ ...BASE_PARAMS, showFundraiser: false, showSponsors: true, showRequests: true });
+  const keys = items.map(i => i.key);
+  assert.deepEqual(keys, ["home", "team", "calendar", "communications", "messages", "sponsors", "requests", "settings"]);
 });
 
 test("buildDesktopNavItems: Sponsors is included only when showSponsors is true", () => {

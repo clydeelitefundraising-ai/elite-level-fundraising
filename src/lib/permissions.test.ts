@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   isStaff, isHeadCoach, isCoachOnly, isMember, isPlatformAdmin,
   coachSession, canManageStaff, platformAdminRoleLabel,
+  shouldShowFundraisingNav,
   type TeamActor,
 } from "./permissions.ts";
 
@@ -107,4 +108,34 @@ test("canManageStaff: true for head_coach and platform_admin, false for everyone
 
 test("platformAdminRoleLabel: stable display label used wherever a platform admin authors content", () => {
   assert.equal(platformAdminRoleLabel(), "ELF Admin");
+});
+
+// Phase F1b: shared nav-visibility decision for the Fundraising tab (mobile
+// TeamNav + desktop sidebar). fundraising_enabled=true must reproduce the
+// pre-F1b "visible to everyone" behavior exactly; only when false does
+// visibility narrow, and only to coaching staff (isCoachOnly's set).
+
+test("shouldShowFundraisingNav: fundraising_enabled=true shows every role (unchanged pre-F1b behavior)", () => {
+  assert.equal(shouldShowFundraisingNav(true, coachActor("head_coach")), true);
+  assert.equal(shouldShowFundraisingNav(true, coachActor("assistant_coach")), true);
+  assert.equal(shouldShowFundraisingNav(true, coachActor("booster")), true);
+  assert.equal(shouldShowFundraisingNav(true, memberActor("athlete")), true);
+  assert.equal(shouldShowFundraisingNav(true, memberActor("parent")), true);
+  assert.equal(shouldShowFundraisingNav(true, memberActor("booster")), true);
+  assert.equal(shouldShowFundraisingNav(true, platformAdminActor()), true);
+  assert.equal(shouldShowFundraisingNav(true, publicActor), true);
+});
+
+test("shouldShowFundraisingNav: fundraising_enabled=false shows only Head Coach, Assistant Coach, and Platform Admin", () => {
+  assert.equal(shouldShowFundraisingNav(false, coachActor("head_coach")), true);
+  assert.equal(shouldShowFundraisingNav(false, coachActor("assistant_coach")), true);
+  assert.equal(shouldShowFundraisingNav(false, platformAdminActor()), true);
+});
+
+test("shouldShowFundraisingNav: fundraising_enabled=false hides booster, athlete, parent, and public", () => {
+  assert.equal(shouldShowFundraisingNav(false, coachActor("booster")), false);
+  assert.equal(shouldShowFundraisingNav(false, memberActor("athlete")), false);
+  assert.equal(shouldShowFundraisingNav(false, memberActor("parent")), false);
+  assert.equal(shouldShowFundraisingNav(false, memberActor("booster")), false);
+  assert.equal(shouldShowFundraisingNav(false, publicActor), false);
 });
