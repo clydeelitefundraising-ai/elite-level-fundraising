@@ -2,12 +2,27 @@
 
 import { useEffect, useState } from "react";
 import type { ResolvedParticipant } from "@/lib/messages";
-import { validateGroupNameClient, MAX_GROUP_NAME_LENGTH, removalPayloadForParticipant, isLastActiveCoach } from "./groupMessaging";
+import {
+  validateGroupNameClient, MAX_GROUP_NAME_LENGTH, removalPayloadForParticipant, isLastActiveCoach,
+  buildManageGroupRows, countGroupPeople, athleteSecondaryLabel,
+  type RosterAssignmentWithStatus, type ManageGroupRow, type ManageGroupParticipantLike,
+} from "./groupMessaging";
 import GroupParticipantPicker from "./GroupParticipantPicker";
 import Avatar from "./Avatar";
 import { participantSecondaryLabel } from "./participantDisplay";
 
 type ParticipantRow = ResolvedParticipant;
+
+// What this modal removes directly — either a roster athlete assignment
+// (athletes.id, G3A's rosterAthleteId) or a staff participant
+// (team_coaches.id via the existing removalPayloadForParticipant mapping).
+// A roster-only (never-joined) athlete has no participant row at all, so it
+// can never be represented as a ParticipantRow — this is why athlete
+// removal needs its own variant rather than reusing removalPayloadForParticipant,
+// which only ever operates on an actual participant.
+type RemoveTarget =
+  | { kind: "athlete"; athleteId: string; name: string }
+  | { kind: "participant"; participant: ManageGroupParticipantLike };
 
 // Group Messaging G2 — rename / add / remove / archive, for an authorized
 // coach only (the thread-header entry point that opens this already gated
@@ -35,6 +50,12 @@ export default function ManageGroupModal({
   onArchived: () => void;
 }) {
   const [participants, setParticipants] = useState<ParticipantRow[] | null>(null);
+  // G3B: the full G3A roster-assignment list for this group (athletes.id +
+  // name + joined status) — null while loading, same convention as
+  // `participants`. undefined is never a valid loaded value (the route
+  // always returns an array for a group thread); null-vs-array is the only
+  // loading signal this modal needs.
+  const [rosterAssignments, setRosterAssignments] = useState<RosterAssignmentWithStatus[] | null>(null);
   const [name, setName] = useState(initialGroupName);
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState("");
@@ -45,7 +66,7 @@ export default function ManageGroupModal({
   const [addError, setAddError] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState("");
-  const [confirmRemove, setConfirmRemove] = useState<ParticipantRow | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<RemoveTarget | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState("");
@@ -53,10 +74,23 @@ export default function ManageGroupModal({
   function loadParticipants() {
     fetch(`/api/team/${slug}/messages/threads/${threadId}`, { cache: "no-store" })
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d) setParticipants(d.participants); })
+      .then(d => {
+        if (!d) return;
+        setParticipants(d.participants);
+        setRosterAssignments(d.rosterAssignments ?? []);
+      })
       .catch(() => {});
   }
   useEffect(loadParticipants, [slug, threadId]);
+
+  // Group Messaging G3B — the single reconciliation point between the two
+  // independent data sources: roster assignments (who's actually assigned,
+  // joined or not) and live participants (who's authenticated/auto-included
+  // right now). A joined roster athlete's own direct participant row is
+  // deliberately excluded by buildManageGroupRows — never shown twice.
+  const rows: ManageGroupRow[] | null =
+    participants && rosterAssignments ? buildManageGroupRows(rosterAssignments, participants) : null;
+  const peopleCount = participants && rosterAssignments ? countGroupPeople(rosterAssignments, participants) : null;
 
   const nameResult = validateGroupNameClient(name);
   const nameChanged = nameResult.ok && nameResult.name !== initialGroupName;
@@ -85,19 +119,14 @@ export default function ManageGroupModal({
     }
   }
 
-  // G2 review correction: explicitly scoped to DIRECT athletes only
-  // (is_auto_included excluded) — an auto-included parent is also
-  // actor_type "member", but its team_members.id would never coincidentally
-  // match anything in the directory's athletes pool anyway (different rows
-  // entirely), so this was a harmless imprecision in practice, not a live
-  // bug. Tightened here so the exclude-set's meaning matches its name
-  // exactly, consistent with removalPayloadForParticipant's explicit
-  // is_auto_included handling just below.
-  const activeAthleteIds = new Set(
-    (participants ?? [])
-      .filter(p => p.actor_type === "member" && !p.is_auto_included && p.member_id)
-      .map(p => p.member_id as string),
-  );
+  // G3B review correction: Add People must exclude athletes who are
+  // ALREADY ACTIVELY ASSIGNED via message_thread_athletes — not merely
+  // athletes who happen to be active message_thread_participants. A
+  // roster-only (never-joined) assigned athlete has no participant row at
+  // all, so the old participants-derived exclude-set would have let a
+  // coach "re-add" someone already assigned. Sourced from rosterAssignments
+  // (G3A) instead.
+  const activeAthleteIds = new Set((rosterAssignments ?? []).map(a => a.athlete_id));
   const activeStaffIds = new Set(
     (participants ?? []).filter(p => p.actor_type === "coach" && p.coach_id).map(p => p.coach_id as string),
   );
@@ -110,7 +139,7 @@ export default function ManageGroupModal({
       const res = await fetch(`/api/team/${slug}/messages/groups/${threadId}/participants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ athleteIds: addAthleteIds, staffIds: addStaffIds }),
+        body: JSON.stringify({ rosterAthleteIds: addAthleteIds, staffIds: addStaffIds }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -129,18 +158,21 @@ export default function ManageGroupModal({
     }
   }
 
-  async function handleRemove(p: ParticipantRow) {
-    const body = removalPayloadForParticipant(p);
+  async function handleRemove(target: RemoveTarget) {
+    const body = target.kind === "athlete"
+      ? { rosterAthleteId: target.athleteId }
+      : removalPayloadForParticipant(target.participant);
     if (!body) {
       // Should be unreachable — the Remove control is only ever rendered
-      // for a participant removalPayloadForParticipant() accepts (see the
-      // render guard below). Defensive only: never sends a malformed
+      // for a row removalPayloadForParticipant() (staff) or the athlete
+      // branch above accepts. Defensive only: never sends a malformed
       // request if that guard is ever loosened by mistake.
       setRemoveError("This person can't be removed directly.");
       setConfirmRemove(null);
       return;
     }
-    setRemoving(p.id);
+    const removingKey = target.kind === "athlete" ? `athlete-${target.athleteId}` : target.participant.id;
+    setRemoving(removingKey);
     setRemoveError("");
     try {
       const res = await fetch(`/api/team/${slug}/messages/groups/${threadId}/participants`, {
@@ -263,40 +295,46 @@ export default function ManageGroupModal({
 
         <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
           <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#6b7280" }}>
-            Participants {participants ? `(${participants.length})` : ""}
+            People {peopleCount !== null ? `(${peopleCount})` : ""}
           </span>
-          {!participants ? (
+          {!rows ? (
             <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>Loading…</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
-              {participants.map(p => {
-                // G2 review correction: removability is now driven by the
-                // same explicit identity-mapping function the remove
-                // request itself uses (removalPayloadForParticipant),
-                // rather than a separately-maintained isAutoFamily check —
-                // one source of truth for "is this row removable at all."
-                // A coach row additionally can't be the LAST active coach
-                // (isLastActiveCoach mirrors G1's own guard exactly), shown
-                // as a disabled state with G1's own message rather than a
-                // button that would predictably 400.
-                const removable = removalPayloadForParticipant(p) !== null;
-                const isSoleCoach = p.actor_type === "coach" && !!p.coach_id && isLastActiveCoach(participants, p.coach_id);
+              {rows.map(row => {
+                // G3B: a directly-assigned roster athlete (joined or not)
+                // is always removable, via rosterAthleteId — never derived
+                // from a participant row, which a roster-only athlete
+                // doesn't have. Staff removability is unchanged
+                // (removalPayloadForParticipant + the last-active-coach
+                // guard, mirroring G1's own server-side rule). Family rows
+                // are never removable directly here at all.
+                const name = row.kind === "athlete" ? row.name : row.participant.name;
+                const photoUrl = row.kind === "athlete" ? null : row.participant.photo_url;
+                const secondary = row.kind === "athlete" ? athleteSecondaryLabel(row.joined) : participantSecondaryLabel(row.participant);
+                const removable = row.kind === "athlete" || (row.kind === "staff" && removalPayloadForParticipant(row.participant) !== null);
+                const isSoleCoach = row.kind === "staff" && row.participant.actor_type === "coach" && !!row.participant.coach_id
+                  && isLastActiveCoach(participants ?? [], row.participant.coach_id);
+                const removingKey = row.kind === "athlete" ? `athlete-${row.athleteId}` : row.participant.id;
+                const target: RemoveTarget = row.kind === "athlete"
+                  ? { kind: "athlete", athleteId: row.athleteId, name: row.name }
+                  : { kind: "participant", participant: row.participant };
                 return (
                   <div
-                    key={p.id}
+                    key={row.key}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".5rem",
                       padding: ".5rem .6rem", borderRadius: 10, border: "1.5px solid #e5e7eb",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: ".55rem", minWidth: 0 }}>
-                      <Avatar name={p.name} photoUrl={p.photo_url} size={30} />
+                      <Avatar name={name} photoUrl={photoUrl} size={30} />
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: ".85rem", fontWeight: 700, color: "#0b1e3d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {p.name}
+                          {name}
                         </div>
                         <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>
-                          {participantSecondaryLabel(p)}
+                          {secondary}
                         </div>
                       </div>
                     </div>
@@ -307,16 +345,16 @@ export default function ManageGroupModal({
                         </span>
                       ) : (
                         <button
-                          onClick={() => setConfirmRemove(p)}
-                          disabled={removing === p.id}
-                          aria-label={`Remove ${p.name}`}
+                          onClick={() => setConfirmRemove(target)}
+                          disabled={removing === removingKey}
+                          aria-label={`Remove ${name}`}
                           style={{
                             background: "none", border: "none", color: "#dc2626", fontSize: ".78rem", fontWeight: 700,
-                            cursor: removing === p.id ? "default" : "pointer", flexShrink: 0,
-                            opacity: removing === p.id ? .5 : 1,
+                            cursor: removing === removingKey ? "default" : "pointer", flexShrink: 0,
+                            opacity: removing === removingKey ? .5 : 1,
                           }}
                         >
-                          {removing === p.id ? "Removing…" : "Remove"}
+                          {removing === removingKey ? "Removing…" : "Remove"}
                         </button>
                       )
                     )}
@@ -402,7 +440,7 @@ export default function ManageGroupModal({
         >
           <div style={{ width: "min(360px,100%)", background: "#fff", borderRadius: 16, padding: "1.1rem" }}>
             <p style={{ margin: "0 0 1rem", fontSize: ".9rem", color: "#374151" }}>
-              Remove {confirmRemove.name} from {initialGroupName}?
+              Remove {confirmRemove.kind === "athlete" ? confirmRemove.name : confirmRemove.participant.name} from {initialGroupName}?
             </p>
             <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
               <button

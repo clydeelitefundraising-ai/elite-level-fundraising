@@ -4,6 +4,7 @@ import {
   getThreadById,
   getThreadParticipants,
   getMessagesForThread,
+  getGroupRosterAssignments,
   isParticipant,
   type ActorKey,
 } from "@/lib/messages";
@@ -36,5 +37,17 @@ export async function GET(
   }
 
   const messages = await getMessagesForThread(threadId, actorKey);
-  return NextResponse.json({ thread, participants, messages });
+
+  // Group Messaging G3B: Manage Group must represent GROUP ASSIGNMENT
+  // (message_thread_athletes — G3A), not merely current
+  // message_thread_participants — a roster-only (never-joined) athlete has
+  // no participant row at all. Reuses the existing read this route already
+  // serves (ManageGroupModal already fetches this exact endpoint) rather
+  // than adding a second request. Omitted (undefined) for a DM, which never
+  // has roster assignments at all.
+  const rosterAssignments = thread.thread_type === "group"
+    ? await getGroupRosterAssignments(threadId, slug)
+    : undefined;
+
+  return NextResponse.json({ thread, participants, messages, rosterAssignments });
 }
