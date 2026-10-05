@@ -136,6 +136,12 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     external_store_url:         settings.external_store_url  ?? "",
     store_provider:             settings.store_provider      ?? "",
     archived:                   settings.archived            ?? false,
+    // Phase F1a: schema/admin-editing only — no read path branches on this
+    // value yet. `?? false` is a defensive fallback only; the migration
+    // itself backfills every existing row to true and enforces NOT NULL,
+    // so a real campaign_settings row should never actually hit this
+    // fallback once the migration has been applied.
+    fundraising_enabled:        settings.fundraising_enabled ?? false,
     // Phase 1 consolidation: Campaign Story + the four theme/"Campaign
     // Colors" fields — same campaign_settings columns the legacy editor's
     // Campaign Identity / Campaign Colors cards already read and write.

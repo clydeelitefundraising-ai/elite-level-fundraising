@@ -87,6 +87,12 @@ const KNOWN_FIELDS = new Set([
   "description",
   "theme_primary_color", "theme_secondary_color", "theme_accent_color", "theme_button_color",
   "allow_coach_fundraising",
+  // Phase F1a — Platform Admin is the ONLY authority permitted to write
+  // this field; no coach/team-facing route accepts it. Independent of
+  // `archived` (whole-team retirement, takes precedence) and
+  // `allow_coach_fundraising` (a different, per-coach concept) — see
+  // CampaignSettings's own field comments in src/lib/supabase.ts.
+  "fundraising_enabled",
 ]);
 
 // Fields that require a DB migration before they persist
