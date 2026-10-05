@@ -75,6 +75,12 @@ export type CampaignDetail = {
   external_store_url:         string;
   store_provider:             string;
   archived:                   boolean;
+  // Phase F1a: whether fundraising SERVICES are enabled for this
+  // otherwise-active team — distinct from `archived` (whole-team
+  // retirement, which takes precedence) and `allow_coach_fundraising`
+  // (an individual coach's personal participation). Platform Admin is the
+  // only authority that can change this.
+  fundraising_enabled:         boolean;
   // Phase 1 consolidation: Campaign Story + Campaign/Theme Colors — same
   // campaign_settings columns the legacy editor's Campaign Identity /
   // Campaign Colors cards already read and write. null = not customized
@@ -457,6 +463,11 @@ export default function CampaignControlCenter({ detail }: Props) {
     layout_variant:             detail.layout_variant,
     external_store_url:        detail.external_store_url,
     store_provider:            detail.store_provider,
+    // Phase F1a — kept in this same draft/save group since it lives in the
+    // Fundraising Settings card, but it is semantically separate from
+    // every other field here: it does not configure the fundraiser, it
+    // enables/disables it.
+    fundraising_enabled:        detail.fundraising_enabled,
   });
 
   const [contact, setContact] = useState({
@@ -630,6 +641,7 @@ export default function CampaignControlCenter({ detail }: Props) {
       layout_variant:             fundraising.layout_variant,
       external_store_url:        fundraising.external_store_url || null,
       store_provider:            fundraising.store_provider     || null,
+      fundraising_enabled:        fundraising.fundraising_enabled,
     });
   }
 
@@ -1241,6 +1253,22 @@ export default function CampaignControlCenter({ detail }: Props) {
           <div style={T.card}>
             <SectionHeader title="Fundraising Settings" desc="Financial goals, deadline, and layout" />
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {/* Phase F1a — a state TOGGLE, deliberately separate from the
+                  configuration fields below it and from the Live/Archived
+                  status in Campaign Status (Advanced tab). A team can be
+                  Live and have fundraising disabled at the same time;
+                  archived always takes precedence over this when both
+                  apply. Turning this off never clears goal_cents, deadline,
+                  donations, or any other fundraising history below — it
+                  only controls whether fundraising is currently enabled. */}
+              <div style={{ marginBottom: ".25rem" }}>
+                <ToggleRow
+                  label="Fundraising Enabled"
+                  desc="Whether this team's fundraiser is currently available. Independent of Live/Archived status."
+                  checked={fundraising.fundraising_enabled}
+                  onChange={v => setFundraising(p => ({ ...p, fundraising_enabled: v }))}
+                />
+              </div>
               <div style={T.grid2}>
                 <Field label="Team Goal ($)" note="Leave blank for no team goal">
                   <input type="number" min="0" style={T.input}

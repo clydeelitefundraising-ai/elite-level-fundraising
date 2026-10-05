@@ -82,6 +82,9 @@ export type CampaignSettings = {
   location: string;
   season: string;
   logo_url: string;
+  // Whole team/campaign retirement (publish/unpublish of the ENTIRE team) —
+  // not a fundraising-specific flag. See fundraising_enabled below for the
+  // distinct, fundraising-only concept; archived takes precedence over it.
   archived?: boolean;
   show_leaderboard?: boolean;
   show_program_identity?: boolean;
@@ -100,7 +103,9 @@ export type CampaignSettings = {
   // Phase A35: campaign-level coach-fundraising feature gate. false
   // (including absent, before this migration is applied) means coaches
   // can never be selected/exposed as fundraising participants regardless
-  // of any campaign_coach_fundraisers rows that may exist.
+  // of any campaign_coach_fundraisers rows that may exist. Orthogonal to
+  // fundraising_enabled below — this is about an individual COACH's
+  // personal participation, not whether the team's fundraiser exists.
   allow_coach_fundraising?: boolean;
   external_store_url?:          string | null;
   store_provider?:              string | null;
@@ -108,6 +113,18 @@ export type CampaignSettings = {
   // Phase 7: display-only — never referenced by any permission/auth check.
   // Only gates whether Booster appears in Team -> Roster -> Staff.
   show_booster_in_staff_roster?: boolean;
+  // Phase F1a: whether FUNDRAISING SERVICES are currently enabled for this
+  // otherwise-active team — Platform-Admin-controlled only. A team can be
+  // fully usable (roster, announcements, calendar, messaging, custom
+  // groups, staff tools, family relationships) with this false; team
+  // management never requires an active fundraiser. Distinct from both
+  // `archived` (whole-team retirement — see that field's own comment —
+  // and takes precedence over this one) and `allow_coach_fundraising`
+  // (whether an individual coach may personally participate as a
+  // fundraiser, orthogonal to whether the team's fundraiser exists at
+  // all). F1a wires up storage/admin-editing only — no read path branches
+  // on this value yet.
+  fundraising_enabled?: boolean;
 };
 
 // Class levels shown as the primary athlete attribute in the UI. `event`
