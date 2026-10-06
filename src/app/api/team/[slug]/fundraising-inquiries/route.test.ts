@@ -10,6 +10,8 @@ process.env.NEXT_PUBLIC_SUPABASE_URL  = "https://fake.supabase.co";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-service-role-key";
 process.env.TEAM_MEMBER_PEPPER        = "fake-member-pepper";
 process.env.TEAM_COACH_PEPPER         = "fake-coach-pepper";
+process.env.RESEND_API_KEY            = "fake-resend-key";
+process.env.FROM_EMAIL                = "ELF Fundraising <noreply@elitelevelfundraising.com>";
 
 register(new URL("../../../../../lib/testSupport/nextStubLoader.mjs", import.meta.url).href, import.meta.url);
 
@@ -22,7 +24,7 @@ type Row = Record<string, unknown>;
 
 const SLUG = "wolves";
 
-function makeFakeDb() {
+function makeFakeDb(opts: { resendOk?: boolean } = {}) {
   const db: Record<string, Row[]> = {
     campaign_settings:     [],
     team_coaches:          [],
@@ -30,6 +32,7 @@ function makeFakeDb() {
     fundraising_inquiries: [],
   };
   let nextId = 1;
+  const emailCalls: { to: unknown; subject: unknown }[] = [];
 
   function matches(row: Row, field: string, expr: string): boolean {
     if (expr.startsWith("eq.")) return String(row[field]) === expr.slice(3);
@@ -52,6 +55,15 @@ function makeFakeDb() {
   }
 
   async function fetchImpl(url: string, init?: RequestInit): Promise<Response> {
+    if (url.startsWith("https://api.resend.com")) {
+      const body = JSON.parse(String(init?.body ?? "{}"));
+      emailCalls.push({ to: body.to, subject: body.subject });
+      if (opts.resendOk === false) {
+        return new Response(JSON.stringify({ message: "simulated Resend failure" }), { status: 500 });
+      }
+      return new Response(JSON.stringify({ id: "email-fake-1" }), { status: 200 });
+    }
+
     const path = url.replace(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, "");
     const [table, query] = path.split("?");
     const params = new URLSearchParams(query ?? "");
@@ -82,15 +94,15 @@ function makeFakeDb() {
     return new Response(JSON.stringify([]), { status: 200 });
   }
 
-  return { db, fetchImpl };
+  return { db, emailCalls, fetchImpl };
 }
 
-async function withFakeDb<T>(run: (db: Record<string, Row[]>) => Promise<T>): Promise<T> {
-  const { db, fetchImpl } = makeFakeDb();
+async function withFakeDb<T>(run: (ctx: ReturnType<typeof makeFakeDb>) => Promise<T>, opts?: { resendOk?: boolean }): Promise<T> {
+  const ctx = makeFakeDb(opts);
   const realFetch = globalThis.fetch;
-  globalThis.fetch = fetchImpl as typeof fetch;
+  globalThis.fetch = ctx.fetchImpl as typeof fetch;
   try {
-    return await run(db);
+    return await run(ctx);
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -134,7 +146,7 @@ function getRequest(): Request {
 // ── Authorization: only Head Coach / Assistant Coach may submit ────────────
 
 test("POST: Head Coach can submit an inquiry when fundraising is disabled", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-1", salt: "s1" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -153,7 +165,7 @@ test("POST: Head Coach can submit an inquiry when fundraising is disabled", asyn
 });
 
 test("POST: Assistant Coach can submit an inquiry when fundraising is disabled", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-2", salt: "s2" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "assistant_coach", salt: coach.salt, name: "Coach Jane" });
@@ -166,7 +178,7 @@ test("POST: Assistant Coach can submit an inquiry when fundraising is disabled",
 });
 
 test("POST: a Booster is rejected with 403, no row created", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-3", salt: "s3" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "booster", salt: coach.salt, name: "Booster Bob" });
@@ -180,7 +192,7 @@ test("POST: a Booster is rejected with 403, no row created", async () => {
 });
 
 test("POST: a Parent (team_members role) is rejected with 403", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const member = { id: "mem-1", salt: "sm1" };
     db.team_members.push({ id: member.id, campaign_slug: SLUG, role: "parent", salt: member.salt, name: "Parent Pat", athlete_id: null });
@@ -194,7 +206,7 @@ test("POST: a Parent (team_members role) is rejected with 403", async () => {
 });
 
 test("POST: an Athlete (team_members role) is rejected with 403", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const member = { id: "mem-2", salt: "sm2" };
     db.team_members.push({ id: member.id, campaign_slug: SLUG, role: "athlete", salt: member.salt, name: "Athlete Al", athlete_id: "a1" });
@@ -208,7 +220,7 @@ test("POST: an Athlete (team_members role) is rejected with 403", async () => {
 });
 
 test("POST: an anonymous (unauthenticated) request is rejected with 403", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     clearCookies();
 
@@ -222,7 +234,7 @@ test("POST: an anonymous (unauthenticated) request is rejected with 403", async 
 // ── Enabled-campaign behavior ────────────────────────────────────────────
 
 test("POST: a Head Coach on an already-ENABLED campaign is rejected, no row created", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, true);
     const coach = { id: "coach-4", salt: "s4" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -238,7 +250,7 @@ test("POST: a Head Coach on an already-ENABLED campaign is rejected, no row crea
 // ── Duplicate-active-inquiry idempotency ────────────────────────────────────
 
 test("POST: a second submission while one is already active does not duplicate the row", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-5", salt: "s5" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -257,7 +269,7 @@ test("POST: a second submission while one is already active does not duplicate t
 });
 
 test("POST: a DIFFERENT coach submitting while one is already active does not duplicate the row either", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coachA = { id: "coach-6", salt: "s6" };
     const coachB = { id: "coach-7", salt: "s7" };
@@ -280,7 +292,7 @@ test("POST: a DIFFERENT coach submitting while one is already active does not du
 // ── GET: already-requested lookup ───────────────────────────────────────────
 
 test("GET: returns the active inquiry for this campaign to a Head Coach", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-8", salt: "s8" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -297,7 +309,7 @@ test("GET: returns the active inquiry for this campaign to a Head Coach", async 
 });
 
 test("GET: returns null when there is no active inquiry", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-9", salt: "s9" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -311,7 +323,7 @@ test("GET: returns null when there is no active inquiry", async () => {
 });
 
 test("GET: a Booster is rejected with 403", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-10", salt: "s10" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "booster", salt: coach.salt, name: "Booster Bob" });
@@ -328,7 +340,7 @@ test("GET: a Booster is rejected with 403", async () => {
 // only "resolved" releases the campaign for a later inquiry.
 
 test("POST: an existing 'new' inquiry blocks a second submission (no duplicate)", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-11", salt: "s11" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -349,7 +361,7 @@ test("POST: an existing 'new' inquiry blocks a second submission (no duplicate)"
 });
 
 test("POST: an existing 'contacted' inquiry ALSO blocks a second submission (no duplicate)", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-12", salt: "s12" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -370,7 +382,7 @@ test("POST: an existing 'contacted' inquiry ALSO blocks a second submission (no 
 });
 
 test("POST: an existing 'resolved' inquiry does NOT block a new submission", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-13", salt: "s13" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -391,7 +403,7 @@ test("POST: an existing 'resolved' inquiry does NOT block a new submission", asy
 });
 
 test("GET: a 'contacted' inquiry is reported as the active inquiry too (not just 'new')", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-14", salt: "s14" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -411,7 +423,7 @@ test("GET: a 'contacted' inquiry is reported as the active inquiry too (not just
 });
 
 test("GET: a 'resolved' inquiry is NOT reported as active", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coach = { id: "coach-15", salt: "s15" };
     db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
@@ -432,7 +444,7 @@ test("GET: a 'resolved' inquiry is NOT reported as active", async () => {
 // ── Concurrent/unique-conflict path remains safe with the widened index ────
 
 test("POST: a race against an in-flight 'new' insert (23505 from the unique index) still resolves to the winning row, never a 500", async () => {
-  await withFakeDb(async db => {
+  await withFakeDb(async ({ db }) => {
     seedCampaign(db, false);
     const coachA = { id: "coach-16", salt: "s16" };
     const coachB = { id: "coach-17", salt: "s17" };
@@ -450,5 +462,85 @@ test("POST: a race against an in-flight 'new' insert (23505 from the unique inde
     const data2 = await res2.json();
     assert.equal(data2.created, false);
     assert.equal(db.fundraising_inquiries.length, 1);
+  });
+});
+
+// ── Phase F1d: admin notification email ─────────────────────────────────────
+
+test("POST: a genuinely new inquiry sends exactly one notification email when the recipient is configured", async () => {
+  process.env.ELF_ADMIN_NOTIFICATION_EMAIL = "ops@elitelevelfundraising.com";
+  try {
+    await withFakeDb(async ({ db, emailCalls }) => {
+      seedCampaign(db, false);
+      const coach = { id: "coach-20", salt: "s20" };
+      db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
+      signInAsCoach(coach);
+
+      const { POST } = await loadRoute();
+      const res = await POST(postRequest() as never, { params: Promise.resolve({ slug: SLUG }) });
+      assert.equal(res.status, 200);
+      assert.equal(emailCalls.length, 1);
+      assert.equal(emailCalls[0].to, "ops@elitelevelfundraising.com");
+    });
+  } finally {
+    delete process.env.ELF_ADMIN_NOTIFICATION_EMAIL;
+  }
+});
+
+test("POST: a duplicate/idempotent submission does NOT send a second email", async () => {
+  process.env.ELF_ADMIN_NOTIFICATION_EMAIL = "ops@elitelevelfundraising.com";
+  try {
+    await withFakeDb(async ({ db, emailCalls }) => {
+      seedCampaign(db, false);
+      const coach = { id: "coach-21", salt: "s21" };
+      db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
+      signInAsCoach(coach);
+
+      const { POST } = await loadRoute();
+      await POST(postRequest() as never, { params: Promise.resolve({ slug: SLUG }) });
+      await POST(postRequest() as never, { params: Promise.resolve({ slug: SLUG }) });
+
+      assert.equal(emailCalls.length, 1);
+    });
+  } finally {
+    delete process.env.ELF_ADMIN_NOTIFICATION_EMAIL;
+  }
+});
+
+test("POST: a notification email failure does not prevent the inquiry from succeeding", async () => {
+  process.env.ELF_ADMIN_NOTIFICATION_EMAIL = "ops@elitelevelfundraising.com";
+  try {
+    await withFakeDb(async ({ db }) => {
+      seedCampaign(db, false);
+      const coach = { id: "coach-22", salt: "s22" };
+      db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
+      signInAsCoach(coach);
+
+      const { POST } = await loadRoute();
+      const res = await POST(postRequest() as never, { params: Promise.resolve({ slug: SLUG }) });
+      const data = await res.json();
+      assert.equal(res.status, 200);
+      assert.equal(data.created, true);
+      assert.equal(db.fundraising_inquiries.length, 1);
+    }, { resendOk: false });
+  } finally {
+    delete process.env.ELF_ADMIN_NOTIFICATION_EMAIL;
+  }
+});
+
+test("POST: an unset recipient still succeeds, without attempting to send", async () => {
+  // ELF_ADMIN_NOTIFICATION_EMAIL deliberately left unset here.
+  await withFakeDb(async ({ db, emailCalls }) => {
+    seedCampaign(db, false);
+    const coach = { id: "coach-23", salt: "s23" };
+    db.team_coaches.push({ id: coach.id, campaign_slug: SLUG, role: "head_coach", salt: coach.salt, name: "Coach Mike" });
+    signInAsCoach(coach);
+
+    const { POST } = await loadRoute();
+    const res = await POST(postRequest() as never, { params: Promise.resolve({ slug: SLUG }) });
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.created, true);
+    assert.equal(emailCalls.length, 0);
   });
 });

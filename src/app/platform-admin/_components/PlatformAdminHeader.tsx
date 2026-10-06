@@ -4,7 +4,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 
-export default function PlatformAdminHeader({ name, email }: { name: string; email: string }) {
+export default function PlatformAdminHeader({
+  name,
+  email,
+  newInquiryCount = 0,
+}: {
+  name: string;
+  email: string;
+  // Phase F1d — count of status="new" fundraising inquiries, resolved
+  // server-side once in the layout (no client polling).
+  newInquiryCount?: number;
+}) {
   const router = useRouter();
 
   return (
@@ -35,6 +45,18 @@ export default function PlatformAdminHeader({ name, email }: { name: string; ema
 
       <Link href="/platform-admin/reports" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0 }}>
         Reports
+      </Link>
+
+      <Link href="/platform-admin/fundraising-inquiries" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: ".35rem" }}>
+        Fundraising Inquiries
+        {newInquiryCount > 0 && (
+          <span style={{
+            background: "#dc2626", color: "#fff", borderRadius: 999,
+            fontSize: ".66rem", fontWeight: 700, padding: ".05rem .4rem", lineHeight: 1.5,
+          }}>
+            {newInquiryCount > 99 ? "99+" : newInquiryCount}
+          </span>
+        )}
       </Link>
 
       <div style={{ display: "flex", alignItems: "center", gap: ".6rem", minWidth: 0 }}>

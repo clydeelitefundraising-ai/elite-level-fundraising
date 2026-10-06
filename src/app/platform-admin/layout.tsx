@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAccountSession } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { resolvePlatformAdminGateRedirect } from "@/lib/platformAdminLanding";
+import { countNewFundraisingInquiries } from "@/lib/platform/fundraisingInquiries";
 import PlatformAdminHeader from "./_components/PlatformAdminHeader";
 
 export const dynamic = "force-dynamic";
@@ -29,9 +30,14 @@ export default async function PlatformAdminLayout({
   });
   if (redirectTo) redirect(redirectTo);
 
+  // Phase F1d — plain server-render count (no realtime/polling needed at
+  // this feature's expected volume), fetched alongside the gate check so
+  // the header never makes a second round-trip for it.
+  const newInquiryCount = await countNewFundraisingInquiries();
+
   return (
     <div style={{ minHeight: "100vh", background: "#f5f6f8", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <PlatformAdminHeader name={platformAdmin!.name} email={platformAdmin!.email} />
+      <PlatformAdminHeader name={platformAdmin!.name} email={platformAdmin!.email} newInquiryCount={newInquiryCount} />
       <main style={{ maxWidth: 960, margin: "0 auto", padding: "1.25rem 1rem 3rem" }}>
         {children}
       </main>
