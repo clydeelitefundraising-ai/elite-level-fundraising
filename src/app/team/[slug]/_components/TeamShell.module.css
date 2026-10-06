@@ -55,6 +55,39 @@
   padding: 1rem 0.875rem 5.5rem;
 }
 
+/*
+ * Mobile sticky team identity header. Scoped to its own class (never
+ * folded into .mobileOnly itself) so it can't leak onto .mobileOnly's
+ * other consumer — TeamChrome.tsx's TeamNav wrapper — which already
+ * manages its own position:fixed bottom placement independently.
+ *
+ * `sticky`, not `fixed`: this shell has no inner `overflow`-scrolling
+ * container anywhere in its ancestor chain (.elf-shell/.shellPanel/the
+ * flex column below are all plain, unscrolled flow) — the page scrolls
+ * at the document/viewport level, which is exactly the case `position:
+ * sticky` is designed for. Unlike `fixed`, sticky needs no compensating
+ * top padding/margin on the content that follows (TeamHeader just keeps
+ * its normal flow height), so there is no height to keep in sync and no
+ * way for a jump/gap to appear if that height ever changes.
+ *
+ * z-index 40 is deliberately BELOW every other fixed/sticky overlay in
+ * this shell (TeamNav 50, TeamPullRefresh 80, AccountMenu/TeamSwitcher
+ * 99-100, the modal layer at 200+) so none of them are ever covered by
+ * the now-pinned header, while still sitting above ordinary static page
+ * content (which, lacking any position, always paints beneath any
+ * positioned+z-indexed element regardless of source order).
+ *
+ * No media query needed here — .mobileOnly already display:none's this
+ * at the >=1024px desktop breakpoint, so sticky positioning never
+ * applies there; desktop's own equivalent (DesktopSidebar) is already
+ * `position: sticky` independently.
+ */
+.stickyTeamHeader {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
 @media screen and (min-width: 1024px) {
   .mobileOnly {
     display: none;

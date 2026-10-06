@@ -162,7 +162,14 @@ export default async function TeamLayout({
         />
 
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <div className={styles.mobileOnly}>
+          {/* Mobile polish: sticky team identity header — stays pinned to
+              the top of the viewport while page content scrolls underneath
+              it (see .stickyTeamHeader in TeamShell.module.css for the
+              sticky-vs-fixed rationale and z-index layering). Desktop is
+              unaffected: .mobileOnly already display:none's this wrapper
+              at the >=1024px breakpoint, where DesktopSidebar is already
+              its own independently-sticky equivalent. */}
+          <div className={`${styles.mobileOnly} ${styles.stickyTeamHeader}`}>
             <TeamHeader
               settings={settings}
               unreadNotifCount={unreadNotifCount}
