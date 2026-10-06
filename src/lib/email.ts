@@ -406,3 +406,68 @@ export async function sendDemoRequestConfirmation(p: DemoRequestConfirmationPara
 
   await sendEmail(p.to, "We received your demo request — Elite Level Fundraising", html);
 }
+
+// ── Phase F1d: fundraising inquiry notification (to ELF operations) ────────
+
+export interface FundraisingInquiryNotificationParams {
+  to:              string;
+  schoolName:      string;
+  sportName:       string | null;
+  requesterName:   string | null;
+  requestedByRole: "head_coach" | "assistant_coach";
+  campaignSlug:    string;
+  adminUrl:        string;
+}
+
+/** New-inquiry-only notification — mirrors sendDemoRequestNotification's
+ *  exact layout/sender infrastructure (same sendEmail() helper, same card
+ *  shape), configured via ELF_ADMIN_NOTIFICATION_EMAIL (see .env.example) —
+ *  the Team App's general operations/admin notification destination,
+ *  reusable by future appropriate Platform Admin operational alerts —
+ *  rather than DEMO_NOTIFICATION_EMAIL, which stays scoped to the separate
+ *  marketing project's demo-request workflow. The caller (the inquiry API
+ *  route) is responsible for only calling this on an actually-new inquiry,
+ *  never a duplicate resolved to the existing active row by
+ *  createFundraisingInquiry()'s race handling, and for swallowing any
+ *  error this throws so a notification failure never blocks the inquiry
+ *  itself from being stored. */
+export async function sendFundraisingInquiryNotification(p: FundraisingInquiryNotificationParams): Promise<void> {
+  const rows: Array<[string, string]> = [
+    ["School", p.schoolName],
+    ["Sport / Program", p.sportName || "—"],
+    ["Requested by", p.requesterName ? `${p.requesterName} (${p.requestedByRole === "head_coach" ? "Head Coach" : "Assistant Coach"})` : (p.requestedByRole === "head_coach" ? "Head Coach" : "Assistant Coach")],
+    ["Campaign", p.campaignSlug],
+  ];
+  const rowsHtml = rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="color:#6b7280;font-size:0.9rem;padding:8px;width:160px;">${label}</td><td style="color:#0B1E3D;font-size:0.9rem;padding:8px;">${value}</td></tr>`,
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:16px;">
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0;">New ELF Fundraising Inquiry</h1>
+        </td></tr>
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
+            ${rowsHtml}
+          </table>
+        </td></tr>
+        <tr><td style="padding-top:20px;">
+          <a href="${p.adminUrl}" style="display:inline-block;background:#0B1E3D;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:0.9rem;font-weight:bold;">Review Inquiry &rarr;</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, `New ELF Fundraising Inquiry — ${p.schoolName}`, html);
+}
