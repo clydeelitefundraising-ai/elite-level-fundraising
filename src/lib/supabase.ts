@@ -57,6 +57,12 @@ export type CampaignSettings = {
   team_id?: string;
   // Which CRM contact's Launch Campaign action produced this campaign, if any.
   crm_contact_id?: string | null;
+  // Phase A29/A29b: the school this campaign belongs to (organizations.id).
+  // Null for any campaign predating the backfill that hasn't been linked
+  // yet — every read site already treats a missing link as "no school
+  // grouping available" rather than an error. Phase O2 (self-service team
+  // provisioning) is the first write path that sets this at creation time.
+  organization_id?: string | null;
   school_name: string;
   sport_name: string;
   mascot: string;

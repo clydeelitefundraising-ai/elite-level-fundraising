@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { CAMPAIGN_SLUG_RE, generateCampaignSlug } from "@/lib/teamProvisioning/slug";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -80,21 +81,12 @@ const STEP_LABELS: Record<Step, string> = {
 };
 
 const HEX_RE  = /^#[0-9a-fA-F]{6}$/;
-const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
-
-// ── Slug generation ───────────────────────────────────────────────────────────
-
-function generateSlug(school: string, sport: string, year: string): string {
-  const clean = (s: string) =>
-    s.toLowerCase()
-      .replace(/\b(high school|high|school|academy|middle|junior|prep|varsity|boys|girls|mens|womens)\b/g, " ")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .replace(/-+/g, "-");
-
-  const parts = [clean(school), clean(sport), year.trim()].filter(s => s.length > 0);
-  return parts.join("-").slice(0, 60).replace(/-+$/, "");
-}
+// Phase O2: promoted to src/lib/teamProvisioning/slug.ts so the legacy admin
+// flow and the new self-service provisioning flow share one slug algorithm
+// — this wizard's slug generation/format checks are now call-throughs to
+// that shared module, not a second independent copy.
+const SLUG_RE = CAMPAIGN_SLUG_RE;
+const generateSlug = generateCampaignSlug;
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
