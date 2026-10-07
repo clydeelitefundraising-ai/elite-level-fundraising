@@ -262,17 +262,31 @@ export default function TeamsView({
           ))}
 
           {teams.length === 0 && pendingCards.length === 0 ? (
+            // Phase O3 — two explicit actions, never hidden behind a menu:
+            // a brand-new coach creates a team here exactly as easily as an
+            // athlete/parent/booster joins one. Create Team is primary
+            // (solid) since this page's audience skews toward the person
+            // setting a team up for the first time; Join Team keeps the
+            // existing /enter-code flow completely unchanged.
             <div style={{ textAlign: "center", padding: "3rem 0" }}>
               <School size={40} aria-hidden="true" style={{ color: "#9ca3af", marginBottom: ".75rem" }} />
               <p style={{ color: "#6b7280", margin: "0 0 1.25rem", fontSize: ".9rem", lineHeight: 1.5 }}>
-                No teams linked yet.
+                No teams linked yet. Create a new team, or join one with a code.
               </p>
-              <a
-                href="/enter-code"
-                style={{ display: "inline-block", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".85rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
-              >
-                Enter Team Code
-              </a>
+              <div style={{ display: "flex", flexDirection: "column", gap: ".65rem", maxWidth: 280, margin: "0 auto" }}>
+                <a
+                  href="/team-onboarding"
+                  style={{ display: "inline-block", background: "var(--elf-orange)", color: "#fff", padding: ".85rem 1.75rem", borderRadius: ".85rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
+                >
+                  Create Team
+                </a>
+                <a
+                  href="/enter-code"
+                  style={{ display: "inline-block", background: "#fff", color: "#DE4712", border: "1.5px solid #DE4712", padding: ".8rem 1.75rem", borderRadius: ".85rem", textDecoration: "none", fontWeight: 700, fontSize: ".95rem" }}
+                >
+                  Join Team
+                </a>
+              </div>
             </div>
           ) : (
             <div className={styles.teamsGrid}>
@@ -354,18 +368,33 @@ export default function TeamsView({
             </div>
           )}
 
+          {/* Phase O3 — both actions stay directly visible side by side for
+              an existing-team account too; never collapsed into a menu. */}
           {(teams.length > 0 || pendingCards.length > 0) && (
-            <a
-              href="/enter-code"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
-                marginTop: ".1rem", padding: ".75rem",
-                border: "1.5px dashed #DE4712", borderRadius: "1rem",
-                fontSize: ".85rem", color: "#DE4712", fontWeight: 700, textDecoration: "none",
-              }}
-            >
-              + Add Team
-            </a>
+            <div style={{ display: "flex", gap: ".6rem", marginTop: ".1rem" }}>
+              <a
+                href="/team-onboarding"
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
+                  padding: ".75rem",
+                  background: "var(--elf-orange)", borderRadius: "1rem",
+                  fontSize: ".85rem", color: "#fff", fontWeight: 700, textDecoration: "none",
+                }}
+              >
+                + Create Team
+              </a>
+              <a
+                href="/enter-code"
+                style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
+                  padding: ".75rem",
+                  border: "1.5px dashed #DE4712", borderRadius: "1rem",
+                  fontSize: ".85rem", color: "#DE4712", fontWeight: 700, textDecoration: "none",
+                }}
+              >
+                + Join Team
+              </a>
+            </div>
           )}
 
           {/* Informational footer — replaces empty whitespace below the cards */}
@@ -378,7 +407,7 @@ export default function TeamsView({
                 Need another team?
               </div>
               <div style={{ fontSize: ".78rem", color: "#6b7280", lineHeight: 1.5 }}>
-                Use your coach&apos;s team code to connect another athlete, parent, booster, or coach account.
+                Create a new team, or use your coach&apos;s team code to connect another athlete, parent, booster, or coach account.
               </div>
             </div>
           )}
