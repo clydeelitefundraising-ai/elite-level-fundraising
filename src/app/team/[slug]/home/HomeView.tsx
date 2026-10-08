@@ -718,7 +718,7 @@ function HomeContent({
               Our Sponsors
             </span>
             <a
-              href={`/team/${slug}/sponsors`}
+              href={`/team/${slug}/sponsors?tab=team`}
               className={`${styles.sectionLink} elf-focus-ring`}
             >
               View All →
@@ -728,7 +728,7 @@ function HomeContent({
             {sponsors.slice(0, 5).map(s => (
               <a
                 key={s.id}
-                href={s.url || `/team/${slug}/sponsors`}
+                href={s.url || `/team/${slug}/sponsors?tab=team`}
                 target={s.url ? "_blank" : undefined}
                 rel={s.url ? "noopener noreferrer" : undefined}
                 className="elf-focus-ring"

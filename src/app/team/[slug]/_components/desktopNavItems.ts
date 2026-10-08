@@ -57,7 +57,11 @@ export function buildDesktopNavItems(params: {
   }
 
   if (params.showSponsors) {
-    items.push({ key: "sponsors", href: "sponsors", label: "Sponsors", icon: Handshake });
+    // Phase 2.1 — user-facing label only. key/href stay "sponsors": the
+    // route and existing deep links (Home's "Our Sponsors" strips, etc.)
+    // are unchanged; only the visible nav text becomes "Partners" ahead of
+    // the route's own two-tab Partners experience.
+    items.push({ key: "sponsors", href: "sponsors", label: "Partners", icon: Handshake });
   }
   if (params.showRequests) {
     items.push({ key: "requests", href: "requests", label: "Requests", icon: ClipboardList, badge: params.pendingRequestCount });

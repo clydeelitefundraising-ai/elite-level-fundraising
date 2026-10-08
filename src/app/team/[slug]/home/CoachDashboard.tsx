@@ -129,7 +129,7 @@ function SponsorsStrip({ slug, sponsors }: { slug: string; sponsors: SponsorRow[
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
         <span className={styles.sectionKicker}>Our Sponsors</span>
-        <Link href={`/team/${slug}/sponsors`} className={`${styles.sectionLink} elf-focus-ring`}>
+        <Link href={`/team/${slug}/sponsors?tab=team`} className={`${styles.sectionLink} elf-focus-ring`}>
           View All →
         </Link>
       </div>
@@ -137,7 +137,7 @@ function SponsorsStrip({ slug, sponsors }: { slug: string; sponsors: SponsorRow[
         {sponsors.slice(0, 8).map(s => (
           <a
             key={s.id}
-            href={s.url || `/team/${slug}/sponsors`}
+            href={s.url || `/team/${slug}/sponsors?tab=team`}
             target={s.url ? "_blank" : undefined}
             rel={s.url ? "noopener noreferrer" : undefined}
             className="elf-focus-ring"

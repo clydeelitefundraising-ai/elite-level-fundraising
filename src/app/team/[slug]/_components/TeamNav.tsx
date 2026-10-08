@@ -35,7 +35,10 @@ const BASE_TABS: Omit<TabConfig, "badgeCount">[] = [
   { href: "shop",           label: "Shop",           icon: ShoppingBag },
   { href: "team",           label: "Team",           icon: Users },
 ];
-const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Sponsors", icon: Handshake };
+// Phase 2.1 — user-facing label only. href stays "sponsors": the route
+// and existing deep links are unchanged; only the visible tab text
+// becomes "Partners" ahead of the route's own two-tab Partners experience.
+const STAFF_TAB: Omit<TabConfig, "badgeCount"> = { href: "sponsors", label: "Partners", icon: Handshake };
 
 export default function TeamNav({
   slug,
