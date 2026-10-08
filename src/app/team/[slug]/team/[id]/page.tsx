@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
+import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
 import CoachAthleteView from "./CoachAthleteView";
 
 export const dynamic = "force-dynamic";
@@ -80,11 +81,16 @@ export default async function CoachAthletePage({
   const goalCents = athlete.goal_cents ?? settings?.default_athlete_goal_cents ?? DEFAULT_GOAL_CENTS;
   const primaryColor = settings?.primary_color ?? "#0b1e3d";
 
+  // Phase 1.2 — single shared source of truth (see fundraiserAccess.ts);
+  // no second definition of "active" introduced here.
+  const fundraisingActive = isAthleteFundraisingVisible(settings);
+
   return (
     <CoachAthleteView
       slug={slug}
       athlete={athlete}
       members={members}
+      fundraisingActive={fundraisingActive}
       raisedCents={raisedCents}
       goalCents={goalCents}
       donorCount={donorCount}

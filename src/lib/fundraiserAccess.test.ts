@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveFundraiserRouteView } from "./fundraiserAccess.ts";
+import { resolveFundraiserRouteView, isAthleteFundraisingVisible } from "./fundraiserAccess.ts";
 import type { TeamActor } from "./permissions.ts";
 
 const headCoach: TeamActor = { kind: "coach", session: { id: "c1", name: "Coach", role: "head_coach", campaign_slug: "s" } };
@@ -58,4 +58,31 @@ test("resolveFundraiserRouteView: disabled -> unavailable for public visitor", (
 });
 test("resolveFundraiserRouteView: disabled -> dashboard for platform admin (unchanged behavior)", () => {
   assert.equal(resolveFundraiserRouteView(false, platformAdmin), "dashboard");
+});
+
+// ── Phase 1.2: isAthleteFundraisingVisible — athlete-profile section gate ──
+
+test("isAthleteFundraisingVisible: fundraising enabled, not archived -> visible", () => {
+  assert.equal(isAthleteFundraisingVisible({ fundraising_enabled: true }), true);
+});
+
+test("isAthleteFundraisingVisible: fundraising explicitly disabled -> hidden", () => {
+  assert.equal(isAthleteFundraisingVisible({ fundraising_enabled: false }), false);
+});
+
+test("isAthleteFundraisingVisible: campaign archived -> hidden, even if fundraising_enabled is true", () => {
+  assert.equal(isAthleteFundraisingVisible({ archived: true, fundraising_enabled: true }), false);
+});
+
+test("isAthleteFundraisingVisible: fundraising_enabled absent on an older/unmigrated row -> visible (same back-compat default as isCampaignAcceptingDonations)", () => {
+  assert.equal(isAthleteFundraisingVisible({}), true);
+});
+
+test("isAthleteFundraisingVisible: settings row missing entirely -> hidden (fail closed)", () => {
+  assert.equal(isAthleteFundraisingVisible(null), false);
+});
+
+test("isAthleteFundraisingVisible: a passed/expired deadline never overrides fundraising_enabled — visibility is decided ONLY by archived/fundraising_enabled", () => {
+  const pastDeadlineSettings = { fundraising_enabled: true, deadline: "2000-01-01" } as { fundraising_enabled: boolean; deadline: string };
+  assert.equal(isAthleteFundraisingVisible(pastDeadlineSettings), true);
 });

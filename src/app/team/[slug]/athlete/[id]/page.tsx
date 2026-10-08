@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
 import { requireTeamMembership, canAccessAthleteProfile } from "@/lib/permissions.server";
+import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
 import AthleteProfileView from "./AthleteProfileView";
 
 export const dynamic = "force-dynamic";
@@ -76,12 +77,17 @@ export default async function AthleteProfilePage({
     ? { name: topSupporterDonation.donor_name, amount_cents: topSupporterDonation.amount_cents }
     : null;
 
+  // Phase 1.2 — single shared source of truth (see fundraiserAccess.ts);
+  // no second definition of "active" introduced here.
+  const fundraisingActive = isAthleteFundraisingVisible(settings);
+
   return (
     <AthleteProfileView
       slug={slug}
       athlete={athlete}
       athleteId={id}
       settings={settings}
+      fundraisingActive={fundraisingActive}
       athleteRaisedCents={athleteRaisedCents}
       teamRaisedCents={teamRaisedCents}
       goalCents={goalCents}

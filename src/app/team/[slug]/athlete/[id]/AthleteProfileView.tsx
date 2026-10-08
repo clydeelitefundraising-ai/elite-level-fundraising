@@ -78,6 +78,7 @@ export default function AthleteProfileView({
   athlete,
   athleteId,
   settings,
+  fundraisingActive,
   athleteRaisedCents,
   teamRaisedCents,
   goalCents,
@@ -90,6 +91,12 @@ export default function AthleteProfileView({
   athlete: TeamAthleteRow;
   athleteId: string;
   settings: CampaignSettings | null;
+  // Phase 1.2 — server-computed via isAthleteFundraisingVisible(settings)
+  // (fundraiserAccess.ts), the same archived/fundraising_enabled
+  // precedence already used by checkout and the public campaign page.
+  // Gates every fundraising-specific section below; the hero card above
+  // it always renders regardless.
+  fundraisingActive: boolean;
   athleteRaisedCents: number;
   teamRaisedCents: number;
   goalCents: number;
@@ -270,6 +277,11 @@ export default function AthleteProfileView({
         </div>
       </div>
 
+      {/* Phase 1.2 — everything below (stats/donate/share/team-total) is
+          fundraising-specific; hidden entirely when this team has no
+          active fundraiser. The hero card above always renders. */}
+      {fundraisingActive && (
+      <>
       {/* ── Fundraising stats card ── */}
       <div style={{
         background: "#fff",
@@ -559,6 +571,8 @@ export default function AthleteProfileView({
             </button>
           </div>
         </Modal>
+      )}
+      </>
       )}
     </div>
   );

@@ -514,6 +514,7 @@ export default function CoachAthleteView({
   slug,
   athlete,
   members,
+  fundraisingActive,
   raisedCents,
   goalCents,
   donorCount,
@@ -525,6 +526,13 @@ export default function CoachAthleteView({
   slug: string;
   athlete: TeamAthleteRow;
   members: MemberRow[];
+  // Phase 1.2 — server-computed via isAthleteFundraisingVisible(settings)
+  // (fundraiserAccess.ts), the same archived/fundraising_enabled
+  // precedence already used by checkout and the public campaign page.
+  // Gates the Donor Page link, Fundraising Progress, Contacts, and
+  // Outreach sections below; the header card, Messages action, and
+  // Linked Members always render regardless.
+  fundraisingActive: boolean;
   raisedCents: number;
   goalCents: number;
   donorCount: number;
@@ -611,14 +619,16 @@ export default function CoachAthleteView({
           >
             Messages
           </a>
-          <a
-            href={buildAthleteShareUrl("", slug, athlete.id)}
-            target="_blank"
-            rel="noreferrer"
-            style={{ flex: 1, textAlign: "center", padding: ".42rem", background: "#f3f4f6", color: "#374151", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
-          >
-            Donor Page ↗
-          </a>
+          {fundraisingActive && (
+            <a
+              href={buildAthleteShareUrl("", slug, athlete.id)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ flex: 1, textAlign: "center", padding: ".42rem", background: "#f3f4f6", color: "#374151", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
+            >
+              Donor Page ↗
+            </a>
+          )}
         </div>
       </div>
 
@@ -653,6 +663,12 @@ export default function CoachAthleteView({
         </div>
       )}
 
+      {/* Phase 1.2 — Fundraising Progress / Contacts / Outreach are all
+          fundraising-specific; hidden entirely when this team has no
+          active fundraiser. Header card, Messages action, and Linked
+          Members above always render regardless. */}
+      {fundraisingActive && (
+      <>
       {/* ── Fundraising progress ── */}
       <div style={card}>
         <div style={sectionTitle}>Fundraising Progress</div>
@@ -682,6 +698,8 @@ export default function CoachAthleteView({
 
       {/* ── Outreach section ── */}
       <OutreachSection slug={slug} athleteId={athlete.id} />
+      </>
+      )}
     </div>
   );
 }
