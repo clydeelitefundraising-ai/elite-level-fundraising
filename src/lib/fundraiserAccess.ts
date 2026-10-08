@@ -70,3 +70,16 @@ export function resolvePublicCampaignState(settings: CampaignActiveState): Publi
   if (!(settings.fundraising_enabled ?? true)) return "not-started";
   return "live";
 }
+
+/** Phase 1.2 — same precedence as isCampaignAcceptingDonations above, for
+ *  the two member-facing athlete-profile routes (athlete/[id]/page.tsx and
+ *  team/[id]/page.tsx), both of which already fetch settings as
+ *  `CampaignSettings | null` via getCampaignSettings(). A missing row
+ *  (data anomaly — every real team has one, created at provisioning time)
+ *  resolves to "hide fundraising," the same fail-closed default every
+ *  other inactive case already resolves to. Does not introduce a second
+ *  definition of "active" — delegates entirely to
+ *  isCampaignAcceptingDonations for any non-null row. */
+export function isAthleteFundraisingVisible(settings: CampaignActiveState | null): boolean {
+  return settings ? isCampaignAcceptingDonations(settings) : false;
+}
