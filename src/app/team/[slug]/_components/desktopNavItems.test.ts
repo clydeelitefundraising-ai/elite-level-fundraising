@@ -40,12 +40,24 @@ test("buildDesktopNavItems: hiding Fundraising never hides unrelated nav items",
   assert.deepEqual(keys, ["home", "team", "calendar", "communications", "messages", "sponsors", "requests", "settings"]);
 });
 
-test("buildDesktopNavItems: Sponsors is included only when showSponsors is true", () => {
+test("buildDesktopNavItems: Sponsors/Partners is included only when showSponsors is true", () => {
   const without = buildDesktopNavItems(BASE_PARAMS);
   assert.equal(without.some(i => i.key === "sponsors"), false);
 
   const withSponsors = buildDesktopNavItems({ ...BASE_PARAMS, showSponsors: true });
   assert.equal(withSponsors.some(i => i.key === "sponsors"), true);
+});
+
+// Phase 2.1 — the visible nav label changed from "Sponsors" to "Partners"
+// ahead of the route's own two-tab Partners experience. key/href stay
+// "sponsors" — existing deep links (Home's "Our Sponsors" strips, etc.)
+// must keep resolving unchanged.
+test("buildDesktopNavItems: the Partners nav item's visible label is 'Partners', but its key/href stay 'sponsors' (no route change)", () => {
+  const items = buildDesktopNavItems({ ...BASE_PARAMS, showSponsors: true });
+  const item = items.find(i => i.key === "sponsors");
+  assert.ok(item);
+  assert.equal(item?.label, "Partners");
+  assert.equal(item?.href, "sponsors");
 });
 
 test("buildDesktopNavItems: Requests is included only when showRequests is true (Head-Coach-only, incl. Platform Admin)", () => {

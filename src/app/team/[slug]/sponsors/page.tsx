@@ -1,7 +1,11 @@
 import { getTeamSponsors } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
-import SponsorsView from "./SponsorsView";
+import PartnersView from "./PartnersView";
 
+// Phase 2.1 — same data fetch as before this phase (no new queries); only
+// the rendered component changed, from SponsorsView directly to the new
+// PartnersView tab shell, which renders SponsorsView unmodified as its
+// "Team Sponsors" tab.
 export default async function SponsorsPage({
   params,
 }: {
@@ -12,5 +16,5 @@ export default async function SponsorsPage({
     getTeamSponsors(slug),
     getTeamActor(slug),
   ]);
-  return <SponsorsView slug={slug} initialSponsors={sponsors} actor={actor} />;
+  return <PartnersView slug={slug} initialSponsors={sponsors} actor={actor} />;
 }
