@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, User, Users, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Bell, User, Users, Settings as SettingsIcon, LogOut, Plus } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
@@ -289,6 +289,24 @@ export default function AccountMenu({
                 })}
               </div>
             )}
+
+            {/* Create Team (Phase O3) — always offered to an authenticated
+                account, with or without existing teams, so a coach can
+                start a second team without leaving their current one.
+                Uses O2's existing provisioning page; never duplicates the
+                dead TeamSwitcher.tsx. Placed right after the team list
+                (inside its own row rather than that block, so it still
+                renders even when teams.length === 0, matching /teams'
+                own zero-team entry point). */}
+            <a
+              href="/team-onboarding"
+              onClick={() => setOpen(false)}
+              className="elf-focus-ring"
+              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+            >
+              <Plus size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
+              <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Create Team</span>
+            </a>
 
             {/* Notifications — the label now navigates to the existing
                 notifications feed (previously dead on platforms like the
