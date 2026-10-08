@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-// Phase 2.2A — ELF Community Partners management. Platform-Admin-only
-// (enforced server-side by every /api/platform-admin/community-partners/*
-// route this view calls, independently of the /platform-admin/* layout
-// gate). No team-level role can ever reach this page or its APIs.
+// Phase 2.2A — ELF Community Partners management. Lives inside the main
+// /admin Portal (src/app/admin/community-partners/page.tsx only renders
+// this component after independently verifying a real Platform Admin
+// session, in addition to the outer /admin shared-password gate). Every
+// API route this view calls also independently re-checks that same
+// Platform Admin session itself — no team-level role can ever reach this
+// page or its APIs regardless of what renders here.
 
 type CommunityPartner = {
   id:                string;

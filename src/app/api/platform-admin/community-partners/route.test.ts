@@ -221,6 +221,28 @@ test("POST: a valid partner is created, always inactive/not-featured/order-0 reg
   });
 });
 
+// ── Audit attribution (Phase 2.2A relocation security requirement) ───────
+
+test("POST: the audit log entry attributes the action to the real signed-in Platform Admin's identity, never a generic actor", async () => {
+  await withFakeDb(async db => {
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { POST } = await loadRoute();
+    await POST(postPartner({ business_name: "Acme Co" }) as never);
+
+    const logged = db.audit_logs?.[0];
+    assert.ok(logged, "expected an audit_logs row to have been written");
+    assert.equal(logged.action, "community_partner.created");
+    assert.equal(logged.actor_type, "platform_admin");
+    // actor_id is the platform_admins row id (toAuditActor/logAuditEvent's
+    // own contract — see auditLog.ts), not the elf_accounts id — seeded as
+    // "pa-1" above via seedPlatformAdmin.
+    assert.equal(logged.actor_id, "pa-1", "must attribute to this specific platform admin's real identity, not a generic one");
+    assert.equal(logged.actor_email, "admin@elitelevelfundraising.com");
+    assert.notEqual(logged.admin_identifier, "admin", "must never fall back to the legacy shared-tool identifier");
+  });
+});
+
 test("POST: malformed JSON body returns 400", async () => {
   await withFakeDb(async db => {
     const admin = seedPlatformAdmin(db);

@@ -59,11 +59,6 @@ export default function PlatformAdminHeader({
         )}
       </Link>
 
-      {/* Phase 2.2A */}
-      <Link href="/platform-admin/community-partners" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0 }}>
-        Community Partners
-      </Link>
-
       <div style={{ display: "flex", alignItems: "center", gap: ".6rem", minWidth: 0 }}>
         <span
           style={{
