@@ -92,10 +92,10 @@ export default function LoginView({ photo }: { photo: EntryPhoto }) {
         </button>
 
         <div style={{ textAlign: "center" }}>
-          <span className={styles.subtext} style={{ fontSize: ".88rem" }}>New member? </span>
-          <a href="/enter-code" className={styles.textLink}>
-            Enter your team code
-          </a>
+          <span className={styles.subtext} style={{ fontSize: ".88rem" }}>New to ELF? </span>
+          <a href="/signup" className={styles.textLink}>Create Your Team</a>
+          <span className={styles.subtext} style={{ fontSize: ".88rem" }}> or </span>
+          <a href="/enter-code" className={styles.textLink}>Join Your Team</a>
         </div>
       </form>
 

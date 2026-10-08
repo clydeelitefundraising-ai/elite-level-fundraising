@@ -40,12 +40,17 @@ export default function AppEntry({ photo }: { photo: EntryPhoto }) {
         </h1>
 
         <div style={{ display: "flex", flexDirection: "column", gap: ".75rem", marginTop: ".25rem" }}>
-          <Link href="/login" className={styles.primaryButton}>
-            Log In
+          <Link href="/signup" className={styles.primaryButton}>
+            Create Your Team
           </Link>
           <Link href="/enter-code" className={styles.secondaryButton}>
-            Enter Team Code
+            Join Your Team
           </Link>
+        </div>
+
+        <div style={{ textAlign: "center" }}>
+          <span className={styles.subtext} style={{ fontSize: ".88rem" }}>Already have an account? </span>
+          <a href="/login" className={styles.textLink}>Log In</a>
         </div>
       </div>
 
