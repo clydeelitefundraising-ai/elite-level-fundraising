@@ -120,7 +120,12 @@ function ReportCard({ slug, report, onActionComplete }: { slug: string; report: 
         onChange={e => setNote(e.target.value)}
         placeholder="Resolution note (optional)…"
         rows={2}
-        style={{ width: "100%", boxSizing: "border-box", marginTop: ".4rem", padding: ".4rem .55rem", borderRadius: 6, border: "1px solid var(--border-app)", fontSize: ".78rem", fontFamily: "inherit", resize: "vertical" }}
+        className={styles.reportNoteInput}
+        // font-size intentionally NOT set here — styles.reportNoteInput
+        // carries it (desktop .78rem, mobile 1rem; see Requests.module.css)
+        // since an inline style's font-size would otherwise always win
+        // over that class's own mobile-only override.
+        style={{ width: "100%", boxSizing: "border-box", marginTop: ".4rem", padding: ".4rem .55rem", borderRadius: 6, border: "1px solid var(--border-app)", fontFamily: "inherit", resize: "vertical" }}
       />
 
       <div className={styles.actionsRow}>
