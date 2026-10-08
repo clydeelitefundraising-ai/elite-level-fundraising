@@ -292,6 +292,31 @@
   background: var(--surface-light);
 }
 
+/* ReportsPanel's resolution-note textarea is otherwise inline-styled —
+   this class exists solely to carry its font-size so the mobile-only
+   override below can apply (an inline style's font-size would otherwise
+   always win over any class, media query or not). */
+.reportNoteInput {
+  font-size: .78rem;
+}
+
+/* Phase 1.1 — mobile-only override. Below .78rem/.8rem (~12.5-13px), iOS
+   WebKit auto-zooms the whole visual viewport on focus (the same "16px
+   minimum" rule already applied elsewhere in this app — see ContactsView,
+   FilesView, EventFormModal, etc.) — this page's own form controls were
+   never given it. Scoped to <1024px only (this file's existing mobile/
+   desktop boundary) so desktop's current sizing is untouched; mobile never
+   needed the smaller size for any layout reason, just an oversight when
+   this page's controls were originally styled. */
+@media screen and (max-width: 1023px) {
+  .input,
+  .select,
+  .declineInput,
+  .reportNoteInput {
+    font-size: 1rem;
+  }
+}
+
 /* ── Actions ────────────────────────────────────────────────────────── */
 
 .actionsRow {
