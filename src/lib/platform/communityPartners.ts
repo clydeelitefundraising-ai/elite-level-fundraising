@@ -19,6 +19,14 @@ export type CommunityPartnerRow = {
   is_active:         boolean;
   is_featured:       boolean;
   display_order:     number;
+  // Phase 2.2D-1: one of the 20 numbered Home Screen advertising grid
+  // positions this partner is permanently reserved for, or null when
+  // unlocked (participates in Phase 2.2D-2's rotation pool instead — not
+  // built yet). Independent of is_active: deactivating a partner does
+  // NOT free its locked position (approved requirement — "do not
+  // automatically reassign another partner's reserved position"); only
+  // an explicit unlock (set to null) does.
+  locked_position:   number | null;
   created_at:        string;
   updated_at:        string;
 };
@@ -38,7 +46,7 @@ export function isValidHttpsUrl(value: string): boolean {
   }
 }
 
-export type CommunityPartnerFieldErrors = Partial<Record<"business_name" | "website_url", string>>;
+export type CommunityPartnerFieldErrors = Partial<Record<"business_name" | "website_url" | "locked_position", string>>;
 
 export type ValidatedCommunityPartnerFields = {
   business_name?:     string;
@@ -48,6 +56,7 @@ export type ValidatedCommunityPartnerFields = {
   is_active?:         boolean;
   is_featured?:        boolean;
   display_order?:      number;
+  locked_position?:    number | null;
 };
 
 export type CommunityPartnerValidationResult =
@@ -110,6 +119,24 @@ export function validateCommunityPartnerFields(
     value.display_order = Math.trunc(input.display_order);
   }
 
+  // Phase 2.2D-1 — null explicitly unlocks (returns the partner to the
+  // future rotation pool); 1-20 locks it to that grid position. Anything
+  // else (wrong type, out of range, a fraction) is a validation error,
+  // not silently ignored like the other optional numeric field above —
+  // a position lock is a deliberate admin action with real consequences
+  // (it blocks that slot for every other partner), so a malformed value
+  // must never be quietly dropped and misread as "no change requested."
+  if ("locked_position" in input) {
+    const raw = input.locked_position;
+    if (raw === null) {
+      value.locked_position = null;
+    } else if (typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= 20) {
+      value.locked_position = raw;
+    } else {
+      errors.locked_position = "Position must be a whole number from 1 to 20, or null to unlock.";
+    }
+  }
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return { ok: true, value };
 }
@@ -140,6 +167,21 @@ export async function listActiveCommunityPartners(): Promise<ActiveCommunityPart
 export async function getCommunityPartner(id: string): Promise<CommunityPartnerRow | null> {
   const rows = await restList<CommunityPartnerRow>(
     `community_partners?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+/** Phase 2.2D-1 — a friendly pre-check before attempting a lock write, so
+ *  the route can name the conflicting partner in its error (e.g. "Position
+ *  7 is already locked to Riverside Hardware") instead of a generic
+ *  failure. This is a courtesy only, never the safety boundary — the
+ *  database's partial unique index is, and remains the final guard
+ *  against a genuine race between two concurrent lock attempts (see
+ *  updateCommunityPartner's caller, which still must handle a 23505 from
+ *  the actual write even when this check found nothing). */
+export async function findPartnerByLockedPosition(position: number): Promise<CommunityPartnerRow | null> {
+  const rows = await restList<CommunityPartnerRow>(
+    `community_partners?locked_position=eq.${encodeURIComponent(String(position))}&select=*&limit=1`,
   );
   return rows[0] ?? null;
 }

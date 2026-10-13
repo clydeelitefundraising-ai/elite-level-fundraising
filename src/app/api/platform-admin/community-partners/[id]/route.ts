@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
-import { getCommunityPartner, updateCommunityPartner, validateCommunityPartnerFields } from "@/lib/platform/communityPartners";
+import { getCommunityPartner, updateCommunityPartner, validateCommunityPartnerFields, findPartnerByLockedPosition } from "@/lib/platform/communityPartners";
+import { RestError } from "@/lib/platform/_client";
 import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -39,10 +40,37 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
   }
 
+  // Phase 2.2D-1 — a position LOCK (not an unlock/null, and only when the
+  // lock is actually changing) gets a friendly pre-check naming the
+  // conflicting partner. This is a courtesy for the common case; it does
+  // NOT replace the database's partial unique index as the real guard —
+  // see the catch block below, which still handles a genuine race (two
+  // concurrent PATCHes) via the 23505 the write itself would throw.
+  if (typeof result.value.locked_position === "number" && result.value.locked_position !== existing.locked_position) {
+    const holder = await findPartnerByLockedPosition(result.value.locked_position);
+    if (holder && holder.id !== id) {
+      return NextResponse.json(
+        { error: `Position ${result.value.locked_position} is already locked to "${holder.business_name}".` },
+        { status: 409 },
+      );
+    }
+  }
+
   let partner;
   try {
     partner = await updateCommunityPartner(id, result.value);
-  } catch {
+  } catch (err) {
+    // A genuine race lost to the database's unique index — the pre-check
+    // above found nothing free a moment ago, but another admin's PATCH
+    // won the write in between. Still a clean 409, never a 500, and the
+    // partner's lock is NOT silently reassigned or dropped (the write
+    // failed outright, this partner's row is untouched).
+    if (err instanceof RestError && err.code === "23505" && err.constraint === "community_partners_locked_position_unique_idx") {
+      return NextResponse.json(
+        { error: "That position was just locked by another request. Please choose a different position." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: "Failed to update partner. Please try again." }, { status: 500 });
   }
 
@@ -52,7 +80,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     entity_type:    "community_partner",
     entity_id:      id,
     summary:        `Updated ELF Community Partner "${partner.business_name}"`,
-    previous_value: { is_active: existing.is_active, is_featured: existing.is_featured, display_order: existing.display_order },
+    previous_value: { is_active: existing.is_active, is_featured: existing.is_featured, display_order: existing.display_order, locked_position: existing.locked_position },
     new_value:      result.value as Record<string, unknown>,
     ip_address:     ipOf(req),
     user_agent:     req.headers.get("user-agent"),

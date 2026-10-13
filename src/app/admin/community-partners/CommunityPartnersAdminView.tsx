@@ -19,6 +19,11 @@ type CommunityPartner = {
   is_active:         boolean;
   is_featured:       boolean;
   display_order:     number;
+  // Phase 2.2D-1: one of the 20 Home Screen grid positions this partner
+  // is permanently reserved for, or null when unlocked (standard
+  // rotation pool — the pool itself is a Phase 2.2D-2 concern, not built
+  // yet). Independent of is_active — see communityPartners.ts.
+  locked_position:   number | null;
   created_at:        string;
   updated_at:        string;
 };
@@ -30,11 +35,12 @@ type PartnerForm = {
   logo_url:          string;
   is_featured:       boolean;
   display_order:     string;
+  locked_position:   number | null;
 };
 
 const BLANK: PartnerForm = {
   business_name: "", short_description: "", website_url: "", logo_url: "",
-  is_featured: false, display_order: "0",
+  is_featured: false, display_order: "0", locked_position: null,
 };
 
 function fromPartner(p: CommunityPartner): PartnerForm {
@@ -45,6 +51,7 @@ function fromPartner(p: CommunityPartner): PartnerForm {
     logo_url:          p.logo_url ?? "",
     is_featured:       p.is_featured,
     display_order:     String(p.display_order),
+    locked_position:   p.locked_position,
   };
 }
 
@@ -87,10 +94,17 @@ function LogoThumb({ name, url, size = 44 }: { name: string; url: string | null;
 
 function PartnerFormPanel({
   editing,
+  allPartners,
   onClose,
   onSaved,
 }: {
   editing: CommunityPartner | null;
+  // Phase 2.2D-1 — needed to show which of the 20 positions are already
+  // reserved (and by whom) so the admin can't even attempt a conflicting
+  // assignment from this form. The API's own pre-check + the database's
+  // partial unique index remain the real guards (see route.ts) — this is
+  // purely a UX improvement to catch the common case before a round-trip.
+  allPartners: CommunityPartner[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -129,7 +143,7 @@ function PartnerFormPanel({
     setError("");
     setFieldErrors({});
 
-    const body = {
+    const body: Record<string, unknown> = {
       business_name:     form.business_name.trim(),
       short_description: form.short_description.trim() || null,
       website_url:       form.website_url.trim() || null,
@@ -137,6 +151,12 @@ function PartnerFormPanel({
       is_featured:       form.is_featured,
       display_order:     Number.isFinite(parseInt(form.display_order, 10)) ? parseInt(form.display_order, 10) : 0,
     };
+    // Phase 2.2D-1 — position locking is an edit-only action (the Lock
+    // Position control below only renders when isEditing), same
+    // established pattern as Active status ("managed from the partner
+    // list, not this form"). Omitted entirely from the create request
+    // rather than sent as null, since the create API has no use for it.
+    if (isEditing) body.locked_position = form.locked_position;
 
     const res = await fetch(
       isEditing ? `/api/platform-admin/community-partners/${editing.id}` : "/api/platform-admin/community-partners",
@@ -256,6 +276,62 @@ function PartnerFormPanel({
             </div>
           </div>
 
+          {/* Phase 2.2D-1 — edit-only, same reasoning as the Active status
+              note below: a brand-new partner starts with no reservation,
+              an admin locks it afterward via an explicit edit. Positions
+              already held by ANOTHER partner are shown and disabled
+              right here — the API's own pre-check + the database's
+              partial unique index remain the real guards (see route.ts),
+              this is purely a UX improvement to catch the common case
+              before a round-trip. */}
+          {isEditing && (
+            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: ".85rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: form.locked_position !== null ? ".65rem" : 0 }}>
+                <input
+                  id="lock_position"
+                  type="checkbox"
+                  checked={form.locked_position !== null}
+                  onChange={e => setForm(f => ({ ...f, locked_position: e.target.checked ? (f.locked_position ?? 1) : null }))}
+                  style={{ width: 18, height: 18 }}
+                />
+                <label htmlFor="lock_position" style={{ fontSize: ".82rem", fontWeight: 700, color: "#374151" }}>
+                  Lock to a specific advertising position
+                </label>
+              </div>
+
+              {form.locked_position !== null && (
+                <label style={lbl}>
+                  Position (1–20)
+                  <select
+                    style={inp}
+                    value={form.locked_position}
+                    onChange={e => setForm(f => ({ ...f, locked_position: parseInt(e.target.value, 10) }))}
+                  >
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map(pos => {
+                      const holder = allPartners.find(p => p.locked_position === pos && p.id !== editing?.id);
+                      return (
+                        <option key={pos} value={pos} disabled={!!holder}>
+                          {holder ? `Position ${pos} — locked to "${holder.business_name}"` : `Position ${pos}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {fieldErrors.locked_position && (
+                    <span style={{ color: "#dc2626", fontSize: ".75rem", fontWeight: 400, textTransform: "none" }}>
+                      {fieldErrors.locked_position}
+                    </span>
+                  )}
+                </label>
+              )}
+
+              {form.locked_position === null && (
+                <div style={{ fontSize: ".72rem", color: "#9ca3af" }}>
+                  Unlocked — participates in the standard rotation pool once rotation is built.
+                </div>
+              )}
+            </div>
+          )}
+
           {isEditing && (
             <div style={{ fontSize: ".72rem", color: "#9ca3af" }}>
               Active status is managed from the partner list, not this form — use Activate/Deactivate there.
@@ -328,6 +404,20 @@ function PartnerRow({ partner, onChanged, onEdit }: { partner: CommunityPartner;
             {partner.is_featured && (
               <span style={{ fontSize: ".6rem", fontWeight: 700, padding: ".1rem .4rem", borderRadius: 999, background: "#fef3c7", color: "#92400e", textTransform: "uppercase", letterSpacing: ".04em" }}>
                 Featured
+              </span>
+            )}
+            {/* Phase 2.2D-1 — visibly distinguishes a locked (reserved
+                position) partner from one in the standard rotation pool,
+                per the approved requirement. Distinct color from Active/
+                Featured so the three concepts never read as the same
+                thing at a glance. */}
+            {partner.locked_position !== null ? (
+              <span style={{ fontSize: ".6rem", fontWeight: 700, padding: ".1rem .4rem", borderRadius: 999, background: "#ede9fe", color: "#5b21b6", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                Locked · Position {partner.locked_position}
+              </span>
+            ) : (
+              <span style={{ fontSize: ".6rem", fontWeight: 700, padding: ".1rem .4rem", borderRadius: 999, background: "#f3f4f6", color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                Rotating
               </span>
             )}
           </div>
@@ -425,7 +515,9 @@ export default function CommunityPartnersAdminView() {
         partners.map(p => <PartnerRow key={p.id} partner={p} onChanged={load} onEdit={openEdit} />)
       )}
 
-      {showForm && <PartnerFormPanel editing={editing} onClose={closeForm} onSaved={savedForm} />}
+      {showForm && (
+        <PartnerFormPanel editing={editing} allPartners={partners ?? []} onClose={closeForm} onSaved={savedForm} />
+      )}
     </div>
   );
 }
