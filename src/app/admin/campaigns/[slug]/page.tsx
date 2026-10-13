@@ -136,6 +136,7 @@ export default async function CampaignDetailPage({ params }: RouteCtx) {
     external_store_url:         settings.external_store_url  ?? "",
     store_provider:             settings.store_provider      ?? "",
     archived:                   settings.archived            ?? false,
+    organization_id:            settings.organization_id     ?? null,
     // Phase F1a: schema/admin-editing only — no read path branches on this
     // value yet. `?? false` is a defensive fallback only; the migration
     // itself backfills every existing row to true and enforces NOT NULL,
