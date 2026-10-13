@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Users, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
+import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
 import { resolveFundUseIcon } from "@/lib/fundUseIcons";
 
@@ -16,7 +16,11 @@ function fundGridColumnClass(count: number): string {
   return "pc-fund-grid";
 }
 
-type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
+// Phase 2.2E-2 — public-safe subset only, mirrors CampaignPageClient.tsx's
+// own CommunityPartnerItem type (not imported across the client/server
+// boundary — each file declares its own copy, same convention this file
+// already follows for every other prop type here).
+type CommunityPartnerItem = { id: string; business_name: string; short_description: string | null; website_url: string | null; logo_url: string | null };
 type Athlete = { id: string; rank: number; name: string; event: string | null; class_year: string | null; raised: number };
 // Phase A35: a leaderboard row is either an athlete or a participating
 // coach. Coach rows never carry a grade/event — role is shown instead.
@@ -64,17 +68,11 @@ export type PublicCampaignPageProps = {
   participantFilter: "All" | "Athletes" | "Coaches";
   setParticipantFilter: (f: "All" | "Athletes" | "Coaches") => void;
   recentDonations: Donation[];
-  titleSponsors: SponsorItem[];
-  platinumSponsors: SponsorItem[];
-  goldSponsors: SponsorItem[];
-  silverSponsors: SponsorItem[];
-  bronzeSponsors: SponsorItem[];
-  communitySponsors: SponsorItem[];
+  communityPartners: CommunityPartnerItem[];
   missionItems: MissionItem[];
   showLeaderboard: boolean;
   showFundUses: boolean;
   showRecentDonations: boolean;
-  showSponsors: boolean;
   showDonationCard: boolean;
   selectedAmount: string;
   setSelectedAmount: (a: string) => void;
@@ -108,9 +106,9 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     coaches, allowCoachFundraising, selectedCoachId,
     selectAthleteParticipant, selectCoachParticipant,
     participantFilter, setParticipantFilter,
-    recentDonations, titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
+    recentDonations, communityPartners,
     missionItems,
-    showLeaderboard, showFundUses, showRecentDonations, showSponsors, showDonationCard,
+    showLeaderboard, showFundUses, showRecentDonations, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
     donorName, setDonorName, selectedAthleteId,
     donationMessage, setDonationMessage,
@@ -127,14 +125,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
   const visibleAthletes = leaderboardExpanded ? searchedAthletes : searchedAthletes.slice(0, LEADERBOARD_PREVIEW_COUNT);
   const visibleDonations = donationsExpanded ? recentDonations : recentDonations.slice(0, 5);
 
-  const sponsorGroups = ([
-    { key: "title", label: "Title Sponsor", items: titleSponsors },
-    { key: "platinum", label: "Platinum Sponsors", items: platinumSponsors },
-    { key: "gold", label: "Gold Sponsors", items: goldSponsors },
-    { key: "silver", label: "Silver Sponsors", items: silverSponsors },
-    { key: "bronze", label: "Bronze Sponsors", items: bronzeSponsors },
-    { key: "community_partner", label: "Community Partners", items: communitySponsors },
-  ] as const).filter((g) => g.items.length > 0);
+  const hasCommunityPartners = communityPartners.length > 0;
 
   return (
     <div className="pc-page">
@@ -147,7 +138,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
           <div className="pc-nav-links">
             <a href="#pc-about" className="pc-nav-link">About</a>
             <a href="#pc-team" className="pc-nav-link">Our Team</a>
-            {showSponsors && <a href="#pc-sponsors" className="pc-nav-link">Sponsors</a>}
+            {hasCommunityPartners && <a href="#pc-partners" className="pc-nav-link">Community Partners</a>}
             {showRecentDonations && <a href="#pc-updates" className="pc-nav-link">Updates</a>}
             <a href="#pc-contact" className="pc-nav-link">Contact</a>
           </div>
@@ -167,7 +158,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
         <div className={`pc-nav-mobile-panel${mobileNavOpen ? " open" : ""}`}>
           <a href="#pc-about" onClick={() => setMobileNavOpen(false)}>About</a>
           <a href="#pc-team" onClick={() => setMobileNavOpen(false)}>Our Team</a>
-          {showSponsors && <a href="#pc-sponsors" onClick={() => setMobileNavOpen(false)}>Sponsors</a>}
+          {hasCommunityPartners && <a href="#pc-partners" onClick={() => setMobileNavOpen(false)}>Community Partners</a>}
           {showRecentDonations && <a href="#pc-updates" onClick={() => setMobileNavOpen(false)}>Updates</a>}
           <a href="#pc-contact" onClick={() => setMobileNavOpen(false)}>Contact</a>
         </div>
@@ -298,11 +289,6 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               <div className="pc-hero-stat">
                 <Heart className="pc-hero-stat-icon" size={22} fill="currentColor" />
                 <div><strong>{donors}</strong><span>Donations</span></div>
-              </div>
-              <div className="pc-hero-stat-divider" />
-              <div className="pc-hero-stat">
-                <Users className="pc-hero-stat-icon" size={22} />
-                <div><strong>{sponsorGroups.reduce((n, g) => n + g.items.length, 0)}</strong><span>Sponsors</span></div>
               </div>
               <div className="pc-hero-stat-divider" />
               <div className="pc-hero-stat">
@@ -438,8 +424,8 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
         </div>
       </section>
 
-      {/* RECENT SUPPORT + SPONSORS */}
-      {(showRecentDonations || showSponsors) && (
+      {/* RECENT SUPPORT + ELF COMMUNITY PARTNERS */}
+      {(showRecentDonations || hasCommunityPartners) && (
         <section className="pc-section" id="pc-updates">
           <div className="pc-section-inner pc-support-grid">
             {showRecentDonations && (
@@ -473,30 +459,27 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               </div>
             )}
 
-            {showSponsors && (
-              <div id="pc-sponsors">
-                <h2 className="pc-h2">Backed by Our Community</h2>
-                <p className="pc-subcopy">A huge thank you to our sponsors for investing in our athletes!</p>
-                {sponsorGroups.length > 0 ? (
-                  sponsorGroups.map((g) => (
-                    <div key={g.key}>
-                      <p className="pc-sponsor-tier-label">{g.label}</p>
-                      <div className="pc-sponsor-grid">
-                        {g.items.map((s) => (
-                          <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer" className="pc-sponsor-card">
-                            {s.logo_url
-                              ? <img src={s.logo_url} alt={s.name} className="pc-sponsor-logo-img" />
-                              : <span className="pc-sponsor-logo-fallback">{s.name[0]?.toUpperCase() ?? "S"}</span>}
-                            <span className="pc-sponsor-name">{s.name}</span>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="pc-empty">No sponsors yet.</div>
-                )}
-                <a className="pc-become-sponsor" href="/contact">Become a Sponsor <ArrowRight size={15} /></a>
+            {hasCommunityPartners && (
+              <div id="pc-partners">
+                <h2 className="pc-h2">ELF Community Partners</h2>
+                <p className="pc-subcopy">Local businesses supporting {schoolName} {sportName}.</p>
+                <div className="pc-sponsor-grid">
+                  {communityPartners.map((p) => (
+                    <a
+                      key={p.id}
+                      href={p.website_url ?? undefined}
+                      target={p.website_url ? "_blank" : undefined}
+                      rel={p.website_url ? "noopener noreferrer" : undefined}
+                      className="pc-sponsor-card"
+                      style={p.website_url ? undefined : { cursor: "default" }}
+                    >
+                      {p.logo_url
+                        ? <img src={p.logo_url} alt={p.business_name} className="pc-sponsor-logo-img" />
+                        : <span className="pc-sponsor-logo-fallback">{p.business_name[0]?.toUpperCase() ?? "P"}</span>}
+                      <span className="pc-sponsor-name">{p.business_name}</span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -526,7 +509,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
           <div className="pc-footer-nav">
             <a href="#pc-about">About</a>
             <a href="#pc-team">Our Team</a>
-            {showSponsors && <a href="#pc-sponsors">Sponsors</a>}
+            {hasCommunityPartners && <a href="#pc-partners">Community Partners</a>}
             {showRecentDonations && <a href="#pc-updates">Updates</a>}
             <a href="#pc-contact">Contact</a>
           </div>

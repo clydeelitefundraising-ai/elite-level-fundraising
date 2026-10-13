@@ -256,7 +256,15 @@ type SchoolAdState =
   | { status: "unlinked" }
   | { status: "unauthorized" }
   | { status: "error" }
-  | { status: "ready"; school_name: string; show_community_partners: boolean };
+  | {
+      status: "ready";
+      school_name: string;
+      show_community_partners: boolean;
+      // Phase 2.2E-2 — independent of show_community_partners above; see
+      // schoolAdvertising.ts's module header for why these are two
+      // separate columns rather than one shared boolean.
+      show_community_partners_public: boolean;
+    };
 
 function SchoolAdvertisingSection({
   organizationId,
@@ -268,7 +276,7 @@ function SchoolAdvertisingSection({
   const [schoolAd, setSchoolAd] = useState<SchoolAdState>(
     organizationId ? { status: "loading" } : { status: "unlinked" },
   );
-  const [schoolAdSaving, setSchoolAdSaving] = useState(false);
+  const [schoolAdSaving, setSchoolAdSaving] = useState<"app" | "public" | null>(null);
 
   useEffect(() => {
     // organizationId is fixed for the lifetime of this mounted instance
@@ -283,24 +291,29 @@ function SchoolAdvertisingSection({
         if (res.status === 401) { setSchoolAd({ status: "unauthorized" }); return; }
         if (!res.ok) { setSchoolAd({ status: "error" }); return; }
         const data = await res.json();
-        setSchoolAd({ status: "ready", school_name: data.school_name, show_community_partners: data.show_community_partners });
+        setSchoolAd({
+          status: "ready",
+          school_name: data.school_name,
+          show_community_partners: data.show_community_partners,
+          show_community_partners_public: data.show_community_partners_public,
+        });
       })
       .catch(() => { if (!cancelled) setSchoolAd({ status: "error" }); });
     return () => { cancelled = true; };
   }, [organizationId]);
 
-  async function toggleSchoolAdvertising(next: boolean) {
+  async function toggleSchoolAdvertising(field: "show_community_partners" | "show_community_partners_public", next: boolean) {
     // Ignore clicks mid-request (handles rapid repeated clicks without
     // firing overlapping PATCHes) and when there's no confirmed current
     // state to toggle from.
-    if (!organizationId || schoolAdSaving || schoolAd.status !== "ready") return;
+    if (!organizationId || schoolAdSaving !== null || schoolAd.status !== "ready") return;
 
-    setSchoolAdSaving(true);
+    setSchoolAdSaving(field === "show_community_partners" ? "app" : "public");
     try {
       const res = await fetch(`/api/platform-admin/schools/${encodeURIComponent(organizationId)}/advertising`, {
         method:  "PATCH",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ show_community_partners: next }),
+        body:    JSON.stringify({ [field]: next }),
       });
       if (res.status === 401) {
         setSchoolAd({ status: "unauthorized" });
@@ -315,12 +328,21 @@ function SchoolAdvertisingSection({
         return;
       }
       const data = await res.json();
-      setSchoolAd({ status: "ready", school_name: data.school_name, show_community_partners: data.show_community_partners });
-      show(data.show_community_partners ? "ELF Community Partners advertising enabled." : "ELF Community Partners advertising disabled.");
+      setSchoolAd({
+        status: "ready",
+        school_name: data.school_name,
+        show_community_partners: data.show_community_partners,
+        show_community_partners_public: data.show_community_partners_public,
+      });
+      if (field === "show_community_partners") {
+        show(data.show_community_partners ? "ELF Community Partners advertising enabled." : "ELF Community Partners advertising disabled.");
+      } else {
+        show(data.show_community_partners_public ? "Public page ELF Community Partners advertising enabled." : "Public page ELF Community Partners advertising disabled.");
+      }
     } catch {
       show("Failed to update advertising setting. Please try again.", "error");
     } finally {
-      setSchoolAdSaving(false);
+      setSchoolAdSaving(null);
     }
   }
 
@@ -369,12 +391,23 @@ function SchoolAdvertisingSection({
             School: <strong style={{ color: "#1d1d1f" }}>{schoolAd.school_name}</strong>
           </div>
           <ToggleRow
-            label="Show ELF Community Partners"
+            label="Show ELF Community Partners (Team App)"
             desc="When enabled, ELF Community Partners advertising will appear across all teams and sports linked to this school once the advertising display features are launched."
             checked={schoolAd.show_community_partners}
-            onChange={toggleSchoolAdvertising}
+            onChange={next => toggleSchoolAdvertising("show_community_partners", next)}
           />
-          {schoolAdSaving && (
+          {schoolAdSaving === "app" && (
+            <div style={{ fontSize: ".72rem", color: "#98989d", marginTop: ".4rem" }}>Saving…</div>
+          )}
+          <div style={{ marginTop: ".9rem" }}>
+            <ToggleRow
+              label="Show ELF Community Partners (Public Campaign Page)"
+              desc="When enabled, ELF Community Partners advertising will appear on the public fundraising campaign page for every team and sport linked to this school. Independent of the Team App setting above."
+              checked={schoolAd.show_community_partners_public}
+              onChange={next => toggleSchoolAdvertising("show_community_partners_public", next)}
+            />
+          </div>
+          {schoolAdSaving === "public" && (
             <div style={{ fontSize: ".72rem", color: "#98989d", marginTop: ".4rem" }}>Saving…</div>
           )}
           <p style={{ margin: ".9rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
@@ -2062,7 +2095,6 @@ export default function CampaignControlCenter({ detail }: Props) {
                 ["show_share_section",    "Share This Campaign",     "Social share and QR code section"],
                 ["show_fund_uses",        "Where Your Money Goes",   "Fund use breakdown section"],
                 ["show_recent_donations", "Recent Donations Feed",   "Live feed of recent donors"],
-                ["show_sponsors",         "Sponsors",                "Sponsor logos and tier listings"],
                 ["allow_coach_fundraising", "Allow Coaches to Fundraise", "Lets coaches opt into their own personal fundraising page"],
               ] as [keyof typeof features, string, string][]).map(([key, label, desc]) => (
                 <ToggleRow key={key} label={label} desc={desc} checked={features[key]}
@@ -2097,12 +2129,6 @@ export default function CampaignControlCenter({ detail }: Props) {
               <div style={{ fontSize: ".8rem", color: "#98989d" }}>Loading…</div>
             ) : (
               <>
-                {!features.show_sponsors && (
-                  <div style={{ padding: ".5rem .75rem", background: "#fef9c3", border: "1px solid #fde047", borderRadius: 7, fontSize: ".72rem", color: "#854d0e", fontWeight: 500, marginBottom: ".9rem" }}>
-                    The Sponsors section is currently hidden on the public page. Enable it under <strong>Branding &amp; Page → Feature Toggles</strong>.
-                  </div>
-                )}
-
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>

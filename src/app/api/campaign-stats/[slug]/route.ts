@@ -5,6 +5,9 @@ import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { resolveTeamLogoUrl } from "@/lib/shareCopy";
 import { getActiveCoachFundraisers, getCoachTotals } from "@/lib/platform/coachFundraising";
 import { resolvePublicCampaignState } from "@/lib/fundraiserAccess";
+import { getSchoolAdvertisingSetting } from "@/lib/platform/schoolAdvertising";
+import { listActiveCommunityPartnersForGrid, listAllLockedPositions } from "@/lib/platform/communityPartners";
+import { resolveGridSlots, getUtcDayTick } from "@/lib/platform/communityPartnerRotation";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +103,11 @@ export async function GET(
     let fundUses: { icon: string; title: string; description: string }[] | undefined;
     let coaches: { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null }[] | undefined;
     let allowCoachFundraising = false;
+    // Phase 2.2E-2 — public-page ELF Community Partners. Public-safe
+    // subset only (no created_at/locked_position — those stay
+    // server-side, same "never leaves this computation" contract as the
+    // Team App's Home Screen grid in communityPartnerRotation.ts).
+    let communityPartners: { id: string; business_name: string; short_description: string | null; website_url: string | null; logo_url: string | null }[] | undefined;
 
     try {
       // Phase F1c: reuse the row already fetched above to resolve the
@@ -180,6 +188,35 @@ export async function GET(
       if (rows.length > 0) fundUses = rows.map(f => ({ icon: f.icon, title: f.title, description: f.description }));
     } catch { /* keep undefined */ }
 
+    // Phase 2.2E-2 — only fetched when this school is linked to an
+    // organization AND that organization has explicitly turned the
+    // PUBLIC toggle on (separate from the Team App's own toggle — see
+    // schoolAdvertising.ts). Reuses the exact same grid/rotation
+    // functions as the Team App Home Screen, no new algorithm. Up to all
+    // 20 occupied positions are returned, in position order; the client
+    // renders them with no truncation and no "View All".
+    if (settingsForState?.organization_id) {
+      try {
+        const schoolAd = await getSchoolAdvertisingSetting(settingsForState.organization_id);
+        if (schoolAd?.show_community_partners_public) {
+          const [activePartners, reservedPositions] = await Promise.all([
+            listActiveCommunityPartnersForGrid(),
+            listAllLockedPositions(),
+          ]);
+          const slots = resolveGridSlots(activePartners, reservedPositions, getUtcDayTick());
+          if (slots.length > 0) {
+            communityPartners = slots.map(s => ({
+              id:                s.partner.id,
+              business_name:     s.partner.business_name,
+              short_description: s.partner.short_description,
+              website_url:       s.partner.website_url,
+              logo_url:          s.partner.logo_url,
+            }));
+          }
+        }
+      } catch { /* keep undefined — never block the public page over this */ }
+    }
+
     // Coach fundraising participation — only ever populated when the
     // campaign has explicitly opted in (allow_coach_fundraising=true);
     // getActiveCoachFundraisers itself re-checks that flag, never
@@ -228,6 +265,7 @@ export async function GET(
       ...(visibility     !== undefined && visibility),
       ...(fundUses    !== undefined && { fund_uses: fundUses }),
       ...(coaches     !== undefined && { coaches }),
+      ...(communityPartners !== undefined && { community_partners: communityPartners }),
       allow_coach_fundraising: allowCoachFundraising,
     });
   } catch (err) {

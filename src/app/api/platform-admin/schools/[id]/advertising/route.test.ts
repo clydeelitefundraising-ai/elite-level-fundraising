@@ -114,6 +114,7 @@ function seedSchool(db: Record<string, Row[]>, overrides: Partial<Row> = {}): Ro
   const row: Row = {
     id: SCHOOL_ID, slug: "riverside-high-school", school_name: "Riverside High School",
     show_community_partners: false,
+    show_community_partners_public: false,
     ...overrides,
   };
   db.organizations.push(row);
@@ -375,6 +376,106 @@ test("PATCH: the audit log entry attributes the action to the real signed-in Pla
     assert.notEqual(logged.admin_identifier, "admin", "must never fall back to the legacy shared-tool identifier");
     assert.deepEqual(logged.previous_value, { show_community_partners: false });
     assert.deepEqual(logged.new_value, { show_community_partners: true });
+  });
+});
+
+// ── Phase 2.2E-2: independent public toggle ──────────────────────────────
+
+test("GET: a newly seeded school with no explicit value defaults to show_community_partners_public=false", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db);
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { GET } = await loadRoute();
+    const res = await GET(new NextRequest("http://test.local/x") as never, ctx(SCHOOL_ID) as never);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.show_community_partners_public, false);
+  });
+});
+
+test("PATCH: Platform Admin can turn the public toggle ON independently, leaving the app toggle untouched", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db, { show_community_partners: true, show_community_partners_public: false });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      patchAdvertising(SCHOOL_ID, { show_community_partners_public: true }) as never,
+      ctx(SCHOOL_ID) as never,
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.show_community_partners_public, true);
+    assert.equal(data.show_community_partners, true, "the unrelated app toggle must not be flipped as a side effect");
+  });
+});
+
+test("PATCH: Platform Admin can turn the app toggle ON independently, leaving the public toggle untouched", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db, { show_community_partners: false, show_community_partners_public: true });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      patchAdvertising(SCHOOL_ID, { show_community_partners: true }) as never,
+      ctx(SCHOOL_ID) as never,
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.show_community_partners, true);
+    assert.equal(data.show_community_partners_public, true, "the unrelated public toggle must not be flipped as a side effect");
+  });
+});
+
+test("PATCH: both toggles can be updated together in one request", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db, { show_community_partners: false, show_community_partners_public: false });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      patchAdvertising(SCHOOL_ID, { show_community_partners: true, show_community_partners_public: true }) as never,
+      ctx(SCHOOL_ID) as never,
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.show_community_partners, true);
+    assert.equal(data.show_community_partners_public, true);
+  });
+});
+
+test("PATCH: a non-boolean show_community_partners_public is rejected with 400, setting untouched", async () => {
+  await withFakeDb(async db => {
+    const school = seedSchool(db, { show_community_partners_public: false });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(
+      patchAdvertising(SCHOOL_ID, { show_community_partners_public: "yes" }) as never,
+      ctx(SCHOOL_ID) as never,
+    );
+    assert.equal(res.status, 400);
+    assert.equal(school.show_community_partners_public, false);
+  });
+});
+
+test("PATCH: the audit log entry for the public toggle is a distinct action from the app toggle's", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db, { show_community_partners_public: false, school_name: "Riverside High School" });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+    const { PATCH } = await loadRoute();
+    await PATCH(
+      patchAdvertising(SCHOOL_ID, { show_community_partners_public: true }) as never,
+      ctx(SCHOOL_ID) as never,
+    );
+
+    const logged = db.audit_logs[0];
+    assert.ok(logged, "expected an audit_logs row to have been written");
+    assert.equal(logged.action, "school.community_partners_public_toggled");
+    assert.deepEqual(logged.previous_value, { show_community_partners_public: false });
+    assert.deepEqual(logged.new_value, { show_community_partners_public: true });
   });
 });
 

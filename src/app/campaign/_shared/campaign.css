@@ -17,7 +17,7 @@
 
 html { scroll-behavior: smooth; }
 
-#pc-about, #pc-team, #pc-sponsors, #pc-updates, #pc-contact, #pc-donate {
+#pc-about, #pc-team, #pc-partners, #pc-updates, #pc-contact, #pc-donate {
   scroll-margin-top: 88px;
 }
 
