@@ -321,6 +321,39 @@ test("PATCH: unrelated organization fields are never modified by this endpoint",
   });
 });
 
+// ── Never report success for a failed/no-op write ────────────────────────
+
+test("PATCH: a row deleted between the existence check and the write (race) returns 404, never a false success", async () => {
+  await withFakeDb(async db => {
+    seedSchool(db, { show_community_partners: false });
+    const admin = seedPlatformAdmin(db);
+    signIn(admin);
+
+    // Simulate a concurrent deletion: the route's internal GET (existence
+    // check) sees the row, but by the time its PATCH fires the row is
+    // gone — exercising the exact "DB write matched zero rows" path
+    // setSchoolAdvertisingSetting/the route must never mistake for success.
+    const realFetch = globalThis.fetch;
+    let sawGet = false;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      const res = await realFetch(url, init);
+      if (!sawGet && (init?.method ?? "GET") === "GET" && url.includes("organizations")) {
+        sawGet = true;
+        db.organizations.length = 0; // row vanishes right after the existence check reads it
+      }
+      return res;
+    }) as typeof fetch;
+
+    const { PATCH } = await loadRoute();
+    const res = await PATCH(patchAdvertising(SCHOOL_ID, { show_community_partners: true }) as never, ctx(SCHOOL_ID) as never);
+    const body = await res.json();
+
+    assert.equal(res.status, 404, "must never return 200/success when the underlying write matched zero rows");
+    assert.notEqual(body.show_community_partners, true, "response must never fabricate the requested value as if it were saved");
+    assert.equal(db.audit_logs.length, 0, "no audit entry for a write that never actually happened");
+  });
+});
+
 // ── Audit attribution ────────────────────────────────────────────────────
 
 test("PATCH: the audit log entry attributes the action to the real signed-in Platform Admin's identity, with old/new values", async () => {
