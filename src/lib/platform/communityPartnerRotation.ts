@@ -1,5 +1,9 @@
-// Phase 2.2D-2 — ELF Community Partner Home Screen advertising grid.
-// Pure, deterministic, stateless: resolveGridSlots() is a plain function
+// Phase 2.2D-2/2.2D-3 — ELF Community Partner Home Screen advertising.
+// Two independent, deterministic rotation mechanisms live in this file:
+// resolveGridSlots() (the 20-position grid) and pickFeaturedPartner()
+// (the Featured Partner banner, added in 2.2D-3) — see that function's
+// own header for why they share no state or types despite the similar
+// technique. Pure, deterministic, stateless: resolveGridSlots() is a plain function
 // of its inputs and a caller-supplied "tick" — no database write, no
 // per-request randomness. The same inputs always produce the exact same
 // result, which is what guarantees the mobile Home experience and the
@@ -149,4 +153,68 @@ export function resolveGridSlots(
   }
 
   return slots.sort((a, b) => a.position - b.position);
+}
+
+// ── Featured Partner banner (Phase 2.2D-3) ──────────────────────────────
+//
+// A SEPARATE, independent advertising placement from the grid above —
+// per the approved decision, a partner may appear in BOTH simultaneously.
+// pickFeaturedPartner() shares no state, no input, and no output type
+// with resolveGridSlots(): it never sees locked_position or
+// reservedPositions at all, structurally guaranteeing it cannot affect
+// (or be affected by) the grid's position locks or rotation fairness.
+//
+// Same stable-sort-by-created_at technique as the grid's unlocked pool,
+// and the same fairness proof applies as the degenerate A=1 case: over
+// N consecutive ticks (N = eligible partner count), `tick % N` visits
+// every rank exactly once — each eligible featured partner gets exactly
+// one scheduled appearance per N-tick cycle. "Scheduled appearance" is a
+// guarantee about this schedule, not about measured impressions.
+
+export type FeaturedPartnerInput = {
+  id:                string;
+  business_name:     string;
+  short_description: string | null;
+  website_url:       string | null;
+  logo_url:          string | null;
+  // Stable sort key only — never exposed in the output. Caller's query
+  // must already be is_active=true AND is_featured=true filtered; this
+  // function does not re-check either flag.
+  created_at:        string;
+};
+
+export type FeaturedPartner = {
+  id:                string;
+  business_name:     string;
+  short_description: string | null;
+  website_url:       string | null;
+  logo_url:          string | null;
+};
+
+function toPublicFeaturedPartner(p: FeaturedPartnerInput): FeaturedPartner {
+  return {
+    id:                p.id,
+    business_name:     p.business_name,
+    short_description: p.short_description,
+    website_url:       p.website_url,
+    logo_url:           p.logo_url,
+  };
+}
+
+/** Returns the one featured partner to show for this tick, or null when
+ *  no eligible partner exists. Deterministic and stateless, same
+ *  contract as resolveGridSlots(): identical inputs and tick always
+ *  produce an identical result, which is what lets home/page.tsx compute
+ *  this once and hand the same partner to both the mobile and desktop
+ *  render paths. */
+export function pickFeaturedPartner(partners: FeaturedPartnerInput[], tick: number): FeaturedPartner | null {
+  if (partners.length === 0) return null;
+
+  const sorted = partners.slice().sort((a, b) => {
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+
+  const index = tick % sorted.length;
+  return toPublicFeaturedPartner(sorted[index]);
 }

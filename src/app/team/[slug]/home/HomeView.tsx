@@ -11,10 +11,11 @@ import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
-import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
+import type { GridSlot, FeaturedPartner } from "@/lib/platform/communityPartnerRotation";
 import { shouldShowCoachDashboard, buildQuickActions } from "./coachDashboardHelpers";
 import CoachDashboard from "./CoachDashboard";
 import CommunityPartnerGrid from "./CommunityPartnerGrid";
+import FeaturedPartnerBanner from "./FeaturedPartnerBanner";
 import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
 
@@ -440,6 +441,13 @@ type HomeViewProps = {
   // as-missing) when advertising is off or the school has no reservation/
   // rotation data — same "degrade to nothing shown" pattern as `sponsors`.
   communityPartnerGridSlots?: GridSlot[];
+  // Phase 2.2D-3 — same "resolved once by page.tsx" discipline as
+  // communityPartnerGridSlots above, and fully independent of it: this
+  // is a separate advertising placement (the Featured Partner banner),
+  // not derived from or coordinated with the grid's locked
+  // positions/rotation in any way. null when advertising is off, no
+  // organization is linked, or no eligible featured partner exists.
+  featuredPartner?: FeaturedPartner | null;
 };
 
 // ── Role-based entry point ──────────────────────────────────────────────────
@@ -484,6 +492,7 @@ function HomeContent({
   topAthleteName = null,
   pendingRequestCount = 0,
   communityPartnerGridSlots = [],
+  featuredPartner = null,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -585,6 +594,19 @@ function HomeContent({
           Phase 4 final revision removed the near-identical block that used
           to repeat name/sport/season here immediately below it. Home
           content now begins directly with actual dashboard content. */}
+
+      {/* Phase 2.2D-3 — Featured Partner banner. Placed below the shell
+          header and above Fundraiser Snapshot (approved decision) — the
+          first thing a viewer sees after identity, kept slim enough not
+          to compete with Fundraising's own visual weight below it. A
+          separate advertising placement from the Community Partners grid
+          further down the page; this banner never affects, and is never
+          affected by, that grid's locked positions or rotation. */}
+      {featuredPartner && (
+        <div style={{ marginBottom: ".8rem" }}>
+          <FeaturedPartnerBanner partner={featuredPartner} />
+        </div>
+      )}
 
       {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile,
              never collapses at $0 — see FundraiserSnapshot) */}

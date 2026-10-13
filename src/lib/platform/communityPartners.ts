@@ -180,6 +180,29 @@ export type GridCommunityPartner = Pick<
   "id" | "business_name" | "short_description" | "website_url" | "logo_url" | "locked_position" | "created_at"
 >;
 
+// Phase 2.2D-3 — the Featured Partner banner's ONLY read. Deliberately a
+// separate query from BOTH listActiveCommunityPartners() (the Partners
+// tab) and listActiveCommunityPartnersForGrid() (the 20-position grid) —
+// same "one function, one clear caller contract" convention this file
+// already follows. Filters is_active AND is_featured at the query level
+// (the actual eligibility boundary, not an app-layer filter over an
+// over-fetched list). Selects created_at purely as pickFeaturedPartner()'s
+// stable sort key — never forwarded to a client component, same pattern
+// as GridCommunityPartner above. A featured partner may also appear in
+// the 20-position grid (approved decision: these are independent
+// placements) — this query neither knows nor cares about locked_position
+// or the grid's rotation state.
+export type FeaturedCommunityPartner = Pick<
+  CommunityPartnerRow,
+  "id" | "business_name" | "short_description" | "website_url" | "logo_url" | "created_at"
+>;
+
+export async function listFeaturedCommunityPartners(): Promise<FeaturedCommunityPartner[]> {
+  return restList<FeaturedCommunityPartner>(
+    "community_partners?is_active=eq.true&is_featured=eq.true&select=id,business_name,short_description,website_url,logo_url,created_at",
+  );
+}
+
 export async function listActiveCommunityPartnersForGrid(): Promise<GridCommunityPartner[]> {
   return restList<GridCommunityPartner>(
     "community_partners?is_active=eq.true&select=id,business_name,short_description,website_url,logo_url,locked_position,created_at",

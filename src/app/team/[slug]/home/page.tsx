@@ -5,8 +5,8 @@ import { getCampaignSettings } from "@/lib/supabase";
 import { getPendingRequestSummary } from "@/lib/platform/requests";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { getSchoolAdvertisingSetting } from "@/lib/platform/schoolAdvertising";
-import { listActiveCommunityPartnersForGrid, listAllLockedPositions } from "@/lib/platform/communityPartners";
-import { resolveGridSlots, getUtcDayTick, type GridSlot } from "@/lib/platform/communityPartnerRotation";
+import { listActiveCommunityPartnersForGrid, listAllLockedPositions, listFeaturedCommunityPartners } from "@/lib/platform/communityPartners";
+import { resolveGridSlots, getUtcDayTick, pickFeaturedPartner, type GridSlot, type FeaturedPartner } from "@/lib/platform/communityPartnerRotation";
 import HomeView from "./HomeView";
 
 export default async function HomePage({
@@ -55,17 +55,30 @@ export default async function HomePage({
   const schoolAdvertising = organizationId ? await getSchoolAdvertisingSetting(organizationId) : null;
   const showCommunityPartners = schoolAdvertising?.show_community_partners ?? false;
   let communityPartnerGridSlots: GridSlot[] = [];
+  let featuredPartner: FeaturedPartner | null = null;
   if (showCommunityPartners) {
-    // Two separate reads, both needed: the active partners actually
-    // eligible to render, and EVERY currently-locked position regardless
-    // of is_active — an inactive partner keeps its reservation (approved
-    // decision), so resolveGridSlots must know that position is spoken
-    // for even though it will never render that partner's card.
-    const [gridPartners, reservedPositions] = await Promise.all([
+    const tick = getUtcDayTick();
+    // Phase 2.2D-3 — the featured-partner read runs in the SAME
+    // Promise.all as the grid's two reads (no duplicate
+    // getSchoolAdvertisingSetting lookup, no duplicate getUtcDayTick
+    // call). listFeaturedCommunityPartners()/pickFeaturedPartner() are
+    // otherwise fully independent of the grid's reads/computation below
+    // — they share no input, output, or state with resolveGridSlots or
+    // its locked-position handling. A featured partner may also appear
+    // in the grid (approved decision: these are independent placements).
+    const [gridPartners, reservedPositions, featuredPartners] = await Promise.all([
       listActiveCommunityPartnersForGrid(),
       listAllLockedPositions(),
+      listFeaturedCommunityPartners(),
     ]);
-    communityPartnerGridSlots = resolveGridSlots(gridPartners, reservedPositions, getUtcDayTick());
+    // Two separate reads, both needed for the grid: the active partners
+    // actually eligible to render, and EVERY currently-locked position
+    // regardless of is_active — an inactive partner keeps its
+    // reservation (approved decision), so resolveGridSlots must know
+    // that position is spoken for even though it will never render that
+    // partner's card.
+    communityPartnerGridSlots = resolveGridSlots(gridPartners, reservedPositions, tick);
+    featuredPartner = pickFeaturedPartner(featuredPartners, tick);
   }
 
   return (
@@ -93,6 +106,7 @@ export default async function HomePage({
       sportName={settings?.sport_name}
       season={settings?.season ?? undefined}
       communityPartnerGridSlots={communityPartnerGridSlots}
+      featuredPartner={featuredPartner}
     />
   );
 }
