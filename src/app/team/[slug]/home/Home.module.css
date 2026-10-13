@@ -64,6 +64,9 @@
  *   [ FUNDRAISING (hero, wide) ]   [ QUICK ACTIONS ]
  *   [ RECENT ACTIVITY (wide)   ]   [ NEXT EVENT / NEEDS ATTENTION ]
  *   [ SPONSORS (full width, modest) ]
+ *   [ COMMUNITY PARTNERS (full width, modest) ]  -- Phase 2.2D-2, separate
+ *                                                   band below Sponsors,
+ *                                                   never merged with it.
  *
  * Fundraising gets real visual weight here (large stat type, tinted
  * band) rather than being one info-card among equals — that's the
@@ -75,7 +78,8 @@
   grid-template-areas:
     "fundraising actions"
     "main side"
-    "sponsors sponsors";
+    "sponsors sponsors"
+    "communityPartners communityPartners";
   gap: var(--space-6);
   align-items: start;
 }
@@ -111,10 +115,16 @@
   min-width: 0;
 }
 
+.communityPartnersArea {
+  grid-area: communityPartners;
+  min-width: 0;
+}
+
 /* Below this, even though the whole dashboard is desktop-only (>=1024px),
  * the 1.6fr/1fr split gets cramped — fall back to a single column,
  * preserving reading order (fundraising -> actions -> main -> side ->
- * sponsors) until there's genuinely enough room for the full layout. */
+ * sponsors -> communityPartners) until there's genuinely enough room for
+ * the full layout. */
 @media screen and (max-width: 1279px) {
   .mainGrid {
     grid-template-columns: 1fr;
@@ -123,7 +133,8 @@
       "actions"
       "main"
       "side"
-      "sponsors";
+      "sponsors"
+      "communityPartners";
   }
 }
 

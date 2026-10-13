@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 // list/get/create/update functions are covered by the route tests instead.
 register(new URL("../testSupport/nextStubLoader.mjs", import.meta.url).href, import.meta.url);
 
-const { isValidHttpsUrl, validateCommunityPartnerFields, listActiveCommunityPartners, findPartnerByLockedPosition } = await import("./communityPartners.ts");
+const { isValidHttpsUrl, validateCommunityPartnerFields, listActiveCommunityPartners, listActiveCommunityPartnersForGrid, listAllLockedPositions, findPartnerByLockedPosition } = await import("./communityPartners.ts");
 
 // ── isValidHttpsUrl ─────────────────────────────────────────────────────────
 
@@ -358,4 +358,168 @@ test("listActiveCommunityPartners: returns only what the query gave it, in order
   }
 
   assert.deepEqual(result, rows);
+});
+
+// ── listActiveCommunityPartnersForGrid (Phase 2.2D-2) ────────────────────
+// A deliberately SEPARATE read from listActiveCommunityPartners() above —
+// see communityPartnerRotation.ts's module header for why. Verifies this
+// query's own contract: is_active filtering, no display_order dependency,
+// and that locked_position/created_at (needed by the rotation algorithm,
+// but created_at never forwarded to a client component) are selected.
+
+test("listActiveCommunityPartnersForGrid: queries only is_active=true rows", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listActiveCommunityPartnersForGrid();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(capturedUrl.includes("is_active=eq.true"), `expected an is_active=eq.true filter, got: ${capturedUrl}`);
+});
+
+test("listActiveCommunityPartnersForGrid: selects locked_position and created_at, never display_order", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listActiveCommunityPartnersForGrid();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  const selectParam = new URL(capturedUrl.replace(/^[^?]*\?/, "http://x/?")).searchParams.get("select") ?? "";
+  const selected = selectParam.split(",");
+  assert.ok(selected.includes("locked_position"), "must select locked_position to honor reservations");
+  assert.ok(selected.includes("created_at"), "must select created_at — the rotation algorithm's stable sort key");
+  assert.ok(!selected.includes("display_order"), "display_order must never influence Home Screen advertising rotation");
+});
+
+test("listActiveCommunityPartnersForGrid: the query string never orders by display_order", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listActiveCommunityPartnersForGrid();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(!capturedUrl.includes("display_order"), `query must not reference display_order at all, got: ${capturedUrl}`);
+});
+
+test("listActiveCommunityPartnersForGrid: returns [] when the query yields no rows, never throws", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify([]), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listActiveCommunityPartnersForGrid();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, []);
+});
+
+test("listActiveCommunityPartnersForGrid: returns the rows the query gave it, including locked_position", async () => {
+  const rows = [
+    { id: "cp-1", business_name: "Acme Co", short_description: null, website_url: null, logo_url: null, locked_position: 5, created_at: "2026-01-01T00:00:00Z" },
+    { id: "cp-2", business_name: "Beta LLC", short_description: null, website_url: null, logo_url: null, locked_position: null, created_at: "2026-01-02T00:00:00Z" },
+  ];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(rows), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listActiveCommunityPartnersForGrid();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, rows);
+});
+
+// ── listAllLockedPositions (Phase 2.2D-2) ────────────────────────────────
+// Deliberately NOT is_active filtered — see communityPartnerRotation.ts's
+// module header and the "Inactive reserved partners" tests there for why:
+// an inactive partner keeps its reservation, so resolveGridSlots must be
+// told about it even though that partner is excluded from the active
+// (rendered) list entirely.
+
+test("listAllLockedPositions: the query has no is_active filter at all", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listAllLockedPositions();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(!capturedUrl.includes("is_active"), `must query across ALL partners regardless of active status, got: ${capturedUrl}`);
+});
+
+test("listAllLockedPositions: filters to rows with a non-null locked_position", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listAllLockedPositions();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(capturedUrl.includes("locked_position=not.is.null"), `expected a locked_position=not.is.null filter, got: ${capturedUrl}`);
+});
+
+test("listAllLockedPositions: returns a flat array of position numbers, not row objects", async () => {
+  const rows = [{ locked_position: 5 }, { locked_position: 12 }];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(rows), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listAllLockedPositions();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, [5, 12]);
+});
+
+test("listAllLockedPositions: returns [] when nothing is locked, never throws", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify([]), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listAllLockedPositions();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, []);
 });

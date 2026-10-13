@@ -11,8 +11,10 @@ import EventDetailsModal from "../_components/EventDetailsModal";
 import Avatar from "../messages/_shared/Avatar";
 import { useSeenTracker } from "../_components/useSeenTracker";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
+import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
 import { shouldShowCoachDashboard, buildQuickActions } from "./coachDashboardHelpers";
 import CoachDashboard from "./CoachDashboard";
+import CommunityPartnerGrid from "./CommunityPartnerGrid";
 import QuickActions from "./QuickActions";
 import styles from "./Home.module.css";
 
@@ -431,6 +433,14 @@ type HomeViewProps = {
   // call — threaded through for the compact identity block on both the
   // desktop dashboard and mobile Home. No new query.
   logoUrl?: string | null;
+  // Phase 2.2D-2 — resolved ONCE by page.tsx (resolveGridSlots, computed
+  // server-side) and threaded through unchanged to both HomeContent and
+  // CoachDashboard. Never recomputed here — that single shared computation
+  // is what guarantees mobile and desktop can never disagree about which
+  // partner occupies which position. Empty array (never undefined-treated-
+  // as-missing) when advertising is off or the school has no reservation/
+  // rotation data — same "degrade to nothing shown" pattern as `sponsors`.
+  communityPartnerGridSlots?: GridSlot[];
 };
 
 // ── Role-based entry point ──────────────────────────────────────────────────
@@ -475,6 +485,7 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   pendingRequestCount = 0,
+  communityPartnerGridSlots = [],
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -773,6 +784,18 @@ function HomeContent({
               </a>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Phase 2.2D-2 — ELF Community Partners. A separate advertising
+          surface from Team Sponsors above: its own section, its own
+          component, never merged with or replacing the Sponsors markup. */}
+      {communityPartnerGridSlots.length > 0 && (
+        <div style={{ marginTop: ".9rem" }}>
+          <div style={{ marginBottom: ".5rem" }}>
+            <span className={styles.sectionKicker}>ELF Community Partners</span>
+          </div>
+          <CommunityPartnerGrid slots={communityPartnerGridSlots} />
         </div>
       )}
 

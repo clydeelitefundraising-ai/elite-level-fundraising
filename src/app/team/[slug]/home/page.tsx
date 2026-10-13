@@ -5,6 +5,9 @@ import { isHeadCoach } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getPendingRequestSummary } from "@/lib/platform/requests";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
+import { getSchoolAdvertisingSetting } from "@/lib/platform/schoolAdvertising";
+import { listActiveCommunityPartnersForGrid, listAllLockedPositions } from "@/lib/platform/communityPartners";
+import { resolveGridSlots, getUtcDayTick, type GridSlot } from "@/lib/platform/communityPartnerRotation";
 import HomeView from "./HomeView";
 
 export default async function HomePage({
@@ -35,6 +38,34 @@ export default async function HomePage({
     getTeamFundraiserSummary(slug),
   ]);
   const sponsors: SponsorRow[] = allSponsors.filter(s => s.visible !== false);
+
+  // Phase 2.2D-2 — resolved ONCE here, server-side, and handed to both the
+  // mobile HomeContent render path and the desktop CoachDashboard render
+  // path via the single `communityPartnerGridSlots` prop below. Neither
+  // component recomputes this independently, which is what guarantees
+  // they can never disagree about which partner occupies which position
+  // — not a coincidence of identical logic, a structural guarantee from
+  // computing it exactly once. A campaign with no organization_id (never
+  // backfilled) degrades to an empty grid rather than erroring, same
+  // pattern as the Partners tab (Phase 2.2C) and the admin toggle
+  // (Phase 2.2B).
+  const organizationId = settings?.organization_id ?? null;
+  const schoolAdvertising = organizationId ? await getSchoolAdvertisingSetting(organizationId) : null;
+  const showCommunityPartners = schoolAdvertising?.show_community_partners ?? false;
+  let communityPartnerGridSlots: GridSlot[] = [];
+  if (showCommunityPartners) {
+    // Two separate reads, both needed: the active partners actually
+    // eligible to render, and EVERY currently-locked position regardless
+    // of is_active — an inactive partner keeps its reservation (approved
+    // decision), so resolveGridSlots must know that position is spoken
+    // for even though it will never render that partner's card.
+    const [gridPartners, reservedPositions] = await Promise.all([
+      listActiveCommunityPartnersForGrid(),
+      listAllLockedPositions(),
+    ]);
+    communityPartnerGridSlots = resolveGridSlots(gridPartners, reservedPositions, getUtcDayTick());
+  }
+
   return (
     <HomeView
       slug={slug}
@@ -60,6 +91,7 @@ export default async function HomePage({
       schoolName={settings?.school_name}
       sportName={settings?.sport_name}
       season={settings?.season ?? undefined}
+      communityPartnerGridSlots={communityPartnerGridSlots}
     />
   );
 }

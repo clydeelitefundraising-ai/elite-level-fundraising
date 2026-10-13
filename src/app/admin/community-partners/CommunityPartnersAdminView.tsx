@@ -28,19 +28,24 @@ type CommunityPartner = {
   updated_at:        string;
 };
 
+// Phase 2.2D-2 — display_order is deliberately absent from this form's
+// state: the editable input was removed (see the form JSX below), and
+// this form never reads or sends the field again, in either direction.
+// The database column and API field remain untouched for backward
+// compatibility (CommunityPartner above still carries display_order for
+// any other reader that wants it).
 type PartnerForm = {
   business_name:     string;
   short_description: string;
   website_url:       string;
   logo_url:          string;
   is_featured:       boolean;
-  display_order:     string;
   locked_position:   number | null;
 };
 
 const BLANK: PartnerForm = {
   business_name: "", short_description: "", website_url: "", logo_url: "",
-  is_featured: false, display_order: "0", locked_position: null,
+  is_featured: false, locked_position: null,
 };
 
 function fromPartner(p: CommunityPartner): PartnerForm {
@@ -50,7 +55,6 @@ function fromPartner(p: CommunityPartner): PartnerForm {
     website_url:       p.website_url ?? "",
     logo_url:          p.logo_url ?? "",
     is_featured:       p.is_featured,
-    display_order:     String(p.display_order),
     locked_position:   p.locked_position,
   };
 }
@@ -143,13 +147,18 @@ function PartnerFormPanel({
     setError("");
     setFieldErrors({});
 
+    // Phase 2.2D-2 — display_order deliberately omitted: this form no
+    // longer edits it in either direction. Omitted rather than sent as 0
+    // so a PATCH never clobbers an existing partner's stored value (the
+    // shared validator's partial-update semantics treat an absent field
+    // as "don't touch," same as every other field this form doesn't
+    // control, e.g. is_active).
     const body: Record<string, unknown> = {
       business_name:     form.business_name.trim(),
       short_description: form.short_description.trim() || null,
       website_url:       form.website_url.trim() || null,
       logo_url:          form.logo_url.trim() || null,
       is_featured:       form.is_featured,
-      display_order:     Number.isFinite(parseInt(form.display_order, 10)) ? parseInt(form.display_order, 10) : 0,
     };
     // Phase 2.2D-1 — position locking is an edit-only action (the Lock
     // Position control below only renders when isEditing), same
@@ -254,26 +263,24 @@ function PartnerFormPanel({
             {logoError && <p style={{ margin: ".4rem 0 0", color: "#dc2626", fontSize: ".75rem", fontWeight: 400, textTransform: "none" }}>{logoError}</p>}
           </div>
 
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <label style={{ ...lbl, flex: 1 }}>
-              Display Order
-              <input
-                type="number"
-                style={inp}
-                value={form.display_order}
-                onChange={e => setForm(f => ({ ...f, display_order: e.target.value }))}
-              />
-            </label>
-            <div style={{ display: "flex", alignItems: "center", gap: ".5rem", paddingTop: "1.3rem" }}>
-              <input
-                id="is_featured"
-                type="checkbox"
-                checked={form.is_featured}
-                onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))}
-                style={{ width: 18, height: 18 }}
-              />
-              <label htmlFor="is_featured" style={{ fontSize: ".82rem", fontWeight: 700, color: "#374151" }}>Featured</label>
-            </div>
+          {/* Phase 2.2D-2 — the Display Order input that used to live here
+              was removed: it has no influence on the new Home Screen
+              advertising rotation (which derives its own stable order
+              from created_at, never display_order — see
+              communityPartnerRotation.ts) and manual admin reordering of
+              the Partners-tab community list is no longer exposed as an
+              editable control, per the approved decision. The
+              display_order column and API field remain fully intact for
+              backward compatibility — this form simply never sends it. */}
+          <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+            <input
+              id="is_featured"
+              type="checkbox"
+              checked={form.is_featured}
+              onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))}
+              style={{ width: 18, height: 18 }}
+            />
+            <label htmlFor="is_featured" style={{ fontSize: ".82rem", fontWeight: 700, color: "#374151" }}>Featured</label>
           </div>
 
           {/* Phase 2.2D-1 — edit-only, same reasoning as the Active status
