@@ -47,8 +47,13 @@ const NAV_GROUPS: NavGroup[] = [
   {
     heading: "Relationships",
     items: [
-      { label: "Coach CRM", href: "/admin/crm",      icon: "☎" },
-      { label: "Sponsors",  href: "/admin/sponsors",  icon: "🏢" },
+      { label: "Coach CRM",             href: "/admin/crm",                icon: "☎" },
+      { label: "Sponsors",              href: "/admin/sponsors",           icon: "🏢" },
+      // Phase 2.2A — platform-wide advertising partners, distinct from the
+      // Sponsors CRM above (per-team sponsor relationships). Requires a
+      // real Platform Admin session in addition to this portal's own
+      // password gate — see src/app/admin/community-partners/page.tsx.
+      { label: "ELF Community Partners", href: "/admin/community-partners", icon: "🤝" },
     ],
   },
   {
@@ -77,6 +82,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/crm":            "Coach CRM",
   "/admin/sponsors":       "Sponsor Directory",
   "/admin/sponsors/intelligence": "Sponsor Intelligence",
+  "/admin/community-partners":   "ELF Community Partners",
   "/admin/notifications":  "Notifications",
   "/admin/health":         "Team Health",
   "/admin/automation":     "Automation",
