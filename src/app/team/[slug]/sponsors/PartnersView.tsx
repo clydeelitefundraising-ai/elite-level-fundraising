@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { SponsorRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
+import type { ActiveCommunityPartner } from "@/lib/platform/communityPartners";
 import SponsorsView from "./SponsorsView";
-import CommunityPartnersEmptyState from "./CommunityPartnersEmptyState";
-import { PARTNERS_TABS, resolveActivePartnersTab } from "./partnersTabs";
+import CommunityPartnersListView from "./CommunityPartnersListView";
+import { getPartnersTabs, resolveActivePartnersTab } from "./partnersTabs";
 
 // Phase 2.1 — thin segmented-tab wrapper around the existing, unmodified
 // SponsorsView, same pattern as FundraiserTabs.tsx/TeamTabs.tsx (?tab=
@@ -15,17 +16,40 @@ import { PARTNERS_TABS, resolveActivePartnersTab } from "./partnersTabs";
 // or a new data fetch). SponsorsView receives the exact same
 // slug/initialSponsors/actor props page.tsx already passed it before this
 // phase — no new queries, no behavior change to the Team Sponsors tab.
+//
+// Phase 2.2C — `showCommunityPartners` (the school's setting, resolved
+// server-side in page.tsx) now decides whether the tab switcher renders
+// at all. When false, this renders ONLY SponsorsView, directly, with no
+// tablist chrome — per the approved decision, Team Sponsors must stay
+// fully visible and functional with zero trace of a feature the school
+// hasn't turned on, not a grayed-out or disabled tab hinting at it.
 export default function PartnersView({
   slug,
   initialSponsors,
   actor,
+  showCommunityPartners,
+  activePartners,
 }: {
   slug: string;
   initialSponsors: SponsorRow[];
   actor: TeamActor;
+  showCommunityPartners: boolean;
+  activePartners: ActiveCommunityPartner[];
 }) {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState(() => resolveActivePartnersTab(searchParams.get("tab")));
+  const [tab, setTab] = useState(() =>
+    resolveActivePartnersTab(searchParams.get("tab"), showCommunityPartners),
+  );
+
+  if (!showCommunityPartners) {
+    return (
+      <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
+        <SponsorsView slug={slug} initialSponsors={initialSponsors} actor={actor} />
+      </div>
+    );
+  }
+
+  const tabs = getPartnersTabs(true);
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
@@ -37,7 +61,7 @@ export default function PartnersView({
           marginBottom: ".85rem", gap: 2,
         }}
       >
-        {PARTNERS_TABS.map(({ key, label }) => (
+        {tabs.map(({ key, label }) => (
           <button
             key={key}
             role="tab"
@@ -70,7 +94,7 @@ export default function PartnersView({
         aria-labelledby="partners-tab-community"
         hidden={tab !== "community"}
       >
-        {tab === "community" && <CommunityPartnersEmptyState />}
+        {tab === "community" && <CommunityPartnersListView partners={activePartners} />}
       </div>
 
       <div

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 // list/get/create/update functions are covered by the route tests instead.
 register(new URL("../testSupport/nextStubLoader.mjs", import.meta.url).href, import.meta.url);
 
-const { isValidHttpsUrl, validateCommunityPartnerFields } = await import("./communityPartners.ts");
+const { isValidHttpsUrl, validateCommunityPartnerFields, listActiveCommunityPartners } = await import("./communityPartners.ts");
 
 // ── isValidHttpsUrl ─────────────────────────────────────────────────────────
 
@@ -162,4 +162,85 @@ test("update: multiple invalid fields are all reported together", () => {
     assert.ok(result.errors.business_name);
     assert.ok(result.errors.website_url);
   }
+});
+
+// ── listActiveCommunityPartners (Phase 2.2C — the Team App's only read) ───
+// Unlike the create/update/list-all functions above, this one IS exercised
+// directly here rather than via a route test — it has no API route of its
+// own (sponsors/page.tsx, a server component, calls it directly), so this
+// is its only coverage. Mocks global.fetch directly rather than the fuller
+// fake-Supabase-table harness the route tests use, since there's only one
+// query shape to verify.
+
+test("listActiveCommunityPartners: queries only is_active=true rows, never the full table", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listActiveCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(capturedUrl.includes("is_active=eq.true"), `expected an is_active=eq.true filter, got: ${capturedUrl}`);
+});
+
+test("listActiveCommunityPartners: selects only the public-safe column subset — no admin-only metadata", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listActiveCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  const selectParam = new URL(capturedUrl.replace(/^[^?]*\?/, "http://x/?")).searchParams.get("select") ?? "";
+  const selected = selectParam.split(",");
+  assert.deepEqual(
+    new Set(selected),
+    new Set(["id", "business_name", "short_description", "website_url", "logo_url", "is_featured"]),
+  );
+  assert.ok(!selected.includes("created_at"), "created_at is admin-only metadata and must never be selected here");
+  assert.ok(!selected.includes("display_order"), "display_order is admin-only metadata and must never be selected here");
+});
+
+test("listActiveCommunityPartners: returns [] when the query yields no rows, never throws", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify([]), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listActiveCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, []);
+});
+
+test("listActiveCommunityPartners: returns only what the query gave it, in order", async () => {
+  const rows = [
+    { id: "cp-1", business_name: "Acme Co", short_description: null, website_url: "https://acme.example.com", logo_url: null, is_featured: false },
+    { id: "cp-2", business_name: "Beta LLC", short_description: "Great partner", website_url: null, logo_url: "https://cdn.example.com/b.png", is_featured: true },
+  ];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(rows), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listActiveCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, rows);
 });
