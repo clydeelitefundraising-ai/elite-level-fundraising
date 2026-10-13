@@ -6,6 +6,7 @@ import { CalendarPlus as CalendarPlusIcon } from "lucide-react";
 import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
+import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import {
   fmtMoney,
@@ -18,6 +19,7 @@ import {
   resolveRequestsCardData,
 } from "./coachDashboardHelpers";
 import QuickActions from "./QuickActions";
+import CommunityPartnerGrid from "./CommunityPartnerGrid";
 import styles from "./Home.module.css";
 
 function actorFirstName(actor: TeamActor): string {
@@ -292,6 +294,9 @@ export type CoachDashboardProps = {
   schoolName?: string;
   sportName?: string;
   season?: string;
+  // Phase 2.2D-2 — see HomeView.tsx's identical field for the full
+  // rationale: resolved once by page.tsx, never recomputed here.
+  communityPartnerGridSlots?: GridSlot[];
 };
 
 export default function CoachDashboard({
@@ -309,6 +314,7 @@ export default function CoachDashboard({
   schoolName,
   sportName,
   season,
+  communityPartnerGridSlots = [],
 }: CoachDashboardProps) {
   const [viewingEvent, setViewingEvent] = useState<CalendarEventRow | null>(null);
 
@@ -432,6 +438,18 @@ export default function CoachDashboard({
         <div className={styles.sponsorsArea}>
           <SponsorsStrip slug={slug} sponsors={sponsors} />
         </div>
+
+        {/* Phase 2.2D-2 — ELF Community Partners, full-width, its own
+            grid area, below Sponsors. A separate advertising surface,
+            never merged with the Sponsors strip above. */}
+        {communityPartnerGridSlots.length > 0 && (
+          <div className={styles.communityPartnersArea}>
+            <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>
+              ELF Community Partners
+            </h2>
+            <CommunityPartnerGrid slots={communityPartnerGridSlots} />
+          </div>
+        )}
       </div>
 
       {viewingEvent && (

@@ -164,6 +164,44 @@ export async function listActiveCommunityPartners(): Promise<ActiveCommunityPart
   );
 }
 
+// Phase 2.2D-2 — a SEPARATE query from listActiveCommunityPartners()
+// (deliberately — see communityPartnerRotation.ts's module header and
+// the Phase 2.2D-2 architecture audit's "Data Access" decision). The Home
+// Screen advertising grid needs locked_position (to honor reservations)
+// and created_at (as the rotation algorithm's stable sort key for the
+// unlocked pool) — neither of which the Partners tab's read selects or
+// needs. created_at never reaches a client component: it's consumed
+// entirely server-side by resolveGridSlots(), whose output type omits it.
+// NOT ordered by display_order — the rotation algorithm derives its own
+// order from created_at, per the explicit requirement that display_order
+// must never influence Home Screen advertising placement.
+export type GridCommunityPartner = Pick<
+  CommunityPartnerRow,
+  "id" | "business_name" | "short_description" | "website_url" | "logo_url" | "locked_position" | "created_at"
+>;
+
+export async function listActiveCommunityPartnersForGrid(): Promise<GridCommunityPartner[]> {
+  return restList<GridCommunityPartner>(
+    "community_partners?is_active=eq.true&select=id,business_name,short_description,website_url,logo_url,locked_position,created_at",
+  );
+}
+
+/** Phase 2.2D-2 — EVERY currently-locked position, across ALL partners
+ *  regardless of is_active. Deliberately not filtered to active-only:
+ *  an inactive partner keeps its reservation (approved decision — never
+ *  give a reserved position to another partner), so resolveGridSlots()
+ *  needs to know that position is spoken for even though the partner
+ *  holding it will never be rendered. Paired with
+ *  listActiveCommunityPartnersForGrid() by the caller — see
+ *  home/page.tsx and communityPartnerRotation.ts's resolveGridSlots()
+ *  for how the two lists are used together. */
+export async function listAllLockedPositions(): Promise<number[]> {
+  const rows = await restList<{ locked_position: number }>(
+    "community_partners?locked_position=not.is.null&select=locked_position",
+  );
+  return rows.map(r => r.locked_position);
+}
+
 export async function getCommunityPartner(id: string): Promise<CommunityPartnerRow | null> {
   const rows = await restList<CommunityPartnerRow>(
     `community_partners?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
