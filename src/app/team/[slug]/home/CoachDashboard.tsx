@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus as CalendarPlusIcon } from "lucide-react";
-import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
+import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
 import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
@@ -116,58 +116,6 @@ function FundraisingCard({
         </div>
       )}
     </Link>
-  );
-}
-
-/** Modest, secondary strip — reuses the exact sponsors data page.tsx
- *  already fetches and passes to HomeView (previously threaded through
- *  to CoachDashboard's props but never rendered there; mobile
- *  HomeContent has always shown it). Deliberately placed last/full-width
- *  and kept visually quiet — the explicit feedback was that sponsors
- *  should not consume prime dashboard space. */
-function SponsorsStrip({ slug, sponsors }: { slug: string; sponsors: SponsorRow[] }) {
-  if (sponsors.length === 0) return null;
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
-        <span className={styles.sectionKicker}>Our Sponsors</span>
-        <Link href={`/team/${slug}/sponsors?tab=team`} className={`${styles.sectionLink} elf-focus-ring`}>
-          View All →
-        </Link>
-      </div>
-      <div style={{ display: "flex", gap: "var(--space-3)", overflowX: "auto", paddingBottom: 2 }}>
-        {sponsors.slice(0, 8).map(s => (
-          <a
-            key={s.id}
-            href={s.url || `/team/${slug}/sponsors?tab=team`}
-            target={s.url ? "_blank" : undefined}
-            rel={s.url ? "noopener noreferrer" : undefined}
-            className="elf-focus-ring"
-            style={{
-              flexShrink: 0, width: 72, display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
-              textDecoration: "none", padding: "var(--space-2)", border: "1px solid var(--border-app)", borderRadius: "var(--radius-md)",
-            }}
-          >
-            {s.logo_url ? (
-              <img src={s.logo_url} alt={s.name} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 6 }} />
-            ) : (
-              <div style={{
-                width: 36, height: 36, borderRadius: 6, background: "var(--surface-light-elevated)",
-                display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "var(--team-primary)",
-              }}>
-                {s.name.trim()[0]?.toUpperCase() ?? "S"}
-              </div>
-            )}
-            <span style={{
-              fontSize: "10px", fontWeight: 700, color: "var(--text-muted-app)", textAlign: "center", lineHeight: 1.2,
-              overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-            }}>
-              {s.name}
-            </span>
-          </a>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -288,7 +236,6 @@ export type CoachDashboardProps = {
   primaryColor?: string;
   donorCount?: number;
   topAthleteName?: string | null;
-  sponsors?: SponsorRow[];
   logoUrl?: string | null;
   pendingRequestSummary?: PendingRequestSummary;
   schoolName?: string;
@@ -308,7 +255,6 @@ export default function CoachDashboard({
   goalCents = 0,
   donorCount = 0,
   topAthleteName = null,
-  sponsors = [],
   logoUrl,
   pendingRequestSummary,
   schoolName,
@@ -434,14 +380,12 @@ export default function CoachDashboard({
           </div>
         </div>
 
-        {/* Sponsors — modest, full-width, bottom of the page */}
-        <div className={styles.sponsorsArea}>
-          <SponsorsStrip slug={slug} sponsors={sponsors} />
-        </div>
-
-        {/* Phase 2.2D-2 — ELF Community Partners, full-width, its own
-            grid area, below Sponsors. A separate advertising surface,
-            never merged with the Sponsors strip above. */}
+        {/* Phase: Home Screen Cleanup — the Sponsors strip that used to
+            render here was removed; Team Sponsors is now available
+            exclusively on the Partners page
+            (/team/[slug]/sponsors?tab=team). ELF Community Partners
+            below is a wholly separate advertising surface and was never
+            part of this removal. */}
         {communityPartnerGridSlots.length > 0 && (
           <div className={styles.communityPartnersArea}>
             <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>

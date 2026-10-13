@@ -1,5 +1,4 @@
-import { getAnnouncements, getCalendarEvents, getTeamSponsors, getDonationStats, getTeamFundraiserSummary } from "@/lib/teamData";
-import type { SponsorRow } from "@/lib/teamData";
+import { getAnnouncements, getCalendarEvents, getDonationStats, getTeamFundraiserSummary } from "@/lib/teamData";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
@@ -29,15 +28,18 @@ export default async function HomePage({
   // no new query, mobile's pendingRequestCount usage is unchanged.
   const pendingRequestSummary = isHeadCoach(actor) ? await getPendingRequestSummary(slug) : undefined;
   const pendingRequestCount = pendingRequestSummary?.total ?? 0;
-  const [announcements, upcoming, allSponsors, settings, donationStats, fundraiserSummary] = await Promise.all([
+  // Phase: Home Screen Cleanup — getTeamSponsors(slug) was removed from
+  // this Promise.all along with the Home Screen "Our Sponsors" section
+  // it existed solely to feed; Team Sponsors is now fetched only by the
+  // Partners page (sponsors/page.tsx), which already has its own
+  // independent getTeamSponsors call.
+  const [announcements, upcoming, settings, donationStats, fundraiserSummary] = await Promise.all([
     getAnnouncements(slug, actor),
     getCalendarEvents(slug, true),
-    getTeamSponsors(slug),
     getCampaignSettings(slug),
     getDonationStats(slug),
     getTeamFundraiserSummary(slug),
   ]);
-  const sponsors: SponsorRow[] = allSponsors.filter(s => s.visible !== false);
 
   // Phase 2.2D-2 — resolved ONCE here, server-side, and handed to both the
   // mobile HomeContent render path and the desktop CoachDashboard render
@@ -72,7 +74,6 @@ export default async function HomePage({
       initialAnnouncements={announcements}
       initialUpcoming={upcoming}
       actor={actor}
-      sponsors={sponsors}
       raisedCents={donationStats.raised_cents}
       // Phase 3D: Home's fundraising progress tile is fundraising-facing —
       // shows the dynamic display goal, never the raw base goal_cents.

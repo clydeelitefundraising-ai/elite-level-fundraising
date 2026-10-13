@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Calendar as CalendarIcon, Activity } from "lucide-react";
-import type { AnnouncementRow, CalendarEventRow, SponsorRow } from "@/lib/teamData";
+import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, staffRoleLabel, type TeamActor } from "@/lib/permissions";
 import { eventTypeStyle, formatDateLabel, displayEventTime } from "@/lib/calendarShared";
 import CoachBar from "../_components/CoachBar";
@@ -413,7 +413,6 @@ type HomeViewProps = {
   initialAnnouncements: AnnouncementRow[];
   initialUpcoming: CalendarEventRow[];
   actor: TeamActor;
-  sponsors?: SponsorRow[];
   raisedCents?: number;
   goalCents?: number;
   topAthleteName?: string | null;
@@ -480,7 +479,6 @@ function HomeContent({
   initialAnnouncements,
   initialUpcoming,
   actor,
-  sponsors = [],
   raisedCents = 0,
   goalCents = 0,
   topAthleteName = null,
@@ -721,75 +719,12 @@ function HomeContent({
         )}
       </div>
 
-      {/* 3 — Sponsors */}
-      {sponsors.length > 0 && (
-        <div style={{ marginTop: ".25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: ".5rem" }}>
-            <span className={styles.sectionKicker}>
-              Our Sponsors
-            </span>
-            <a
-              href={`/team/${slug}/sponsors?tab=team`}
-              className={`${styles.sectionLink} elf-focus-ring`}
-            >
-              View All →
-            </a>
-          </div>
-          <div style={{ display: "flex", gap: ".5rem", overflowX: "auto", paddingBottom: ".25rem", scrollbarWidth: "none" } as React.CSSProperties}>
-            {sponsors.slice(0, 5).map(s => (
-              <a
-                key={s.id}
-                href={s.url || `/team/${slug}/sponsors?tab=team`}
-                target={s.url ? "_blank" : undefined}
-                rel={s.url ? "noopener noreferrer" : undefined}
-                className="elf-focus-ring"
-                style={{
-                  flexShrink: 0,
-                  width: 80,
-                  background: "var(--surface-light)",
-                  border: "1px solid var(--border-app)",
-                  borderRadius: 12,
-                  padding: ".6rem .4rem .5rem",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: ".3rem",
-                  textDecoration: "none",
-                }}
-              >
-                {s.logo_url ? (
-                  <img
-                    src={s.logo_url}
-                    alt={s.name}
-                    style={{ width: 44, height: 44, objectFit: "contain", borderRadius: 6 }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 6,
-                    background: "var(--surface-light-elevated)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: ".9rem", color: "var(--team-primary)",
-                  }}>
-                    {s.name.trim()[0]?.toUpperCase() ?? "S"}
-                  </div>
-                )}
-                <span style={{
-                  fontSize: ".58rem", fontWeight: 700, color: "var(--text-secondary-app)",
-                  textAlign: "center", lineHeight: 1.25,
-                  overflow: "hidden", display: "-webkit-box",
-                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-                }}>
-                  {s.name}
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Phase 2.2D-2 — ELF Community Partners. A separate advertising
-          surface from Team Sponsors above: its own section, its own
-          component, never merged with or replacing the Sponsors markup. */}
+      {/* Phase: Home Screen Cleanup — the Team Sponsors section that
+          used to render here was removed; Team Sponsors is now
+          available exclusively on the Partners page
+          (/team/[slug]/sponsors?tab=team). ELF Community Partners below
+          is a wholly separate advertising surface and was never part of
+          this removal. */}
       {communityPartnerGridSlots.length > 0 && (
         <div style={{ marginTop: ".9rem" }}>
           <div style={{ marginBottom: ".5rem" }}>
