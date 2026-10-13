@@ -75,6 +75,12 @@ export type CampaignDetail = {
   external_store_url:         string;
   store_provider:             string;
   archived:                   boolean;
+  // Phase 2.2B: which school (organizations row) this team is linked to —
+  // null for a campaign never backfilled with one (see phase_a29b). Read
+  // here only to let the Sponsors tab fetch/show that school's ELF
+  // Community Partners advertising setting; this page never reads/writes
+  // any other organizations column.
+  organization_id:            string | null;
   // Phase F1a: whether fundraising SERVICES are enabled for this
   // otherwise-active team — distinct from `archived` (whole-team
   // retirement, which takes precedence) and `allow_coach_fundraising`
@@ -593,6 +599,84 @@ export default function CampaignControlCenter({ detail }: Props) {
       });
     return () => { cancelled = true; };
   }, [slug]);
+
+  // ── Phase 2.2B: school-wide ELF Community Partners advertising toggle ──────
+  // Independently authorized via /api/platform-admin/schools/[id]/advertising
+  // — this page's own `elf_admin` cookie proves nothing about platform-admin
+  // status, so every request here can come back 401 even though the admin
+  // is already "logged in" to this legacy tool. Not folded into the
+  // sponsors/fundUses effect above: different auth system, different
+  // failure modes (unauthorized / not-linked-to-a-school / server error),
+  // each needing its own message rather than a shared [] fallback.
+  type SchoolAdState =
+    | { status: "loading" }
+    | { status: "unlinked" }
+    | { status: "unauthorized" }
+    | { status: "error" }
+    | { status: "ready"; school_name: string; show_community_partners: boolean };
+
+  const [schoolAd, setSchoolAd] = useState<SchoolAdState>(
+    detail.organization_id ? { status: "loading" } : { status: "unlinked" },
+  );
+  const [schoolAdSaving, setSchoolAdSaving] = useState(false);
+
+  useEffect(() => {
+    const orgId = detail.organization_id;
+    // No setState here for the unlinked case — the useState initializer
+    // above already covers it, and detail.organization_id is static for
+    // the lifetime of this server-rendered page.
+    if (!orgId) return;
+
+    // No setState here either — the useState initializer already sets
+    // "loading" whenever organization_id is present, covering first mount.
+    let cancelled = false;
+    fetch(`/api/platform-admin/schools/${encodeURIComponent(orgId)}/advertising`)
+      .then(async res => {
+        if (cancelled) return;
+        if (res.status === 401) { setSchoolAd({ status: "unauthorized" }); return; }
+        if (!res.ok) { setSchoolAd({ status: "error" }); return; }
+        const data = await res.json();
+        setSchoolAd({ status: "ready", school_name: data.school_name, show_community_partners: data.show_community_partners });
+      })
+      .catch(() => { if (!cancelled) setSchoolAd({ status: "error" }); });
+    return () => { cancelled = true; };
+  }, [detail.organization_id]);
+
+  async function toggleSchoolAdvertising(next: boolean) {
+    const orgId = detail.organization_id;
+    // Ignore clicks mid-request (handles rapid repeated clicks without
+    // firing overlapping PATCHes) and when there's no confirmed current
+    // state to toggle from.
+    if (!orgId || schoolAdSaving || schoolAd.status !== "ready") return;
+
+    setSchoolAdSaving(true);
+    try {
+      const res = await fetch(`/api/platform-admin/schools/${encodeURIComponent(orgId)}/advertising`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ show_community_partners: next }),
+      });
+      if (res.status === 401) {
+        setSchoolAd({ status: "unauthorized" });
+        show("Your Platform Admin session has expired. Sign in again to change this setting.", "error");
+        return;
+      }
+      if (!res.ok) {
+        // Deliberately does NOT update local state — the toggle visually
+        // stays at its last server-confirmed value, never flips to a
+        // state the server didn't actually save.
+        show("Failed to update advertising setting. Please try again.", "error");
+        return;
+      }
+      const data = await res.json();
+      setSchoolAd({ status: "ready", school_name: data.school_name, show_community_partners: data.show_community_partners });
+      show(data.show_community_partners ? "ELF Community Partners advertising enabled." : "ELF Community Partners advertising disabled.");
+    } catch {
+      show("Failed to update advertising setting. Please try again.", "error");
+    } finally {
+      setSchoolAdSaving(false);
+    }
+  }
 
   // ── Saving state ──────────────────────────────────────────────────────────
 
@@ -1917,6 +2001,66 @@ export default function CampaignControlCenter({ detail }: Props) {
       {/* ── SPONSORS ── */}
       {tab === "sponsors" && (
         <div>
+          <div style={{ ...T.card, marginBottom: "1.25rem" }}>
+            <SectionHeader
+              title="School-Wide Advertising"
+              desc="Controls ELF Community Partners advertising for every team and sport linked to this school — not just this campaign."
+            />
+
+            {schoolAd.status === "unlinked" && (
+              <>
+                <div style={{ opacity: 0.5, pointerEvents: "none" }}>
+                  <ToggleRow
+                    label="Show ELF Community Partners"
+                    desc="When enabled, ELF Community Partners advertising will appear across all teams and sports linked to this school once the advertising display features are launched."
+                    checked={false}
+                    onChange={() => {}}
+                  />
+                </div>
+                <div style={{ padding: ".6rem .8rem", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 7, fontSize: ".78rem", color: "#4b5563", lineHeight: 1.5, marginTop: ".6rem" }}>
+                  This team isn&rsquo;t linked to a school yet, so there&rsquo;s no shared advertising setting to control. Link it to an organization before this toggle becomes available.
+                </div>
+              </>
+            )}
+
+            {schoolAd.status === "loading" && (
+              <div style={{ fontSize: ".8rem", color: "#98989d" }}>Loading…</div>
+            )}
+
+            {schoolAd.status === "unauthorized" && (
+              <div style={{ padding: ".6rem .8rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: ".78rem", color: "#991b1b", lineHeight: 1.5 }}>
+                Your Platform Admin session has expired or isn&rsquo;t recognized. Sign in to your ELF account as a Platform Admin, then reload this page to view or change this setting.
+              </div>
+            )}
+
+            {schoolAd.status === "error" && (
+              <div style={{ padding: ".6rem .8rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: ".78rem", color: "#991b1b", lineHeight: 1.5 }}>
+                Couldn&rsquo;t load this school&rsquo;s advertising setting. Reload the page to try again.
+              </div>
+            )}
+
+            {schoolAd.status === "ready" && (
+              <>
+                <div style={{ fontSize: ".78rem", color: "#6e6e73", marginBottom: ".5rem" }}>
+                  School: <strong style={{ color: "#1d1d1f" }}>{schoolAd.school_name}</strong>
+                </div>
+                <ToggleRow
+                  label="Show ELF Community Partners"
+                  desc="When enabled, ELF Community Partners advertising will appear across all teams and sports linked to this school once the advertising display features are launched."
+                  checked={schoolAd.show_community_partners}
+                  onChange={toggleSchoolAdvertising}
+                />
+                {schoolAdSaving && (
+                  <div style={{ fontSize: ".72rem", color: "#98989d", marginTop: ".4rem" }}>Saving…</div>
+                )}
+                <p style={{ margin: ".9rem 0 0", fontSize: ".72rem", color: "#98989d", lineHeight: 1.5 }}>
+                  This applies to every team and sport at <strong>{schoolAd.school_name}</strong>, not just this campaign. Global ELF Community Partners (the actual businesses shown) are managed separately at{" "}
+                  <a href="/admin/community-partners" style={{ color: "#0b1e3d", fontWeight: 600 }}>Community Partners</a>.
+                </p>
+              </>
+            )}
+          </div>
+
           <div style={T.card}>
             <SectionHeader
               title="Campaign Sponsors"
