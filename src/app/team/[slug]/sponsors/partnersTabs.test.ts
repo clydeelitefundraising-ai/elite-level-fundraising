@@ -1,43 +1,66 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveActivePartnersTab, PARTNERS_TABS, DEFAULT_PARTNERS_TAB } from "./partnersTabs.ts";
+import { resolveActivePartnersTab, getPartnersTabs } from "./partnersTabs.ts";
 
-test("resolveActivePartnersTab: 'team' resolves to the team tab", () => {
-  assert.equal(resolveActivePartnersTab("team"), "team");
+// ── getPartnersTabs ──────────────────────────────────────────────────────
+
+test("getPartnersTabs(true): lists community before team, with the full approved labels", () => {
+  const tabs = getPartnersTabs(true);
+  assert.deepEqual(tabs.map(t => t.key), ["community", "team"]);
+  assert.equal(tabs[0].label, "ELF Community Partners");
+  assert.equal(tabs[1].label, "Team Sponsors");
 });
 
-test("resolveActivePartnersTab: missing (null) value falls back to the default (community)", () => {
-  assert.equal(resolveActivePartnersTab(null), "community");
+test("getPartnersTabs(false): community is completely absent, only Team Sponsors remains", () => {
+  const tabs = getPartnersTabs(false);
+  assert.deepEqual(tabs.map(t => t.key), ["team"]);
+  assert.equal(tabs[0].label, "Team Sponsors");
 });
 
-test("resolveActivePartnersTab: missing (undefined) value falls back to the default (community)", () => {
-  assert.equal(resolveActivePartnersTab(undefined), "community");
+// ── resolveActivePartnersTab: showCommunityPartners = true ──────────────
+
+test("resolveActivePartnersTab(true): 'team' resolves to the team tab", () => {
+  assert.equal(resolveActivePartnersTab("team", true), "team");
 });
 
-test("resolveActivePartnersTab: an invalid/unrecognized value falls back to the default (community), never errors", () => {
-  assert.equal(resolveActivePartnersTab("bogus"), "community");
-  assert.equal(resolveActivePartnersTab(""), "community");
-  assert.equal(resolveActivePartnersTab("Team"), "community"); // case-sensitive, not coerced
+test("resolveActivePartnersTab(true): missing (null) value falls back to the default (community)", () => {
+  assert.equal(resolveActivePartnersTab(null, true), "community");
 });
 
-test("DEFAULT_PARTNERS_TAB is community — ELF Community Partners is the default tab for every role", () => {
-  assert.equal(DEFAULT_PARTNERS_TAB, "community");
+test("resolveActivePartnersTab(true): missing (undefined) value falls back to the default (community)", () => {
+  assert.equal(resolveActivePartnersTab(undefined, true), "community");
 });
 
-test("PARTNERS_TABS lists community before team, with the full approved labels", () => {
-  assert.deepEqual(PARTNERS_TABS.map(t => t.key), ["community", "team"]);
-  assert.equal(PARTNERS_TABS[0].label, "ELF Community Partners");
-  assert.equal(PARTNERS_TABS[1].label, "Team Sponsors");
+test("resolveActivePartnersTab(true): an invalid/unrecognized value falls back to the default (community), never errors", () => {
+  assert.equal(resolveActivePartnersTab("bogus", true), "community");
+  assert.equal(resolveActivePartnersTab("", true), "community");
+  assert.equal(resolveActivePartnersTab("Team", true), "community"); // case-sensitive, not coerced
 });
-
-// ── Home's "Our Sponsors" links use ?tab=team (real URL round-trip) ──────
 
 test("a real '?tab=team' URL (what Home's 'Our Sponsors' links now produce) resolves to the team tab", () => {
   const url = new URL("https://example.test/team/wildcats-2026/sponsors?tab=team");
-  assert.equal(resolveActivePartnersTab(url.searchParams.get("tab")), "team");
+  assert.equal(resolveActivePartnersTab(url.searchParams.get("tab"), true), "team");
 });
 
-test("the bare route with no query string (what the nav rename itself links to) resolves to the default (community) tab", () => {
+test("the bare route with no query string resolves to the default (community) tab when advertising is on", () => {
   const url = new URL("https://example.test/team/wildcats-2026/sponsors");
-  assert.equal(resolveActivePartnersTab(url.searchParams.get("tab")), "community");
+  assert.equal(resolveActivePartnersTab(url.searchParams.get("tab"), true), "community");
+});
+
+// ── resolveActivePartnersTab: showCommunityPartners = false ─────────────
+// A stale/bookmarked `?tab=community` link (e.g. from before an admin
+// turned advertising off for this school) must degrade gracefully to Team
+// Sponsors, never resolve to a tab that no longer exists.
+
+test("resolveActivePartnersTab(false): a stale '?tab=community' link resolves to team, not community", () => {
+  assert.equal(resolveActivePartnersTab("community", false), "team");
+});
+
+test("resolveActivePartnersTab(false): missing/null/undefined all resolve to team", () => {
+  assert.equal(resolveActivePartnersTab(null, false), "team");
+  assert.equal(resolveActivePartnersTab(undefined, false), "team");
+});
+
+test("resolveActivePartnersTab(false): an explicit '?tab=team' still resolves to team", () => {
+  assert.equal(resolveActivePartnersTab("team", false), "team");
 });

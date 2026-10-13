@@ -118,6 +118,25 @@ export async function listCommunityPartners(): Promise<CommunityPartnerRow[]> {
   return restList<CommunityPartnerRow>("community_partners?select=*&order=display_order.asc,created_at.asc");
 }
 
+export type ActiveCommunityPartner = Pick<
+  CommunityPartnerRow,
+  "id" | "business_name" | "short_description" | "website_url" | "logo_url" | "is_featured"
+>;
+
+// Phase 2.2C — the Team App's ONLY read of this table. Deliberately a
+// separate query from listCommunityPartners() (the admin management list,
+// which intentionally includes inactive/draft partners so an admin can
+// manage them): `is_active=eq.true` is the actual security/business-rule
+// boundary here, enforced in the query itself, not by filtering an
+// over-fetched list after the fact. The selected columns are exactly the
+// public-safe subset — no created_at/updated_at/display_order (admin-only
+// management metadata) ever reaches a team member's browser.
+export async function listActiveCommunityPartners(): Promise<ActiveCommunityPartner[]> {
+  return restList<ActiveCommunityPartner>(
+    "community_partners?is_active=eq.true&select=id,business_name,short_description,website_url,logo_url,is_featured&order=display_order.asc,created_at.asc",
+  );
+}
+
 export async function getCommunityPartner(id: string): Promise<CommunityPartnerRow | null> {
   const rows = await restList<CommunityPartnerRow>(
     `community_partners?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
