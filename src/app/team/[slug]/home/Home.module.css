@@ -62,13 +62,18 @@
  * main/side, then communityPartners) doesn't have to match visual
  * placement:
  *
+ *   [ FEATURED PARTNER (slim, full width) ]       -- Phase 2.2D-3
  *   [ FUNDRAISING (hero, wide) ]   [ QUICK ACTIONS ]
  *   [ RECENT ACTIVITY (wide)   ]   [ NEXT EVENT / NEEDS ATTENTION ]
  *   [ COMMUNITY PARTNERS (full width, modest) ]  -- Phase 2.2D-2
  *
  * Fundraising gets real visual weight here (large stat type, tinted
  * band) rather than being one info-card among equals — that's the
- * "strong visual focal point" the dashboard was missing.
+ * "strong visual focal point" the dashboard was missing. The Featured
+ * Partner row sits above it, slim by design, so it never competes with
+ * that focal point — a separate advertising placement from the
+ * Community Partners grid near the bottom (Phase 2.2D-2), independent
+ * of its locked positions/rotation.
  *
  * Phase: Home Screen Cleanup — the "sponsors" band/row that used to sit
  * between "main side" and "communityPartners" was removed along with the
@@ -79,11 +84,17 @@
   display: grid;
   grid-template-columns: 1.6fr 1fr;
   grid-template-areas:
+    "featuredBanner featuredBanner"
     "fundraising actions"
     "main side"
     "communityPartners communityPartners";
   gap: var(--space-6);
   align-items: start;
+}
+
+.featuredBannerArea {
+  grid-area: featuredBanner;
+  min-width: 0;
 }
 
 .fundraisingArea {
@@ -119,13 +130,14 @@
 
 /* Below this, even though the whole dashboard is desktop-only (>=1024px),
  * the 1.6fr/1fr split gets cramped — fall back to a single column,
- * preserving reading order (fundraising -> actions -> main -> side ->
- * communityPartners) until there's genuinely enough room for the full
- * layout. */
+ * preserving reading order (featuredBanner -> fundraising -> actions ->
+ * main -> side -> communityPartners) until there's genuinely enough room
+ * for the full layout. */
 @media screen and (max-width: 1279px) {
   .mainGrid {
     grid-template-columns: 1fr;
     grid-template-areas:
+      "featuredBanner"
       "fundraising"
       "actions"
       "main"

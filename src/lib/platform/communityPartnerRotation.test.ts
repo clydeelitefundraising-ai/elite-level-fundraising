@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveGridSlots, getUtcDayTick, type GridPartnerInput } from "./communityPartnerRotation.ts";
+import { resolveGridSlots, getUtcDayTick, pickFeaturedPartner, type GridPartnerInput, type FeaturedPartnerInput } from "./communityPartnerRotation.ts";
 
 function makePartner(id: string, overrides: Partial<GridPartnerInput> = {}): GridPartnerInput {
   return {
@@ -268,4 +268,83 @@ test("getUtcDayTick: advances by exactly 1 per UTC day, regardless of time-of-da
   const day2          = getUtcDayTick(new Date("2026-06-16T00:00:00Z"));
   assert.equal(day1Morning, day1Night);
   assert.equal(day2, day1Morning + 1);
+});
+
+// ── pickFeaturedPartner (Phase 2.2D-3) — fully independent of the grid ────
+
+function makeFeaturedPartner(id: string, overrides: Partial<FeaturedPartnerInput> = {}): FeaturedPartnerInput {
+  return {
+    id,
+    business_name:     `Partner ${id}`,
+    short_description: null,
+    website_url:       null,
+    logo_url:           null,
+    created_at:         `2026-01-${id.padStart(2, "0")}T00:00:00Z`,
+    ...overrides,
+  };
+}
+
+test("pickFeaturedPartner: zero eligible partners returns null, never throws", () => {
+  assert.equal(pickFeaturedPartner([], 0), null);
+});
+
+test("pickFeaturedPartner: one eligible partner is always selected, every tick", () => {
+  const partner = makeFeaturedPartner("1");
+  for (let tick = 0; tick < 10; tick++) {
+    const result = pickFeaturedPartner([partner], tick);
+    assert.equal(result?.id, "1");
+  }
+});
+
+test("pickFeaturedPartner: fairness — each of N eligible partners is selected exactly once per N-tick cycle", () => {
+  for (const n of [2, 3, 5, 7, 11]) {
+    const partners = Array.from({ length: n }, (_, i) => makeFeaturedPartner(String(i + 1).padStart(2, "0")));
+    const seen = new Map<string, number>(partners.map(p => [p.id, 0]));
+    for (let tick = 0; tick < n; tick++) {
+      const result = pickFeaturedPartner(partners, tick);
+      assert.ok(result, `expected a selection at tick ${tick} for n=${n}`);
+      seen.set(result!.id, seen.get(result!.id)! + 1);
+    }
+    for (const [id, count] of seen) {
+      assert.equal(count, 1, `partner ${id} selected ${count} times in one ${n}-tick cycle, expected exactly 1 (n=${n})`);
+    }
+  }
+});
+
+test("pickFeaturedPartner: selection is stable regardless of the input array's order", () => {
+  const a = makeFeaturedPartner("1");
+  const b = makeFeaturedPartner("2");
+  const c = makeFeaturedPartner("3");
+  for (let tick = 0; tick < 6; tick++) {
+    const forward  = pickFeaturedPartner([a, b, c], tick);
+    const shuffled = pickFeaturedPartner([c, a, b], tick);
+    assert.equal(forward?.id, shuffled?.id, `tick ${tick}: input order must not change the result`);
+  }
+});
+
+test("pickFeaturedPartner: the same tick always yields the same selection — no per-call randomness", () => {
+  const partners = Array.from({ length: 5 }, (_, i) => makeFeaturedPartner(String(i + 1)));
+  const tick = getUtcDayTick(new Date("2026-06-15T12:00:00Z"));
+  const runs = Array.from({ length: 5 }, () => pickFeaturedPartner(partners, tick));
+  for (const run of runs.slice(1)) assert.deepEqual(run, runs[0]);
+});
+
+test("pickFeaturedPartner: output never includes created_at (the public-safe shape)", () => {
+  const result = pickFeaturedPartner([makeFeaturedPartner("1")], 0);
+  assert.ok(result);
+  assert.equal("created_at" in result!, false);
+});
+
+test("pickFeaturedPartner: shares no data or behavior with resolveGridSlots — independent of locked positions", () => {
+  // Same partner id appears in both an "active grid partner" shape (with
+  // a locked_position) and a "featured partner" shape — proves
+  // pickFeaturedPartner's selection is computed purely from its own
+  // input, with no awareness of locked_position/reservedPositions at all
+  // (its input type doesn't even have that field).
+  const gridPartner = makePartner("shared", { locked_position: 5 });
+  const featuredPartner = makeFeaturedPartner("shared");
+  void gridPartner; // only used to document the "same id, different shape" scenario
+  const result = pickFeaturedPartner([featuredPartner], 0);
+  assert.equal(result?.id, "shared");
+  assert.equal("locked_position" in (result ?? {}), false, "FeaturedPartner output must never carry a locked_position field");
 });

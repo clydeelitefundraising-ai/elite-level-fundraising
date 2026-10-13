@@ -6,7 +6,7 @@ import { CalendarPlus as CalendarPlusIcon } from "lucide-react";
 import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
-import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
+import type { GridSlot, FeaturedPartner } from "@/lib/platform/communityPartnerRotation";
 import EventDetailsModal from "../_components/EventDetailsModal";
 import {
   fmtMoney,
@@ -20,6 +20,7 @@ import {
 } from "./coachDashboardHelpers";
 import QuickActions from "./QuickActions";
 import CommunityPartnerGrid from "./CommunityPartnerGrid";
+import FeaturedPartnerBanner from "./FeaturedPartnerBanner";
 import styles from "./Home.module.css";
 
 function actorFirstName(actor: TeamActor): string {
@@ -244,6 +245,10 @@ export type CoachDashboardProps = {
   // Phase 2.2D-2 — see HomeView.tsx's identical field for the full
   // rationale: resolved once by page.tsx, never recomputed here.
   communityPartnerGridSlots?: GridSlot[];
+  // Phase 2.2D-3 — see HomeView.tsx's identical field: a separate
+  // advertising placement, resolved once by page.tsx, independent of
+  // communityPartnerGridSlots above.
+  featuredPartner?: FeaturedPartner | null;
 };
 
 export default function CoachDashboard({
@@ -261,6 +266,7 @@ export default function CoachDashboard({
   sportName,
   season,
   communityPartnerGridSlots = [],
+  featuredPartner = null,
 }: CoachDashboardProps) {
   const [viewingEvent, setViewingEvent] = useState<CalendarEventRow | null>(null);
 
@@ -294,6 +300,17 @@ export default function CoachDashboard({
       </div>
 
       <div className={styles.mainGrid}>
+        {/* Phase 2.2D-3 — Featured Partner banner, a dedicated full-width
+            grid row ABOVE Fundraising (approved decision). A separate
+            advertising placement from the Community Partners grid near
+            the bottom of the page — this row never affects, and is never
+            affected by, that grid's locked positions or rotation. */}
+        {featuredPartner && (
+          <div className={styles.featuredBannerArea}>
+            <FeaturedPartnerBanner partner={featuredPartner} />
+          </div>
+        )}
+
         {/* Fundraising — full-width hero, the page's primary focal point.
             Always rendered (never collapses at $0 — see FundraisingCard). */}
         <div className={styles.fundraisingArea}>

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 // list/get/create/update functions are covered by the route tests instead.
 register(new URL("../testSupport/nextStubLoader.mjs", import.meta.url).href, import.meta.url);
 
-const { isValidHttpsUrl, validateCommunityPartnerFields, listActiveCommunityPartners, listActiveCommunityPartnersForGrid, listAllLockedPositions, findPartnerByLockedPosition } = await import("./communityPartners.ts");
+const { isValidHttpsUrl, validateCommunityPartnerFields, listActiveCommunityPartners, listActiveCommunityPartnersForGrid, listAllLockedPositions, listFeaturedCommunityPartners, findPartnerByLockedPosition } = await import("./communityPartners.ts");
 
 // ── isValidHttpsUrl ─────────────────────────────────────────────────────────
 
@@ -522,4 +522,79 @@ test("listAllLockedPositions: returns [] when nothing is locked, never throws", 
   }
 
   assert.deepEqual(result, []);
+});
+
+// ── listFeaturedCommunityPartners (Phase 2.2D-3) ─────────────────────────
+// A separate query from BOTH listActiveCommunityPartners() (Partners tab)
+// and listActiveCommunityPartnersForGrid() (the 20-position grid) —
+// filters both is_active AND is_featured at the query level.
+
+test("listFeaturedCommunityPartners: filters both is_active=true and is_featured=true", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listFeaturedCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.ok(capturedUrl.includes("is_active=eq.true"), `expected an is_active=eq.true filter, got: ${capturedUrl}`);
+  assert.ok(capturedUrl.includes("is_featured=eq.true"), `expected an is_featured=eq.true filter, got: ${capturedUrl}`);
+});
+
+test("listFeaturedCommunityPartners: selects created_at (the rotation's stable sort key) but never display_order or locked_position", async () => {
+  const realFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (url: string) => {
+    capturedUrl = url;
+    return new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await listFeaturedCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  const selectParam = new URL(capturedUrl.replace(/^[^?]*\?/, "http://x/?")).searchParams.get("select") ?? "";
+  const selected = selectParam.split(",");
+  assert.ok(selected.includes("created_at"), "must select created_at — pickFeaturedPartner's stable sort key");
+  assert.ok(!selected.includes("display_order"), "display_order must never influence the Featured Partner selection");
+  assert.ok(!selected.includes("locked_position"), "the Featured Partner banner must be independent of the grid's locked_position");
+});
+
+test("listFeaturedCommunityPartners: returns [] when no partner is eligible, never throws", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify([]), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listFeaturedCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, []);
+});
+
+test("listFeaturedCommunityPartners: returns the rows the query gave it", async () => {
+  const rows = [
+    { id: "cp-1", business_name: "Acme Co", short_description: null, website_url: "https://acme.example.com", logo_url: null, created_at: "2026-01-01T00:00:00Z" },
+  ];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify(rows), { status: 200 })) as typeof fetch;
+
+  let result;
+  try {
+    result = await listFeaturedCommunityPartners();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+
+  assert.deepEqual(result, rows);
 });
