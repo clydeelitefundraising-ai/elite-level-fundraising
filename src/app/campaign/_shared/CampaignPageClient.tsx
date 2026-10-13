@@ -23,7 +23,10 @@ const FALLBACK_DAYS_LEFT = 23;
 // people/amounts. See the empty-state renders below (cl-filter-empty /
 // cl-donations-empty) for what a viewer actually sees in that case.
 
-type SponsorItem = { name: string; url: string; logo_url?: string | null; description?: string | null };
+// Phase 2.2E-2 — public-safe subset only, same shape the API already
+// restricts the response to (see campaign-stats/[slug]/route.ts). Not the
+// same type as the Team App's GridPartner (that one is server-only).
+type CommunityPartnerItem = { id: string; business_name: string; short_description: string | null; website_url: string | null; logo_url: string | null };
 
 const FALLBACK_MISSION = [
   { icon: "plane",     label: "Travel & Transportation", desc: "Away meets, regional championships, and travel to compete." },
@@ -77,12 +80,11 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [selectedCoachId,  setSelectedCoachId]  = useState("");
   const [participantFilter, setParticipantFilter] = useState<"All" | "Athletes" | "Coaches">("All");
   const [recentDonations, setRecentDonations] = useState<{ name: string; amount: number; message: string; time: string }[]>([]);
-  const [titleSponsors,     setTitleSponsors]     = useState<SponsorItem[]>([]);
-  const [platinumSponsors,  setPlatinumSponsors]  = useState<SponsorItem[]>([]);
-  const [goldSponsors,      setGoldSponsors]      = useState<SponsorItem[]>([]);
-  const [silverSponsors,    setSilverSponsors]    = useState<SponsorItem[]>([]);
-  const [bronzeSponsors,    setBronzeSponsors]    = useState<SponsorItem[]>([]);
-  const [communitySponsors, setCommunitySponsors] = useState<SponsorItem[]>([]);
+  // Phase 2.2E-2 — replaces the old per-tier Team Sponsor state above (now
+  // removed from this page entirely; the tiers/CRUD/authenticated Partners
+  // page are untouched, just no longer rendered here). ELF Community
+  // Partners, not a team's own sponsors.
+  const [communityPartners, setCommunityPartners] = useState<CommunityPartnerItem[]>([]);
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");
   const [mascot,          setMascot]          = useState("Team");
@@ -113,7 +115,6 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [showLeaderboard,     setShowLeaderboard]     = useState(true);
   const [showFundUses,        setShowFundUses]        = useState(true);
   const [showRecentDonations, setShowRecentDonations] = useState(true);
-  const [showSponsors,        setShowSponsors]        = useState(true);
   const [showDonationCard,    setShowDonationCard]    = useState(true);
 
   useEffect(() => {
@@ -123,7 +124,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (!data || typeof data.raised !== "number") return;
         const {
           raised: r, donors: d, athleteTotals, recentDonations: rd,
-          goal: g, displayGoal: dg, daysLeft: dl, athletes: fetchedAthletes, sponsors: fetchedSponsors,
+          goal: g, displayGoal: dg, daysLeft: dl, athletes: fetchedAthletes,
           school_name: fetchedSchoolName, sport_name: fetchedSportName,
           mascot: fetchedMascot,
           theme_primary_color: fetchedThemePrimary, theme_secondary_color: fetchedThemeSecondary,
@@ -145,7 +146,6 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         setShowLeaderboard(    data.show_leaderboard      !== false);
         setShowFundUses(       data.show_fund_uses        !== false);
         setShowRecentDonations(data.show_recent_donations !== false);
-        setShowSponsors(       data.show_sponsors         !== false);
         setShowDonationCard(   data.show_donation_card    !== false);
         setRaised(r);
         setDonors(d);
@@ -185,20 +185,19 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         if (Array.isArray(data.fund_uses) && data.fund_uses.length > 0) {
           setMissionItems(data.fund_uses.map((f: { icon: string; title: string; description: string }) => ({ icon: f.icon, label: f.title, desc: f.description })));
         }
-        if (Array.isArray(fetchedSponsors)) {
-          const byTier = (t: string): SponsorItem[] =>
-            fetchedSponsors
-              .filter((s: { tier: string }) => s.tier === t)
-              .map((s: { name: string; url: string; logo_url?: string | null; description?: string | null }) => ({
-                name: s.name, url: s.url, logo_url: s.logo_url ?? null, description: s.description ?? null,
-              }));
-          setTitleSponsors(byTier("title"));
-          setPlatinumSponsors(byTier("platinum"));
-          setGoldSponsors(byTier("gold"));
-          setSilverSponsors(byTier("silver"));
-          setBronzeSponsors(byTier("bronze"));
-          setCommunitySponsors(byTier("community_partner"));
-        }
+        // Phase 2.2E-2 — ELF Community Partners, separate from (and no
+        // longer reading) the team's own sponsor tiers above. Always
+        // synced to the real value, including an empty array when the
+        // toggle is off or no partner occupies a slot today — never
+        // lingers on a stale list from a previous fetch.
+        setCommunityPartners(
+          Array.isArray(data.community_partners)
+            ? data.community_partners.map((p: CommunityPartnerItem) => ({
+                id: p.id, business_name: p.business_name, short_description: p.short_description,
+                website_url: p.website_url, logo_url: p.logo_url,
+              }))
+            : [],
+        );
       })
       .catch(() => {/* keep fallback data */});
   }, [slug]);
@@ -350,10 +349,10 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     selectAthleteParticipant, selectCoachParticipant,
     participantFilter, setParticipantFilter,
     recentDonations,
-    titleSponsors, platinumSponsors, goldSponsors, silverSponsors, bronzeSponsors, communitySponsors,
+    communityPartners,
     missionItems,
     showLeaderboard,
-    showFundUses, showRecentDonations, showSponsors, showDonationCard,
+    showFundUses, showRecentDonations, showDonationCard,
     selectedAmount, setSelectedAmount, customAmount, setCustomAmount,
     donorName, setDonorName, selectedAthleteId,
     donationMessage, setDonationMessage,
