@@ -44,14 +44,15 @@ function actorFirstName(actor: TeamActor): string {
  *  theming pipeline, which respects branding_customized) — unchanged
  *  from the prior pass's fix, not regressed.
  *
- *  Phase 4 final revision: this card is now ALWAYS rendered (the
- *  shouldShowFundraisingCard gate that used to hide it entirely at
- *  raisedCents===0 has been removed from coachDashboardHelpers.ts) — at
- *  $0 it shows the same $0/goal/0%-progress layout plus "Ready to start
- *  raising?" instead of the module disappearing. CoachDashboard is
- *  coach-only (gated by shouldShowCoachDashboard upstream), so this
+ *  The caller only mounts this component (and its .fundraisingArea grid
+ *  cell) at all when hasActiveFundraiser is true — see page.tsx's
+ *  isAthleteFundraisingVisible(settings) call. Once mounted, it never
+ *  collapses at $0 raised: it shows the same $0/goal/0%-progress layout
+ *  plus "Ready to start raising?" instead of disappearing. CoachDashboard
+ *  is coach-only (gated by shouldShowCoachDashboard upstream), so this
  *  card's $0 copy is always the staff variant — the member-facing
- *  variant lives in HomeView's FundraiserSnapshot. */
+ *  variant lives in HomeView's FundraiserSnapshot. raisedCents plays no
+ *  part in whether this component is mounted. */
 function FundraisingCard({
   slug,
   raisedCents,
@@ -249,6 +250,10 @@ export type CoachDashboardProps = {
   // advertising placement, resolved once by page.tsx, independent of
   // communityPartnerGridSlots above.
   featuredPartner?: FeaturedPartner | null;
+  // Bug fix — see HomeView.tsx's identical field: resolved once by
+  // page.tsx via isAthleteFundraisingVisible(settings), gates both
+  // FundraisingCard and its .fundraisingArea grid cell.
+  hasActiveFundraiser?: boolean;
 };
 
 export default function CoachDashboard({
@@ -267,6 +272,7 @@ export default function CoachDashboard({
   season,
   communityPartnerGridSlots = [],
   featuredPartner = null,
+  hasActiveFundraiser = false,
 }: CoachDashboardProps) {
   const [viewingEvent, setViewingEvent] = useState<CalendarEventRow | null>(null);
 
@@ -299,7 +305,12 @@ export default function CoachDashboard({
         </div>
       </div>
 
-      <div className={styles.mainGrid}>
+      {/* Bug fix — when there's no active fundraiser, the grid drops its
+          "fundraising" row entirely (see Home.module.css's
+          .mainGrid.noFundraising variant) rather than just omitting the
+          FundraisingCard inside an otherwise-reserved grid area, which
+          would leave a blank row/empty space next to Quick Actions. */}
+      <div className={hasActiveFundraiser ? styles.mainGrid : `${styles.mainGrid} ${styles.mainGridNoFundraising}`}>
         {/* Phase 2.2D-3 — Featured Partner banner, a dedicated full-width
             grid row ABOVE Fundraising (approved decision). A separate
             advertising placement from the Community Partners grid near
@@ -312,10 +323,14 @@ export default function CoachDashboard({
         )}
 
         {/* Fundraising — full-width hero, the page's primary focal point.
-            Always rendered (never collapses at $0 — see FundraisingCard). */}
-        <div className={styles.fundraisingArea}>
-          <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} topAthleteName={topAthleteName} />
-        </div>
+            Hidden entirely when the team has no active fundraiser — see
+            page.tsx's hasActiveFundraiser computation. Once shown, it
+            never collapses at $0 raised — see FundraisingCard. */}
+        {hasActiveFundraiser && (
+          <div className={styles.fundraisingArea}>
+            <FundraisingCard slug={slug} raisedCents={raisedCents} goalCents={goalCents} donorCount={donorCount} topAthleteName={topAthleteName} />
+          </div>
+        )}
 
         {/* Quick actions — compact icon tiles, top-right beside fundraising */}
         <div className={styles.actionsArea}>

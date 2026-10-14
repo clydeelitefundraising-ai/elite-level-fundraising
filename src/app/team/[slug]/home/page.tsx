@@ -2,6 +2,7 @@ import { getAnnouncements, getCalendarEvents, getDonationStats, getTeamFundraise
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
 import { getCampaignSettings } from "@/lib/supabase";
+import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
 import { getPendingRequestSummary } from "@/lib/platform/requests";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { getSchoolAdvertisingSetting } from "@/lib/platform/schoolAdvertising";
@@ -51,6 +52,17 @@ export default async function HomePage({
   // backfilled) degrades to an empty grid rather than erroring, same
   // pattern as the Partners tab (Phase 2.2C) and the admin toggle
   // (Phase 2.2B).
+  // Bug fix — Home Screen Fundraiser card visibility: same fail-closed
+  // "archived wins, else fundraising_enabled decides, missing settings
+  // row hides" precedence already enforced for checkout, the public
+  // campaign page, and the athlete-profile routes. Computed once,
+  // server-side, and threaded through unchanged — no new definition of
+  // "active" is introduced here. Deliberately independent of
+  // raisedCents: an active fundraiser with $0 raised must still show the
+  // card (see FundraiserSnapshot/FundraisingCard's own $0 presentation
+  // branch, untouched by this fix).
+  const hasActiveFundraiser = isAthleteFundraisingVisible(settings);
+
   const organizationId = settings?.organization_id ?? null;
   const schoolAdvertising = organizationId ? await getSchoolAdvertisingSetting(organizationId) : null;
   const showCommunityPartners = schoolAdvertising?.show_community_partners ?? false;
@@ -107,6 +119,7 @@ export default async function HomePage({
       season={settings?.season ?? undefined}
       communityPartnerGridSlots={communityPartnerGridSlots}
       featuredPartner={featuredPartner}
+      hasActiveFundraiser={hasActiveFundraiser}
     />
   );
 }
