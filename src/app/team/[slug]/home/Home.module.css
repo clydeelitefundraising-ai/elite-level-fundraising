@@ -92,6 +92,20 @@
   align-items: start;
 }
 
+/* Bug fix — Home Screen Fundraiser card visibility. Applied alongside
+ * .mainGrid (never replacing it) when the team has no active
+ * fundraiser: drops the "fundraising" row entirely rather than leaving
+ * it reserved-but-empty next to Quick Actions, and gives "actions" the
+ * full row width so Quick Actions becomes the first section below the
+ * team header, not an orphaned column beside blank space. */
+.mainGridNoFundraising {
+  grid-template-areas:
+    "featuredBanner featuredBanner"
+    "actions actions"
+    "main side"
+    "communityPartners communityPartners";
+}
+
 .featuredBannerArea {
   grid-area: featuredBanner;
   min-width: 0;
@@ -139,6 +153,17 @@
     grid-template-areas:
       "featuredBanner"
       "fundraising"
+      "actions"
+      "main"
+      "side"
+      "communityPartners";
+  }
+
+  /* Bug fix — same no-fundraising row removal as the >=1280px template
+   * above, re-expressed for the single-column layout. */
+  .mainGridNoFundraising {
+    grid-template-areas:
+      "featuredBanner"
       "actions"
       "main"
       "side"

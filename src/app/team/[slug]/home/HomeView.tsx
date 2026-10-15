@@ -324,16 +324,16 @@ function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
  *  instead of one of them silently bypassing it. This is the strongest
  *  single visual emphasis point on mobile Home, per the design brief.
  *
- *  Phase 4 final revision: the `if (raisedCents === 0) return null`
- *  early-return that used to hide this entire module at $0 has been
- *  removed — this was the root cause identified in the Home diagnostic
- *  for the dashboard collapsing on sparse-data teams. The module is now
- *  ALWAYS rendered; at $0 it shows the same $0/goal/0%-progress layout
+ *  The caller (HomeContent below) only mounts this component at all when
+ *  hasActiveFundraiser is true — see page.tsx's
+ *  isAthleteFundraisingVisible(settings) call. Once mounted, it never
+ *  collapses at $0 raised: it shows the same $0/goal/0%-progress layout
  *  plus a short role-appropriate line ("Ready to start raising?" for
  *  staff, "Fundraising is just getting started." for everyone else)
- *  instead of disappearing. Presentation only — raisedCents/goalCents
- *  themselves are untouched, still the exact values page.tsx already
- *  computes (including the dynamic display-goal logic). */
+ *  instead of disappearing. raisedCents/goalCents are presentation-only
+ *  here — still the exact values page.tsx already computes (including
+ *  the dynamic display-goal logic) — and play no part in whether this
+ *  component is mounted. */
 function FundraiserSnapshot({
   slug,
   raisedCents,
@@ -448,6 +448,13 @@ type HomeViewProps = {
   // positions/rotation in any way. null when advertising is off, no
   // organization is linked, or no eligible featured partner exists.
   featuredPartner?: FeaturedPartner | null;
+  // Bug fix — Home Screen Fundraiser card visibility: resolved once by
+  // page.tsx via isAthleteFundraisingVisible(settings) (Phase 1.2's
+  // existing archived/fundraising_enabled precedence — see
+  // fundraiserAccess.ts). Gates whether FundraiserSnapshot/FundraisingCard
+  // render at all; independent of raisedCents, which only controls their
+  // internal $0-raised presentation branch once a card is shown.
+  hasActiveFundraiser?: boolean;
 };
 
 // ── Role-based entry point ──────────────────────────────────────────────────
@@ -493,6 +500,7 @@ function HomeContent({
   pendingRequestCount = 0,
   communityPartnerGridSlots = [],
   featuredPartner = null,
+  hasActiveFundraiser = false,
 }: HomeViewProps) {
   const canEdit   = isStaff(actor);
   const canDelete = isHeadCoach(actor);
@@ -609,14 +617,21 @@ function HomeContent({
       )}
 
       {/* 1 — Fundraiser Snapshot (primary brand-energy moment on mobile,
-             never collapses at $0 — see FundraiserSnapshot) */}
-      <FundraiserSnapshot
-        slug={slug}
-        raisedCents={raisedCents}
-        goalCents={goalCents}
-        topAthleteName={topAthleteName}
-        isStaffViewer={canEdit}
-      />
+             never collapses at $0 once shown — see FundraiserSnapshot).
+             Hidden entirely when the team has no active fundraiser —
+             bug fix, see page.tsx's hasActiveFundraiser computation. A
+             plain vertical stack here, so omitting this node is enough
+             for Quick Actions to move up naturally; no CSS area to
+             adjust (unlike CoachDashboard's grid layout). */}
+      {hasActiveFundraiser && (
+        <FundraiserSnapshot
+          slug={slug}
+          raisedCents={raisedCents}
+          goalCents={goalCents}
+          topAthleteName={topAthleteName}
+          isStaffViewer={canEdit}
+        />
+      )}
 
       {/* 2 — Quick Actions */}
       {quickActions.length > 0 && (
