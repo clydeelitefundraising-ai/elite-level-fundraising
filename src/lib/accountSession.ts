@@ -2,6 +2,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
 import { mergeRoleBySlug, resolveAccountActorKind } from "@/lib/accountTeamsMerge";
+import { earliestJoinedAtBySlug, orderAccountTeams } from "@/lib/teamOrder";
+import { getSavedTeamOrder } from "@/lib/accountTeamOrder";
 import type { TeamActor } from "@/lib/permissions";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -125,24 +127,30 @@ export async function getActorForAccount(
 // the same resolveAccountActorKind() precedence getActorForAccount() does
 // (via mergeRoleBySlug()), so the Team Selector's role badge always matches
 // what the actor actually resolves to once they enter that team.
+//
+// Custom Team Ordering: the list comes back in the account's saved order
+// (account_team_order), with newly joined teams after it and oldest
+// membership first when nothing is saved — see teamOrder.ts. Every caller
+// (/teams, the team switcher, AccountMenu) gets the same order. Ordering
+// never filters or adds teams; membership is still decided above.
 export async function getAccountTeams(accountId: string): Promise<TeamSummary[]> {
-  const [coachRes, memberRes] = await Promise.all([
+  const [coachRes, memberRes, savedOrder] = await Promise.all([
     fetch(
-      `${BASE}/rest/v1/team_coaches?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role`,
+      `${BASE}/rest/v1/team_coaches?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role,created_at`,
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role`,
+      `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&select=campaign_slug,role,created_at`,
       { headers: h(), cache: "no-store" },
     ),
+    getSavedTeamOrder(accountId),
   ]);
 
-  const memberRows = memberRes.ok ? await memberRes.json() : [];
-  const coachRows  = coachRes.ok  ? await coachRes.json()  : [];
-  const roleBySlug = mergeRoleBySlug(
-    Array.isArray(coachRows)  ? coachRows  : [],
-    Array.isArray(memberRows) ? memberRows : [],
-  );
+  const memberJson = memberRes.ok ? await memberRes.json() : [];
+  const coachJson  = coachRes.ok  ? await coachRes.json()  : [];
+  const coachRows  = Array.isArray(coachJson)  ? coachJson  : [];
+  const memberRows = Array.isArray(memberJson) ? memberJson : [];
+  const roleBySlug = mergeRoleBySlug(coachRows, memberRows);
 
   const slugs = Object.keys(roleBySlug);
   if (slugs.length === 0) return [];
@@ -175,10 +183,11 @@ export async function getAccountTeams(accountId: string): Promise<TeamSummary[]>
     if (Array.isArray(parsed)) rows = parsed;
   }
 
-  return rows.map(r => ({
+  const teams = rows.map(r => ({
     ...r,
     branding_customized: r.branding_customized ?? false,
     role:      roleBySlug[r.campaign_slug]?.role ?? "",
     role_kind: roleBySlug[r.campaign_slug]?.role_kind ?? "member",
   }));
+  return orderAccountTeams(teams, earliestJoinedAtBySlug([...coachRows, ...memberRows]), savedOrder);
 }

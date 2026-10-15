@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School } from "lucide-react";
+import { User, Settings as SettingsIcon, HelpCircle, LogOut, Ban, Clock, School, ArrowUpDown } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import { teamRoleLabel } from "@/lib/permissions";
+import { applySlugOrder, sameOrder } from "@/lib/teamOrder";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
 import { authDisplayFont, authHandFont } from "@/components/auth/authDisplayFont";
 import type { EntryPhoto } from "@/components/auth/entryPhotos";
 import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./Teams.module.css";
+import TeamReorderList from "./TeamReorderList";
 
 export type PendingTeamCard = {
   campaign_slug:  string;
@@ -106,6 +108,18 @@ function ProfileMenu({ accountName, firstTeamSlug }: { accountName: string; firs
   );
 }
 
+const reorderLinkStyle: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: ".35rem",
+  minHeight: 44, padding: "0 .4rem",
+  background: "none", border: "none", cursor: "pointer",
+  fontSize: ".8rem", fontWeight: 700, color: "#374151",
+};
+
+const reorderActionStyle: React.CSSProperties = {
+  minHeight: 44, padding: "0 1rem", borderRadius: ".75rem",
+  fontSize: ".85rem", fontWeight: 700, cursor: "pointer", flexShrink: 0,
+};
+
 const menuItemStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: ".65rem",
   padding: ".7rem 1rem", fontSize: ".84rem", fontWeight: 600, color: "#374151",
@@ -182,6 +196,56 @@ export default function TeamsView({
   accountName: string;
   photo: EntryPhoto;
 }) {
+  const router = useRouter();
+  // Custom Team Ordering. `teams` already arrives in the account's saved
+  // order (getAccountTeams). savedOrder holds a just-saved order so the list
+  // doesn't flash back while router.refresh() fetches the server's copy;
+  // draft !== null means reorder mode. Nothing is saved until Done.
+  const [savedOrder, setSavedOrder] = useState<string[] | null>(null);
+  const [draft, setDraft]           = useState<string[] | null>(null);
+  const [saving, setSaving]         = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const displayTeams = applySlugOrder(teams, savedOrder);
+  const reordering   = draft !== null;
+  const canReorder   = displayTeams.length >= 2;
+
+  function startReorder() {
+    setOrderError(null);
+    setDraft(displayTeams.map(t => t.campaign_slug));
+  }
+
+  function cancelReorder() {
+    setOrderError(null);
+    setDraft(null);
+  }
+
+  async function saveReorder() {
+    if (!draft) return;
+    if (sameOrder(draft, displayTeams.map(t => t.campaign_slug))) {
+      cancelReorder();
+      return;
+    }
+    setSaving(true);
+    setOrderError(null);
+    try {
+      const res = await fetch("/api/account/team-order", {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ team_slugs: draft }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSavedOrder(draft);
+      setDraft(null);
+      router.refresh();
+    } catch {
+      // Stay in reorder mode with the draft intact; the saved order (on the
+      // server and in the list after Cancel) is unchanged.
+      setOrderError("We couldn't save your team order. Your previous order is unchanged. Try again, or Cancel.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className={`${styles.page} ${authDisplayFont.variable} ${authHandFont.variable}`} style={{ background: "var(--shell-backdrop)", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
@@ -261,6 +325,38 @@ export default function TeamsView({
             <PendingCard key={`${card.campaign_slug}-${card.status}`} card={card} />
           ))}
 
+          {canReorder && !reordering && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "-.35rem" }}>
+              <button type="button" onClick={startReorder} style={reorderLinkStyle}>
+                <ArrowUpDown size={15} aria-hidden="true" /> Reorder Teams
+              </button>
+            </div>
+          )}
+
+          {reordering && (
+            <div style={{ display: "flex", flexDirection: "column", gap: ".55rem", width: "100%", maxWidth: 520, alignSelf: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: ".95rem", color: "#121110" }}>Reorder Teams</div>
+                  <div style={{ fontSize: ".76rem", color: "#6b7280", marginTop: ".1rem" }}>
+                    Drag a team, or use the arrows. Tap Done to save.
+                  </div>
+                </div>
+                <button type="button" onClick={cancelReorder} disabled={saving} style={{ ...reorderActionStyle, background: "#fff", color: "#374151", border: "1.5px solid #d1d5db" }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={saveReorder} disabled={saving} style={{ ...reorderActionStyle, background: "var(--elf-orange)", color: "#fff", border: "1.5px solid transparent", opacity: saving ? 0.7 : 1 }}>
+                  {saving ? "Saving…" : "Done"}
+                </button>
+              </div>
+              {orderError && (
+                <div role="alert" style={{ background: "#fef2f2", color: "#b91c1c", borderRadius: ".75rem", padding: ".6rem .8rem", fontSize: ".8rem", lineHeight: 1.4 }}>
+                  {orderError}
+                </div>
+              )}
+            </div>
+          )}
+
           {teams.length === 0 && pendingCards.length === 0 ? (
             // Phase O3 — two explicit actions, never hidden behind a menu:
             // a brand-new coach creates a team here exactly as easily as an
@@ -288,9 +384,15 @@ export default function TeamsView({
                 </a>
               </div>
             </div>
+          ) : reordering ? (
+            <TeamReorderList
+              teams={applySlugOrder(displayTeams, draft)}
+              onChange={setDraft}
+              disabled={saving}
+            />
           ) : (
             <div className={styles.teamsGrid}>
-            {teams.map(team => {
+            {displayTeams.map(team => {
               const color = team.primary_color || "#121110";
               const cardShadow      = `0 3px 12px 0 ${hexToRgba(color, 0.16)}`;
               const cardShadowHover = `0 10px 28px 0 ${hexToRgba(color, 0.3)}`;
