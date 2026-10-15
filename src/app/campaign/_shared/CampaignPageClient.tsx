@@ -9,10 +9,8 @@ import { resolveRecentDonations, resolveLeaderboardAthletes } from "@/lib/campai
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
 import { ElfMark } from "@/components/BrandMark";
-
-// Mirrors lib/supabase.ts's ATHLETE_CLASS_OPTIONS — kept local (not imported)
-// since this is a client component and that module is server-only.
-const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+// Client-safe shared grade ordering (lib/supabase.ts is server-only).
+import { publicLeaderboardFilters } from "@/lib/athleteClass";
 
 const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
@@ -250,7 +248,12 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   }, [themePrimaryColor, themeSecondaryColor, themeAccentColor, themeButtonColor]);
 
   const percent = Math.round((raised / goal) * 100);
-  const filters = ["Overall", ...ATHLETE_CLASS_OPTIONS];
+  // "Overall" plus only the grades this campaign's athletes actually hold,
+  // in the shared grade order — no empty tabs for absent grades. If the
+  // selected tab stops being represented (athletes reloaded), fall back to
+  // Overall rather than showing an empty filtered list.
+  const filters = publicLeaderboardFilters(athletes.map((a) => a.class_year));
+  const effectiveFilter = filters.includes(activeFilter) ? activeFilter : "Overall";
 
   const displayAmount =
     selectedAmount === "Custom"
@@ -292,8 +295,8 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   // narrowable by the lightweight Athletes/Coaches participant filter
   // (only ever shown when there's at least one active coach).
   const filteredAthletes = (
-    activeFilter !== "Overall"
-      ? athletes.filter((a) => a.class_year === activeFilter).map((a) => ({ ...a, kind: "athlete" as const, role: undefined as ("head_coach" | "assistant_coach" | undefined) }))
+    effectiveFilter !== "Overall"
+      ? athletes.filter((a) => a.class_year === effectiveFilter).map((a) => ({ ...a, kind: "athlete" as const, role: undefined as ("head_coach" | "assistant_coach" | undefined) }))
       : participantFilter === "Athletes"
       ? combinedEntries.filter((e) => e.kind === "athlete")
       : participantFilter === "Coaches"
@@ -344,7 +347,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     schoolName, sportName, mascot,
     themePrimaryColor, location, season, logoUrl, description,
     raised, donors, goal, daysLeft, percent,
-    athletes, filteredAthletes, filters, activeFilter, setActiveFilter,
+    athletes, filteredAthletes, filters, activeFilter: effectiveFilter, setActiveFilter,
     coaches, allowCoachFundraising, selectedCoachId,
     selectAthleteParticipant, selectCoachParticipant,
     participantFilter, setParticipantFilter,

@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import { FUND_USE_ICON_OPTIONS, DEFAULT_FUND_USE_ICON_ID, normalizeFundUseIconId, resolveFundUseIcon } from "@/lib/fundUseIcons";
+import { ATHLETE_CLASS_OPTIONS, isAthleteClass } from "@/lib/athleteClass";
 
 type Settings   = { school_name: string; sport_name: string; mascot: string; goal_cents: number; deadline: string; primary_color: string; secondary_color: string; theme_primary_color: string | null; theme_secondary_color: string | null; theme_accent_color: string | null; theme_button_color: string | null; location: string; season: string; logo_url: string; description: string; show_leaderboard: boolean; show_program_identity: boolean; show_share_section: boolean; show_fund_uses: boolean; show_recent_donations: boolean; show_sponsors: boolean; show_donation_card: boolean; layout_variant: "classic" | "premium"; default_athlete_goal_cents: number; allow_coach_fundraising: boolean };
 type CoachFundraiser = { id: string; coach_id: string; active: boolean; goal_cents: number | null };
 type Athlete    = { id: string; name: string; event: string | null; class_year: string | null };
-const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 type Sponsor    = { id: string; name: string; url: string; tier: "gold" | "silver" | "bronze" };
 type FundUse    = { id: string; title: string; description: string; icon: string; sort_order: number };
 type Coach      = { id: string; name: string; email: string; role: "head_coach" | "assistant_coach" | "booster"; campaign_slug: string; account_id: string | null; has_pending_invite: boolean; created_at: string };
@@ -736,6 +736,10 @@ export function AdminDashboard() {
                         <select style={C.input} value={editA.class_year ?? ""} onChange={e => setEditA(v => v ? { ...v, class_year: e.target.value || null } : v)}>
                           <option value="">Select class…</option>
                           {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                          {/* Keep a stored nonstandard class visible and selected. */}
+                          {editA.class_year && !isAthleteClass(editA.class_year) && (
+                            <option value={editA.class_year}>{editA.class_year}</option>
+                          )}
                         </select>
                         <input
                           style={{ ...C.input, marginTop: ".35rem", fontSize: ".78rem" }}

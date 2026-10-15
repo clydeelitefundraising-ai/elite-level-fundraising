@@ -6,7 +6,7 @@
 // is the only consumer of the row/filter/sort functions; TeamView.tsx (the
 // new thin wrapper) is the only consumer of shouldShowDesktopRoster.
 import { isCoachOnly, type TeamActor } from "../../../../lib/permissions.ts";
-import { ATHLETE_CLASS_OPTIONS } from "../../../../lib/supabase.ts";
+import { NO_GRADE_SET_LABEL, compareAthleteClasses, representedAthleteClasses } from "../../../../lib/athleteClass.ts";
 import type { TeamAthleteRow, OutreachCurrentRow } from "../../../../lib/teamData.ts";
 import type { AttributionTotals } from "../../../../lib/donationAttribution.ts";
 
@@ -144,21 +144,31 @@ export function sortDesktopRosterRows(rows: RosterRow[], sort: RosterSort): Rost
 
 /** Derived from the loaded roster, never hardcoded — only grades actually
  *  present on the team appear as filter options. Sorted by the canonical
- *  Freshman→Senior progression (ATHLETE_CLASS_OPTIONS' own order) when a
+ *  6th Grade→Other progression (ATHLETE_CLASS_OPTIONS' own order) when a
  *  value matches one of those; any other/legacy value present in the data
  *  sorts after, alphabetically — this never hides or rejects a value that
  *  doesn't match the canonical list, it only affects display order. */
 export function distinctGrades(rows: RosterRow[]): string[] {
-  const values = new Set<string>();
-  for (const row of rows) {
-    if (row.class_year) values.add(row.class_year);
+  return representedAthleteClasses(rows.map(row => row.class_year));
+}
+
+// ─── Mobile roster grouping ──────────────────────────────────────────────────
+
+/** Groups athletes by class_year in the same order as distinctGrades(),
+ *  with athletes that have no class_year in a trailing "No grade set"
+ *  group — kept separate from a real "Other" grade so the two never merge
+ *  or show as duplicate headings. Display-only; nothing is written. */
+export function groupAthletesByClass<T extends { class_year?: string | null }>(athletes: T[]): { label: string; athletes: T[] }[] {
+  const groups = new Map<string, T[]>();
+  const ungrouped: T[] = [];
+  for (const a of athletes) {
+    if (!a.class_year) { ungrouped.push(a); continue; }
+    if (!groups.has(a.class_year)) groups.set(a.class_year, []);
+    groups.get(a.class_year)!.push(a);
   }
-  const canonicalIndex = (v: string) => {
-    const i = (ATHLETE_CLASS_OPTIONS as readonly string[]).indexOf(v);
-    return i === -1 ? Number.POSITIVE_INFINITY : i;
-  };
-  return [...values].sort((a, b) => {
-    const ci = canonicalIndex(a) - canonicalIndex(b);
-    return ci !== 0 ? ci : a.localeCompare(b);
-  });
+  const result = [...groups.entries()]
+    .sort((a, b) => compareAthleteClasses(a[0], b[0]))
+    .map(([label, list]) => ({ label, athletes: list }));
+  if (ungrouped.length > 0) result.push({ label: NO_GRADE_SET_LABEL, athletes: ungrouped });
+  return result;
 }

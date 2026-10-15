@@ -6,6 +6,7 @@ import {
   filterDesktopRosterRows,
   sortDesktopRosterRows,
   distinctGrades,
+  groupAthletesByClass,
   DEFAULT_ROSTER_FILTERS,
   type RosterRow,
 } from "./rosterHelpers.ts";
@@ -248,4 +249,48 @@ test("distinctGrades: a non-canonical value present in the data still appears, s
     { ...ROWS[0], class_year: "Grad Year" },
   ];
   assert.deepEqual(distinctGrades(rows), ["Senior", "Grad Year"]);
+});
+
+// ─── Expanded grade levels (6th Grade … Senior, Other) ──────────────────────
+
+test("distinctGrades: middle school before high school, Other last among canonical, legacy after (alphabetical)", () => {
+  const rows: RosterRow[] = ["Senior", "RS Sophomore", "Other", "7th Grade", "Freshman", "6th Grade", "8th Grade", "2027"]
+    .map(class_year => ({ ...ROWS[0], class_year }));
+  assert.deepEqual(distinctGrades(rows), ["6th Grade", "7th Grade", "8th Grade", "Freshman", "Senior", "Other", "2027", "RS Sophomore"]);
+});
+
+test("filterDesktopRosterRows: a new grade filters by exact class_year match", () => {
+  const rows: RosterRow[] = [
+    { ...ROWS[0], id: "a", class_year: "7th Grade" },
+    { ...ROWS[0], id: "b", class_year: "8th Grade" },
+    { ...ROWS[0], id: "c", class_year: "Other" },
+  ];
+  const result = filterDesktopRosterRows(rows, { ...DEFAULT_ROSTER_FILTERS, grade: "7th Grade" });
+  assert.deepEqual(result.map(r => r.id), ["a"]);
+});
+
+test("groupAthletesByClass: explicit Other and missing grade are separate groups", () => {
+  const groups = groupAthletesByClass([
+    { id: "1", class_year: "Other" },
+    { id: "2", class_year: null },
+    { id: "3", class_year: "" },
+    { id: "4", class_year: "6th Grade" },
+  ]);
+  assert.deepEqual(groups.map(g => g.label), ["6th Grade", "Other", "No grade set"]);
+  assert.deepEqual(groups.find(g => g.label === "Other")!.athletes.map(a => a.id), ["1"]);
+  assert.deepEqual(groups.find(g => g.label === "No grade set")!.athletes.map(a => a.id), ["2", "3"]);
+});
+
+test("groupAthletesByClass: never emits two groups with the same label", () => {
+  const groups = groupAthletesByClass([{ class_year: "Other" }, { class_year: null }, { class_year: "Other" }]);
+  const labels = groups.map(g => g.label);
+  assert.equal(new Set(labels).size, labels.length);
+});
+
+test("groupAthletesByClass: shared grade order, legacy values after canonical, no-grade group last", () => {
+  const groups = groupAthletesByClass([
+    { class_year: null }, { class_year: "RS Sophomore" }, { class_year: "Junior" },
+    { class_year: "8th Grade" }, { class_year: "Other" },
+  ]);
+  assert.deepEqual(groups.map(g => g.label), ["8th Grade", "Junior", "Other", "RS Sophomore", "No grade set"]);
 });

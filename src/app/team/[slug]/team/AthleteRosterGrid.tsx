@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Users, ChevronRight, Pencil, Trash2, ClipboardList } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
-import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
+import { groupAthletesByClass } from "./rosterHelpers";
 import type { TeamActor } from "@/lib/permissions";
 import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import CoachBar from "../_components/CoachBar";
@@ -28,33 +28,6 @@ function avatarColor(name: string): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
   return palette[hash % palette.length];
-}
-
-/** Groups athletes by class_year, ordered Freshman→Senior (the canonical
- *  ATHLETE_CLASS_OPTIONS progression, same ordering rule DesktopRosterTable's
- *  distinctGrades() already uses for its grade filter) with any legacy/
- *  unrecognized value sorted after, and athletes with no class_year in a
- *  trailing ungrouped bucket. Grouping is purely a display concern — no
- *  new backend semantics, no data written anywhere. */
-function groupByClass(athletes: TeamAthleteRow[]): { label: string; athletes: TeamAthleteRow[] }[] {
-  const canonicalIndex = (v: string) => {
-    const i = (ATHLETE_CLASS_OPTIONS as readonly string[]).indexOf(v);
-    return i === -1 ? Number.POSITIVE_INFINITY : i;
-  };
-  const groups = new Map<string, TeamAthleteRow[]>();
-  const ungrouped: TeamAthleteRow[] = [];
-  for (const a of athletes) {
-    if (!a.class_year) { ungrouped.push(a); continue; }
-    if (!groups.has(a.class_year)) groups.set(a.class_year, []);
-    groups.get(a.class_year)!.push(a);
-  }
-  const ordered = [...groups.entries()].sort((a, b) => {
-    const ci = canonicalIndex(a[0]) - canonicalIndex(b[0]);
-    return ci !== 0 ? ci : a[0].localeCompare(b[0]);
-  });
-  const result = ordered.map(([label, list]) => ({ label, athletes: list }));
-  if (ungrouped.length > 0) result.push({ label: "Other", athletes: ungrouped });
-  return result;
 }
 
 function AthleteRow({
@@ -193,7 +166,9 @@ export default function AthleteRosterGrid({
     return athletes.filter(a => a.name.toLowerCase().includes(q));
   }, [athletes, search]);
 
-  const groups = useMemo(() => groupByClass(filtered), [filtered]);
+  // Shared grade order; empty class_year → "No grade set", distinct from a
+  // real "Other" grade (see rosterHelpers.ts's groupAthletesByClass).
+  const groups = useMemo(() => groupAthletesByClass(filtered), [filtered]);
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>

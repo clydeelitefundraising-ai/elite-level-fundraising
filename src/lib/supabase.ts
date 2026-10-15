@@ -135,9 +135,10 @@ export type CampaignSettings = {
 
 // Class levels shown as the primary athlete attribute in the UI. `event`
 // (sport event/position, e.g. "Sprints") remains the sport-specific field —
-// stored and editable, just secondary in display now.
-export const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
-export type AthleteClass = typeof ATHLETE_CLASS_OPTIONS[number];
+// stored and editable, just secondary in display now. Defined in the
+// client-safe lib/athleteClass.ts; re-exported here for existing importers.
+export { ATHLETE_CLASS_OPTIONS } from "./athleteClass.ts";
+export type { AthleteClass } from "./athleteClass.ts";
 
 export type AthleteRow = {
   id: string;
