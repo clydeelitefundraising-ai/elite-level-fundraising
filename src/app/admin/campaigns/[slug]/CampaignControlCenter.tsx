@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, createElement } from "react";
 import { useRouter } from "next/navigation";
 import { defaultSeasonLabel } from "@/lib/campaignSeason";
 import RosterImportModal from "./RosterImportModal";
+// Client-safe shared grade list — imported from lib/athleteClass rather than
+// lib/supabase.ts, which is server-oriented (SUPABASE_SERVICE_ROLE_KEY).
+import { ATHLETE_CLASS_OPTIONS, isAthleteClass } from "@/lib/athleteClass";
 import {
   FUND_USE_ICON_OPTIONS,
   DEFAULT_FUND_USE_ICON_ID,
@@ -42,12 +45,6 @@ type CoachFundraiser = { coach_id: string; active: boolean; goal_cents: number |
 const COACH_ROLES = ["head_coach", "assistant_coach", "booster"] as const;
 const COACH_ROLE_LABELS: Record<string, string> = { head_coach: "Head Coach", assistant_coach: "Assistant Coach", booster: "Booster" };
 
-// Same class options the legacy editor offers (src/lib/supabase.ts's
-// ATHLETE_CLASS_OPTIONS) — duplicated as a small local constant rather than
-// imported, so this client component never pulls in lib/supabase.ts's much
-// larger server-oriented module (many functions keyed on
-// SUPABASE_SERVICE_ROLE_KEY) into the browser bundle.
-const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
 const ATHLETES_PER_PAGE = 25;
 
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
@@ -1698,10 +1695,10 @@ export default function CampaignControlCenter({ detail }: Props) {
                             onChange={e => setEditAthlete(v => v ? { ...v, class_year: e.target.value } : v)}>
                             <option value="">Select class…</option>
                             {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                            {/* An existing record whose class predates these four
-                                options keeps its own value as a choice, so editing
-                                name/event can never silently rewrite it. */}
-                            {editAthlete.class_year && !ATHLETE_CLASS_OPTIONS.includes(editAthlete.class_year as typeof ATHLETE_CLASS_OPTIONS[number]) && (
+                            {/* An existing record whose class isn't one of the
+                                standard options keeps its own value as a choice, so
+                                editing name/event can never silently rewrite it. */}
+                            {editAthlete.class_year && !isAthleteClass(editAthlete.class_year) && (
                               <option value={editAthlete.class_year}>{editAthlete.class_year}</option>
                             )}
                           </select>

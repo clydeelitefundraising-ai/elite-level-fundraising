@@ -7,6 +7,7 @@
 // createAthlete()/findPossibleDuplicates() already use, so an imported
 // roster is judged by identical duplicate rules as the rest of admin tools.
 import { normalizeName, nameSimilarity } from "../athletes.ts";
+import { ATHLETE_CLASS_OPTIONS, type AthleteClass } from "../../athleteClass.ts";
 
 export type CandidateStatus = "ready" | "possible_duplicate" | "needs_review" | "invalid";
 
@@ -104,17 +105,23 @@ function extractName(cells: string[], mapping: ColumnMapping): string {
   return raw;
 }
 
-const CANONICAL_CLASSES = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+// The shared grade list every selector uses (6th Grade … Senior, Other) —
+// an exact (case-insensitive) label match, including "other", is accepted
+// as-is. Anything not explicitly recognized below is still flagged for
+// review and never silently mapped to "Other".
+const CANONICAL_CLASSES = ATHLETE_CLASS_OPTIONS;
 
-// Same four labels CampaignControlCenter.tsx's ATHLETE_CLASS_OPTIONS already
-// uses — numeric US grade levels and the standard FR/SO/JR/SR abbreviations
-// map onto them deterministically (this is fixed, universal terminology, not
-// a guess). A 4-digit year is deliberately NOT reinterpreted as a class
+// Numeric US grade levels and the standard FR/SO/JR/SR abbreviations map
+// onto the canonical labels deterministically (this is fixed, universal
+// terminology, not a guess). A 4-digit year is deliberately NOT reinterpreted as a class
 // standing — ELF's class_year field means grade level, not graduation year,
 // and converting one to the other requires knowing "what grade is a 2027
 // grad in *this* school year," which is ambiguous and must go to the admin
 // instead of being silently assumed.
-const CLASS_ABBREVIATION_MAP: Record<string, typeof CANONICAL_CLASSES[number]> = {
+const CLASS_ABBREVIATION_MAP: Record<string, AthleteClass> = {
+  "6": "6th Grade", "06": "6th Grade", "6th": "6th Grade", "6th grade": "6th Grade", "grade 6": "6th Grade",
+  "7": "7th Grade", "07": "7th Grade", "7th": "7th Grade", "7th grade": "7th Grade", "grade 7": "7th Grade",
+  "8": "8th Grade", "08": "8th Grade", "8th": "8th Grade", "8th grade": "8th Grade", "grade 8": "8th Grade",
   "9": "Freshman", "09": "Freshman", "9th": "Freshman", "9th grade": "Freshman", "grade 9": "Freshman", "fr": "Freshman",
   "10": "Sophomore", "10th": "Sophomore", "10th grade": "Sophomore", "grade 10": "Sophomore", "so": "Sophomore",
   "11": "Junior", "11th": "Junior", "11th grade": "Junior", "grade 11": "Junior", "jr": "Junior",
@@ -156,7 +163,7 @@ function normalizeClass(raw: string): { value: string; issue: string | null } {
     return { value: trimmed, issue: `Class value "${trimmed}" looks like a graduation year, not a grade — please confirm.` };
   }
 
-  return { value: trimmed, issue: `Class value "${trimmed}" doesn't match Freshman/Sophomore/Junior/Senior — please confirm.` };
+  return { value: trimmed, issue: `Class value "${trimmed}" doesn't match a standard grade (6th Grade–8th Grade, Freshman–Senior, or Other) — please confirm.` };
 }
 
 export function buildCandidates(dataRows: string[][], mapping: ColumnMapping): ImportCandidate[] {

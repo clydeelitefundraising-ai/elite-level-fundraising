@@ -310,3 +310,62 @@ test("annotateDuplicates: surfaces linked/fundraising-history indicators without
   assert.equal(result[0].existingMatch?.hasFundraisingHistory, true);
   assert.ok(!("account_id" in (result[0].existingMatch as object)));
 });
+
+// ── Expanded grade levels (6th–8th Grade, Other) ─────────────────────────
+
+test("buildCandidates: middle-school grade formats normalize to 6th/7th/8th Grade", () => {
+  const mapping = mapHeaders(["Name", "Grade"]);
+  for (const n of ["6", "7", "8"]) {
+    const expected = `${n}th Grade`;
+    for (const raw of [n, `0${n}`, `${n}th`, `${n}th grade`, `${n}TH GRADE`, `grade ${n}`, `Grade  ${n}`, expected]) {
+      const [c] = buildCandidates([["Mason Brooks", raw]], mapping);
+      assert.equal(c.class_year, expected, `"${raw}" should normalize to ${expected}`);
+      assert.equal(c.status, "ready", `"${raw}" should not need review`);
+    }
+  }
+});
+
+test("buildCandidates: explicit other (any case) normalizes to Other without review", () => {
+  const mapping = mapHeaders(["Name", "Class"]);
+  for (const raw of ["other", "Other", "OTHER", " other "]) {
+    const [c] = buildCandidates([["Mason Brooks", raw]], mapping);
+    assert.equal(c.class_year, "Other");
+    assert.equal(c.status, "ready");
+  }
+});
+
+test("buildCandidates: existing high-school normalization is unchanged", () => {
+  const mapping = mapHeaders(["Name", "Class"]);
+  const cases: [string, string][] = [
+    ["9", "Freshman"], ["09", "Freshman"], ["9th grade", "Freshman"], ["FR", "Freshman"],
+    ["10", "Sophomore"], ["SO", "Sophomore"], ["11th", "Junior"], ["JR", "Junior"],
+    ["grade 12", "Senior"], ["SR", "Senior"], ["senior", "Senior"],
+  ];
+  for (const [raw, expected] of cases) {
+    const [c] = buildCandidates([["Mason Brooks", raw]], mapping);
+    assert.equal(c.class_year, expected, `"${raw}"`);
+    assert.equal(c.status, "ready");
+  }
+});
+
+test("buildCandidates: unknown grade text is flagged for review and never converted to Other", () => {
+  const mapping = mapHeaders(["Name", "Class"]);
+  for (const raw of ["5", "5th grade", "13", "Varsity", "Middle School", "K"]) {
+    const [c] = buildCandidates([["Mason Brooks", raw]], mapping);
+    assert.equal(c.class_year, raw, `"${raw}" must be kept as-is`);
+    assert.notEqual(c.class_year, "Other");
+    assert.equal(c.status, "needs_review", `"${raw}" must need review`);
+    assert.match(c.issues.join(" "), /doesn't match a standard grade/);
+  }
+});
+
+test("buildCandidates: redshirt and graduation-year handling is unchanged", () => {
+  const mapping = mapHeaders(["Name", "Class"]);
+  const [rs] = buildCandidates([["Mason Brooks", "RS SO"]], mapping);
+  assert.equal(rs.class_year, "RS Sophomore");
+  assert.equal(rs.status, "needs_review");
+  const [gy] = buildCandidates([["Mason Brooks", "2027"]], mapping);
+  assert.equal(gy.class_year, "2027");
+  assert.equal(gy.status, "needs_review");
+  assert.match(gy.issues.join(" "), /graduation year/);
+});

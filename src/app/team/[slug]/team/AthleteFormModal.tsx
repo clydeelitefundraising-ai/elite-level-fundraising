@@ -1,6 +1,6 @@
 "use client";
 
-import { ATHLETE_CLASS_OPTIONS } from "@/lib/supabase";
+import { ATHLETE_CLASS_OPTIONS, isAthleteClass } from "@/lib/athleteClass";
 import Modal from "../_components/Modal";
 import type { AthleteRosterState } from "./useAthleteRoster";
 
@@ -64,6 +64,12 @@ export default function AthleteFormModal({ roster }: { roster: AthleteRosterStat
             <select style={inp} value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}>
               <option value="">Select class…</option>
               {ATHLETE_CLASS_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              {/* A stored nonstandard class (e.g. "RS Sophomore" from a roster
+                  import) stays visible and selected, so editing other fields
+                  never shows it as blank or rewrites it. */}
+              {form.class_year && !isAthleteClass(form.class_year) && (
+                <option value={form.class_year}>{form.class_year}</option>
+              )}
             </select>
           </label>
           <label style={{ ...lbl, gridColumn: "1 / -1" }}>

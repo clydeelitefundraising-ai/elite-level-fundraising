@@ -11,11 +11,8 @@ import entryStyles from "@/components/auth/authEntry.module.css";
 import styles from "./EnterCode.module.css";
 import { buildParentJoinSummary, isFullyAlreadyMember, isTotalFailure, type ParentJoinResult } from "./parentJoinSummary";
 import { searchAthletes, MAX_PARENT_ATHLETES_CLIENT } from "./athleteSearch";
-
-// Locally redeclared to match CampaignPageClient.tsx's established
-// convention — lib/supabase.ts is server-only (reads
-// SUPABASE_SERVICE_ROLE_KEY), unsafe to import into a client component.
-const ATHLETE_CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+// Client-safe shared grade list (lib/supabase.ts is server-only).
+import { ATHLETE_CLASS_OPTIONS } from "@/lib/athleteClass";
 
 type TeamInfo = {
   campaign_slug: string;

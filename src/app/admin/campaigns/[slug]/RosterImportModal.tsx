@@ -2,11 +2,8 @@
 
 import { useRef, useState } from "react";
 import type { CandidateStatus, ImportCandidate } from "@/lib/platform/import/rosterCandidates";
-
-// Same four class labels CampaignControlCenter.tsx's ATHLETE_CLASS_OPTIONS
-// uses — duplicated locally for the same reason that file duplicates it
-// rather than importing a shared constant from a server-oriented module.
-const CLASS_OPTIONS = ["Freshman", "Sophomore", "Junior", "Senior"] as const;
+// Client-safe shared grade list — same options every other selector offers.
+import { ATHLETE_CLASS_OPTIONS as CLASS_OPTIONS } from "@/lib/athleteClass";
 
 type ImportedAthlete = { id: string; name: string; class_year: string | null; event: string | null };
 
