@@ -69,7 +69,7 @@ function ResourceCard({
   const [busy, setBusy] = useState(false);
 
   const handleDelete = async () => {
-    if (!confirm(`Remove "${resource.title}" from Clearance? This does not delete an uploaded file — just this listing.`)) return;
+    if (!confirm(`Remove "${resource.title}" from Resources? This does not delete an uploaded file — just this listing.`)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/team/${slug}/clearance/${resource.id}`, { method: "DELETE" });
@@ -223,7 +223,7 @@ function EditModal({
   };
 
   return (
-    <Modal title={resource ? "Edit Clearance Resource" : "Add Clearance Resource"} onClose={onClose}>
+    <Modal title={resource ? "Edit Resource" : "Add Resource"} onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
         <label style={lbl}>
           Title *
@@ -332,12 +332,12 @@ export default function ClearanceView({ slug }: { slug: string }) {
     try {
       const res = await fetch(`/api/team/${slug}/clearance`);
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to load Clearance resources."); return; }
+      if (!res.ok) { setError(data.error ?? "Failed to load resources."); return; }
       setError("");
       setResources(data.resources ?? []);
       setCanManage(!!data.canManage);
     } catch {
-      setError("Network error loading Clearance resources.");
+      setError("Network error loading resources.");
     } finally {
       setLoading(false);
     }
@@ -348,9 +348,11 @@ export default function ClearanceView({ slug }: { slug: string }) {
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
       <div style={{ marginBottom: ".65rem", display: "flex", alignItems: "center", gap: ".5rem" }}>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-          Clearance
-        </h2>
+        {/* Team Management Phase 2: shown as the "Resources" section of the
+            To-Do List tab (TodoListView.tsx). Same data, API and permissions. */}
+        <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          Resources
+        </h3>
         <div style={{ flex: 1 }} />
         {canManage && (
           <button
@@ -379,7 +381,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
           boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>
-            No Clearance resources yet.
+            No resources yet.
           </p>
         </div>
       ) : (

@@ -10,7 +10,7 @@ import TeamTabs from "./TeamTabs";
 import RosterTabs from "./RosterTabs";
 import OverviewView from "./OverviewView";
 import TeamStaffRosterView from "./TeamStaffRosterView";
-import ClearanceView from "./ClearanceView";
+import TodoListView from "./TodoListView";
 
 export default async function TeamPage({
   params,
@@ -52,6 +52,8 @@ export default async function TeamPage({
   // into Athletes | Staff. Phase D3 added a desktop-only roster table
   // alongside the original mobile athlete grid (see TeamView.tsx) — the
   // mobile experience itself (AthleteRosterGrid.tsx) is unchanged.
+  // Team Management Phase 2: the Clearance tab is now the To-Do List
+  // (tasks + the unchanged Clearance resources as "Resources").
   return (
     <TeamTabs
       actor={actor}
@@ -74,7 +76,7 @@ export default async function TeamPage({
           staff={<TeamStaffRosterView slug={slug} />}
         />
       }
-      clearance={<ClearanceView slug={slug} />}
+      clearance={<TodoListView slug={slug} />}
     />
   );
 }

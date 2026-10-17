@@ -119,7 +119,9 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     const msg = await dbRes.text();
     if (dbRes.status === 409 || msg.includes("23503")) {
       return NextResponse.json(
-        { error: "This file is used by a Clearance resource — remove or replace it there first." },
+        // Team Management Phase 2: team_task_resources.attachment_id is also
+        // ON DELETE RESTRICT, so the file may be a task document too.
+        { error: "This file is used in the To-Do List (by a task or a resource) — remove or replace it there first." },
         { status: 409 },
       );
     }
