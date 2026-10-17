@@ -98,24 +98,30 @@ export type FundraisingFilter = "all" | "has-raised" | "no-raised";
 
 export type RosterFilters = {
   search: string;
-  grade: string; // "" means All
+  grade: GradeTabKey;
   fundraising: FundraisingFilter;
 };
 
-export const DEFAULT_ROSTER_FILTERS: RosterFilters = { search: "", grade: "", fundraising: "all" };
+export const DEFAULT_ROSTER_FILTERS: RosterFilters = { search: "", grade: "all", fundraising: "all" };
+
+/** Case-insensitive substring match on name — the one roster search rule,
+ *  shared by the mobile list and the desktop table. */
+export function matchesRosterSearch(name: string, search: string): boolean {
+  const q = search.trim().toLowerCase();
+  return !q || name.toLowerCase().includes(q);
+}
 
 /** Pure, client-side only — the whole roster is already loaded, so this
  *  never needs a server round-trip. Search is case-insensitive substring
- *  match on name. Grade filter compares class_year exactly (the same
- *  field the Add/Edit modal already writes via ATHLETE_CLASS_OPTIONS).
+ *  match on name. Grade filter is the selected grade tab (matchesGradeTab:
+ *  exact class_year match, or the "No grade set" tab for an empty value).
  *  Fundraising filter is based on raisedCents > 0, matching the same
  *  "has anything been raised" rule already used elsewhere (e.g. Home's
  *  FundraiserSnapshot/shouldShowFundraisingCard). */
 export function filterDesktopRosterRows(rows: RosterRow[], filters: RosterFilters): RosterRow[] {
-  const search = filters.search.trim().toLowerCase();
   return rows.filter(row => {
-    if (search && !row.name.toLowerCase().includes(search)) return false;
-    if (filters.grade && row.class_year !== filters.grade) return false;
+    if (!matchesRosterSearch(row.name, filters.search)) return false;
+    if (!matchesGradeTab(row.class_year, filters.grade)) return false;
     if (filters.fundraising === "has-raised" && row.raisedCents <= 0) return false;
     if (filters.fundraising === "no-raised" && row.raisedCents > 0) return false;
     return true;
@@ -140,21 +146,73 @@ export function sortDesktopRosterRows(rows: RosterRow[], sort: RosterSort): Rost
   return sorted;
 }
 
-// ─── Grade filter options ────────────────────────────────────────────────────
+// ─── Grade tabs ──────────────────────────────────────────────────────────────
 
-/** Derived from the loaded roster, never hardcoded — only grades actually
- *  present on the team appear as filter options. Sorted by the canonical
- *  6th Grade→Other progression (ATHLETE_CLASS_OPTIONS' own order) when a
- *  value matches one of those; any other/legacy value present in the data
- *  sorts after, alphabetically — this never hides or rejects a value that
- *  doesn't match the canonical list, it only affects display order. */
-export function distinctGrades(rows: RosterRow[]): string[] {
-  return representedAthleteClasses(rows.map(row => row.class_year));
+/** Roster grade tab identifier. Prefixed so no stored class_year value
+ *  (free text) can ever collide with the "All Athletes" or "No grade set"
+ *  tabs — e.g. an athlete whose grade is literally "all" or "No grade set". */
+export type GradeTabKey = "all" | "none" | `grade:${string}`;
+
+export const ALL_ATHLETES_TAB: GradeTabKey = "all";
+export const NO_GRADE_TAB: GradeTabKey = "none";
+export const ALL_ATHLETES_LABEL = "All Athletes";
+
+export type GradeTab = { key: GradeTabKey; label: string; count: number };
+
+/** The tab an athlete belongs to. Empty/missing class_year → "No grade set",
+ *  kept separate from a real "Other" grade. */
+export function gradeTabKey(classYear: string | null | undefined): GradeTabKey {
+  return classYear ? `grade:${classYear}` : NO_GRADE_TAB;
+}
+
+/** "All Athletes" first, then one tab per grade actually present on the
+ *  roster — derived from the data, never a fixed list — in the shared
+ *  6th Grade→Other order (representedAthleteClasses), nonstandard legacy
+ *  values after, and "No grade set" last only when some athlete has no
+ *  grade. Counts are full-roster counts (not narrowed by search). Display
+ *  only; nothing is written. */
+export function buildGradeTabs(athletes: readonly { class_year?: string | null }[]): GradeTab[] {
+  const counts = new Map<GradeTabKey, number>();
+  for (const a of athletes) {
+    const key = gradeTabKey(a.class_year);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const tabs: GradeTab[] = [{ key: ALL_ATHLETES_TAB, label: ALL_ATHLETES_LABEL, count: athletes.length }];
+  for (const grade of representedAthleteClasses(athletes.map(a => a.class_year))) {
+    const key = gradeTabKey(grade);
+    tabs.push({ key, label: grade, count: counts.get(key) ?? 0 });
+  }
+  const noGrade = counts.get(NO_GRADE_TAB) ?? 0;
+  if (noGrade > 0) tabs.push({ key: NO_GRADE_TAB, label: NO_GRADE_SET_LABEL, count: noGrade });
+  return tabs;
+}
+
+export function matchesGradeTab(classYear: string | null | undefined, tab: GradeTabKey): boolean {
+  return tab === ALL_ATHLETES_TAB || gradeTabKey(classYear) === tab;
+}
+
+/** A selected tab can disappear after an edit/removal (its last athlete
+ *  changed grade or left) — fall back to "All Athletes" instead of
+ *  showing an empty, unselectable tab. */
+export function resolveGradeTab(selected: GradeTabKey, tabs: readonly GradeTab[]): GradeTabKey {
+  return tabs.some(t => t.key === selected) ? selected : ALL_ATHLETES_TAB;
+}
+
+/** Roving-focus keyboard navigation for the tab row (WAI-ARIA tabs
+ *  pattern): ←/→ wrap, Home/End jump. Returns null for any other key. */
+export function gradeTabIndexForKey(key: string, current: number, count: number): number | null {
+  if (count <= 0) return null;
+  if (key === "ArrowRight") return (current + 1) % count;
+  if (key === "ArrowLeft")  return (current - 1 + count) % count;
+  if (key === "Home")       return 0;
+  if (key === "End")        return count - 1;
+  return null;
 }
 
 // ─── Mobile roster grouping ──────────────────────────────────────────────────
 
-/** Groups athletes by class_year in the same order as distinctGrades(),
+/** Groups athletes by class_year in the same order as the grade tabs
+ *  (buildGradeTabs) — used for the headings under "All Athletes" —
  *  with athletes that have no class_year in a trailing "No grade set"
  *  group — kept separate from a real "Other" grade so the two never merge
  *  or show as duplicate headings. Display-only; nothing is written. */

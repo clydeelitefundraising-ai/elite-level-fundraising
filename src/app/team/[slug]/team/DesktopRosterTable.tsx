@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Users, Search } from "lucide-react";
 import type { AttributionTotals } from "@/lib/donationAttribution";
@@ -11,12 +11,16 @@ import {
   buildDesktopRosterRows,
   filterDesktopRosterRows,
   sortDesktopRosterRows,
-  distinctGrades,
+  buildGradeTabs,
+  resolveGradeTab,
+  ALL_ATHLETES_TAB,
   DEFAULT_ROSTER_FILTERS,
+  type GradeTabKey,
   type RosterRow,
   type RosterSort,
   type FundraisingFilter,
 } from "./rosterHelpers";
+import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
 
 function fmtMoney(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -77,15 +81,17 @@ export default function DesktopRosterTable({
   const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
 
   const [search, setSearch] = useState("");
-  const [grade, setGrade] = useState(DEFAULT_ROSTER_FILTERS.grade);
+  const [gradeTab, setGradeTab] = useState<GradeTabKey>(DEFAULT_ROSTER_FILTERS.grade);
   const [fundraising, setFundraising] = useState<FundraisingFilter>(DEFAULT_ROSTER_FILTERS.fundraising);
   const [sort, setSort] = useState<RosterSort>("name-asc");
+  const tabIdPrefix = `roster-grade-desktop-${useId().replace(/:/g, "")}`;
 
   const allRows = useMemo(
     () => buildDesktopRosterRows(athletes, attribution, contactCounts, outreachMap),
     [athletes, attribution, contactCounts, outreachMap],
   );
-  const gradeOptions = useMemo(() => distinctGrades(allRows), [allRows]);
+  const gradeTabs = useMemo(() => buildGradeTabs(allRows), [allRows]);
+  const grade = resolveGradeTab(gradeTab, gradeTabs);
   const filtered = useMemo(
     () => filterDesktopRosterRows(allRows, { search, grade, fundraising }),
     [allRows, search, grade, fundraising],
@@ -93,8 +99,8 @@ export default function DesktopRosterTable({
   const rows = useMemo(() => sortDesktopRosterRows(filtered, sort), [filtered, sort]);
 
   const findAthlete = (id: string) => athletes.find(a => a.id === id);
-  const hasActiveFilters = search.trim() !== "" || grade !== "" || fundraising !== "all";
-  const clearFilters = () => { setSearch(""); setGrade(""); setFundraising("all"); };
+  const hasActiveFilters = search.trim() !== "" || grade !== ALL_ATHLETES_TAB || fundraising !== "all";
+  const clearFilters = () => { setSearch(""); setGradeTab(ALL_ATHLETES_TAB); setFundraising("all"); };
 
   return (
     // Density revision: maxWidth trimmed from 1200->1100 and vertical
@@ -141,6 +147,11 @@ export default function DesktopRosterTable({
         )}
       </div>
 
+      {/* Grade tabs (replaced the former "All Grades" dropdown) */}
+      {athletes.length > 0 && (
+        <GradeTabs tabs={gradeTabs} value={grade} onChange={setGradeTab} idPrefix={tabIdPrefix} />
+      )}
+
       {/* Toolbar: search / filters / sort */}
       <div className={styles.toolbar} style={{ marginBottom: ".75rem" }}>
         <div style={{ position: "relative", flex: "0 1 42%", minWidth: 200 }}>
@@ -155,10 +166,6 @@ export default function DesktopRosterTable({
             style={{ ...selectStyle, width: "100%", paddingLeft: "1.9rem" }}
           />
         </div>
-        <select value={grade} onChange={e => setGrade(e.target.value)} className="elf-focus-ring" style={{ ...selectStyle, flex: "0 1 auto", minWidth: 140 }}>
-          <option value="">All Grades</option>
-          {gradeOptions.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
         <select value={fundraising} onChange={e => setFundraising(e.target.value as FundraisingFilter)} className="elf-focus-ring" style={{ ...selectStyle, flex: "0 1 auto", minWidth: 170 }}>
           <option value="all">All Fundraising</option>
           <option value="has-raised">Has Raised Funds</option>
@@ -198,7 +205,13 @@ export default function DesktopRosterTable({
           )}
         </div>
       ) : (
-        <div className={styles.tableWrap} style={{ background: "var(--surface-light)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-app)" }}>
+        <div
+          role="tabpanel"
+          id={gradeTabPanelId(tabIdPrefix)}
+          aria-labelledby={gradeTabId(tabIdPrefix, grade)}
+          className={styles.tableWrap}
+          style={{ background: "var(--surface-light)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-app)" }}
+        >
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>

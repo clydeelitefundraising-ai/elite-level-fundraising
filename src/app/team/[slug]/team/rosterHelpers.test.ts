@@ -5,7 +5,7 @@ import {
   buildDesktopRosterRows,
   filterDesktopRosterRows,
   sortDesktopRosterRows,
-  distinctGrades,
+  buildGradeTabs,
   groupAthletesByClass,
   DEFAULT_ROSTER_FILTERS,
   type RosterRow,
@@ -167,7 +167,7 @@ test("filterDesktopRosterRows: partial-name matching", () => {
 });
 
 test("filterDesktopRosterRows: grade/class filtering", () => {
-  const result = filterDesktopRosterRows(ROWS, { ...DEFAULT_ROSTER_FILTERS, grade: "Freshman" });
+  const result = filterDesktopRosterRows(ROWS, { ...DEFAULT_ROSTER_FILTERS, grade: "grade:Freshman" });
   assert.deepEqual(result.map(r => r.id).sort(), ["a1", "a3"]);
 });
 
@@ -185,7 +185,7 @@ test("filterDesktopRosterRows: combined filters (grade AND fundraising AND searc
   // "alice" narrows to a1 alone; grade=Freshman and fundraising=has-raised
   // are both also true for a3, proving the search term is what's doing
   // the narrowing here, not an accidental single-filter match.
-  const result = filterDesktopRosterRows(ROWS, { search: "alice", grade: "Freshman", fundraising: "has-raised" });
+  const result = filterDesktopRosterRows(ROWS, { search: "alice", grade: "grade:Freshman", fundraising: "has-raised" });
   assert.deepEqual(result.map(r => r.id), ["a1"]);
 });
 
@@ -231,32 +231,33 @@ test("sortDesktopRosterRows: does not mutate the input array", () => {
   assert.deepEqual(ROWS, copy);
 });
 
-// ─── distinctGrades ─────────────────────────────────────────────────────────
+// ─── Grade tab order (formerly the "All Grades" dropdown options) ──────────
 
-test("distinctGrades: derived from the loaded roster, deduped, canonically ordered", () => {
-  const grades = distinctGrades(ROWS); // Freshman, Senior, Freshman -> {Freshman, Senior}
-  assert.deepEqual(grades, ["Freshman", "Senior"]);
+const gradeTabLabels = (rows: RosterRow[]) => buildGradeTabs(rows).map(t => t.label);
+
+test("grade tabs: derived from the loaded roster, deduped, canonically ordered, All Athletes first", () => {
+  assert.deepEqual(gradeTabLabels(ROWS), ["All Athletes", "Freshman", "Senior"]);
 });
 
-test("distinctGrades: an athlete with no class_year contributes nothing", () => {
+test("grade tabs: an athlete with no class_year adds only the trailing No grade set tab", () => {
   const rows: RosterRow[] = [{ ...ROWS[0], class_year: null }];
-  assert.deepEqual(distinctGrades(rows), []);
+  assert.deepEqual(gradeTabLabels(rows), ["All Athletes", "No grade set"]);
 });
 
-test("distinctGrades: a non-canonical value present in the data still appears, sorted after canonical values", () => {
+test("grade tabs: a non-canonical value present in the data still appears, sorted after canonical values", () => {
   const rows: RosterRow[] = [
     { ...ROWS[0], class_year: "Senior" },
     { ...ROWS[0], class_year: "Grad Year" },
   ];
-  assert.deepEqual(distinctGrades(rows), ["Senior", "Grad Year"]);
+  assert.deepEqual(gradeTabLabels(rows), ["All Athletes", "Senior", "Grad Year"]);
 });
 
 // ─── Expanded grade levels (6th Grade … Senior, Other) ──────────────────────
 
-test("distinctGrades: middle school before high school, Other last among canonical, legacy after (alphabetical)", () => {
+test("grade tabs: middle school before high school, Other last among canonical, legacy after (alphabetical)", () => {
   const rows: RosterRow[] = ["Senior", "RS Sophomore", "Other", "7th Grade", "Freshman", "6th Grade", "8th Grade", "2027"]
     .map(class_year => ({ ...ROWS[0], class_year }));
-  assert.deepEqual(distinctGrades(rows), ["6th Grade", "7th Grade", "8th Grade", "Freshman", "Senior", "Other", "2027", "RS Sophomore"]);
+  assert.deepEqual(gradeTabLabels(rows), ["All Athletes", "6th Grade", "7th Grade", "8th Grade", "Freshman", "Senior", "Other", "2027", "RS Sophomore"]);
 });
 
 test("filterDesktopRosterRows: a new grade filters by exact class_year match", () => {
@@ -265,7 +266,7 @@ test("filterDesktopRosterRows: a new grade filters by exact class_year match", (
     { ...ROWS[0], id: "b", class_year: "8th Grade" },
     { ...ROWS[0], id: "c", class_year: "Other" },
   ];
-  const result = filterDesktopRosterRows(rows, { ...DEFAULT_ROSTER_FILTERS, grade: "7th Grade" });
+  const result = filterDesktopRosterRows(rows, { ...DEFAULT_ROSTER_FILTERS, grade: "grade:7th Grade" });
   assert.deepEqual(result.map(r => r.id), ["a"]);
 });
 
