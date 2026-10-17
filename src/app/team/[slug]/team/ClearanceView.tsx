@@ -347,7 +347,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{ marginBottom: ".65rem", display: "flex", alignItems: "center", gap: ".5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".5rem", minHeight: 40 }}>
         {/* Team Management Phase 2: shown as the "Resources" section of the
             To-Do List tab (TodoListView.tsx). Same data, API and permissions. */}
         <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
@@ -363,7 +363,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
           </button>
         )}
       </div>
-      <p style={{ margin: "0 0 1rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+      <p style={{ margin: ".2rem 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
         Registration links, forms, and required documents for the team.
       </p>
 
@@ -374,10 +374,10 @@ export default function ClearanceView({ slug }: { slug: string }) {
       )}
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "2rem 0", color: "#9ca3af", fontSize: ".85rem" }}>Loading…</div>
+        <div style={{ padding: ".75rem 0", color: "#9ca3af", fontSize: ".85rem" }}>Loading…</div>
       ) : resources.length === 0 ? (
         <div style={{
-          background: "#fff", borderRadius: 14, padding: "2rem 1.5rem", textAlign: "center",
+          background: "#fff", borderRadius: 12, padding: ".75rem 1rem",
           boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
         }}>
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>

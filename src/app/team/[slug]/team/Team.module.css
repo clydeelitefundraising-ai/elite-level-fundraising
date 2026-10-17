@@ -147,3 +147,69 @@
     min-height: 36px;
   }
 }
+
+/*
+ * Team Management Phase 2 — To-Do List rows (TodoListView.tsx).
+ * One bordered list, full-width rows divided by hairlines. Rows are 52px
+ * tall (comfortable touch target) and wrap long titles instead of
+ * overflowing at 360px.
+ */
+.todoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.todoList > li + li {
+  border-top: 1px solid #eef0f3;
+}
+
+.todoRow {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: .75rem 1rem;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  color: #9ca3af;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.todoRow:hover,
+.todoRow:active {
+  background: #f9fafb;
+}
+
+.todoRow:focus-visible {
+  outline: 2px solid var(--team-primary, #0b1e3d);
+  outline-offset: -2px;
+}
+
+.todoRowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0b1e3d;
+  overflow-wrap: anywhere;
+}
+
+.todoDocRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
+  padding: .65rem 1rem;
+}

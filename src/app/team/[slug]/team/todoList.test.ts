@@ -79,6 +79,50 @@ test("form controls are 16px (no iOS zoom) with 44px touch targets; text wraps i
   assert.match(todo, /flexWrap: "wrap"/);
 });
 
+// ── Layout: compact rows + detail view ───────────────────────────────────
+
+const css = src("./Team.module.css");
+
+const has = (hay: string, needle: string, msg = needle) => assert.ok(hay.includes(needle), msg);
+
+test("main list shows each task as a full-width row: title and chevron only", () => {
+  const rows = todo.slice(todo.indexOf("function TaskRows"), todo.indexOf("function TaskDetail"));
+  has(rows, `<button type="button" className={styles.todoRow} onClick={() => onOpen(t)}>`);
+  assert.match(rows, /<span className=\{styles\.todoRowTitle\}[^>]*>\{t\.title\}<\/span>\s*<Chevron \/>/);
+  // Nothing else from the task on the row.
+  assert.doesNotMatch(rows, /instructions|body_text|resources|audience|TASK_AUDIENCE_LABELS/);
+  // Existing order: rows render in the order the API returns.
+  has(todo, `<TaskRows tasks={tasks} onOpen={t => setSelectedId(t.id)} />`);
+  assert.match(css, /\.todoRow \{[^}]*width: 100%;[^}]*min-height: 52px;[^}]*text-align: left;/);
+  assert.match(css, /\.todoList > li \+ li \{\s*border-top: 1px solid/);
+  assert.match(css, /\.todoRowTitle \{[^}]*min-width: 0;[^}]*overflow-wrap: anywhere;/);
+});
+
+test("left-aligned column with a desktop max width; Resources stays below the list", () => {
+  has(todo, `const column: React.CSSProperties = { width: "100%", maxWidth: 760, minWidth: 0 };`);
+  assert.doesNotMatch(withoutComments(todo), /margin: "0 auto"/);
+  assert.ok(todo.indexOf("<TaskRows tasks={tasks}") < todo.indexOf("<ClearanceView slug={slug} />"));
+  assert.match(todo, /<div hidden=\{!!selected\} style=\{column\}>\s*<ClearanceView slug=\{slug\} \/>/);
+  // Resources empty/loading states are left-aligned and compact too.
+  assert.doesNotMatch(clearance, /textAlign: "center", padding: "2rem/);
+});
+
+test("detail view: back action, full content, and Head Coach actions inside it", () => {
+  const detail = todo.slice(todo.indexOf("function TaskDetail"), todo.indexOf("export default function TodoListView"));
+  assert.match(detail, /onClick=\{onBack\}[\s\S]*?Back to To-Do List/);
+  for (const part of ["task.instructions", "task.body_text", "links.map", "docs.map"]) has(detail, part);
+  has(detail, "{canManage && (");
+  has(detail, "onClick={() => onEdit(task)}");
+  has(detail, `post("archive", { archived: true }`);
+  has(detail, `post("archive", { archived: false }`);
+  has(detail, `post("move", { direction: "up" }`);
+  has(detail, `post("move", { direction: "down" }`);
+  // Long content scrolls with the page (no clamping); text wraps.
+  assert.doesNotMatch(detail, /overflow: "hidden"|WebkitLineClamp|maxHeight/);
+  has(detail, "<p style={bodyText}>{task.instructions}</p>");
+  has(todo, `whiteSpace: "pre-wrap", overflowWrap: "anywhere"`);
+});
+
 // ── Migration ─────────────────────────────────────────────────────────────
 
 // Function bodies ($$ … $$), keyed by function name. Anchored on CREATE OR
