@@ -1,0 +1,173 @@
+/* Phase 1B — responsive Admin Portal shell.
+ *
+ * Imported once by src/app/admin/layout.tsx. Every selector is prefixed
+ * `.adm-` so nothing here can reach the team app or marketing pages.
+ *
+ * Desktop (>= 900px) is unchanged: AdminShell's inline styles still define
+ * the desktop look. The only rules outside the media query below hide the
+ * three mobile-only elements (menu button, drawer close button, backdrop).
+ * Everything else lives inside `@media (max-width: 899.98px)` and uses
+ * !important only because it has to beat AdminShell's inline styles.
+ * The 900px breakpoint must match ADMIN_DESKTOP_MIN_WIDTH_PX in adminDrawer.ts.
+ */
+
+.adm-menu-btn,
+.adm-drawer-close,
+.adm-backdrop {
+  display: none;
+}
+
+@media (max-width: 899.98px) {
+  /* ── Shell ─────────────────────────────────────────────────────────── */
+  .adm-shell {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+  }
+
+  /* Sidebar becomes an off-canvas drawer, out of the content flow. */
+  .adm-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    z-index: 1101;
+    width: min(300px, 85vw) !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, .18);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility 0s linear .2s;
+  }
+  .adm-shell[data-drawer-open="true"] .adm-sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform .2s ease;
+  }
+
+  .adm-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(15, 23, 42, .45);
+  }
+
+  .adm-drawer-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #6e6e73;
+    cursor: pointer;
+  }
+
+  /* Touch-friendly navigation rows (nav items + Sign out). */
+  .adm-nav-item {
+    min-height: 44px;
+  }
+
+  /* ── Header ────────────────────────────────────────────────────────── */
+  .adm-header {
+    height: auto !important;
+    min-height: calc(52px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(.75rem, env(safe-area-inset-right)) 0 max(.5rem, env(safe-area-inset-left)) !important;
+    gap: .5rem !important;
+    box-sizing: border-box;
+  }
+  .adm-header-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .adm-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: #1d1d1f;
+    cursor: pointer;
+  }
+  .adm-search-btn {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .adm-search-label,
+  .adm-search-kbd {
+    display: none;
+  }
+
+  /* ── Content ───────────────────────────────────────────────────────── */
+  .adm-main {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* iOS zooms the page when a focused field's text is under 16px. */
+  .adm-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  .adm-shell select,
+  .adm-shell textarea {
+    font-size: 16px !important;
+  }
+
+  /* ── Reusable classes for later phases (not yet used by any page) ──── */
+  /* Page wrapper: tighter side padding on phones. */
+  .adm-page {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  /* Multi-column grid (e.g. "1fr 1fr", "1fr 340px") that stacks. */
+  .adm-stack {
+    grid-template-columns: 1fr !important;
+  }
+  /* Wide table: scrolls sideways inside its own box, never the page. */
+  .adm-table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  /* Modal panel: fits the visible viewport and scrolls internally. */
+  .adm-modal {
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+  .adm-touch {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .adm-hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 899.98px) and (prefers-reduced-motion: reduce) {
+  .adm-sidebar,
+  .adm-shell[data-drawer-open="true"] .adm-sidebar {
+    transition: none;
+  }
+}

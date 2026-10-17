@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
 import { LoginView } from "./AdminClient";
 import AdminShell from "./AdminShell";
+import "./adminResponsive.css";
 
 export const dynamic = "force-dynamic";
 
