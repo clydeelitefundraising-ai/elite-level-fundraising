@@ -48,6 +48,86 @@
   overflow-x: auto;
 }
 
+/*
+ * Roster grade tabs (GradeTabs.tsx). One row at every width; on narrow
+ * screens it scrolls horizontally rather than wrapping or squeezing.
+ *
+ * Compact look, full-size target: the <button> (.gradeTab) is an invisible
+ * hit area that keeps the 44px minimum touch height on phones (36px at
+ * desktop width); the visible tab is the smaller inner chip
+ * (.gradeTabChip) with modest rounding instead of a full pill.
+ */
+.gradeTabs {
+  position: relative;
+  display: flex;
+  gap: .15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0 2px .25rem;
+  margin-bottom: var(--space-2);
+}
+
+.gradeTab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gradeTabChip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .3rem .675rem;
+  border-radius: 7px;
+  border: 1px solid var(--border-app);
+  background: var(--surface-light);
+  color: var(--text-secondary-app);
+  font-size: .8rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.gradeTab[aria-selected="true"] .gradeTabChip {
+  background: var(--team-primary);
+  border-color: var(--team-primary);
+  color: var(--team-primary-foreground);
+  font-weight: 700;
+}
+
+.gradeTabCount {
+  min-width: 1.15em;
+  padding: 0 .28rem;
+  border-radius: 5px;
+  background: var(--surface-light-elevated);
+  color: var(--text-secondary-app);
+  font-size: .66rem;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* On the active tab the count is tinted from the tab's own foreground
+ * colour, so it stays readable whether --team-primary-foreground is light
+ * (dark team colour) or dark (light team colour). rgba is the fallback for
+ * WebViews without color-mix(). */
+.gradeTab[aria-selected="true"] .gradeTabCount {
+  background: rgba(127, 127, 127, .2);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+}
+
 @media screen and (min-width: 1024px) {
   .mobileOnly {
     display: none;
@@ -61,5 +141,9 @@
     max-width: 760px;
     margin: 0 auto;
     padding-top: 1.5rem;
+  }
+
+  .gradeTab {
+    min-height: 36px;
   }
 }

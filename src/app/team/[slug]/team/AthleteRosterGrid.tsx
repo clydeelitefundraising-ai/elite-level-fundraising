@@ -1,10 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Users, ChevronRight, Pencil, Trash2, ClipboardList } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
-import { groupAthletesByClass } from "./rosterHelpers";
+import {
+  ALL_ATHLETES_TAB,
+  buildGradeTabs,
+  groupAthletesByClass,
+  matchesGradeTab,
+  matchesRosterSearch,
+  resolveGradeTab,
+  type GradeTabKey,
+} from "./rosterHelpers";
+import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
 import type { TeamActor } from "@/lib/permissions";
 import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import CoachBar from "../_components/CoachBar";
@@ -149,6 +158,8 @@ export default function AthleteRosterGrid({
 }) {
   const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
   const [search, setSearch] = useState("");
+  const [gradeTab, setGradeTab] = useState<GradeTabKey>(ALL_ATHLETES_TAB);
+  const tabIdPrefix = `roster-grade-${useId().replace(/:/g, "")}`;
 
   const selfAthleteId = actor.kind === "member" ? actor.session.athlete_id : null;
   const memberRole = actor.kind === "member" ? actor.session.role : null;
@@ -160,15 +171,22 @@ export default function AthleteRosterGrid({
     athleteId,
   });
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return athletes;
-    return athletes.filter(a => a.name.toLowerCase().includes(q));
-  }, [athletes, search]);
+  // Grade tabs: "All Athletes" + only the grades on this roster, counts
+  // from the full roster. A tab whose last athlete was edited/removed
+  // falls back to All Athletes.
+  const gradeTabs = useMemo(() => buildGradeTabs(athletes), [athletes]);
+  const activeTab = resolveGradeTab(gradeTab, gradeTabs);
+
+  const filtered = useMemo(
+    () => athletes.filter(a => matchesRosterSearch(a.name, search) && matchesGradeTab(a.class_year, activeTab)),
+    [athletes, search, activeTab],
+  );
 
   // Shared grade order; empty class_year → "No grade set", distinct from a
-  // real "Other" grade (see rosterHelpers.ts's groupAthletesByClass).
+  // real "Other" grade (see rosterHelpers.ts's groupAthletesByClass). Grade
+  // headings only under All Athletes — a single-grade tab is one flat list.
   const groups = useMemo(() => groupAthletesByClass(filtered), [filtered]);
+  const showGroupHeadings = activeTab === ALL_ATHLETES_TAB;
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -238,6 +256,10 @@ export default function AthleteRosterGrid({
         </div>
       )}
 
+      {athletes.length > 0 && (
+        <GradeTabs tabs={gradeTabs} value={activeTab} onChange={setGradeTab} idPrefix={tabIdPrefix} />
+      )}
+
       {athletes.length === 0 ? (
         <div className="elf-section-flat" style={{ textAlign: "center", padding: "var(--space-8) var(--space-4)" }}>
           <Users size={28} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: "var(--space-2)" }} aria-hidden="true" />
@@ -258,10 +280,15 @@ export default function AthleteRosterGrid({
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+        <div
+          role="tabpanel"
+          id={gradeTabPanelId(tabIdPrefix)}
+          aria-labelledby={gradeTabId(tabIdPrefix, activeTab)}
+          style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}
+        >
           {groups.map(group => (
             <div key={group.label}>
-              <div style={{
+              {showGroupHeadings && <div style={{
                 display: "flex", alignItems: "baseline", gap: "var(--space-2)",
                 paddingBottom: "var(--space-1)", marginBottom: "var(--space-1)",
                 borderBottom: "1px solid var(--border-app)",
@@ -272,7 +299,7 @@ export default function AthleteRosterGrid({
                 <span style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
                   {group.athletes.length}
                 </span>
-              </div>
+              </div>}
               <div className="elf-section-flat" style={{ padding: 0 }}>
                 {group.athletes.map(a => (
                   <AthleteRow
