@@ -41,12 +41,9 @@ const inp: React.CSSProperties = {
   background: "#fff",
 };
 
-// Compact Resources row controls (Team Management Phase 2).
-const rowBtn: React.CSSProperties = {
-  display: "inline-flex", alignItems: "center", minHeight: 36, padding: ".3rem .7rem",
-  background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8,
-  fontSize: ".78rem", fontWeight: 700, cursor: "pointer",
-};
+// Compact Resources row controls (Team Management Phase 2). Open Link /
+// View / Download use the shared outline button (Team.module.css).
+const outlineBtn = `${styles.btnOutline} elf-focus-ring`;
 const manageBtn: React.CSSProperties = {
   minHeight: 32, background: "none", border: "none", cursor: "pointer",
   fontSize: ".72rem", fontWeight: 700, padding: ".25rem .4rem",
@@ -124,12 +121,12 @@ function ResourceCard({
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem" }}>
           {resource.url && (
-            <a href={resource.url} target="_blank" rel="noopener noreferrer" style={{ ...rowBtn, background: "#0b1e3d", color: "#fff", textDecoration: "none" }}>
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" className={outlineBtn}>
               Open Link
             </a>
           )}
           {resource.attachment && PREVIEWABLE_TYPES.has(resource.attachment.file_type) && (
-            <button onClick={() => onView(resource.attachment!)} aria-label={`View attachment for ${resource.title}`} style={rowBtn}>
+            <button onClick={() => onView(resource.attachment!)} aria-label={`View attachment for ${resource.title}`} className={outlineBtn}>
               View
             </button>
           )}
@@ -138,7 +135,7 @@ function ResourceCard({
               onClick={() => onDownload(resource.attachment!)}
               disabled={downloading}
               aria-label={`Download attachment for ${resource.title}`}
-              style={{ ...rowBtn, cursor: downloading ? "not-allowed" : "pointer", opacity: downloading ? .7 : 1 }}
+              className={outlineBtn}
             >
               {downloading ? "Downloading…" : "Download"}
             </button>
@@ -365,7 +362,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
         {canManage && (
           <button
             onClick={() => setEditTarget("new")}
-            style={{ minHeight: 36, padding: ".35rem .8rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
+            className={`${styles.btnSolid} elf-focus-ring`}
           >
             + Add Resource
           </button>

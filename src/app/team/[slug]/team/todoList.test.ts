@@ -92,7 +92,7 @@ test("main list shows each task as a full-width row: title and chevron only", ()
   // Nothing else from the task on the row.
   assert.doesNotMatch(rows, /instructions|body_text|resources|audience|TASK_AUDIENCE_LABELS/);
   // Existing order: rows render in the order the API returns.
-  has(todo, `<TaskRows tasks={tasks} onOpen={t => setSelectedId(t.id)} />`);
+  has(todo, `<TaskRows tasks={tasks} onOpen={t => openTask(t.id)} />`);
   assert.match(css, /\.todoRow \{[^}]*width: 100%;[^}]*min-height: 52px;[^}]*text-align: left;/);
   assert.match(css, /\.todoList > li \+ li \{\s*border-top: 1px solid/);
   assert.match(css, /\.todoRowTitle \{[^}]*min-width: 0;[^}]*overflow-wrap: anywhere;/);
@@ -145,6 +145,44 @@ test("Resources is a compact list matching the task rows, with every existing ac
     assert.match(card, new RegExp(`>\\s*${label}\\s*<|"${label}"`), label);
   }
   has(card, "{canManage && (");
+});
+
+test("buttons reuse the Communications tokens: solid Create Task / Add Resource, outline Open Link / View / Download", () => {
+  const messages = src("../messages/MessagesView.tsx");
+  // The Communications "+ New" / "New Group" buttons these mirror.
+  has(messages, `background: "var(--team-primary)", color: "var(--team-primary-foreground)"`);
+  has(messages, `border: "1.5px solid var(--team-primary)"`);
+  assert.match(css, /\.btnSolid \{\s*background: var\(--team-primary\);\s*color: var\(--team-primary-foreground\);/);
+  assert.match(css, /\.btnOutline \{\s*background: #fff;\s*color: var\(--team-primary\);\s*border: 1\.5px solid var\(--team-primary\);/);
+  assert.match(css, /\.btnSolid:disabled,\s*\.btnOutline:disabled \{[^}]*cursor: not-allowed;/);
+  // No new orange: only the team tokens.
+  assert.doesNotMatch(css, /#ff5a1f|#de4712|--elf-orange/i);
+
+  const solid = "className={`${styles.btnSolid} elf-focus-ring`}";
+  assert.match(todo, /className=\{`\$\{styles\.btnSolid\} elf-focus-ring`\} style=\{\{ flexShrink: 0 \}\}>\+ Create Task/);
+  assert.match(clearance, /className=\{`\$\{styles\.btnSolid\} elf-focus-ring`\}\s*>\s*\+ Add Resource/);
+  has(clearance, solid);
+  has(clearance, "const outlineBtn = `${styles.btnOutline} elf-focus-ring`;");
+  assert.equal(clearance.match(/className=\{outlineBtn\}/g)?.length, 3); // Open Link, View, Download
+  assert.equal(todo.match(/className=\{`\$\{styles\.btnOutline\} elf-focus-ring`\}/g)?.length, 2); // task View, Download
+  // Destructive actions stay distinct from the team colour.
+  assert.match(todo, /color: "#b91c1c", border: "1\.5px solid #fecaca"[^>]*>\s*Archive/);
+  assert.match(clearance, /color: "#dc2626" \}\}>\s*Delete/);
+});
+
+test("device/browser Back closes an open task: detail is a ?task= history entry", () => {
+  has(todo, `import { useSearchParams } from "next/navigation";`);
+  has(todo, `const selectedId = searchParams.get("task");`);
+  assert.match(todo, /const openTask = \(id: string\) => \{[\s\S]*?params\.set\("task", id\);\s*window\.history\.pushState\(null, "", `\?\$\{params\.toString\(\)\}`\);/);
+  // On-screen Back pops our own entry; a deep-linked task drops ?task= in place.
+  assert.match(todo, /const closeTask = \(\) => \{\s*if \(pushedRef\.current\) \{\s*pushedRef\.current = false;\s*window\.history\.back\(\);/);
+  assert.match(todo, /params\.delete\("task"\);[\s\S]*?window\.history\.replaceState\(/);
+  has(todo, "onBack={closeTask}");
+  assert.doesNotMatch(todo, /router\.(push|replace)|setSelectedId/);
+  // Existing ?tab=clearance links keep their value; otherwise the alias is used.
+  has(todo, `if (params.get("tab") !== "clearance") params.set("tab", "todo");`);
+  // TeamTabs still reads ?tab= once, so URL changes here never switch tabs.
+  assert.match(tabs, /const \[tab, setTab\] = useState<Tab>\(initial\);/);
 });
 
 // ── Migration ─────────────────────────────────────────────────────────────

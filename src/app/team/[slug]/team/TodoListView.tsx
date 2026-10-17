@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
 import { TASK_AUDIENCE_LABELS, type TaskAudience, type TaskViewer } from "@/lib/teamTasks";
@@ -203,7 +204,7 @@ function TaskDetail({
               <button type="button" disabled={busy || isLast} onClick={() => post("move", { direction: "down" }, "Failed to move task.", false)} aria-label={`Move ${task.title} down`} style={{ ...softBtn, color: isLast ? "#c0c4cc" : "#0b1e3d" }}>
                 Move Down
               </button>
-              <button type="button" disabled={busy} onClick={archive} style={{ ...softBtn, background: "#fff7ed", color: "#b45309", marginLeft: "auto" }}>
+              <button type="button" disabled={busy} onClick={archive} style={{ ...softBtn, background: "#fff", color: "#b91c1c", border: "1.5px solid #fecaca", marginLeft: "auto" }}>
                 Archive
               </button>
             </>
@@ -259,14 +260,14 @@ function TaskDetail({
                     </div>
                     <div style={{ display: "flex", gap: ".35rem", flexShrink: 0 }}>
                       {PREVIEWABLE_TYPES.has(a.file_type) && (
-                        <button type="button" onClick={() => onView(a)} aria-label={`View ${name}`} style={softBtn}>View</button>
+                        <button type="button" onClick={() => onView(a)} aria-label={`View ${name}`} className={`${styles.btnOutline} elf-focus-ring`}>View</button>
                       )}
                       <button
                         type="button"
                         onClick={() => onDownload(a)}
                         disabled={downloadingId === a.id}
                         aria-label={`Download ${name}`}
-                        style={{ ...softBtn, opacity: downloadingId === a.id ? .7 : 1 }}
+                        className={`${styles.btnOutline} elf-focus-ring`}
                       >
                         {downloadingId === a.id ? "Downloading…" : "Download"}
                       </button>
@@ -298,8 +299,38 @@ export default function TodoListView({ slug }: { slug: string }) {
   const [archived, setArchived] = useState<TaskItem[] | null>(null);
   const [archivedError, setArchivedError] = useState("");
   const [editTarget, setEditTarget] = useState<TaskItem | "new" | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // The open task lives in the URL (?task=<id>) as its own history entry,
+  // so the browser Back button, Android Back and the iOS back swipe return
+  // to the list instead of leaving the Team page. Native pushState/
+  // replaceState are synced with useSearchParams by the App Router.
+  // TeamTabs reads ?tab= only on mount, so these changes never switch tabs.
+  const searchParams = useSearchParams();
+  const selectedId = searchParams.get("task");
+  const pushedRef = useRef(false);
+
+  const openTask = (id: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") !== "clearance") params.set("tab", "todo");
+    params.set("task", id);
+    window.history.pushState(null, "", `?${params.toString()}`);
+    pushedRef.current = true;
+  };
+
+  const closeTask = () => {
+    if (pushedRef.current) {
+      pushedRef.current = false;
+      window.history.back();
+      return;
+    }
+    // Opened from a deep link or after a reload: there's no entry of ours
+    // to pop, so drop ?task= in place rather than leaving the page.
+    const params = new URLSearchParams(window.location.search);
+    params.delete("task");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  };
 
   const [viewing, setViewing] = useState<Attachment | null>(null);
   const [viewUrl, setViewUrl] = useState<string | null>(null);
@@ -331,12 +362,14 @@ export default function TodoListView({ slug }: { slug: string }) {
   useEffect(() => {
     const el = rootRef.current;
     if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+    // Left the detail view via the device/browser Back: our entry is gone.
+    if (!selectedId) pushedRef.current = false;
   }, [selectedId]);
 
   const afterChange = (opts?: { leave?: boolean }) => {
     refresh();
     if (showArchived) refreshArchived();
-    if (opts?.leave) setSelectedId(null);
+    if (opts?.leave) closeTask();
   };
 
   const toggleArchived = () => {
@@ -402,7 +435,7 @@ export default function TodoListView({ slug }: { slug: string }) {
           showAudience={isCoachView}
           isFirst={activeIndex === 0}
           isLast={activeIndex === tasks.length - 1}
-          onBack={() => setSelectedId(null)}
+          onBack={closeTask}
           onEdit={setEditTarget}
           onChanged={afterChange}
           onView={openView}
@@ -433,7 +466,7 @@ export default function TodoListView({ slug }: { slug: string }) {
                   {isCoachView ? "Active Tasks" : "Tasks"}
                 </h3>
                 {canManage && data.available && (
-                  <button type="button" onClick={() => setEditTarget("new")} style={{ ...primaryBtn, minHeight: 36, padding: ".35rem .8rem", flexShrink: 0 }}>+ Create Task</button>
+                  <button type="button" onClick={() => setEditTarget("new")} className={`${styles.btnSolid} elf-focus-ring`} style={{ flexShrink: 0 }}>+ Create Task</button>
                 )}
               </div>
 
@@ -448,7 +481,7 @@ export default function TodoListView({ slug }: { slug: string }) {
                   </p>
                 </div>
               ) : (
-                <TaskRows tasks={tasks} onOpen={t => setSelectedId(t.id)} />
+                <TaskRows tasks={tasks} onOpen={t => openTask(t.id)} />
               )}
 
               {canManage && data.available && (
@@ -466,7 +499,7 @@ export default function TodoListView({ slug }: { slug: string }) {
                       ) : archived.length === 0 ? (
                         <p style={{ margin: 0, color: "#9ca3af", fontSize: ".82rem" }}>No archived tasks.</p>
                       ) : (
-                        <TaskRows tasks={archived} muted onOpen={t => setSelectedId(t.id)} />
+                        <TaskRows tasks={archived} muted onOpen={t => openTask(t.id)} />
                       )}
                     </div>
                   )}
