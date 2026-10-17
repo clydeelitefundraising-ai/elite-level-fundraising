@@ -279,18 +279,22 @@ export async function createTask(slug: string, task: ValidatedTask, actor: TaskA
   return result;
 }
 
+/** Edit through team_task_update(). The DATABASE decides whether the
+ *  task's revision increases (changed title/instructions/body/audience or
+ *  a changed set of links/files) — the app never passes that decision in,
+ *  so it can't be skipped. Callers compare the returned revision with the
+ *  one they loaded to know whether requirements changed. */
 export async function updateTask(
   slug: string,
   id: string,
   task: ValidatedTask,
-  opts: { expectedVersion: number; bumpRevision: boolean },
+  opts: { expectedVersion: number },
   actor: TaskActorIdentity,
 ): Promise<StoreResult<{ id: string; revision: number; version: number }>> {
   return rpc("team_task_update", {
     p_task_id: id,
     p_campaign_slug: slug,
     p_expected_version: opts.expectedVersion,
-    p_bump_revision: opts.bumpRevision,
     ...taskPayload(task),
     p_actor: actor,
   });

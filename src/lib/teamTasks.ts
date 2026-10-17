@@ -141,35 +141,13 @@ export function fileIdsOf(resources: readonly { kind: string; attachment_id: str
 }
 
 // ── Revision semantics ────────────────────────────────────────────────────
-
-type RevisionFields = {
-  title: string;
-  instructions: string | null;
-  body_text: string | null;
-  audience: string;
-  resources: readonly { kind: string; url: string | null; attachment_id: string | null }[];
-};
-
-function resourceFingerprint(resources: RevisionFields["resources"]): string[] {
-  return resources
-    .map(r => (r.kind === "file" ? `file:${(r.attachment_id ?? "").toLowerCase()}` : `link:${r.url ?? ""}`))
-    .sort();
-}
-
-/** Whether an edit changes what families are being asked to do — and so
- *  (from Phase 3 on) requires them to acknowledge the task again.
- *  Substantive: title, instructions, body text, audience, or the SET of
- *  linked URLs / attached files. Not substantive: reordering resources,
- *  editing a link's label, reordering tasks, archiving/restoring. */
-export function isSubstantiveTaskChange(before: RevisionFields, after: RevisionFields): boolean {
-  if (before.title !== after.title) return true;
-  if ((before.instructions ?? null) !== (after.instructions ?? null)) return true;
-  if ((before.body_text ?? null) !== (after.body_text ?? null)) return true;
-  if (before.audience !== after.audience) return true;
-  const a = resourceFingerprint(before.resources);
-  const b = resourceFingerprint(after.resources);
-  return a.length !== b.length || a.some((v, i) => v !== b[i]);
-}
+// Whether an edit changes what families are asked to do (and so, from
+// Phase 3 on, requires a fresh acknowledgment) is decided by the DATABASE
+// — team_tasks_guard() and team_task_update() in phase_t2_team_tasks.sql —
+// not here, so no code path can skip it. Substantive: title, instructions,
+// body text, audience, or the SET of linked URLs / attached files. Not
+// substantive: reordering tasks or a task's links/files, editing a link's
+// label, archiving/restoring.
 
 // ── Visibility ────────────────────────────────────────────────────────────
 

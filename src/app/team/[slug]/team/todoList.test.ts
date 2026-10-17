@@ -81,31 +81,61 @@ test("form controls are 16px (no iOS zoom) with 44px touch targets; text wraps i
 
 // ── Migration ─────────────────────────────────────────────────────────────
 
+// Function bodies ($$ … $$), keyed by function name. Anchored on CREATE OR
+// REPLACE so "EXECUTE FUNCTION …" in CREATE TRIGGER can't match.
+const bodies = new Map(
+  [...sqlCode.matchAll(/CREATE OR REPLACE FUNCTION public\.(\w+)\(([\s\S]*?)AS \$\$([\s\S]*?)\$\$;/g)].map(m => [m[1], { header: m[2], body: m[3] }]),
+);
+
 test("migration is additive: creates only the new tables/functions; never alters or drops existing objects", () => {
   assert.doesNotMatch(sqlCode, /\bDROP\s+TABLE\b/i);
-  assert.doesNotMatch(sqlCode, /\bALTER\s+TABLE\s+(?!team_tasks\b|team_task_resources\b)/i);
-  assert.doesNotMatch(sqlCode, /\b(DELETE\s+FROM|UPDATE|INSERT\s+INTO)\s+clearance_resources\b/i);
+  assert.doesNotMatch(sqlCode, /\bALTER\s+TABLE\s+(?!public\.team_tasks\b|public\.team_task_resources\b)/i);
+  assert.doesNotMatch(sqlCode, /\b(DELETE\s+FROM|UPDATE|INSERT\s+INTO)\s+(public\.)?clearance_resources\b/i);
   assert.doesNotMatch(sqlCode, /\bTRUNCATE\b/i);
-  const created = [...sqlCode.matchAll(/CREATE TABLE IF NOT EXISTS (\w+)/g)].map(m => m[1]);
-  assert.deepEqual(created, ["team_tasks", "team_task_resources"]);
-  // The only DROP is the idempotent re-create of this migration's own triggers.
-  const drops = [...sqlCode.matchAll(/DROP\s+(\w+)\s+IF EXISTS\s+(\w+)/gi)].map(m => `${m[1]} ${m[2]}`);
-  assert.deepEqual(drops, ["TRIGGER team_tasks_guard", "TRIGGER team_task_resources_guard"]);
+  const created = [...sqlCode.matchAll(/CREATE TABLE IF NOT EXISTS ([\w.]+)/g)].map(m => m[1]);
+  assert.deepEqual(created, ["public.team_tasks", "public.team_task_resources"]);
+  // Only this migration's own triggers, and the never-applied draft signature of its own function.
+  const drops = [...sqlCode.matchAll(/DROP\s+(TRIGGER|FUNCTION)\s+IF EXISTS\s+([\w.]+(?:\([^)]*\))?)/gi)].map(m => `${m[1]} ${m[2]}`);
+  assert.deepEqual(drops, [
+    "TRIGGER team_tasks_guard",
+    "TRIGGER team_task_resources_guard",
+    "FUNCTION public.team_task_update(uuid, text, integer, boolean, jsonb, jsonb, jsonb)",
+  ]);
 });
 
 test("migration security: RLS on both tables; functions executable by service_role only", () => {
-  assert.match(sqlCode, /ALTER TABLE team_tasks ENABLE ROW LEVEL SECURITY;/);
-  assert.match(sqlCode, /ALTER TABLE team_task_resources ENABLE ROW LEVEL SECURITY;/);
+  assert.match(sqlCode, /ALTER TABLE public\.team_tasks ENABLE ROW LEVEL SECURITY;/);
+  assert.match(sqlCode, /ALTER TABLE public\.team_task_resources ENABLE ROW LEVEL SECURITY;/);
   assert.doesNotMatch(sqlCode, /CREATE POLICY/i);
   assert.doesNotMatch(sqlCode, /SECURITY DEFINER/i);
-  for (const fn of ["team_task_create", "team_task_update", "team_task_move"]) {
+  for (const fn of ["team_task_create", "team_task_update", "team_task_move", "team_task_resource_set"]) {
     for (const role of ["PUBLIC", "anon", "authenticated"]) {
       assert.match(sqlCode, new RegExp(`REVOKE (ALL|EXECUTE)\\s+ON FUNCTION public\\.${fn}\\([^)]*\\) FROM ${role};`), `${fn} ${role}`);
     }
-    assert.match(sqlCode, new RegExp(`GRANT\\s+EXECUTE ON FUNCTION public\\.${fn}\\([^)]*\\) TO service_role;`));
+    assert.match(sqlCode, new RegExp(`GRANT\\s+EXECUTE ON FUNCTION public\\.${fn}\\([^)]*\\) TO service_role;`), fn);
   }
-  for (const fn of ["team_tasks_guard", "team_task_resources_guard", "team_task_create", "team_task_update", "team_task_move"]) {
-    assert.match(sqlCode, new RegExp(`FUNCTION public\\.${fn}\\([\\s\\S]*?SET search_path = public, pg_temp`), fn);
+  for (const fn of ["team_tasks_guard", "team_task_resources_guard"]) {
+    for (const role of ["PUBLIC", "anon", "authenticated"]) {
+      assert.match(sqlCode, new RegExp(`REVOKE (ALL|EXECUTE)\\s+ON FUNCTION public\\.${fn}\\(\\)\\s+FROM ${role};`), `${fn} ${role}`);
+    }
+  }
+  // The REVOKE/GRANT signatures match the function actually created.
+  assert.match(sqlCode, /FUNCTION public\.team_task_update\(\s*p_task_id\s+uuid,\s*p_campaign_slug\s+text,\s*p_expected_version integer,\s*p_task\s+jsonb,\s*p_resources\s+jsonb,\s*p_actor\s+jsonb\s*\)/);
+  assert.match(sqlCode, /GRANT\s+EXECUTE ON FUNCTION public\.team_task_update\(uuid, text, integer, jsonb, jsonb, jsonb\) TO service_role;/);
+});
+
+test("every function: empty search_path and fully schema-qualified table references", () => {
+  assert.deepEqual([...bodies.keys()].sort(), [
+    "team_task_create", "team_task_move", "team_task_resource_set", "team_task_resources_guard", "team_task_update", "team_tasks_guard",
+  ]);
+  for (const [name, { header, body }] of bodies) {
+    assert.match(header, /SET search_path = ''\s*$/, `${name}: search_path`);
+    const unqualified = body.match(/(?<![.\w])(team_tasks|team_task_resources|team_files)\b/g);
+    assert.equal(unqualified, null, `${name}: unqualified ${unqualified}`);
+  }
+  assert.doesNotMatch(sqlCode, /search_path = public/);
+  for (const ref of ["public.elf_accounts(id)", "public.team_coaches(id)", "public.platform_admins(id)", "public.team_files(id)", "public.team_tasks(id)"]) {
+    assert.ok(sqlCode.includes(`REFERENCES ${ref}`), ref);
   }
 });
 
@@ -113,17 +143,63 @@ test("migration constraints: strict audience/status, http(s) links, file refs RE
   assert.match(sqlCode, /CHECK \(audience IN \('athlete', 'parent', 'both'\)\)/);
   assert.match(sqlCode, /CHECK \(status IN \('active', 'archived'\)\)/);
   assert.match(sqlCode, /url ~\* '\^https\?:\/\/\[\^\[:space:\]\]\+\$'/);
-  assert.match(sqlCode, /attachment_id\s+uuid\s+REFERENCES team_files\(id\) ON DELETE RESTRICT/);
+  assert.match(sqlCode, /attachment_id\s+uuid\s+REFERENCES public\.team_files\(id\) ON DELETE RESTRICT/);
   assert.match(sqlCode, /RAISE EXCEPTION 'team_task_resource_file_not_on_team'/);
-  assert.match(sqlCode, /created_by_coach_id\s+uuid\s+REFERENCES team_coaches\(id\)\s+ON DELETE SET NULL/);
-  assert.match(sqlCode, /created_by_account_id\s+uuid\s+REFERENCES elf_accounts\(id\)\s+ON DELETE SET NULL/);
+  assert.match(sqlCode, /created_by_coach_id\s+uuid\s+REFERENCES public\.team_coaches\(id\)\s+ON DELETE SET NULL/);
+  assert.match(sqlCode, /created_by_account_id\s+uuid\s+REFERENCES public\.elf_accounts\(id\)\s+ON DELETE SET NULL/);
+  assert.match(sqlCode, /task_id\s+uuid\s+NOT NULL REFERENCES public\.team_tasks\(id\) ON DELETE CASCADE/);
 });
 
-test("migration revision rules: bumped only on request, never decreases; reorder leaves it alone", () => {
-  assert.match(sqlCode, /revision\s+= revision \+ CASE WHEN p_bump_revision THEN 1 ELSE 0 END/);
-  assert.match(sqlCode, /IF NEW\.revision < OLD\.revision THEN/);
-  const move = sqlCode.slice(sqlCode.indexOf("FUNCTION public.team_task_move("), sqlCode.indexOf("REVOKE ALL     ON FUNCTION public.team_task_create"));
+// ── Revision integrity (database-enforced) ────────────────────────────────
+
+test("revision: the app can't pass a revision decision — no p_bump_revision anywhere", () => {
+  assert.doesNotMatch(sqlCode, /p_bump_revision/);
+  const store = src("../../../../lib/teamTasksStore.ts");
+  assert.doesNotMatch(store, /p_bump_revision|bumpRevision/);
+});
+
+test("revision: any update that changes title/instructions/body_text/audience is bumped by the trigger", () => {
+  const guard = bodies.get("team_tasks_guard")!.body;
+  assert.match(guard, /IF NEW\.revision < OLD\.revision THEN\s*RAISE EXCEPTION 'team_task_revision_decrease';/);
+  assert.match(guard, /IF NEW\.revision = OLD\.revision AND \(\s*NEW\.title\s+IS DISTINCT FROM OLD\.title\s+OR NEW\.instructions IS DISTINCT FROM OLD\.instructions\s+OR NEW\.body_text\s+IS DISTINCT FROM OLD\.body_text\s+OR NEW\.audience\s+IS DISTINCT FROM OLD\.audience\s*\) THEN\s*NEW\.revision\s+:= OLD\.revision \+ 1;/);
+  assert.match(sqlCode, /CREATE TRIGGER team_tasks_guard\s+BEFORE UPDATE ON public\.team_tasks/);
+  // Display order and status are not requirement fields.
+  assert.doesNotMatch(guard, /sort_order|status|label/);
+});
+
+test("revision: the link/file SET is compared (order and labels excluded) before resources are replaced", () => {
+  const setFn = bodies.get("team_task_resource_set")!.body;
+  assert.match(setFn, /array_agg\(DISTINCT fp ORDER BY fp\)/);
+  assert.match(setFn, /'file:' \|\| \(\(r->>'attachment_id'\)::uuid\)::text/);
+  assert.match(setFn, /'link:' \|\| \(r->>'url'\)/);
+  assert.doesNotMatch(setFn, /label|sort_order|\bord\b/);
+
+  const update = bodies.get("team_task_update")!.body;
+  const compareAt = update.indexOf("v_resources_changed := v_old_set IS DISTINCT FROM public.team_task_resource_set(p_resources)");
+  const deleteAt  = update.indexOf("DELETE FROM public.team_task_resources WHERE task_id = p_task_id");
+  assert.ok(compareAt > 0 && deleteAt > compareAt, "old set must be read before the resources are deleted");
+  assert.match(update, /revision\s+= revision \+ CASE WHEN v_resources_changed THEN 1 ELSE 0 END/);
+});
+
+test("revision: resources can only change through the task functions (so the set check can't be bypassed)", () => {
+  const guard = bodies.get("team_task_resources_guard")!.body;
+  assert.match(guard, /current_setting\('elf\.team_task_write', true\) IS DISTINCT FROM 'on'/);
+  assert.match(guard, /RAISE EXCEPTION 'team_task_resources_write_via_functions_only'/);
+  // Cascade from deleting the task itself is the only flag-less delete.
+  assert.match(guard, /AND EXISTS \(SELECT 1 FROM public\.team_tasks t WHERE t\.id = OLD\.task_id\)/);
+  assert.match(sqlCode, /BEFORE INSERT OR UPDATE OR DELETE ON public\.team_task_resources/);
+  for (const fn of ["team_task_create", "team_task_update"]) {
+    const body = bodies.get(fn)!.body;
+    const on = body.indexOf("set_config('elf.team_task_write', 'on', true)");
+    const off = body.indexOf("set_config('elf.team_task_write', 'off', true)");
+    assert.ok(on > 0 && off > on, `${fn} turns the write flag on, then off (transaction-local)`);
+  }
+  assert.doesNotMatch(bodies.get("team_task_move")!.body, /team_task_resources|set_config/);
+});
+
+test("revision: reordering and archiving never touch revision or version", () => {
+  const move = bodies.get("team_task_move")!.body;
   assert.match(move, /SET sort_order = s\.ord - 1/);
-  assert.doesNotMatch(move, /revision|version\s*=|updated_at/);
-  assert.match(sqlCode, /IF v_task\.version <> p_expected_version THEN\s*RAISE EXCEPTION 'team_task_version_conflict';/);
+  assert.doesNotMatch(move, /revision|version\s*=|updated_at|title|audience/);
+  assert.match(bodies.get("team_task_update")!.body, /IF v_task\.version <> p_expected_version THEN\s*RAISE EXCEPTION 'team_task_version_conflict';/);
 });

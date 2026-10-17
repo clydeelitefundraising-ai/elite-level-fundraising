@@ -10,7 +10,6 @@ import {
   canViewArchived,
   canViewTask,
   fileIdsOf,
-  isSubstantiveTaskChange,
   isTaskAudience,
   normalizeTaskUrl,
   sortTasks,
@@ -101,29 +100,10 @@ test("resources: links and files validated, duplicates dropped, order kept, max 
 
 // ── Revision semantics ────────────────────────────────────────────────────
 
-const base = {
-  title: "Physical", instructions: "Bring it", body_text: null, audience: "both",
-  resources: [
-    { kind: "link", url: "https://a.com/", attachment_id: null, label: "A" },
-    { kind: "file", url: null, attachment_id: FILE_A, label: null },
-  ],
-};
-
-test("substantive: title, instructions, body, audience, or the set of links/files", () => {
-  assert.equal(isSubstantiveTaskChange(base, { ...base, title: "Physical exam" }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, instructions: "Bring it Monday" }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, body_text: "Rules" }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, audience: "athlete" }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, resources: [base.resources[0]] }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, resources: [...base.resources, { kind: "file", url: null, attachment_id: FILE_B, label: null }] }), true);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, resources: [{ ...base.resources[0], url: "https://b.com/" }, base.resources[1]] }), true);
-});
-
-test("not substantive: no change, reordered links/files, or a link label edit", () => {
-  assert.equal(isSubstantiveTaskChange(base, { ...base }), false);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, resources: [base.resources[1], base.resources[0]] }), false);
-  assert.equal(isSubstantiveTaskChange(base, { ...base, resources: [{ ...base.resources[0], label: "Renamed" }, base.resources[1]] }), false);
-  assert.equal(isSubstantiveTaskChange({ ...base, instructions: null }, { ...base, instructions: null }), false);
+test("revision rules are not duplicated in app code (the database decides)", () => {
+  const code = readFileSync(new URL("./teamTasks.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(code, /export function isSubstantiveTaskChange/);
+  assert.match(code, /decided by the DATABASE/);
 });
 
 // ── Visibility / authorization ────────────────────────────────────────────

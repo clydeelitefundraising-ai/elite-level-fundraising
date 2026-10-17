@@ -5,7 +5,6 @@ import {
   canManageTasks,
   canViewTask,
   fileIdsOf,
-  isSubstantiveTaskChange,
   taskViewerFor,
   validateTaskInput,
 } from "@/lib/teamTasks";
@@ -32,8 +31,9 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
 // PATCH: edit a task (title, text, audience, links, documents). Head Coach
 // only. Requires the task's current `version` (optimistic concurrency).
-// Bumps `revision` only for a substantive change (isSubstantiveTaskChange)
-// so Phase 3 acknowledgments of the old revision stop counting.
+// Whether `revision` increases (so Phase 3 acknowledgments of the old
+// revision stop counting) is decided by the database, not here — see
+// team_task_update()/team_tasks_guard() in phase_t2_team_tasks.sql.
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { slug, taskId } = await params;
   const actor = await getTeamActor(slug);
@@ -65,10 +65,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   if (!files.ok) return failureResponse(files.reason);
   if (!files.value) return NextResponse.json({ error: "One or more documents aren't available on this team." }, { status: 400 });
 
-  const bumpRevision = isSubstantiveTaskChange(current.value, task);
   const identity = await taskActorIdentity(actor);
-  const result = await updateTask(slug, taskId, task, { expectedVersion: expectedVersion as number, bumpRevision }, identity);
+  const result = await updateTask(slug, taskId, task, { expectedVersion: expectedVersion as number }, identity);
   if (!result.ok) return failureResponse(result.reason);
+  const revisionChanged = result.value.revision > current.value.revision;
 
   logAuditEvent({
     actor: toAuditActor(actor),
@@ -76,12 +76,12 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     entity_type: "team_task",
     entity_id: taskId,
     campaign_slug: slug,
-    summary: bumpRevision
+    summary: revisionChanged
       ? `Edited To-Do task "${task.title}" on ${slug} (requirements changed — revision ${result.value.revision})`
       : `Edited To-Do task "${task.title}" on ${slug} (no change to requirements)`,
     ip_address: ipOf(req),
     user_agent: req.headers.get("user-agent"),
   });
 
-  return NextResponse.json({ ok: true, task: result.value, revisionChanged: bumpRevision });
+  return NextResponse.json({ ok: true, task: result.value, revisionChanged });
 }

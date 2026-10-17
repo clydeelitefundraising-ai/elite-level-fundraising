@@ -117,9 +117,17 @@ function makeWorld(opts: { mode?: "ok" | "missing" | "broken" } = {}) {
         if (!t) return pgError("team_task_not_found");
         if (t.status !== "active") return pgError("team_task_not_active");
         if (t.version !== a.p_expected_version) return pgError("team_task_version_conflict");
-        Object.assign(t, a.p_task, {
+        // Mirrors the migration: +1 if the link/file SET changed
+        // (team_task_update) or a requirement field changed
+        // (team_tasks_guard) — at most +1 per edit. The app never sends
+        // this decision.
+        const set = (rs: Row[]) => [...new Set(rs.map(r => r.kind === "file" ? `file:${r.attachment_id}` : `link:${r.url}`))].sort().join("|");
+        const resourcesChanged = set(db.team_task_resources.filter(r => r.task_id === t.id)) !== set(a.p_resources as Row[]);
+        const next = a.p_task as Row;
+        const fieldsChanged = ["title", "instructions", "body_text", "audience"].some(k => (t[k] ?? null) !== (next[k] ?? null));
+        Object.assign(t, next, {
           version: (t.version as number) + 1,
-          revision: (t.revision as number) + (a.p_bump_revision ? 1 : 0),
+          revision: (t.revision as number) + (resourcesChanged || fieldsChanged ? 1 : 0),
           updated_by_name: (a.p_actor as Row).name,
         });
         db.team_task_resources = db.team_task_resources.filter(r => r.task_id !== t.id);
@@ -373,7 +381,7 @@ async function patchAs(person: { id: string; salt: string }, id: string, body: R
 }
 
 test("edits: substantive change bumps revision; label-only/reordered resources do not", async () => {
-  await withWorld({}, async ({ db, rpcCalls }) => {
+  await withWorld({}, async ({ db }) => {
     await createAs(PEOPLE.head, {
       title: "Physical", audience: "both",
       resources: [{ kind: "link", url: "https://a.com/", label: "A" }, { kind: "file", attachment_id: FILE_OURS }],
@@ -387,7 +395,6 @@ test("edits: substantive change bumps revision; label-only/reordered resources d
     });
     assert.equal(res.status, 200);
     assert.equal((await res.json()).revisionChanged, false);
-    assert.equal(rpcCalls.at(-1)!.args.p_bump_revision, false);
     assert.deepEqual([db.team_tasks[0].revision, db.team_tasks[0].version], [1, 2]);
 
     // Audience change: substantive.
@@ -395,6 +402,45 @@ test("edits: substantive change bumps revision; label-only/reordered resources d
     assert.equal((await res.json()).revisionChanged, true);
     assert.deepEqual([db.team_tasks[0].revision, db.team_tasks[0].version], [2, 3]);
     assert.ok(db.audit_logs.some(l => l.action === "todo_task.updated"));
+  });
+});
+
+test("revision integrity: the app never sends a revision decision; the database's answer is reported", async () => {
+  await withWorld({}, async ({ db, rpcCalls }) => {
+    await createAs(PEOPLE.head, {
+      title: "Physical", audience: "both", instructions: "Bring it",
+      resources: [{ kind: "link", url: "https://a.com/", label: "A" }, { kind: "file", attachment_id: FILE_OURS }],
+    });
+    const id = db.team_tasks[0].id as string;
+    const linkA = { kind: "link", url: "https://a.com/", label: "A" };
+    const fileOurs = { kind: "file", attachment_id: FILE_OURS };
+    const baseBody = { title: "Physical", audience: "both", instructions: "Bring it" };
+    let version = 1;
+    const edit = async (changes: Row) => {
+      const res = await patchAs(PEOPLE.head, id, { ...baseBody, resources: [linkA, fileOurs], ...changes, expected_version: version++ });
+      assert.equal(res.status, 200);
+      const call = rpcCalls.at(-1)!;
+      assert.equal(call.name, "team_task_update");
+      assert.ok(!("p_bump_revision" in call.args), "the app must not decide the revision");
+      return { changed: (await res.json()).revisionChanged as boolean, revision: db.team_tasks[0].revision as number };
+    };
+
+    // Not substantive.
+    assert.deepEqual(await edit({}), { changed: false, revision: 1 });                                               // no change
+    assert.deepEqual(await edit({ resources: [fileOurs, linkA] }), { changed: false, revision: 1 });                // reordered
+    assert.deepEqual(await edit({ resources: [{ ...linkA, label: "Renamed" }, fileOurs] }), { changed: false, revision: 1 }); // label only
+    assert.deepEqual(await edit({ resources: [linkA, linkA, fileOurs] }), { changed: false, revision: 1 });         // duplicate dropped
+
+    // Substantive — each exactly +1.
+    assert.deepEqual(await edit({ resources: [{ ...linkA, url: "https://b.com/" }, fileOurs] }), { changed: true, revision: 2 }); // URL changed
+    assert.deepEqual(await edit({ resources: [{ ...linkA, url: "https://b.com/" }, { kind: "file", attachment_id: FILE_OURS_2 }] }), { changed: true, revision: 3 }); // file swapped
+    assert.deepEqual(await edit({ resources: [linkA] }), { changed: true, revision: 4 });                          // file removed
+    assert.deepEqual(await edit({ resources: [linkA, fileOurs] }), { changed: true, revision: 5 });                 // file added
+    assert.deepEqual(await edit({ title: "Physical exam" }), { changed: true, revision: 6 });
+    assert.deepEqual(await edit({ title: "Physical exam", instructions: "Bring it Monday" }), { changed: true, revision: 7 });
+    assert.deepEqual(await edit({ title: "Physical exam", instructions: "Bring it Monday", body_text: "Rules" }), { changed: true, revision: 8 });
+    // Field AND link set changed in one edit: still only +1.
+    assert.deepEqual(await edit({ title: "Physical exam", instructions: "Bring it Monday", body_text: "Rules", audience: "athlete", resources: [fileOurs] }), { changed: true, revision: 9 });
   });
 });
 
