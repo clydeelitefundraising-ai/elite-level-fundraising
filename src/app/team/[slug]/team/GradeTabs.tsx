@@ -78,8 +78,10 @@ export default function GradeTabs({
             onKeyDown={e => onKeyDown(e, i)}
             className={`${styles.gradeTab} elf-focus-ring`}
           >
-            <span>{tab.label}</span>
-            <span className={styles.gradeTabCount}>{tab.count}</span>
+            <span className={styles.gradeTabChip}>
+              <span>{tab.label}</span>
+              <span className={styles.gradeTabCount}>{tab.count}</span>
+            </span>
           </button>
         );
       })}

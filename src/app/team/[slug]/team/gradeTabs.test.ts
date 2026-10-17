@@ -181,6 +181,31 @@ test("narrow screens scroll the tab row horizontally instead of squeezing; touch
   assert.match(tab, /flex: 0 0 auto;/);
   assert.match(tab, /white-space: nowrap;/);
   assert.match(tab, /min-height: 44px;/);
+  // Desktop keeps a 36px hit area; nothing else about the row changes per breakpoint.
+  const desktop = css.slice(css.indexOf("@media screen and (min-width: 1024px)"));
+  assert.match(desktop, /\.gradeTab \{\s*min-height: 36px;\s*\}/);
+});
+
+test("compact look: small inner chip with modest rounding; the 44px button stays an invisible hit area", () => {
+  const rule = (sel: string) => css.slice(css.indexOf(`${sel} {`), css.indexOf("}", css.indexOf(`${sel} {`)));
+  const tab = rule(".gradeTab");
+  assert.match(tab, /background: none;/);
+  assert.match(tab, /border: none;/);
+  const chip = rule(".gradeTabChip");
+  assert.match(chip, /padding: \.3rem \.675rem;/);   // ~25% less horizontal padding than the original .9rem
+  assert.match(chip, /border-radius: 7px;/);
+  assert.doesNotMatch(chip, /radius-full/);
+  const count = rule(".gradeTabCount");
+  assert.match(count, /font-size: \.66rem;/);
+  assert.match(count, /padding: 0 \.28rem;/);
+  assert.doesNotMatch(count, /radius-full/);
+  assert.match(tabsComponent, /<span className=\{styles\.gradeTabChip\}>\s*<span>\{tab\.label\}<\/span>\s*<span className=\{styles\.gradeTabCount\}>\{tab\.count\}<\/span>\s*<\/span>/);
+});
+
+test("active tab uses the team primary colour; its count stays readable for light and dark team colours", () => {
+  assert.match(css, /\.gradeTab\[aria-selected="true"\] \.gradeTabChip \{\s*background: var\(--team-primary\);\s*border-color: var\(--team-primary\);\s*color: var\(--team-primary-foreground\);/);
+  assert.match(css, /\.gradeTab\[aria-selected="true"\] \.gradeTabCount \{\s*background: rgba\(127, 127, 127, \.2\);\s*background: color-mix\(in srgb, currentColor 18%, transparent\);\s*color: inherit;/);
+  assert.doesNotMatch(css, /rgba\(255, 255, 255, \.22\)/);
 });
 
 test("mobile/member roster: tabs above the list, grade AND search filtering, headings only under All Athletes", () => {
