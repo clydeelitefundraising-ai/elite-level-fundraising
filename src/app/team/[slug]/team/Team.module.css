@@ -147,3 +147,142 @@
     min-height: 36px;
   }
 }
+
+/*
+ * Team Management Phase 2 — To-Do List rows (TodoListView.tsx).
+ * One bordered list, full-width rows divided by hairlines. Rows are 52px
+ * tall (comfortable touch target) and wrap long titles instead of
+ * overflowing at 360px.
+ */
+.todoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.todoList > li + li {
+  border-top: 1px solid #eef0f3;
+}
+
+.todoRow {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: .75rem 1rem;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  color: #9ca3af;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.todoRow:hover,
+.todoRow:active {
+  background: #f9fafb;
+}
+
+.todoRow:focus-visible {
+  outline: 2px solid var(--team-primary, #0b1e3d);
+  outline-offset: -2px;
+}
+
+.todoRowTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: .95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0b1e3d;
+  overflow-wrap: anywhere;
+}
+
+.todoDocRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
+  padding: .65rem 1rem;
+}
+
+/*
+ * Team Management Phase 2 — To-Do List and Resources buttons. Same look
+ * as the Communications/Messages "+ New" (solid) and "New Group"
+ * (outline) buttons in messages/MessagesView.tsx: --team-primary fill or
+ * border (ELF orange unless the team has its own branding),
+ * --team-primary-foreground text, --radius-md, .4rem .85rem padding,
+ * .78rem bold. Pair with the shared .elf-focus-ring class for keyboard
+ * focus. Hover/pressed mirror .elf-btn-primary/.elf-btn-secondary in
+ * design-system.css.
+ */
+.btnSolid,
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: .4rem .85rem;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: filter .15s ease, background-color .15s ease;
+}
+
+.btnSolid {
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
+  border: 1.5px solid var(--team-primary);
+}
+
+.btnSolid:hover {
+  filter: brightness(.92);
+}
+
+.btnSolid:active {
+  filter: brightness(.85);
+}
+
+.btnOutline {
+  background: #fff;
+  color: var(--team-primary);
+  border: 1.5px solid var(--team-primary);
+}
+
+/* Tint from the team colour; neutral grey for WebViews without color-mix(). */
+.btnOutline:hover {
+  background: #f9fafb;
+  background: color-mix(in srgb, var(--team-primary) 10%, #fff);
+}
+
+.btnOutline:active {
+  background: #f3f4f6;
+  background: color-mix(in srgb, var(--team-primary) 18%, #fff);
+}
+
+.btnSolid:disabled,
+.btnOutline:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.btnOutline:disabled {
+  background: #fff;
+}

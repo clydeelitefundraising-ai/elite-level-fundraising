@@ -11,7 +11,9 @@ type Tab = "overview" | "roster" | "clearance";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview",  label: "Overview" },
   { id: "roster",    label: "Roster" },
-  { id: "clearance", label: "Clearance" },
+  // Team Management Phase 2: shown as "To-Do List"; the internal id stays
+  // "clearance" so existing ?tab=clearance links keep working.
+  { id: "clearance", label: "To-Do List" },
 ];
 
 // Phase 7: Team Hub top-level tabs, same thin segmented-tab pattern as
@@ -41,9 +43,10 @@ export default function TeamTabs({
   actor: TeamActor;
 }) {
   const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const initial: Tab =
-    searchParams.get("tab") === "roster"    ? "roster" :
-    searchParams.get("tab") === "clearance" ? "clearance" :
+    tabParam === "roster"                          ? "roster" :
+    tabParam === "clearance" || tabParam === "todo" ? "clearance" :
     "overview";
   const [tab, setTab] = useState<Tab>(initial);
   const showCompactDesktopNav = shouldShowDesktopRoster(actor);
