@@ -73,4 +73,74 @@ rows=$(SQ "SELECT count(*) || ',' || count(DISTINCT athlete_id) FROM public.team
 ok=0; ! grep -qi deadlock c5a.out c5b.out && [ "$(grep -c recorded c5a.out)" = 2 ] && [ "$(grep -c already_satisfied c5b.out)" = 2 ] && [ "$rows" = "2,2" ] && ok=1
 check "C5 two parents, opposite child order, at once: no deadlock, each child recorded exactly once" "$ok" "a=$(cat c5a.out) b=$(cat c5b.out) rows=$rows"
 
+# ── Relationship changes racing a submission ──────────────────────────
+# The final state must always match the committed relationships: an
+# acknowledgment counts only if its identity still holds the link.
+B3=00000000-0000-0000-0000-0000000000b3
+D1=00000000-0000-0000-0000-0000000000d1; D2=00000000-0000-0000-0000-0000000000d2; D3=00000000-0000-0000-0000-0000000000d3
+E1=00000000-0000-0000-0000-0000000000e1
+SQ "INSERT INTO public.elf_accounts (id, email, name) VALUES ('$E1', 'tmp@x', 'Tia Temp');
+    INSERT INTO public.team_members (id, campaign_slug, role, name, athlete_id, account_id) VALUES
+      ('$D1', 'team-a', 'parent', 'Dan One',   '$B3', NULL),
+      ('$D2', 'team-a', 'parent', 'Dot Two',   '$B3', NULL),
+      ('$D3', 'team-a', 'parent', 'Tia Temp',  '$B3', '$E1');" >/dev/null
+status_b() { SQ "SELECT satisfied FROM public.team_task_ack_status('team-a', ARRAY['$1'::uuid], ARRAY[qa.id('$2')]) WHERE requirement = 'parent';"; }
+timed() { local s=$(date +%s%N); SQ "$1" > "$2"; echo $(( ($(date +%s%N) - s) / 1000000 )); }
+
+# C6: acknowledgment in flight; the parent is unlinked meanwhile -> the
+# unlink waits, the row is kept, and it does not count.
+mk C6 parent
+( $P -c "BEGIN;" -c "$(ack C6 1 "'$B2'" $CASEY "'$CASEY_A'" 'Casey Coach')" -c "SELECT pg_sleep(3);" -c "COMMIT;" > c6a.out 2>&1 ) &
+sleep 1
+waited=$(timed "DELETE FROM public.team_member_athletes WHERE team_member_id = '$CASEY' AND athlete_id = '$B2';" c6b.out)
+wait
+rows=$(SQ "SELECT count(*) FROM public.team_task_acknowledgments WHERE task_id = qa.id('C6');"); sat=$(status_b $B2 C6)
+ok=0; [ "$waited" -ge 1500 ] && grep -q recorded c6a.out && [ "$rows" = 1 ] && [ "$sat" = f ] && ok=1
+check "C6 unlink during an in-flight acknowledgment: unlink waited ${waited}ms; row kept; not counted" "$ok" "a=$(cat c6a.out) b=$(cat c6b.out) rows=$rows sat=$sat"
+
+# C7: unlink in flight; the parent submits meanwhile -> the submission
+# waits, then is refused as not linked; nothing written.
+mk C7 parent
+( $P -c "BEGIN;" -c "DELETE FROM public.team_member_athletes WHERE team_member_id = '$SAM' AND athlete_id = '$B2';" -c "SELECT pg_sleep(3);" -c "COMMIT;" > c7a.out 2>&1 ) &
+sleep 1
+waited=$(timed "$(ack C7 1 "'$B2'" $SAM NULL 'Sam Smith')" c7b.out)
+wait
+rows=$(SQ "SELECT count(*) FROM public.team_task_acknowledgments WHERE task_id = qa.id('C7');")
+ok=0; [ "$waited" -ge 1500 ] && grep -q team_task_ack_athlete_not_linked c7b.out && [ "$rows" = 0 ] && ok=1
+check "C7 submission during an in-flight unlink: waited ${waited}ms, refused as not linked, nothing written" "$ok" "b=$(cat c7b.out) rows=$rows"
+
+# C8: member deletion in flight; that member submits meanwhile -> waits,
+# then member_not_found; nothing written.
+mk C8 parent
+( $P -c "BEGIN;" -c "DELETE FROM public.team_members WHERE id = '$D1';" -c "SELECT pg_sleep(3);" -c "COMMIT;" > c8a.out 2>&1 ) &
+sleep 1
+waited=$(timed "$(ack C8 1 "'$B3'" $D1 NULL 'Dan One')" c8b.out)
+wait
+rows=$(SQ "SELECT count(*) FROM public.team_task_acknowledgments WHERE task_id = qa.id('C8');")
+ok=0; [ "$waited" -ge 1500 ] && grep -q team_task_ack_member_not_found c8b.out && [ "$rows" = 0 ] && ok=1
+check "C8 submission during an in-flight member deletion: waited ${waited}ms, refused (member_not_found), nothing written" "$ok" "b=$(cat c8b.out) rows=$rows"
+
+# C9: acknowledgment in flight; the member is deleted meanwhile -> the
+# deletion waits; the row is kept with member_id cleared; not counted.
+mk C9 parent
+( $P -c "BEGIN;" -c "$(ack C9 1 "'$B3'" $D2 NULL 'Dot Two')" -c "SELECT pg_sleep(3);" -c "COMMIT;" > c9a.out 2>&1 ) &
+sleep 1
+waited=$(timed "DELETE FROM public.team_members WHERE id = '$D2';" c9b.out)
+wait
+row=$(SQ "SELECT (member_id IS NULL) || ',' || full_name FROM public.team_task_acknowledgments WHERE task_id = qa.id('C9');"); sat=$(status_b $B3 C9)
+ok=0; [ "$waited" -ge 1500 ] && grep -q recorded c9a.out && [ "$row" = "true,Dot Two" ] && [ "$sat" = f ] && ok=1
+check "C9 member deletion during an in-flight acknowledgment: deletion waited ${waited}ms; row kept (member_id cleared); not counted" "$ok" "a=$(cat c9a.out) b=$(cat c9b.out) row=$row sat=$sat"
+
+# C10: acknowledgment in flight; the acknowledging account is deleted
+# meanwhile -> the account deletion waits (it must clear account_id on the
+# locked member row); the row keeps its account snapshot; not counted.
+mk C10 parent
+( $P -c "BEGIN;" -c "$(ack C10 1 "'$B3'" $D3 "'$E1'" 'Tia Temp')" -c "SELECT pg_sleep(3);" -c "COMMIT;" > c10a.out 2>&1 ) &
+sleep 1
+waited=$(timed "DELETE FROM public.elf_accounts WHERE id = '$E1';" c10b.out)
+wait
+row=$(SQ "SELECT k.account_id || ',' || (m.account_id IS NULL) FROM public.team_task_acknowledgments k JOIN public.team_members m ON m.id = k.member_id WHERE k.task_id = qa.id('C10');"); sat=$(status_b $B3 C10)
+ok=0; [ "$waited" -ge 1500 ] && grep -q recorded c10a.out && [ "$row" = "$E1,true" ] && [ "$sat" = f ] && ok=1
+check "C10 account deletion during an in-flight acknowledgment: deletion waited ${waited}ms; snapshot kept; not counted" "$ok" "a=$(cat c10a.out) b=$(cat c10b.out) row=$row sat=$sat"
+
 echo "CONCURRENCY: $pass passed, $fail failed"

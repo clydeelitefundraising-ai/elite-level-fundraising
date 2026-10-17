@@ -4,6 +4,7 @@
 --   team_task_ack_statement()   the approved, versioned statement text
 --   team_task_ack_member_linked() "is this member linked to this athlete,
 --                               in this role, on this team, right now?"
+--   team_task_ack_counts()      "does this stored acknowledgment still count?"
 --   team_task_acknowledge()     the ONLY way to record an acknowledgment
 --   team_task_ack_status()      per task x athlete x requirement status
 --
@@ -22,9 +23,16 @@
 --   both    -> both of the above
 -- A requirement is satisfied only by an acknowledgment of the task's
 -- CURRENT revision (team_tasks.revision — bumped by the database on every
--- substantive change, see phase_t2) made by a member who is STILL linked
--- to that athlete in that role. Acknowledgments of older revisions, or by
--- since-unlinked/removed members, are kept as history but no longer count.
+-- substantive change, see phase_t2) whose identity still holds the
+-- relationship (team_task_ack_counts):
+--   * the acknowledging team_members row still exists, and
+--   * it still belongs to the SAME account it had when it acknowledged
+--     (NULL only for a legacy team-login member), and
+--   * it is still linked to that athlete, in that role, on this team.
+-- So an acknowledgment stops counting when the parent is unlinked, the
+-- member row is deleted or changes role, or the account that made it is
+-- deleted (its team_members row survives with account_id NULL). The row is
+-- always kept as history.
 --
 -- ── Trust boundary ─────────────────────────────────────────────────────
 -- The app server is the only caller (service_role). It authenticates the
@@ -48,11 +56,14 @@
 -- ── Append-only ────────────────────────────────────────────────────────
 -- Rows can only be inserted by team_task_acknowledge() (transaction-local
 -- flag, same pattern as phase_t2's team_task_resources). They can never be
--- updated or deleted, with one exception: when a referenced athlete,
--- member or account row is deleted, its foreign key is set to NULL — and
--- the guard verifies the referenced row really is gone before allowing
--- that. TRUNCATE is blocked. Tasks with acknowledgments cannot be deleted
--- (ON DELETE RESTRICT; the app only ever archives tasks).
+-- updated or deleted, with one exception: when a referenced athlete or
+-- member row is deleted, its foreign key is set to NULL — and the guard
+-- verifies the referenced row really is gone before allowing that.
+-- account_id is a snapshot of the acknowledging account (no foreign key),
+-- so it is never cleared: deleting that account leaves the record intact
+-- and makes it stop counting. TRUNCATE is blocked. Tasks with
+-- acknowledgments cannot be deleted (ON DELETE RESTRICT; the app only ever
+-- archives tasks).
 --
 -- ── Privileges ─────────────────────────────────────────────────────────
 -- RLS enabled, no policies. Supabase's default privileges grant ALL on new
@@ -60,7 +71,7 @@
 -- this migration revokes all of it and grants back only what the app
 -- needs: service_role SELECT + INSERT on the table (INSERT is still
 -- refused by the guard outside team_task_acknowledge()), and EXECUTE on
--- the four callable functions. anon/authenticated get nothing.
+-- the five callable functions. anon/authenticated get nothing.
 
 BEGIN;
 
@@ -74,11 +85,14 @@ CREATE TABLE IF NOT EXISTS public.team_task_acknowledgments (
   task_id                uuid        NOT NULL REFERENCES public.team_tasks(id)   ON DELETE RESTRICT,
   task_revision          integer     NOT NULL,
   requirement            text        NOT NULL,
-  -- Live links. Set to NULL (never deleted) if the athlete, member or
-  -- account is later deleted; the snapshots below keep the record readable.
+  -- Live links. Set to NULL (never deleted) if the athlete or member is
+  -- later deleted; the snapshots below keep the record readable.
   athlete_id             uuid        REFERENCES public.athletes(id)     ON DELETE SET NULL,
   member_id              uuid        REFERENCES public.team_members(id) ON DELETE SET NULL,
-  account_id             uuid        REFERENCES public.elf_accounts(id) ON DELETE SET NULL,
+  -- The account that acknowledged (NULL = legacy team-login member).
+  -- Deliberately NOT a foreign key: it must survive account deletion
+  -- unchanged so team_task_ack_counts() can tell the identity is gone.
+  account_id             uuid,
   -- What the person typed, and what the database knew at the time.
   full_name              text        NOT NULL,
   member_name_snapshot   text,
@@ -146,14 +160,15 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- UPDATE: only a foreign key being cleared because the row it pointed
-  -- at was deleted (ON DELETE SET NULL). Everything else is immutable.
+  -- UPDATE: only athlete_id/member_id being cleared because the row it
+  -- pointed at was deleted (ON DELETE SET NULL). Everything else,
+  -- including the account_id snapshot, is immutable.
   IF (NEW.id, NEW.campaign_slug, NEW.task_id, NEW.task_revision, NEW.requirement,
-      NEW.full_name, NEW.member_name_snapshot, NEW.athlete_name_snapshot,
+      NEW.account_id, NEW.full_name, NEW.member_name_snapshot, NEW.athlete_name_snapshot,
       NEW.task_title_snapshot, NEW.statement_version, NEW.statement_text, NEW.acknowledged_at)
      IS DISTINCT FROM
      (OLD.id, OLD.campaign_slug, OLD.task_id, OLD.task_revision, OLD.requirement,
-      OLD.full_name, OLD.member_name_snapshot, OLD.athlete_name_snapshot,
+      OLD.account_id, OLD.full_name, OLD.member_name_snapshot, OLD.athlete_name_snapshot,
       OLD.task_title_snapshot, OLD.statement_version, OLD.statement_text, OLD.acknowledged_at)
   THEN
     RAISE EXCEPTION 'team_task_acknowledgments_append_only';
@@ -169,13 +184,6 @@ BEGIN
   IF NEW.member_id IS DISTINCT FROM OLD.member_id AND (
        NEW.member_id IS NOT NULL
        OR EXISTS (SELECT 1 FROM public.team_members m WHERE m.id = OLD.member_id)
-  ) THEN
-    RAISE EXCEPTION 'team_task_acknowledgments_append_only';
-  END IF;
-
-  IF NEW.account_id IS DISTINCT FROM OLD.account_id AND (
-       NEW.account_id IS NOT NULL
-       OR EXISTS (SELECT 1 FROM public.elf_accounts e WHERE e.id = OLD.account_id)
   ) THEN
     RAISE EXCEPTION 'team_task_acknowledgments_append_only';
   END IF;
@@ -249,6 +257,32 @@ AS $$
   );
 $$;
 
+-- Does a stored acknowledgment (made by p_member_id while it belonged to
+-- p_account_id) still count for this athlete and role? Only while that
+-- member row still exists, still belongs to the same account, and is still
+-- linked. Used for every "satisfied" decision, so submission and status
+-- can never disagree.
+CREATE OR REPLACE FUNCTION public.team_task_ack_counts(
+  p_member_id     uuid,
+  p_account_id    uuid,
+  p_athlete_id    uuid,
+  p_requirement   text,
+  p_campaign_slug text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  SELECT p_member_id IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.team_members m
+      WHERE m.id = p_member_id
+        AND m.account_id IS NOT DISTINCT FROM p_account_id
+    )
+    AND public.team_task_ack_member_linked(p_member_id, p_athlete_id, p_requirement, p_campaign_slug);
+$$;
+
 -- ═══════════════════════════════════════════════════════════════════════
 -- 4. team_task_acknowledge()
 -- ═══════════════════════════════════════════════════════════════════════
@@ -268,6 +302,14 @@ $$;
 --     (this call then sees the new revision and fails with
 --     team_task_ack_revision_changed) or waits until this call commits
 --     (the rows written here correctly record the old revision).
+--   * The athletes (FOR KEY SHARE), the member row (FOR SHARE) and the
+--     member's team_member_athletes links to them (FOR KEY SHARE) are
+--     locked before the link check. A concurrent unlink, member deletion,
+--     role/athlete/account change or athlete deletion either commits
+--     first (this call then sees it and is refused) or waits until this
+--     call commits (and the acknowledgment then stops counting, per
+--     team_task_ack_counts). Lock order athletes -> member -> links
+--     matches the order a delete cascades in.
 --   * A transaction-scoped advisory lock per (task, athlete, requirement),
 --     taken in athlete-id order, serializes two people acknowledging the
 --     same requirement at once: exactly one is recorded, the other gets
@@ -332,11 +374,28 @@ BEGIN
     RAISE EXCEPTION 'team_task_ack_revision_changed';
   END IF;
 
+  SELECT array_agg(DISTINCT x ORDER BY x) INTO v_athletes
+  FROM unnest(p_athlete_ids) AS x
+  WHERE x IS NOT NULL;
+  IF v_athletes IS NULL OR cardinality(v_athletes) = 0 THEN
+    RAISE EXCEPTION 'team_task_ack_no_athletes';
+  END IF;
+  IF cardinality(v_athletes) > 50 THEN
+    RAISE EXCEPTION 'team_task_ack_too_many_athletes';
+  END IF;
+
+  -- Hold the relationship steady until this transaction ends (see above).
+  PERFORM 1 FROM public.athletes a
+  WHERE a.id = ANY (v_athletes)
+  ORDER BY a.id
+  FOR KEY SHARE;
+
   -- Person: a member of this team, with this role, owned by the account
   -- the app authenticated (both NULL only for a legacy team-login member).
   SELECT * INTO v_member
   FROM public.team_members m
-  WHERE m.id = p_member_id AND m.campaign_slug = p_campaign_slug;
+  WHERE m.id = p_member_id AND m.campaign_slug = p_campaign_slug
+  FOR SHARE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'team_task_ack_member_not_found';
   END IF;
@@ -347,16 +406,12 @@ BEGIN
     RAISE EXCEPTION 'team_task_ack_role_mismatch';
   END IF;
 
-  -- Athletes: at least one, every one on this team and linked right now.
-  SELECT array_agg(DISTINCT x ORDER BY x) INTO v_athletes
-  FROM unnest(p_athlete_ids) AS x
-  WHERE x IS NOT NULL;
-  IF v_athletes IS NULL OR cardinality(v_athletes) = 0 THEN
-    RAISE EXCEPTION 'team_task_ack_no_athletes';
-  END IF;
-  IF cardinality(v_athletes) > 50 THEN
-    RAISE EXCEPTION 'team_task_ack_too_many_athletes';
-  END IF;
+  PERFORM 1 FROM public.team_member_athletes l
+  WHERE l.team_member_id = p_member_id AND l.athlete_id = ANY (v_athletes)
+  ORDER BY l.id
+  FOR KEY SHARE;
+
+  -- Athletes: every one on this team and linked right now.
   FOREACH v_athlete_id IN ARRAY v_athletes LOOP
     IF NOT public.team_task_ack_member_linked(p_member_id, v_athlete_id, p_requirement, p_campaign_slug) THEN
       RAISE EXCEPTION 'team_task_ack_athlete_not_linked';
@@ -376,8 +431,7 @@ BEGIN
       AND k.task_revision = v_task.revision
       AND k.athlete_id = v_athlete_id
       AND k.requirement = p_requirement
-      AND k.member_id IS NOT NULL
-      AND public.team_task_ack_member_linked(k.member_id, v_athlete_id, p_requirement, p_campaign_slug)
+      AND public.team_task_ack_counts(k.member_id, k.account_id, v_athlete_id, p_requirement, p_campaign_slug)
     ORDER BY k.acknowledged_at, k.id
     LIMIT 1;
 
@@ -490,8 +544,7 @@ AS $$
         AND k.task_revision < r.revision
         AND k.athlete_id = r.athlete_id
         AND k.requirement = r.requirement
-        AND k.member_id IS NOT NULL
-        AND public.team_task_ack_member_linked(k.member_id, r.athlete_id, r.requirement, p_campaign_slug)
+        AND public.team_task_ack_counts(k.member_id, k.account_id, r.athlete_id, r.requirement, p_campaign_slug)
     )
   FROM r
   LEFT JOIN LATERAL (
@@ -501,8 +554,7 @@ AS $$
       AND k.task_revision = r.revision
       AND k.athlete_id = r.athlete_id
       AND k.requirement = r.requirement
-      AND k.member_id IS NOT NULL
-      AND public.team_task_ack_member_linked(k.member_id, r.athlete_id, r.requirement, p_campaign_slug)
+      AND public.team_task_ack_counts(k.member_id, k.account_id, r.athlete_id, r.requirement, p_campaign_slug)
     ORDER BY k.acknowledged_at, k.id
     LIMIT 1
   ) s ON true;
@@ -526,6 +578,11 @@ REVOKE ALL     ON FUNCTION public.team_task_ack_member_linked(uuid, uuid, text, 
 REVOKE EXECUTE ON FUNCTION public.team_task_ack_member_linked(uuid, uuid, text, text) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.team_task_ack_member_linked(uuid, uuid, text, text) FROM authenticated;
 GRANT  EXECUTE ON FUNCTION public.team_task_ack_member_linked(uuid, uuid, text, text) TO service_role;
+
+REVOKE ALL     ON FUNCTION public.team_task_ack_counts(uuid, uuid, uuid, text, text) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.team_task_ack_counts(uuid, uuid, uuid, text, text) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.team_task_ack_counts(uuid, uuid, uuid, text, text) FROM authenticated;
+GRANT  EXECUTE ON FUNCTION public.team_task_ack_counts(uuid, uuid, uuid, text, text) TO service_role;
 
 REVOKE ALL     ON FUNCTION public.team_task_acknowledge(uuid, text, integer, text, uuid[], uuid, uuid, text, integer) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.team_task_acknowledge(uuid, text, integer, text, uuid[], uuid, uuid, text, integer) FROM anon;

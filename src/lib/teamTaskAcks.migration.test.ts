@@ -19,6 +19,7 @@ const FUNCTIONS = {
   team_task_ack_member_linked: "uuid, uuid, text, text",
   team_task_acknowledge:       "uuid, text, integer, text, uuid\\[\\], uuid, uuid, text, integer",
   team_task_ack_status:        "text, uuid\\[\\], uuid\\[\\]",
+  team_task_ack_counts:        "uuid, uuid, uuid, text, text",
 } as const;
 
 test("one transaction; additive: creates only its own table, never alters/drops/writes existing objects", () => {
@@ -73,7 +74,7 @@ test("functions: service_role-only EXECUTE; guard executable by no API role", ()
 
 test("every function: empty search_path and schema-qualified references", () => {
   assert.deepEqual([...bodies.keys()].sort(), [
-    "team_task_ack_member_linked", "team_task_ack_statement", "team_task_ack_status", "team_task_acknowledge", "team_task_acknowledgments_guard",
+    "team_task_ack_counts", "team_task_ack_member_linked", "team_task_ack_statement", "team_task_ack_status", "team_task_acknowledge", "team_task_acknowledgments_guard",
   ]);
   for (const [name, { header, body }] of bodies) {
     assert.match(header, /SET search_path = ''\s*$/, `${name}: search_path`);
@@ -82,11 +83,13 @@ test("every function: empty search_path and schema-qualified references", () => 
   }
 });
 
-test("history survives deletes: task RESTRICT; athlete/member/account SET NULL with snapshots", () => {
+test("history survives deletes: task RESTRICT; athlete/member SET NULL; account id is an immutable snapshot", () => {
   assert.match(code, /task_id\s+uuid\s+NOT NULL REFERENCES public\.team_tasks\(id\)\s+ON DELETE RESTRICT/);
   assert.match(code, /athlete_id\s+uuid\s+REFERENCES public\.athletes\(id\)\s+ON DELETE SET NULL/);
   assert.match(code, /member_id\s+uuid\s+REFERENCES public\.team_members\(id\) ON DELETE SET NULL/);
-  assert.match(code, /account_id\s+uuid\s+REFERENCES public\.elf_accounts\(id\) ON DELETE SET NULL/);
+  // Not a foreign key: it must survive account deletion unchanged.
+  assert.match(code, /^\s+account_id\s+uuid,\s*$/m);
+  assert.doesNotMatch(code, /REFERENCES public\.elf_accounts/);
   for (const col of ["member_name_snapshot", "athlete_name_snapshot", "task_title_snapshot", "statement_text"]) assert.ok(code.includes(col), col);
 });
 
@@ -98,7 +101,8 @@ test("append-only guard: inserts via the function flag only; no updates except v
   // A cleared FK is allowed only once the referenced row is really gone.
   assert.match(guard, /EXISTS \(SELECT 1 FROM public\.athletes a WHERE a\.id = OLD\.athlete_id\)/);
   assert.match(guard, /EXISTS \(SELECT 1 FROM public\.team_members m WHERE m\.id = OLD\.member_id\)/);
-  assert.match(guard, /EXISTS \(SELECT 1 FROM public\.elf_accounts e WHERE e\.id = OLD\.account_id\)/);
+  assert.doesNotMatch(guard, /elf_accounts/);
+  assert.match(guard, /NEW\.requirement,\s+NEW\.account_id,/); // account_id is in the immutable tuple
   assert.match(code, /BEFORE INSERT OR UPDATE OR DELETE ON public\.team_task_acknowledgments/);
   assert.match(code, /BEFORE TRUNCATE ON public\.team_task_acknowledgments\s+FOR EACH STATEMENT/);
   const ack = bodies.get("team_task_acknowledge")!.body;
@@ -118,6 +122,12 @@ test("acknowledge(): identity, team, role, link and revision are checked by the 
   assert.match(ack, /WHERE t\.id = p_task_id AND t\.campaign_slug = p_campaign_slug\s+FOR SHARE;/);
   assert.match(ack, /IF v_member\.account_id IS DISTINCT FROM p_account_id THEN/);
   assert.match(ack, /pg_advisory_xact_lock\(/);
+  // Relationship rows are locked (athletes -> member -> links) before the link check.
+  const athletes = ack.search(/FROM public\.athletes a\s+WHERE a\.id = ANY \(v_athletes\)\s+ORDER BY a\.id\s+FOR KEY SHARE;/);
+  const member = ack.search(/WHERE m\.id = p_member_id AND m\.campaign_slug = p_campaign_slug\s+FOR SHARE;/);
+  const links = ack.search(/FROM public\.team_member_athletes l\s+WHERE l\.team_member_id = p_member_id AND l\.athlete_id = ANY \(v_athletes\)\s+ORDER BY l\.id\s+FOR KEY SHARE;/);
+  const linkCheck = ack.indexOf("IF NOT public.team_task_ack_member_linked(p_member_id, v_athlete_id");
+  assert.ok(athletes > 0 && member > athletes && links > member && linkCheck > links, "lock order athletes -> member -> links -> check");
   assert.match(ack, /array_agg\(DISTINCT x ORDER BY x\)/); // lock order -> no deadlocks
   // Snapshots and statement come from the database, never the caller.
   assert.match(ack, /v_statement := public\.team_task_ack_statement\(p_statement_version\);/);
@@ -134,4 +144,17 @@ test("approved statement, version 1, verbatim", () => {
 test("uniqueness: one acknowledgment per person, athlete, requirement and task revision", () => {
   assert.match(code, /CREATE UNIQUE INDEX IF NOT EXISTS tta_one_per_person_revision\s+ON public\.team_task_acknowledgments \(task_id, task_revision, athlete_id, requirement, member_id\)\s+WHERE athlete_id IS NOT NULL AND member_id IS NOT NULL;/);
   assert.match(code, /CONSTRAINT tta_requirement_check CHECK \(requirement IN \('athlete', 'parent'\)\)/);
+});
+
+test("counting rule: same member, same account, still linked — used by submission and status alike", () => {
+  const counts = bodies.get("team_task_ack_counts")!.body;
+  assert.match(counts, /p_member_id IS NOT NULL/);
+  assert.match(counts, /m\.account_id IS NOT DISTINCT FROM p_account_id/);
+  assert.match(counts, /public\.team_task_ack_member_linked\(p_member_id, p_athlete_id, p_requirement, p_campaign_slug\)/);
+  const ack = bodies.get("team_task_acknowledge")!.body;
+  const status = bodies.get("team_task_ack_status")!.body;
+  assert.match(ack, /public\.team_task_ack_counts\(k\.member_id, k\.account_id, v_athlete_id, p_requirement, p_campaign_slug\)/);
+  assert.equal(status.match(/public\.team_task_ack_counts\(k\.member_id, k\.account_id, r\.athlete_id, r\.requirement, p_campaign_slug\)/g)?.length, 2);
+  // No stored acknowledgment is ever judged by link alone.
+  assert.doesNotMatch(ack + status, /team_task_ack_member_linked\(k\./);
 });

@@ -115,7 +115,8 @@ SELECT qa.check('grants: callable functions executable by service_role only',
 FROM unnest(ARRAY['public.team_task_acknowledge(uuid,text,integer,text,uuid[],uuid,uuid,text,integer)',
                   'public.team_task_ack_status(text,uuid[],uuid[])',
                   'public.team_task_ack_member_linked(uuid,uuid,text,text)',
-                  'public.team_task_ack_statement(integer)']) f;
+                  'public.team_task_ack_statement(integer)',
+                  'public.team_task_ack_counts(uuid,uuid,uuid,text,text)']) f;
 SELECT qa.check('RLS enabled, no policies',
   (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.team_task_acknowledgments'::regclass)
   AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'team_task_acknowledgments'));
@@ -233,6 +234,9 @@ SELECT qa.check('status: athlete with no account and no parent -> not satisfied,
 SELECT qa.check('status: T_both for Emma -> athlete and parent satisfied, with who/when',
   (SELECT bool_and(satisfied AND acknowledged_at IS NOT NULL AND acknowledged_full_name IS NOT NULL) AND count(*) = 2
    FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_both')])));
+SELECT qa.check('status: legacy team-login parent (no account) acknowledgment counts',
+  (SELECT satisfied AND acknowledged_by_member_id = '00000000-0000-0000-0000-0000000000c4'
+   FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], ARRAY[qa.id('T_par')]) WHERE requirement = 'parent'));
 SELECT qa.check('status: T_both for Jake -> parent satisfied, athlete outstanding (Jake has no account)',
   (SELECT bool_and(CASE requirement WHEN 'parent' THEN satisfied ELSE NOT satisfied AND NOT has_eligible_member END)
    FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], ARRAY[qa.id('T_both')])));
@@ -252,6 +256,21 @@ SELECT qa.expect_error('unlink: the unlinked parent can no longer acknowledge fo
 SELECT qa.check('unlink: another still-linked parent can now satisfy it',
   (SELECT outcome = 'recorded' FROM qa.ack('T_both', 'team-a', 1, 'parent', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], '00000000-0000-0000-0000-0000000000c6', '00000000-0000-0000-0000-0000000000a4', 'Casey Coach')));
 RESET ROLE;
+-- A member whose role changes away from parent stops counting; changing it
+-- back restores it (status is computed live, nothing is rewritten).
+UPDATE public.team_members SET role = 'booster' WHERE id = '00000000-0000-0000-0000-0000000000c4';
+SELECT qa.check('role change: parent turned booster -> acknowledgment stops counting',
+  (SELECT NOT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], ARRAY[qa.id('T_par')]) WHERE requirement = 'parent'));
+UPDATE public.team_members SET role = 'parent' WHERE id = '00000000-0000-0000-0000-0000000000c4';
+SELECT qa.check('role change: restored to parent -> counts again',
+  (SELECT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], ARRAY[qa.id('T_par')]) WHERE requirement = 'parent'));
+-- An athlete member re-linked to a different roster athlete (linkMemberToAthlete).
+UPDATE public.team_members SET athlete_id = '00000000-0000-0000-0000-0000000000b3' WHERE id = '00000000-0000-0000-0000-0000000000c1';
+SELECT qa.check('athlete re-link: Emma''s member row now points elsewhere -> her acknowledgment stops counting',
+  (SELECT NOT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_both')]) WHERE requirement = 'athlete'));
+UPDATE public.team_members SET athlete_id = '00000000-0000-0000-0000-0000000000b1' WHERE id = '00000000-0000-0000-0000-0000000000c1';
+SELECT qa.check('athlete re-link: restored -> counts again',
+  (SELECT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_both')]) WHERE requirement = 'athlete'));
 
 -- ═══ K. Deletion keeps history ═════════════════════════════════════════
 -- Del (athlete b5) and Dee (parent ca) acknowledge T_del; then the athlete,
@@ -270,12 +289,27 @@ DELETE FROM public.athletes WHERE id = '00000000-0000-0000-0000-0000000000b5';
 SELECT qa.check('athlete deleted: both rows kept, athlete_id cleared, athlete name snapshot intact',
   (SELECT count(*) = 2 AND bool_and(athlete_id IS NULL AND athlete_name_snapshot = 'Del Eted')
    FROM public.team_task_acknowledgments WHERE task_id = qa.id('T_del') AND athlete_name_snapshot = 'Del Eted'));
+-- Parent account deleted; its team_members row survives (account_id
+-- cleared there by the existing FK) and stays linked to Emma.
 DELETE FROM public.elf_accounts WHERE id = '00000000-0000-0000-0000-0000000000a3';
-SELECT qa.check('account deleted: row kept, account_id cleared, member link kept',
-  (SELECT account_id IS NULL AND member_id = '00000000-0000-0000-0000-0000000000c3'
+SELECT qa.check('parent account deleted: member row survives, still linked, account cleared on it',
+  (SELECT account_id IS NULL AND athlete_id = '00000000-0000-0000-0000-0000000000b1' FROM public.team_members WHERE id = '00000000-0000-0000-0000-0000000000c3'));
+SELECT qa.check('parent account deleted: acknowledgment row kept unchanged (account_id snapshot, member link, names)',
+  (SELECT account_id = '00000000-0000-0000-0000-0000000000a3' AND member_id = '00000000-0000-0000-0000-0000000000c3' AND full_name = 'Sam Smith' AND member_name_snapshot = 'Sam Smith'
    FROM public.team_task_acknowledgments WHERE task_id = qa.id('T_del') AND athlete_id = '00000000-0000-0000-0000-0000000000b1'));
-SELECT qa.check('account deleted: member still linked, so the acknowledgment still counts',
-  (SELECT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_del')]) WHERE requirement = 'parent'));
+SELECT qa.check('parent account deleted: acknowledgment no longer counts (identity gone)',
+  (SELECT NOT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_del')]) WHERE requirement = 'parent'));
+SELECT qa.check('parent account deleted: Emma''s other linked parent (Pat) can now satisfy T_del',
+  (SELECT outcome = 'recorded' FROM qa.ack('T_del', 'team-a', 1, 'parent', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], '00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000a2', 'Pat Smith')));
+-- Athlete account deleted; the athlete's team_members row survives.
+DELETE FROM public.elf_accounts WHERE id = '00000000-0000-0000-0000-0000000000a1';
+SELECT qa.check('athlete account deleted: acknowledgment row kept with its account snapshot',
+  (SELECT account_id = '00000000-0000-0000-0000-0000000000a1' AND member_id = '00000000-0000-0000-0000-0000000000c1'
+   FROM public.team_task_acknowledgments WHERE task_id = qa.id('T_both') AND requirement = 'athlete'));
+SELECT qa.check('athlete account deleted: athlete acknowledgment no longer counts',
+  (SELECT NOT satisfied FROM public.team_task_ack_status('team-a', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], ARRAY[qa.id('T_both')]) WHERE requirement = 'athlete'));
+SELECT qa.check('member deleted: its acknowledgment never counts (member_id NULL)',
+  NOT public.team_task_ack_counts(NULL, NULL, '00000000-0000-0000-0000-0000000000b1', 'parent', 'team-a'));
 SELECT qa.expect_error('task with acknowledgments cannot be deleted', $q$DELETE FROM public.team_tasks WHERE id = qa.id('T_del')$q$, 'team_task_acknowledgments_task_id_fkey');
 DELETE FROM public.team_tasks WHERE id = qa.id('T_none');
 SELECT qa.check('task without acknowledgments can still be deleted (FK does not block unrelated tasks)',
@@ -288,7 +322,7 @@ SELECT qa.expect_error('owner: UPDATE of content refused', $q$UPDATE public.team
 SELECT qa.expect_error('owner: UPDATE of revision refused', $q$UPDATE public.team_task_acknowledgments SET task_revision = task_revision + 1$q$, 'team_task_acknowledgments_append_only');
 SELECT qa.expect_error('owner: clearing athlete_id while the athlete exists refused', $q$UPDATE public.team_task_acknowledgments SET athlete_id = NULL WHERE athlete_id IS NOT NULL$q$, 'team_task_acknowledgments_append_only');
 SELECT qa.expect_error('owner: clearing member_id while the member exists refused', $q$UPDATE public.team_task_acknowledgments SET member_id = NULL WHERE member_id IS NOT NULL$q$, 'team_task_acknowledgments_append_only');
-SELECT qa.expect_error('owner: clearing account_id while the account exists refused', $q$UPDATE public.team_task_acknowledgments SET account_id = NULL WHERE account_id IS NOT NULL$q$, 'team_task_acknowledgments_append_only');
+SELECT qa.expect_error('owner: changing the account_id snapshot refused (even after the account is deleted)', $q$UPDATE public.team_task_acknowledgments SET account_id = NULL WHERE account_id IS NOT NULL$q$, 'team_task_acknowledgments_append_only');
 SELECT qa.expect_error('owner: re-pointing member_id refused', $q$UPDATE public.team_task_acknowledgments SET member_id = '00000000-0000-0000-0000-0000000000c3' WHERE member_id = '00000000-0000-0000-0000-0000000000c1'$q$, 'team_task_acknowledgments_append_only');
 SELECT qa.expect_error('owner: DELETE refused', 'DELETE FROM public.team_task_acknowledgments', 'team_task_acknowledgments_append_only');
 SELECT qa.expect_error('owner: TRUNCATE refused', 'TRUNCATE public.team_task_acknowledgments', 'team_task_acknowledgments_append_only');
@@ -315,7 +349,7 @@ SELECT qa.expect_error('guard: row whose campaign does not match its task refuse
 -- ═══ N. Rollback and flag scope ════════════════════════════════════════
 SET ROLE service_role;
 SELECT qa.check('flag is off after a successful call (transaction-local, reset by the function)',
-  (SELECT count(*) >= 0 FROM qa.ack('T_both', 'team-a', 1, 'athlete', ARRAY['00000000-0000-0000-0000-0000000000b1'::uuid], '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000a1', 'Emma Smith'))
+  (SELECT count(*) >= 0 FROM qa.ack('T_par', 'team-a', 1, 'parent', ARRAY['00000000-0000-0000-0000-0000000000b2'::uuid], '00000000-0000-0000-0000-0000000000c4', NULL, 'Lee Legacy'))
   AND coalesce(current_setting('elf.team_task_ack_write', true), '') IN ('', 'off'));
 RESET ROLE;
 BEGIN;
