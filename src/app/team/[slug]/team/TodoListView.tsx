@@ -18,6 +18,9 @@ import styles from "./Team.module.css";
 // them earlier would be misleading. The detail view leaves room for them
 // (see TaskDetail).
 //
+// Uses <div>s, not <section>: globals.css has a marketing-site rule
+// `section { padding: 6rem 5%; }` that would add ~96px above and below.
+//
 // Every permission shown here is a convenience only; each
 // /api/team/[slug]/todo/* route enforces it server-side.
 
@@ -210,21 +213,21 @@ function TaskDetail({
 
       <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem", marginTop: "1rem" }}>
         {task.instructions && (
-          <section>
+          <div>
             <h3 style={detailLabel}>Instructions</h3>
             <p style={bodyText}>{task.instructions}</p>
-          </section>
+          </div>
         )}
 
         {task.body_text && (
-          <section>
+          <div>
             <h3 style={detailLabel}>Details</h3>
             <p style={bodyText}>{task.body_text}</p>
-          </section>
+          </div>
         )}
 
         {links.length > 0 && (
-          <section>
+          <div>
             <h3 style={detailLabel}>Links</h3>
             <ul className={styles.todoList}>
               {links.map(r => (
@@ -236,11 +239,11 @@ function TaskDetail({
                 </li>
               ))}
             </ul>
-          </section>
+          </div>
         )}
 
         {docs.length > 0 && (
-          <section>
+          <div>
             <h3 style={detailLabel}>Documents</h3>
             <ul className={styles.todoList}>
               {docs.map(r => {
@@ -272,7 +275,7 @@ function TaskDetail({
                 );
               })}
             </ul>
-          </section>
+          </div>
         )}
 
         {!task.instructions && !task.body_text && links.length === 0 && docs.length === 0 && (
@@ -411,7 +414,7 @@ export default function TodoListView({ slug }: { slug: string }) {
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             To-Do List
           </h2>
-          <p style={{ margin: ".2rem 0 .85rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+          <p style={{ margin: ".2rem 0 1rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
             {isCoachView
               ? "Tasks for athletes and parents, plus the team's forms and links."
               : "Things to do for the team, plus forms and links."}
@@ -424,13 +427,13 @@ export default function TodoListView({ slug }: { slug: string }) {
           )}
 
           {showTasks && (
-            <section aria-labelledby="todo-active-heading" style={{ marginBottom: "1.25rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: ".5rem", minHeight: 40, marginBottom: ".45rem" }}>
+            <div role="region" aria-labelledby="todo-active-heading" style={{ marginBottom: "1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".5rem" }}>
                 <h3 id="todo-active-heading" style={{ ...sectionHeading, flex: 1, minWidth: 0 }}>
                   {isCoachView ? "Active Tasks" : "Tasks"}
                 </h3>
                 {canManage && data.available && (
-                  <button type="button" onClick={() => setEditTarget("new")} style={{ ...primaryBtn, flexShrink: 0 }}>+ Create Task</button>
+                  <button type="button" onClick={() => setEditTarget("new")} style={{ ...primaryBtn, minHeight: 36, padding: ".35rem .8rem", flexShrink: 0 }}>+ Create Task</button>
                 )}
               </div>
 
@@ -450,7 +453,7 @@ export default function TodoListView({ slug }: { slug: string }) {
 
               {canManage && data.available && (
                 <div style={{ marginTop: ".5rem" }}>
-                  <button type="button" onClick={toggleArchived} aria-expanded={showArchived} style={textBtn}>
+                  <button type="button" onClick={toggleArchived} aria-expanded={showArchived} style={{ ...textBtn, minHeight: 36 }}>
                     {showArchived ? "Hide Archived Tasks" : "Show Archived Tasks"}
                   </button>
                   {showArchived && (
@@ -469,7 +472,7 @@ export default function TodoListView({ slug }: { slug: string }) {
                   )}
                 </div>
               )}
-            </section>
+            </div>
           )}
         </div>
       )}

@@ -123,6 +123,30 @@ test("detail view: back action, full content, and Head Coach actions inside it",
   has(todo, `whiteSpace: "pre-wrap", overflowWrap: "anywhere"`);
 });
 
+test("no <section> elements: globals.css `section { padding: 6rem 5% }` would add ~96px gaps", () => {
+  const global = src("../../../globals.css");
+  assert.match(global, /\nsection \{\s*padding: 6rem 5%;/); // the rule this guards against
+  for (const [name, code] of [["TodoListView", todo], ["ClearanceView", clearance]] as const) {
+    assert.doesNotMatch(withoutComments(code), /<section\b/, name);
+  }
+  // Vertical rhythm: 16px under the description, 24px between Tasks and Resources.
+  has(todo, `margin: ".2rem 0 1rem", fontSize: ".82rem"`);
+  has(todo, `<div role="region" aria-labelledby="todo-active-heading" style={{ marginBottom: "1.5rem" }}>`);
+  assert.doesNotMatch(withoutComments(todo), /minHeight: "?100(vh|%)|justifyContent: "space-(between|around)"/);
+});
+
+test("Resources is a compact list matching the task rows, with every existing action", () => {
+  has(clearance, `import styles from "./Team.module.css";`);
+  assert.match(clearance, /<ul className=\{styles\.todoList\}>\s*\{resources\.map/);
+  const card = clearance.slice(clearance.indexOf("function ResourceCard"), clearance.indexOf("function EditModal"));
+  has(card, `<li style={{ padding: ".65rem 1rem" }}>`);
+  assert.doesNotMatch(card, /boxShadow/);
+  for (const label of ["Open Link", "View", "Download", "Edit", "Move Up", "Move Down", "Delete"]) {
+    assert.match(card, new RegExp(`>\\s*${label}\\s*<|"${label}"`), label);
+  }
+  has(card, "{canManage && (");
+});
+
 // ── Migration ─────────────────────────────────────────────────────────────
 
 // Function bodies ($$ … $$), keyed by function name. Anchored on CREATE OR

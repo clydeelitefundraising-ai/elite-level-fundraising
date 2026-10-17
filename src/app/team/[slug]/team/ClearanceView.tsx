@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
+import styles from "./Team.module.css";
 
 type Attachment = { id: string; name: string; file_type: "pdf" | "image" | "doc"; size_bytes: number };
 
@@ -38,6 +39,17 @@ const inp: React.CSSProperties = {
   boxSizing: "border-box",
   color: "#111827",
   background: "#fff",
+};
+
+// Compact Resources row controls (Team Management Phase 2).
+const rowBtn: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", minHeight: 36, padding: ".3rem .7rem",
+  background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8,
+  fontSize: ".78rem", fontWeight: 700, cursor: "pointer",
+};
+const manageBtn: React.CSSProperties = {
+  minHeight: 32, background: "none", border: "none", cursor: "pointer",
+  fontSize: ".72rem", fontWeight: 700, padding: ".25rem .4rem",
 };
 
 const lbl: React.CSSProperties = {
@@ -94,68 +106,64 @@ function ResourceCard({
     }
   };
 
+  // Team Management Phase 2: a compact row in the Resources list (same
+  // bordered list as the To-Do task rows). Same actions as before.
   return (
-    <div style={{
-      background: "#fff", borderRadius: 12, padding: ".9rem 1rem",
-      boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-    }}>
-      <div style={{ fontWeight: 700, fontSize: ".92rem", color: "#0b1e3d", marginBottom: resource.description ? ".2rem" : ".5rem" }}>
-        {resource.title}
-      </div>
-      {resource.description && (
-        <p style={{ margin: "0 0 .55rem", fontSize: ".8rem", color: "#6b7280", lineHeight: 1.5 }}>
-          {resource.description}
-        </p>
-      )}
+    <li style={{ padding: ".65rem 1rem" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".45rem .75rem" }}>
+        <div style={{ flex: "1 1 10rem", minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: ".92rem", color: "#0b1e3d", lineHeight: 1.35, overflowWrap: "anywhere" }}>
+            {resource.title}
+          </div>
+          {resource.description && (
+            <p style={{ margin: ".1rem 0 0", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.45, overflowWrap: "anywhere" }}>
+              {resource.description}
+            </p>
+          )}
+        </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", marginTop: ".3rem" }}>
-        {resource.url && (
-          <a
-            href={resource.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ padding: ".4rem .75rem", background: "#0b1e3d", color: "#fff", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
-          >
-            Open Link
-          </a>
-        )}
-        {resource.attachment && PREVIEWABLE_TYPES.has(resource.attachment.file_type) && (
-          <button
-            onClick={() => onView(resource.attachment!)}
-            style={{ padding: ".4rem .75rem", background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, cursor: "pointer" }}
-          >
-            View Attachment
-          </button>
-        )}
-        {resource.attachment && (
-          <button
-            onClick={() => onDownload(resource.attachment!)}
-            disabled={downloading}
-            style={{ padding: ".4rem .75rem", background: "#f3f4f6", color: "#0b1e3d", border: "none", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, cursor: downloading ? "not-allowed" : "pointer", opacity: downloading ? .7 : 1 }}
-          >
-            {downloading ? "Downloading…" : "Download Attachment"}
-          </button>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem" }}>
+          {resource.url && (
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" style={{ ...rowBtn, background: "#0b1e3d", color: "#fff", textDecoration: "none" }}>
+              Open Link
+            </a>
+          )}
+          {resource.attachment && PREVIEWABLE_TYPES.has(resource.attachment.file_type) && (
+            <button onClick={() => onView(resource.attachment!)} aria-label={`View attachment for ${resource.title}`} style={rowBtn}>
+              View
+            </button>
+          )}
+          {resource.attachment && (
+            <button
+              onClick={() => onDownload(resource.attachment!)}
+              disabled={downloading}
+              aria-label={`Download attachment for ${resource.title}`}
+              style={{ ...rowBtn, cursor: downloading ? "not-allowed" : "pointer", opacity: downloading ? .7 : 1 }}
+            >
+              {downloading ? "Downloading…" : "Download"}
+            </button>
+          )}
+        </div>
       </div>
 
       {canManage && (
-        <div style={{ display: "flex", gap: ".4rem", marginTop: ".65rem", paddingTop: ".55rem", borderTop: "1px solid #f3f4f6" }}>
-          <button disabled={busy} onClick={() => onEdit(resource)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 700, color: "#0b1e3d", padding: ".25rem .4rem" }}>
+        <div style={{ display: "flex", gap: ".25rem", marginTop: ".3rem" }}>
+          <button disabled={busy} onClick={() => onEdit(resource)} style={{ ...manageBtn, color: "#0b1e3d" }}>
             Edit
           </button>
-          <button disabled={busy || isFirst} onClick={() => move("up")} style={{ background: "none", border: "none", cursor: isFirst ? "default" : "pointer", fontSize: ".72rem", fontWeight: 700, color: isFirst ? "#d1d5db" : "#374151", padding: ".25rem .4rem" }}>
+          <button disabled={busy || isFirst} onClick={() => move("up")} style={{ ...manageBtn, cursor: isFirst ? "default" : "pointer", color: isFirst ? "#d1d5db" : "#374151" }}>
             Move Up
           </button>
-          <button disabled={busy || isLast} onClick={() => move("down")} style={{ background: "none", border: "none", cursor: isLast ? "default" : "pointer", fontSize: ".72rem", fontWeight: 700, color: isLast ? "#d1d5db" : "#374151", padding: ".25rem .4rem" }}>
+          <button disabled={busy || isLast} onClick={() => move("down")} style={{ ...manageBtn, cursor: isLast ? "default" : "pointer", color: isLast ? "#d1d5db" : "#374151" }}>
             Move Down
           </button>
           <div style={{ flex: 1 }} />
-          <button disabled={busy} onClick={handleDelete} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".72rem", fontWeight: 700, color: "#dc2626", padding: ".25rem .4rem" }}>
+          <button disabled={busy} onClick={handleDelete} style={{ ...manageBtn, color: "#dc2626" }}>
             Delete
           </button>
         </div>
       )}
-    </div>
+    </li>
   );
 }
 
@@ -347,7 +355,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: ".5rem", minHeight: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
         {/* Team Management Phase 2: shown as the "Resources" section of the
             To-Do List tab (TodoListView.tsx). Same data, API and permissions. */}
         <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
@@ -357,13 +365,13 @@ export default function ClearanceView({ slug }: { slug: string }) {
         {canManage && (
           <button
             onClick={() => setEditTarget("new")}
-            style={{ padding: ".45rem .85rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
+            style={{ minHeight: 36, padding: ".35rem .8rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 8, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
           >
             + Add Resource
           </button>
         )}
       </div>
-      <p style={{ margin: ".2rem 0 .75rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+      <p style={{ margin: ".2rem 0 .5rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
         Registration links, forms, and required documents for the team.
       </p>
 
@@ -376,16 +384,13 @@ export default function ClearanceView({ slug }: { slug: string }) {
       {loading ? (
         <div style={{ padding: ".75rem 0", color: "#9ca3af", fontSize: ".85rem" }}>Loading…</div>
       ) : resources.length === 0 ? (
-        <div style={{
-          background: "#fff", borderRadius: 12, padding: ".75rem 1rem",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
-        }}>
-          <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>
+        <div className={styles.todoList}>
+          <p style={{ margin: 0, padding: ".75rem 1rem", fontSize: ".85rem", color: "#9ca3af" }}>
             No resources yet.
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: ".6rem" }}>
+        <ul className={styles.todoList}>
           {resources.map((r, i) => (
             <ResourceCard
               key={r.id}
@@ -402,7 +407,7 @@ export default function ClearanceView({ slug }: { slug: string }) {
               downloading={downloadingId === r.attachment?.id}
             />
           ))}
-        </div>
+        </ul>
       )}
 
       {editTarget !== null && (
