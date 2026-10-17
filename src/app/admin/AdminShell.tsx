@@ -1,8 +1,15 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { CommandCenter } from "./CommandCenter/CommandCenter";
+import {
+  ADMIN_DESKTOP_MEDIA_QUERY,
+  ADMIN_DRAWER_ID,
+  DRAWER_FOCUSABLE_SELECTOR,
+  lockDocumentScroll,
+  wrapFocusIndex,
+} from "./adminDrawer";
 
 type NavItem = {
   label: string;
@@ -106,12 +113,76 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const title = PAGE_TITLES[pathname] ?? "Admin";
 
+  // ── Mobile navigation drawer (below 900px; see adminResponsive.css) ──
+  // On desktop the menu button is hidden, so mobileOpen never becomes true
+  // there and the sidebar renders exactly as before.
+  const drawerRef     = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef    = useRef(false);
+  const closeDrawer   = useCallback(() => setMobileOpen(false), []);
+
+  // Close on any route change, including ones the drawer didn't start
+  // (Command Center, in-page links). Adjusting state during render is
+  // React's recommended pattern for resetting state when a value changes.
+  const [drawerPath, setDrawerPath] = useState(pathname);
+  if (drawerPath !== pathname) {
+    setDrawerPath(pathname);
+    setMobileOpen(false);
+  }
+
+  // Close if the window grows to desktop width while the drawer is open.
+  useEffect(() => {
+    const mq = window.matchMedia(ADMIN_DESKTOP_MEDIA_QUERY);
+    const onChange = (e: MediaQueryListEvent) => { if (e.matches) setMobileOpen(false); };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // While open: lock page scroll, move focus into the drawer, trap Tab
+  // inside it, and close on Escape. On close, return focus to the menu button.
+  useEffect(() => {
+    if (!mobileOpen) {
+      if (wasOpenRef.current) {
+        wasOpenRef.current = false;
+        menuButtonRef.current?.focus();
+      }
+      return;
+    }
+    wasOpenRef.current = true;
+    const unlock = lockDocumentScroll(document);
+    const drawer = drawerRef.current;
+    const focusables = () =>
+      drawer ? Array.from(drawer.querySelectorAll<HTMLElement>(DRAWER_FOCUSABLE_SELECTOR)) : [];
+    focusables()[0]?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      const next = wrapFocusIndex(items.indexOf(document.activeElement as HTMLElement), items.length, e.shiftKey);
+      if (next !== null) {
+        e.preventDefault();
+        items[next].focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      unlock();
+    };
+  }, [mobileOpen]);
+
   // Global Ctrl+K / ⌘+K shortcut
   const openCC = useCallback(() => setCcOpen(true), []);
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
+        setMobileOpen(false);
         setCcOpen(prev => !prev);
       }
     }
@@ -125,10 +196,19 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f5f7", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+    <div className="adm-shell" data-drawer-open={mobileOpen ? "true" : "false"} style={{ display: "flex", minHeight: "100vh", background: "#f5f5f7", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
 
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
-      <aside style={{
+      {/* ── Mobile drawer backdrop (hidden on desktop by adminResponsive.css) ── */}
+      {mobileOpen && <div className="adm-backdrop" aria-hidden="true" onClick={closeDrawer} />}
+
+      {/* ── Sidebar (permanent on desktop, drawer below 900px) ───────── */}
+      <aside
+        ref={drawerRef}
+        id={ADMIN_DRAWER_ID}
+        className="adm-sidebar"
+        aria-label="Admin navigation"
+        {...(mobileOpen ? { role: "dialog", "aria-modal": true } : {})}
+        style={{
         width: 220, flexShrink: 0, background: "#fff",
         borderRight: "1px solid #e5e7eb",
         display: "flex", flexDirection: "column",
@@ -146,22 +226,25 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <div style={{ fontSize: ".78rem", fontWeight: 700, color: "#1d1d1f", lineHeight: 1.1 }}>Admin Portal</div>
               <div style={{ fontSize: ".6rem", color: "#98989d", fontWeight: 500, letterSpacing: ".03em" }}>Elite Level Fundraising</div>
             </div>
+            <button type="button" className="adm-drawer-close" aria-label="Close navigation menu" onClick={closeDrawer}>
+              <span aria-hidden="true">✕</span>
+            </button>
           </div>
         </div>
 
         {/* Primary nav */}
-        <div role="navigation" style={{ padding: ".5rem .5rem 0", flex: 1 }}>
+        <div role="navigation" aria-label="Admin sections" style={{ padding: ".5rem .5rem 0", flex: 1 }}>
           {NAV_GROUPS.map((group, i) => (
             <div key={group.heading}>
               <NavGroupHeading label={group.heading} first={i === 0} />
-              <NavSection items={group.items} pathname={pathname} router={router} />
+              <NavSection items={group.items} pathname={pathname} router={router} onNavigate={closeDrawer} />
             </div>
           ))}
         </div>
 
         {/* Bottom: logout */}
         <div style={{ padding: ".75rem .5rem 1rem", borderTop: "1px solid #f3f4f6" }}>
-          <button onClick={logout}
+          <button onClick={logout} className="adm-nav-item"
             style={{ width: "100%", textAlign: "left", padding: ".45rem .75rem", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: ".78rem", color: "#6e6e73", fontWeight: 500, display: "flex", alignItems: "center", gap: ".5rem" }}>
             <span style={{ fontSize: ".85rem", opacity: .7 }}>⎋</span>
             Sign out
@@ -173,13 +256,28 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       {ccOpen && <CommandCenter onClose={() => setCcOpen(false)} />}
 
       {/* ── Main content ─────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {/* inert while the mobile drawer is open, so only the drawer is reachable. */}
+      <div inert={mobileOpen} style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
         {/* Header bar */}
-        <header style={{ height: 52, background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", padding: "0 1.75rem", gap: "1rem", flexShrink: 0, position: "sticky", top: 0, zIndex: 10 }}>
-          <h1 style={{ margin: 0, fontSize: ".95rem", fontWeight: 700, color: "#1d1d1f", letterSpacing: "-.01em", flex: 1 }}>{title}</h1>
+        <header className="adm-header" style={{ height: 52, background: "#fff", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", padding: "0 1.75rem", gap: "1rem", flexShrink: 0, position: "sticky", top: 0, zIndex: 10 }}>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            className="adm-menu-btn"
+            aria-label="Open navigation menu"
+            aria-expanded={mobileOpen}
+            aria-controls={ADMIN_DRAWER_ID}
+            onClick={() => setMobileOpen(true)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+            </svg>
+          </button>
+          <h1 className="adm-header-title" style={{ margin: 0, fontSize: ".95rem", fontWeight: 700, color: "#1d1d1f", letterSpacing: "-.01em", flex: 1 }}>{title}</h1>
           <button
             onClick={openCC}
+            className="adm-search-btn"
             aria-label="Open Command Center (Ctrl+K)"
             style={{
               display:       "flex",
@@ -199,15 +297,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e2e8f0"; }}
           >
             <span style={{ fontSize: ".85rem" }}>🔍</span>
-            <span>Search…</span>
-            <kbd style={{ padding: ".1rem .35rem", background: "#e2e8f0", borderRadius: 4, fontSize: ".65rem", color: "#94a3b8", fontFamily: "inherit", marginLeft: ".1rem" }}>
+            <span className="adm-search-label">Search…</span>
+            <kbd className="adm-search-kbd" style={{ padding: ".1rem .35rem", background: "#e2e8f0", borderRadius: 4, fontSize: ".65rem", color: "#94a3b8", fontFamily: "inherit", marginLeft: ".1rem" }}>
               {typeof navigator !== "undefined" && /Mac/.test(navigator.platform) ? "⌘K" : "Ctrl+K"}
             </kbd>
           </button>
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, overflowY: "auto" }}>
+        <main className="adm-main" style={{ flex: 1, overflowY: "auto" }}>
           {children}
         </main>
       </div>
@@ -231,10 +329,12 @@ function NavSection({
   items,
   pathname,
   router,
+  onNavigate,
 }: {
   items: NavItem[];
   pathname: string;
   router: ReturnType<typeof useRouter>;
+  onNavigate: () => void;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -245,9 +345,11 @@ function NavSection({
         return (
           <button
             key={item.href + item.label}
-            onClick={() => { if (!isDisabled) router.push(item.href); }}
+            onClick={() => { if (!isDisabled) { onNavigate(); router.push(item.href); } }}
             disabled={isDisabled}
             aria-disabled={isDisabled}
+            aria-current={active ? "page" : undefined}
+            className="adm-nav-item"
             style={{
               display: "flex", alignItems: "center", gap: ".55rem",
               padding: ".42rem .75rem",
