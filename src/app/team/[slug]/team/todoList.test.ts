@@ -378,5 +378,11 @@ test("detail: unavailable or failed lookups show a message with Try again — ne
   assert.ok(ackUi.indexOf("if (!view) {") < ackUi.indexOf("<form onSubmit={submit}"));
   // A successful submit whose fresh status can't be read says so.
   assert.match(ackUi, /Your acknowledgment was submitted, but we couldn't reload its status\. Please try again\./);
-  assert.match(ackUi, /if \(data\.acknowledgment\) setView\(data\.acknowledgment\);/);
+  assert.match(ackUi, /if \(data\.acknowledgment && allChildrenNamed\(data\.acknowledgment\)\) setView\(data\.acknowledgment\);/);
+});
+
+test("detail: a view with any unnamed child is shown as unavailable — no form, no generic 'Athlete' coverage", () => {
+  assert.match(ackUi, /if \(data\.acknowledgment && !allChildrenNamed\(data\.acknowledgment\)\) \{ setLoadError\(UNAVAILABLE\); setView\(null\); return; \}/);
+  assert.match(ackUi, /if \(data\.acknowledgment && allChildrenNamed\(data\.acknowledgment\)\) \{\s*setView\(data\.acknowledgment\);/);
+  assert.doesNotMatch(ackUi, /\?\? "Athlete"/);
 });

@@ -67,7 +67,8 @@ function makeWorld(opts: { mode?: "ok" | "missing" } = {}) {
   };
   const rpcCalls: { name: string; args: Row }[] = [];
   // failPaths: any REST read whose path contains one of these fails (500).
-  const control: { failAcknowledge?: string; failStatus?: boolean; failPaths: string[] } = { failPaths: [] };
+  const control: { failAcknowledge?: string; failStatus?: boolean; failPaths: string[]; omitNames: string[]; extraNameRows: Row[] } =
+    { failPaths: [], omitNames: [], extraNameRows: [] };
   let n = 0;
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -182,6 +183,9 @@ function makeWorld(opts: { mode?: "ok" | "missing" } = {}) {
     const params = new URLSearchParams(query);
     if (method === "GET") {
       const rows = filter(table, params).map(r => ({ ...r }));
+      if (resource === "athletes") { // name lookups: simulate a row missing from the result, or stray extra rows
+        return json([...rows.filter(r => !control.omitNames.includes(r.id as string)), ...control.extraNameRows]);
+      }
       return json(resource === "team_tasks" ? rows.map(t => ({ ...t, resources: [] })) : rows);
     }
     if (method === "POST") { table.push({ ...body }); return json([body], 201); }
@@ -586,5 +590,100 @@ test("genuinely not applicable stays null (athlete account not linked to a roste
     const get = await (await getAck("t-both")).json();
     assert.equal(get.available, true);
     assert.deepEqual(get.acknowledgment.children, []);
+  });
+});
+
+// ── Athlete names: the coverage statement names every child, or there's no form ──
+
+const UNAVAILABLE_MSG = "Acknowledgments are temporarily unavailable. Please try again.";
+const NAMES_PATH = "athletes?campaign_slug=";
+async function expectNamesUnavailable(res: Response, label = "") {
+  assert.equal(res.status, 503, label);
+  const body = await res.json();
+  assert.equal(body.error, UNAVAILABLE_MSG);
+  assert.equal(body.reason, "names_unavailable");
+  assert.ok(!body.acknowledgment, "no view, so no form");
+}
+
+test("names: a parent with two linked children sees exactly those children, each by name", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.extraNameRows = [{ id: "ath-3", campaign_slug: SLUG, name: "Lone Rider" }]; // a stray row is ignored
+    const view = (await (await getAck("t-par")).json()).acknowledgment;
+    assert.deepEqual(view.children.map((c: Row) => [c.athleteId, c.name]), [["ath-1", "Ava Athlete"], ["ath-2", "Jake Jr"]]);
+    assert.deepEqual([...view.outstandingAthleteIds].sort(), ["ath-1", "ath-2"]);
+    assert.ok(!JSON.stringify(view).includes("Lone Rider"));
+  });
+});
+
+test("names: database lookup failure — unavailable, no form, no write", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.failPaths = [NAMES_PATH];
+    await expectNamesUnavailable(await getAck("t-par"));
+    for (const shown of [["ath-1", "ath-2"], ["ath-1"]]) await expectNamesUnavailable(await postAck("t-par", ok(shown)), JSON.stringify(shown));
+    assert.equal(ackCalls(w).length, 0);
+    assert.equal(w.db.team_task_acknowledgments.length, 0);
+    // Row status doesn't use names; it stays accurate.
+    assert.equal((await myAck())["t-par"], "todo");
+  });
+});
+
+test("names: one child's name missing among several — no partial coverage, no write", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.omitNames = ["ath-2"];
+    await expectNamesUnavailable(await getAck("t-par"));
+    // Neither the full set nor just the named child may be submitted.
+    for (const shown of [["ath-1", "ath-2"], ["ath-1"]]) await expectNamesUnavailable(await postAck("t-par", ok(shown)), JSON.stringify(shown));
+    assert.equal(ackCalls(w).length, 0);
+    assert.equal(w.db.team_task_acknowledgments.length, 0);
+  });
+});
+
+test("names: a blank or null name is treated as missing (parent and athlete)", async () => {
+  for (const blank of ["", "   ", null]) {
+    await withWorld({}, async w => {
+      w.db.athletes.find(a => a.id === "ath-2")!.name = blank;
+      as.member(MEMBERS.parent);
+      await expectNamesUnavailable(await getAck("t-par"), String(blank));
+      await expectNamesUnavailable(await postAck("t-par", ok(["ath-1", "ath-2"])), String(blank));
+      w.db.athletes.find(a => a.id === "ath-1")!.name = blank;
+      as.member(MEMBERS.athlete);
+      await expectNamesUnavailable(await getAck("t-ath"), String(blank));
+      await expectNamesUnavailable(await postAck("t-ath", ok(["ath-1"], { full_name: "Ava Athlete" })), String(blank));
+      assert.equal(ackCalls(w).length, 0, String(blank));
+      assert.equal(w.db.team_task_acknowledgments.length, 0);
+    });
+  }
+});
+
+test("names: recovery after Try again — full coverage, then submit records every child", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.omitNames = ["ath-2"];
+    await expectNamesUnavailable(await getAck("t-par"));
+    w.control.omitNames = [];
+    const view = (await (await getAck("t-par")).json()).acknowledgment;
+    assert.deepEqual(view.children.map((c: Row) => c.name), ["Ava Athlete", "Jake Jr"]);
+    const res = await postAck("t-par", ok(["ath-1", "ath-2"]));
+    assert.equal(res.status, 200);
+    assert.deepEqual(w.db.team_task_acknowledgments.map(k => k.athlete_id).sort(), ["ath-1", "ath-2"]);
+    assert.deepEqual((await res.json()).acknowledgment.outstandingAthleteIds, []);
+  });
+});
+
+test("names: if names fail only after a successful write, the response carries no view (UI says it was submitted)", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    const worldFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      if (ackCalls(w).length > 0) w.control.failPaths = [NAMES_PATH];
+      return worldFetch(url, init);
+    }) as typeof fetch;
+    const res = await postAck("t-par", ok(["ath-1", "ath-2"]));
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).acknowledgment, null);
+    assert.equal(w.db.team_task_acknowledgments.length, 2);
   });
 });

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canViewTask, taskViewerFor } from "@/lib/teamTasks";
 import { getTask } from "@/lib/teamTasksStore";
-import { buildAckView, normalizeAckName, requirementsFor, sameAthleteSet, type AckIdentity } from "@/lib/teamTaskAcks";
+import { allChildrenNamed, buildAckView, normalizeAckName, requirementsFor, sameAthleteSet, type AckIdentity } from "@/lib/teamTaskAcks";
 import {
   getAckStatus,
-  getAthleteNames,
+  getAthleteNamesStrict,
   resolveAckIdentity,
   submitAcknowledgment,
   type AckFailure,
@@ -22,10 +22,11 @@ type RouteContext = { params: Promise<{ slug: string; taskId: string }> };
 // was shown (checked against the server's own list, never trusted). The
 // database function re-checks everything in one transaction.
 
-type AckErrorReason = AckFailure | "already_satisfied" | "children_changed" | "not_confirmed" | "invalid_request";
+type AckErrorReason = AckFailure | "names_unavailable" | "already_satisfied" | "children_changed" | "not_confirmed" | "invalid_request";
 
 const ACK_ERRORS: Record<AckErrorReason, { status: number; error: string }> = {
   unavailable:       { status: 503, error: "Acknowledgments are temporarily unavailable. Please try again." },
+  names_unavailable: { status: 503, error: "Acknowledgments are temporarily unavailable. Please try again." },
   not_found:         { status: 404, error: "Task not found." },
   inactive:          { status: 409, error: "This task is no longer active." },
   not_required:      { status: 400, error: "This task doesn't need your acknowledgment." },
@@ -70,8 +71,20 @@ async function viewFor(slug: string, task: { id: string; revision: number; audie
   }
   const status = await getAckStatus(slug, identity.athleteIds, [task.id]);
   if (!status.ok) return { ok: false as const, reason: status.reason };
-  const names = await getAthleteNames(slug, [...new Set(status.value.map(r => r.athlete_id))]);
-  return { ok: true as const, view: buildAckView(task, identity, status.value, names) };
+  // Names for exactly the server-verified children in the view. If any
+  // can't be resolved there is no view (and so no form or submission) —
+  // never a generic "Athlete" in the coverage statement.
+  const childIds = buildAckView(task, identity, status.value, new Map())?.children.map(c => c.athleteId) ?? [];
+  let names: Map<string, string>;
+  try {
+    names = await getAthleteNamesStrict(slug, childIds);
+  } catch (err) {
+    console.error("[todo/acknowledgment] athlete names unavailable:", err);
+    return { ok: false as const, reason: "names_unavailable" as const };
+  }
+  const view = buildAckView(task, identity, status.value, names);
+  if (view && !allChildrenNamed(view)) return { ok: false as const, reason: "names_unavailable" as const };
+  return { ok: true as const, view };
 }
 
 // GET: what this athlete/parent sees for the task — per child and

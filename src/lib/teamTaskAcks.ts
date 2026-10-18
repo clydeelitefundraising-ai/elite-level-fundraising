@@ -101,7 +101,7 @@ export function buildAckView(
 
   const children: AckChild[] = childIds.map(athleteId => ({
     athleteId,
-    name: athleteNames.get(athleteId) ?? "Athlete",
+    name: athleteNames.get(athleteId) ?? "", // never a generic placeholder; see allChildrenNamed()
     entries: required.map((requirement): AckEntry => {
       const r = mine.find(x => x.athlete_id === athleteId && x.requirement === requirement);
       const satisfied = !!r?.satisfied;
@@ -127,6 +127,12 @@ export function buildAckView(
     children,
     outstandingAthleteIds,
   };
+}
+
+/** True when every child in the view has a real (non-blank) name — the
+ *  only condition under which the acknowledgment form may be shown. */
+export function allChildrenNamed(view: AckView): boolean {
+  return view.children.every(c => typeof c.name === "string" && c.name.trim() !== "");
 }
 
 /** Row icon in the task list: does this task still need the viewer? */

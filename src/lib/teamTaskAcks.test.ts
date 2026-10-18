@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ACK_STATEMENT,
   ackRowStatus,
+  allChildrenNamed,
   buildAckView,
   normalizeAckName,
   requirementsFor,
@@ -110,4 +111,16 @@ test("athlete-set comparison ignores order and duplicates", () => {
   assert.ok(sameAthleteSet(["a", "b", "a"], ["b", "a"]));
   assert.ok(!sameAthleteSet(["a"], ["a", "b"]));
   assert.ok(!sameAthleteSet(["a", "c"], ["a", "b"]));
+});
+
+test("a child without a resolved name is never given a generic placeholder", () => {
+  const rows = ["emma", "jake"].map(id => row({ athlete_id: id, requirement: "parent" }));
+  assert.equal(allChildrenNamed(buildAckView(task("parent"), parent, rows, names)!), true);
+  for (const partial of [new Map([["emma", "Emma Smith"]]), new Map([["emma", "Emma Smith"], ["jake", "   "]]), new Map<string, string>()]) {
+    const v = buildAckView(task("parent"), parent, rows, partial)!;
+    assert.ok(v.children.every(c => c.name !== "Athlete"));
+    assert.equal(allChildrenNamed(v), false);
+  }
+  // No children: nothing to name.
+  assert.equal(allChildrenNamed(buildAckView(task("parent"), { ...parent, athleteIds: [] }, [], names)!), true);
 });

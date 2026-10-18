@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ACK_NAME_MAX, normalizeAckName, type AckEntry, type AckView } from "@/lib/teamTaskAcks";
+import { ACK_NAME_MAX, allChildrenNamed, normalizeAckName, type AckEntry, type AckView } from "@/lib/teamTaskAcks";
 import styles from "./Team.module.css";
 
 // Team Management Phase 3 — the acknowledgment section of a task's detail
@@ -89,6 +89,8 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
   const apply = useCallback((res: Response, data: { error?: string; available?: boolean; acknowledgment?: AckView | null }) => {
     if (!res.ok) { setLoadError(data.error ?? "Couldn't load your acknowledgment status. Please try again."); setView(null); return; }
     if (data.available === false) { setLoadError(UNAVAILABLE); setView(null); return; }
+    // Every covered child must be named before the form can show.
+    if (data.acknowledgment && !allChildrenNamed(data.acknowledgment)) { setLoadError(UNAVAILABLE); setView(null); return; }
     setLoadError("");
     setView(data.acknowledgment ?? null);
   }, []);
@@ -156,7 +158,7 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
         setName("");
         setConfirmed(false);
         onChanged();
-        if (data.acknowledgment) {
+        if (data.acknowledgment && allChildrenNamed(data.acknowledgment)) {
           setView(data.acknowledgment);
           setNotice({ kind: "success", text: "Thank you — your acknowledgment was submitted." });
         } else {
@@ -169,7 +171,7 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
       }
       // Only replace what's shown with a real fresh status; otherwise keep
       // the current view and show the error.
-      if (data.acknowledgment) setView(data.acknowledgment);
+      if (data.acknowledgment && allChildrenNamed(data.acknowledgment)) setView(data.acknowledgment);
       if (data.reason === "revision_changed") onChanged(); // pull the updated task content
       if (data.reason === "already_satisfied") onChanged();
       setNotice({ kind: data.reason === "already_satisfied" ? "info" : "error", text: data.error ?? "Something went wrong. Please try again." });

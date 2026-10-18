@@ -157,19 +157,24 @@ export async function getAckStatus(
   }
 }
 
-/** Display names for athletes on this team. */
-export async function getAthleteNames(slug: string, ids: readonly string[]): Promise<Map<string, string>> {
+/** Display names for exactly these athletes on this team. Strict: throws on
+ *  a database error, or if any requested athlete is missing or has a blank
+ *  name — the acknowledgment form names every child it covers, so a
+ *  generic placeholder must never stand in for one. Rows for any other id
+ *  are ignored. */
+export async function getAthleteNamesStrict(slug: string, ids: readonly string[]): Promise<Map<string, string>> {
+  const wanted = new Set(ids);
   const names = new Map<string, string>();
-  if (ids.length === 0) return names;
-  try {
-    const res = await fetch(
-      `${BASE}/rest/v1/athletes?campaign_slug=eq.${encodeURIComponent(slug)}&id=in.(${ids.map(encodeURIComponent).join(",")})&select=id,name`,
-      { headers: h(), cache: "no-store" },
-    );
-    if (res.ok) for (const a of (await res.json()) as { id: string; name: string }[]) names.set(a.id, a.name);
-  } catch {
-    // Names are cosmetic; status still renders with a generic label.
+  if (wanted.size === 0) return names;
+  const rows = await strictRows<{ id: string; name: string | null }>(
+    `athletes?campaign_slug=eq.${encodeURIComponent(slug)}&id=in.(${[...wanted].map(encodeURIComponent).join(",")})&select=id,name`,
+  );
+  for (const a of rows) {
+    const name = typeof a.name === "string" ? a.name.trim() : "";
+    if (wanted.has(a.id) && name) names.set(a.id, name);
   }
+  const missing = [...wanted].filter(id => !names.has(id));
+  if (missing.length > 0) throw new Error(`[teamTaskAcks] athlete names unavailable for ${missing.length} athlete(s)`);
   return names;
 }
 
