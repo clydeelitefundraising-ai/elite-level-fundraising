@@ -25,7 +25,7 @@ type RouteContext = { params: Promise<{ slug: string; taskId: string }> };
 type AckErrorReason = AckFailure | "already_satisfied" | "children_changed" | "not_confirmed" | "invalid_request";
 
 const ACK_ERRORS: Record<AckErrorReason, { status: number; error: string }> = {
-  unavailable:       { status: 503, error: "Acknowledgments aren't available yet." },
+  unavailable:       { status: 503, error: "Acknowledgments are temporarily unavailable. Please try again." },
   not_found:         { status: 404, error: "Task not found." },
   inactive:          { status: 409, error: "This task is no longer active." },
   not_required:      { status: 400, error: "This task doesn't need your acknowledgment." },

@@ -40,8 +40,9 @@ export type TaskItem = Omit<EditableTask, "resources"> & {
   status: "active" | "archived";
   revision: number;
   resources: TaskResource[];
-  /** Athletes/parents only: is their acknowledgment still needed? */
-  my_ack?: "done" | "todo" | null;
+  /** Athletes/parents only: is their acknowledgment still needed?
+   *  "unknown" = the status couldn't be loaded (never shown as done). */
+  my_ack?: "done" | "todo" | "unknown" | null;
 };
 
 type TaskListResponse = {
@@ -107,15 +108,25 @@ function Chevron({ direction = "right" }: { direction?: "right" | "left" }) {
   );
 }
 
-function AckRowIcon({ status }: { status: "done" | "todo" }) {
-  const done = status === "done";
+const ACK_ROW_ICON = {
+  done:    { fill: "#16a34a", text: "Acknowledged" },
+  todo:    { fill: "#dc2626", text: "Needs your acknowledgment" },
+  unknown: { fill: "#9ca3af", text: "Acknowledgment status unavailable" },
+} as const;
+
+function AckRowIcon({ status }: { status: "done" | "todo" | "unknown" }) {
+  const { fill, text } = ACK_ROW_ICON[status];
   return (
     <span className={styles.todoRowAck}>
       <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-        <circle cx="10" cy="10" r="10" fill={done ? "#16a34a" : "#dc2626"} />
-        <path d={done ? "M5.8 10.4 8.6 13.1 14.3 7.3" : "M6.8 6.8 13.2 13.2M13.2 6.8 6.8 13.2"} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="10" cy="10" r="10" fill={fill} />
+        {status === "unknown" ? (
+          <text x="10" y="14.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff" fontFamily="system-ui, sans-serif">?</text>
+        ) : (
+          <path d={status === "done" ? "M5.8 10.4 8.6 13.1 14.3 7.3" : "M6.8 6.8 13.2 13.2M13.2 6.8 6.8 13.2"} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        )}
       </svg>
-      <span className={styles.srOnly}>{done ? "Acknowledged" : "Needs your acknowledgment"}</span>
+      <span className={styles.srOnly}>{text}</span>
     </span>
   );
 }
@@ -494,6 +505,12 @@ export default function TodoListView({ slug }: { slug: string }) {
                   <button type="button" onClick={() => setEditTarget("new")} className={`${styles.btnSolid} elf-focus-ring`} style={{ flexShrink: 0 }}>+ Create Task</button>
                 )}
               </div>
+
+              {tasks.some(t => t.my_ack === "unknown") && (
+                <p role="status" style={{ margin: "0 0 .5rem", padding: ".55rem .75rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 9, fontSize: ".82rem", color: "#4b5563" }}>
+                  We couldn&apos;t load your acknowledgment status. Refresh the page to try again.
+                </p>
+              )}
 
               {!data.available ? (
                 <p style={{ margin: 0, padding: ".75rem 1rem", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: ".82rem", color: "#92400e" }}>

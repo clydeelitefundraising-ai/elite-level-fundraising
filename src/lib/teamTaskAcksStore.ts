@@ -6,7 +6,6 @@
 // function team_task_acknowledge() then re-checks every claim (team, role,
 // account, current links, revision) inside its own transaction.
 import type { TeamActor } from "./permissions.ts";
-import { getLinkedAthleteIdsForMember } from "./familyRelationships.ts";
 import { ACK_STATEMENT_VERSION, type AckIdentity, type AckRequirement, type AckStatusRow } from "./teamTaskAcks.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -60,11 +59,33 @@ export function classifyAckError(body: string): AckFailure {
 
 type MemberRow = { id: string; name: string | null; role: string; athlete_id: string | null; account_id: string | null };
 
-async function firstRow<T>(path: string): Promise<T | null> {
+// Strict reads: a database error THROWS. Never read a failed lookup as
+// "no rows" — for acknowledgments that would hide a linked child (and
+// could show a parent as done when a child is still outstanding).
+async function strictRows<T>(path: string): Promise<T[]> {
   const res = await fetch(`${BASE}/rest/v1/${path}`, { headers: h(), cache: "no-store" });
   if (!res.ok) throw new Error(`[teamTaskAcks] ${res.status} ${await res.text()}`);
   const rows = await res.json();
-  return Array.isArray(rows) && rows.length > 0 ? (rows[0] as T) : null;
+  if (!Array.isArray(rows)) throw new Error("[teamTaskAcks] unexpected response");
+  return rows as T[];
+}
+
+async function firstRow<T>(path: string): Promise<T | null> {
+  return (await strictRows<T>(path))[0] ?? null;
+}
+
+/** Every athlete a parent member is linked to: the legacy athlete_id
+ *  column plus team_member_athletes (second/third child). Same
+ *  relationship model as getLinkedAthleteIdsForMember() in
+ *  familyRelationships.ts, but strict — it throws on a database error
+ *  instead of returning only the legacy link. */
+async function linkedAthleteIdsStrict(memberId: string, legacyAthleteId: string | null): Promise<string[]> {
+  const rows = await strictRows<{ athlete_id: string }>(
+    `team_member_athletes?team_member_id=eq.${encodeURIComponent(memberId)}&select=athlete_id`,
+  );
+  const ids = new Set(rows.map(r => r.athlete_id));
+  if (legacyAthleteId) ids.add(legacyAthleteId);
+  return [...ids];
 }
 
 async function identityFor(member: MemberRow, accountId: string | null): Promise<AckIdentity | null> {
@@ -72,7 +93,7 @@ async function identityFor(member: MemberRow, accountId: string | null): Promise
   const requirement = member.role as AckRequirement;
   const athleteIds = requirement === "athlete"
     ? (member.athlete_id ? [member.athlete_id] : [])
-    : await getLinkedAthleteIdsForMember(member.id, member.athlete_id);
+    : await linkedAthleteIdsStrict(member.id, member.athlete_id);
   return { memberId: member.id, accountId, memberName: member.name, requirement, athleteIds };
 }
 
@@ -84,6 +105,8 @@ async function identityFor(member: MemberRow, accountId: string | null): Promise
  *    parent team_members row owned by the coach's own ELF account (read
  *    from their team_coaches row — never from the browser);
  *  - platform admins and boosters: nobody (they never acknowledge).
+ * Throws if any lookup fails — callers must treat that as "status
+ * unknown", never as "nothing to acknowledge".
  */
 export async function resolveAckIdentity(actor: TeamActor, slug: string): Promise<AckIdentity | null> {
   if (actor.kind === "member") {

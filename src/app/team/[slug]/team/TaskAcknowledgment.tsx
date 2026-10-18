@@ -27,6 +27,8 @@ type Props = {
 
 type Notice = { kind: "success" | "error" | "info"; text: string };
 
+const UNAVAILABLE = "Acknowledgments are temporarily unavailable. Please try again.";
+
 const label: React.CSSProperties = {
   margin: "0 0 .35rem", fontSize: ".72rem", fontWeight: 800, color: "#6b7280",
   textTransform: "uppercase", letterSpacing: ".04em",
@@ -82,35 +84,50 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
 
   const url = `/api/team/${slug}/todo/tasks/${taskId}/acknowledgment`;
 
+  // A failed or unavailable lookup is an error the person sees — never
+  // "nothing to acknowledge" — and there is no form to submit from it.
+  const apply = useCallback((res: Response, data: { error?: string; available?: boolean; acknowledgment?: AckView | null }) => {
+    if (!res.ok) { setLoadError(data.error ?? "Couldn't load your acknowledgment status. Please try again."); setView(null); return; }
+    if (data.available === false) { setLoadError(UNAVAILABLE); setView(null); return; }
+    setLoadError("");
+    setView(data.acknowledgment ?? null);
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const res = await fetch(url);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setLoadError(data.error ?? "Couldn't load your acknowledgment status."); setView(null); return; }
-      setLoadError("");
-      setView(data.acknowledgment ?? null);
+      apply(res, await res.json().catch(() => ({})));
     } catch {
-      setLoadError("Couldn't load your acknowledgment status.");
+      setLoadError("Couldn't load your acknowledgment status. Please try again.");
       setView(null);
     }
-  }, [url]);
+  }, [url, apply]);
 
   useEffect(() => {
     let cancelled = false;
     fetch(url)
       .then(async res => ({ res, data: await res.json().catch(() => ({})) }))
-      .then(({ res, data }) => {
-        if (cancelled) return;
-        if (!res.ok) { setLoadError(data.error ?? "Couldn't load your acknowledgment status."); setView(null); return; }
-        setView(data.acknowledgment ?? null);
-      })
-      .catch(() => { if (!cancelled) { setLoadError("Couldn't load your acknowledgment status."); setView(null); } });
+      .then(({ res, data }) => { if (!cancelled) apply(res, data); })
+      .catch(() => { if (!cancelled) { setLoadError("Couldn't load your acknowledgment status. Please try again."); setView(null); } });
     return () => { cancelled = true; };
-  }, [url]);
+  }, [url, apply]);
 
   if (view === undefined) return null;
   if (!view) {
-    return loadError ? <p role="alert" style={{ margin: 0, fontSize: ".85rem", color: "#dc2626" }}>{loadError}</p> : null;
+    if (!loadError) return null;
+    return (
+      <div role="alert" style={{ padding: ".65rem .8rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10 }}>
+        <p style={{ margin: 0, fontSize: ".85rem", color: "#4b5563" }}>{loadError}</p>
+        <button
+          type="button"
+          onClick={() => { setLoadError(""); setView(undefined); void load(); }}
+          className="elf-focus-ring"
+          style={{ marginTop: ".35rem", minHeight: 36, padding: ".3rem 0", background: "none", border: "none", fontSize: ".82rem", fontWeight: 700, color: "#0b1e3d", cursor: "pointer" }}
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   const isAthlete = view.requirement === "athlete";
@@ -136,15 +153,23 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setView(data.acknowledgment ?? null);
         setName("");
         setConfirmed(false);
-        setNotice({ kind: "success", text: "Thank you — your acknowledgment was submitted." });
         onChanged();
+        if (data.acknowledgment) {
+          setView(data.acknowledgment);
+          setNotice({ kind: "success", text: "Thank you — your acknowledgment was submitted." });
+        } else {
+          // Recorded, but the fresh status couldn't be read: say so rather
+          // than hiding the section.
+          setView(null);
+          setLoadError("Your acknowledgment was submitted, but we couldn't reload its status. Please try again.");
+        }
         return;
       }
-      if (data.acknowledgment !== undefined) setView(data.acknowledgment);
-      else await load();
+      // Only replace what's shown with a real fresh status; otherwise keep
+      // the current view and show the error.
+      if (data.acknowledgment) setView(data.acknowledgment);
       if (data.reason === "revision_changed") onChanged(); // pull the updated task content
       if (data.reason === "already_satisfied") onChanged();
       setNotice({ kind: data.reason === "already_satisfied" ? "info" : "error", text: data.error ?? "Something went wrong. Please try again." });

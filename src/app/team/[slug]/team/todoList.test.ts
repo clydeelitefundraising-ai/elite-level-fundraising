@@ -86,9 +86,9 @@ test("status: green check / red X with text (never colour alone); completed stat
   assert.match(css, /\.srOnly \{[^}]*clip: rect\(0, 0, 0, 0\);/);
 });
 
-test("rows: athletes/parents get a check or X between title and chevron; screen-reader text included", () => {
+test("rows: athletes/parents get a status icon between title and chevron; screen-reader text included", () => {
   assert.match(todo, /\{t\.my_ack && <AckRowIcon status=\{t\.my_ack\} \/>\}\s*<Chevron \/>/);
-  assert.match(todo, /\{done \? "Acknowledged" : "Needs your acknowledgment"\}/);
+  assert.match(todo, /<span className=\{styles\.srOnly\}>\{text\}<\/span>/);
 });
 
 test("no <section> elements in the new UI (global marketing padding)", () => {
@@ -352,4 +352,31 @@ test("revision: reordering and archiving never touch revision or version", () =>
   assert.match(move, /SET sort_order = s\.ord - 1/);
   assert.doesNotMatch(move, /revision|version\s*=|updated_at|title|audience/);
   assert.match(bodies.get("team_task_update")!.body, /IF v_task\.version <> p_expected_version THEN\s*RAISE EXCEPTION 'team_task_version_conflict';/);
+});
+
+// ── Item 7: failures are visible, never "done" ────────────────────────────
+
+test("row icon: unknown is a grey '?' with 'Acknowledgment status unavailable'; only 'done' is green", () => {
+  assert.match(todo, /done:\s+\{ fill: "#16a34a", text: "Acknowledged" \}/);
+  assert.match(todo, /todo:\s+\{ fill: "#dc2626", text: "Needs your acknowledgment" \}/);
+  assert.match(todo, /unknown: \{ fill: "#9ca3af", text: "Acknowledgment status unavailable" \}/);
+  assert.match(todo, />\?<\/text>/);
+  assert.match(todo, /my_ack\?: "done" \| "todo" \| "unknown" \| null;/);
+});
+
+test("list notice when any status couldn't be loaded", () => {
+  assert.match(todo, /\{tasks\.some\(t => t\.my_ack === "unknown"\) && \(\s*<p role="status"/);
+  assert.match(todo, /We couldn&apos;t load your acknowledgment status\. Refresh the page to try again\./);
+});
+
+test("detail: unavailable or failed lookups show a message with Try again — never a hidden section or a form", () => {
+  assert.match(ackUi, /const UNAVAILABLE = "Acknowledgments are temporarily unavailable\. Please try again\.";/);
+  assert.match(ackUi, /if \(data\.available === false\) \{ setLoadError\(UNAVAILABLE\); setView\(null\); return; \}/);
+  assert.match(ackUi, /if \(!res\.ok\) \{ setLoadError\(/);
+  assert.match(ackUi, /<div role="alert"[\s\S]*?\{loadError\}[\s\S]*?Try again/);
+  // The form only exists inside a loaded view.
+  assert.ok(ackUi.indexOf("if (!view) {") < ackUi.indexOf("<form onSubmit={submit}"));
+  // A successful submit whose fresh status can't be read says so.
+  assert.match(ackUi, /Your acknowledgment was submitted, but we couldn't reload its status\. Please try again\./);
+  assert.match(ackUi, /if \(data\.acknowledgment\) setView\(data\.acknowledgment\);/);
 });

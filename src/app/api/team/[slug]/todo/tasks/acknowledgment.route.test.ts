@@ -41,6 +41,8 @@ const MEMBERS = {
   // The Assistant Coach's own account is also Jake's parent on this team.
   coachPar: { id: "m-cpar",  name: "Ari Asst",    role: "parent",  campaign_slug: SLUG,  athlete_id: null,    account_id: "acct-asst", salt: "t5" },
   hawkPar:  { id: "m-hawk",  name: "Hal Hawk",    role: "parent",  campaign_slug: OTHER, athlete_id: "ath-h", account_id: null,       salt: "t6" },
+  // An athlete account not yet linked to a roster athlete.
+  unlinked: { id: "m-new",   name: "Nia New",     role: "athlete", campaign_slug: SLUG,  athlete_id: null,    account_id: null,       salt: "t7" },
 };
 
 function makeWorld(opts: { mode?: "ok" | "missing" } = {}) {
@@ -64,7 +66,8 @@ function makeWorld(opts: { mode?: "ok" | "missing" } = {}) {
     audit_logs: [],
   };
   const rpcCalls: { name: string; args: Row }[] = [];
-  const control: { failAcknowledge?: string } = {};
+  // failPaths: any REST read whose path contains one of these fails (500).
+  const control: { failAcknowledge?: string; failStatus?: boolean; failPaths: string[] } = { failPaths: [] };
   let n = 0;
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -162,9 +165,11 @@ function makeWorld(opts: { mode?: "ok" | "missing" } = {}) {
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : null;
 
+    if (control.failPaths.some(p => path.includes(p))) return json({ code: "XX000", message: "boom" }, 500);
     if (resource.startsWith("rpc/")) {
       const name = resource.slice(4);
       rpcCalls.push({ name, args: body });
+      if (name === "team_task_ack_status" && control.failStatus) return json({ code: "XX000", message: "boom" }, 500);
       if (mode === "missing" && name.startsWith("team_task_ack")) {
         return json({ code: "PGRST202", message: `Could not find the function public.${name}` }, 404);
       }
@@ -479,16 +484,19 @@ test("audit log: member actor, task and athletes recorded; the typed name is not
   });
 });
 
-test("before the migration: GET says unavailable, POST is 503, the list still loads without icons", async () => {
-  await withWorld({ mode: "missing" }, async () => {
+test("missing acknowledgment functions: GET says unavailable, POST 503 (clear message, nothing written), list rows 'unknown'", async () => {
+  await withWorld({ mode: "missing" }, async w => {
     as.member(MEMBERS.parent);
     const get = await (await getAck("t-par")).json();
     assert.equal(get.available, false);
     assert.equal(get.acknowledgment, null);
-    assert.equal((await postAck("t-par", ok(["ath-1", "ath-2"]))).status, 503);
+    const post = await postAck("t-par", ok(["ath-1", "ath-2"]));
+    assert.equal(post.status, 503);
+    assert.equal((await post.json()).error, "Acknowledgments are temporarily unavailable. Please try again.");
+    assert.equal(ackCalls(w).length, 0);
     const listed = await list();
     assert.equal(listed.status, 200);
-    assert.ok((await listed.json()).tasks.every((t: Row) => t.my_ack === null));
+    assert.ok((await listed.json()).tasks.every((t: Row) => t.my_ack === "unknown"));
   });
 });
 
@@ -496,5 +504,87 @@ test("coaches' list has no acknowledgment icons (row icons are for athletes and 
   await withWorld({}, async () => {
     as.coach(COACHES.assistant);
     assert.ok((await (await list()).json()).tasks.every((t: Row) => !("my_ack" in t)));
+  });
+});
+
+// ── Item 7: a failed lookup is never "done" or "not required" ─────────────
+
+const myAck = async () => Object.fromEntries(((await (await list()).json()).tasks as Row[]).map(t => [t.id, t.my_ack]));
+
+test("linked-child lookup failure: never 'nothing to acknowledge' or done; submission refused; nothing written", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.failPaths = ["team_member_athletes?"];
+    const get = await getAck("t-par");
+    assert.equal(get.status, 500);
+    assert.ok((await get.json()).error);
+    assert.deepEqual(await myAck(), { "t-par": "unknown", "t-both": "unknown" });
+    for (const shown of [["ath-1", "ath-2"], ["ath-1"]]) { // full set, and the subset a failed query would have left
+      assert.equal((await postAck("t-par", ok(shown))).status, 500, JSON.stringify(shown));
+    }
+    assert.equal(ackCalls(w).length, 0);
+    assert.equal(w.db.team_task_acknowledgments.length, 0);
+  });
+});
+
+test("a second child hidden by a query error never makes the parent look done", async () => {
+  await withWorld({}, async w => {
+    // Pat has already acknowledged t-par for Ava (legacy link) only.
+    w.db.team_task_acknowledgments.push({ id: "ack-pre", campaign_slug: SLUG, task_id: "t-par", task_revision: 1, requirement: "parent",
+      athlete_id: "ath-1", member_id: "m-par", account_id: null, full_name: "Pat Parent", member_name_snapshot: "Pat Parent", acknowledged_at: "x" });
+    as.member(MEMBERS.parent);
+    assert.equal((await myAck())["t-par"], "todo"); // Jake still outstanding
+    w.control.failPaths = ["team_member_athletes?"]; // Jake's link can't be read
+    assert.equal((await myAck())["t-par"], "unknown", "not 'done' from the legacy child alone");
+    assert.equal((await getAck("t-par")).status, 500);
+  });
+});
+
+test("identity lookup failure (coach-parent): detail and submit fail visibly; nothing written", async () => {
+  await withWorld({}, async w => {
+    as.coach(COACHES.assistant);
+    for (const failing of ["select=account_id", "role=eq.parent"]) { // their coach row's account; their parent row
+      w.control.failPaths = [failing];
+      assert.equal((await getAck("t-par")).status, 500, failing);
+      assert.equal((await postAck("t-par", ok(["ath-2"], { full_name: "Ari Asst" }))).status, 500, failing);
+    }
+    assert.equal(ackCalls(w).length, 0);
+    assert.equal(w.db.team_task_acknowledgments.length, 0);
+  });
+});
+
+test("status lookup failure: list 'unknown', detail error, submit refused; nothing written", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.athlete);
+    w.control.failStatus = true;
+    assert.deepEqual(await myAck(), { "t-both": "unknown", "t-ath": "unknown" });
+    assert.equal((await getAck("t-both")).status, 500);
+    assert.equal((await postAck("t-both", ok(["ath-1"], { full_name: "Ava Athlete" }))).status, 500);
+    assert.equal(ackCalls(w).length, 0);
+    assert.equal(w.db.team_task_acknowledgments.length, 0);
+  });
+});
+
+test("recovery: once lookups work again, status and submission are normal", async () => {
+  await withWorld({}, async w => {
+    as.member(MEMBERS.parent);
+    w.control.failPaths = ["team_member_athletes?"];
+    assert.equal((await myAck())["t-par"], "unknown");
+    w.control.failPaths = [];
+    assert.equal((await myAck())["t-par"], "todo");
+    const view = (await (await getAck("t-par")).json()).acknowledgment;
+    assert.deepEqual([...view.outstandingAthleteIds].sort(), ["ath-1", "ath-2"]);
+    assert.equal((await postAck("t-par", ok(["ath-1", "ath-2"]))).status, 200);
+    assert.equal((await myAck())["t-par"], "done");
+  });
+});
+
+test("genuinely not applicable stays null (athlete account not linked to a roster athlete)", async () => {
+  await withWorld({}, async () => {
+    as.member(MEMBERS.unlinked);
+    assert.ok(Object.values(await myAck()).every(v => v === null));
+    const get = await (await getAck("t-both")).json();
+    assert.equal(get.available, true);
+    assert.deepEqual(get.acknowledgment.children, []);
   });
 });
