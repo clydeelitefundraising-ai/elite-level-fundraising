@@ -7,6 +7,7 @@ import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
 import { TASK_AUDIENCE_LABELS, type TaskAudience, type TaskViewer } from "@/lib/teamTasks";
 import ClearanceView from "./ClearanceView";
 import TaskFormModal, { type EditableTask } from "./TaskFormModal";
+import TaskAcknowledgment from "./TaskAcknowledgment";
 import styles from "./Team.module.css";
 
 // Team Management Phase 2: the "To-Do List" tab (internal tab id is still
@@ -14,10 +15,9 @@ import styles from "./Team.module.css";
 // row opens that task's detail view in place. The existing Clearance
 // resource library, unchanged, sits below the list as "Resources".
 //
-// Phase 2 deliberately shows NO acknowledgment controls and NO
-// complete/incomplete indicators — those arrive with Phase 3, and showing
-// them earlier would be misleading. The detail view leaves room for them
-// (see TaskDetail).
+// Phase 3: athletes and parents see a green check / red X on each row
+// (their own acknowledgment status, from the list API's my_ack) and the
+// acknowledgment section in the detail view (TaskAcknowledgment.tsx).
 //
 // Uses <div>s, not <section>: globals.css has a marketing-site rule
 // `section { padding: 6rem 5%; }` that would add ~96px above and below.
@@ -40,6 +40,9 @@ export type TaskItem = Omit<EditableTask, "resources"> & {
   status: "active" | "archived";
   revision: number;
   resources: TaskResource[];
+  /** Athletes/parents only: is their acknowledgment still needed?
+   *  "unknown" = the status couldn't be loaded (never shown as done). */
+  my_ack?: "done" | "todo" | "unknown" | null;
 };
 
 type TaskListResponse = {
@@ -105,7 +108,31 @@ function Chevron({ direction = "right" }: { direction?: "right" | "left" }) {
   );
 }
 
-// Compact list: one full-width row per task — title and chevron only.
+const ACK_ROW_ICON = {
+  done:    { fill: "#16a34a", text: "Acknowledged" },
+  todo:    { fill: "#dc2626", text: "Needs your acknowledgment" },
+  unknown: { fill: "#9ca3af", text: "Acknowledgment status unavailable" },
+} as const;
+
+function AckRowIcon({ status }: { status: "done" | "todo" | "unknown" }) {
+  const { fill, text } = ACK_ROW_ICON[status];
+  return (
+    <span className={styles.todoRowAck}>
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="10" fill={fill} />
+        {status === "unknown" ? (
+          <text x="10" y="14.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="#fff" fontFamily="system-ui, sans-serif">?</text>
+        ) : (
+          <path d={status === "done" ? "M5.8 10.4 8.6 13.1 14.3 7.3" : "M6.8 6.8 13.2 13.2M13.2 6.8 6.8 13.2"} fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </svg>
+      <span className={styles.srOnly}>{text}</span>
+    </span>
+  );
+}
+
+// Compact list: one full-width row per task — title, then (athletes and
+// parents only) their acknowledgment check / X, then the chevron.
 function TaskRows({ tasks, muted, onOpen }: { tasks: TaskItem[]; muted?: boolean; onOpen: (t: TaskItem) => void }) {
   return (
     <ul className={styles.todoList}>
@@ -113,6 +140,7 @@ function TaskRows({ tasks, muted, onOpen }: { tasks: TaskItem[]; muted?: boolean
         <li key={t.id}>
           <button type="button" className={styles.todoRow} onClick={() => onOpen(t)}>
             <span className={styles.todoRowTitle} style={muted ? { color: "#6b7280" } : undefined}>{t.title}</span>
+            {t.my_ack && <AckRowIcon status={t.my_ack} />}
             <Chevron />
           </button>
         </li>
@@ -283,10 +311,18 @@ function TaskDetail({
           <p style={{ margin: 0, fontSize: ".85rem", color: "#9ca3af" }}>No further details for this task.</p>
         )}
 
-        {/* Phase 3 slot: the athlete/parent acknowledgment form (full-name
-            input, required checkbox, Submit Acknowledgment button) renders
-            here, as the last section of this column, below the task content.
-            Nothing is rendered in Phase 2. */}
+        {/* Athletes, linked parents and coach-parents: status + form.
+            Keyed on the revision so an edit by the Head Coach starts a
+            fresh form. Renders nothing for anyone else. */}
+        {task.status === "active" && (
+          <TaskAcknowledgment
+            key={`${task.id}:${task.revision}`}
+            slug={slug}
+            taskId={task.id}
+            revision={task.revision}
+            onChanged={() => onChanged()}
+          />
+        )}
       </div>
     </article>
   );
@@ -469,6 +505,12 @@ export default function TodoListView({ slug }: { slug: string }) {
                   <button type="button" onClick={() => setEditTarget("new")} className={`${styles.btnSolid} elf-focus-ring`} style={{ flexShrink: 0 }}>+ Create Task</button>
                 )}
               </div>
+
+              {tasks.some(t => t.my_ack === "unknown") && (
+                <p role="status" style={{ margin: "0 0 .5rem", padding: ".55rem .75rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 9, fontSize: ".82rem", color: "#4b5563" }}>
+                  We couldn&apos;t load your acknowledgment status. Refresh the page to try again.
+                </p>
+              )}
 
               {!data.available ? (
                 <p style={{ margin: 0, padding: ".75rem 1rem", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: ".82rem", color: "#92400e" }}>

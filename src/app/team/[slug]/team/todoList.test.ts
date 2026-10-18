@@ -12,6 +12,7 @@ const page      = src("./page.tsx");
 const todo      = src("./TodoListView.tsx");
 const form      = src("./TaskFormModal.tsx");
 const clearance = src("./ClearanceView.tsx");
+const ackUi     = src("./TaskAcknowledgment.tsx");
 const sql       = src("../../../../../supabase/migrations/phase_t2_team_tasks.sql");
 const sqlCode   = sql.replace(/--.*$/gm, "");
 
@@ -45,10 +46,53 @@ test("Resources section keeps every existing Clearance endpoint and permission g
 
 // ── Phase 2 boundaries ────────────────────────────────────────────────────
 
-test("no acknowledgment checkboxes or completion indicators before Phase 3", () => {
-  const code = withoutComments(todo);
-  assert.doesNotMatch(code, /type="checkbox"/);
-  assert.doesNotMatch(code, /acknowledg|complet(e|ion)d?\b|incomplete|✓|✔|✗|❌/i);
+// ── Phase 3: acknowledgments ──────────────────────────────────────────────
+
+test("the acknowledgment form lives only in TaskAcknowledgment, shown in active task details", () => {
+  assert.doesNotMatch(withoutComments(todo), /type="checkbox"/);
+  assert.match(todo, /\{task\.status === "active" && \(\s*<TaskAcknowledgment\s+key=\{`\$\{task\.id\}:\$\{task\.revision\}`\}/);
+  assert.match(ackUi, /fetch\(url\)/);
+  assert.match(ackUi, /const url = `\/api\/team\/\$\{slug\}\/todo\/tasks\/\$\{taskId\}\/acknowledgment`;/);
+});
+
+test("form: typed name, required statement checkbox (server-provided text), Submit Acknowledgment", () => {
+  assert.match(ackUi, /Your full name\s*<input\s+type="text"/);
+  assert.match(ackUi, /autoComplete="name"/);
+  assert.match(ackUi, /type="checkbox"\s+checked=\{confirmed\}/);
+  assert.match(ackUi, /<span>\{view\.statement\.text\}<\/span>/);
+  assert.match(ackUi, /\{submitting \? "Submitting…" : "Submit Acknowledgment"\}/);
+  assert.match(ackUi, /const canSubmit = validName && confirmed && !submitting && outstanding\.length > 0;/);
+  // Mobile: 16px input (no iOS zoom), 44px targets.
+  assert.match(ackUi, /fontSize: "1rem", width: "100%"[^}]*minHeight: 44/);
+  assert.match(ackUi, /alignItems: "flex-start", gap: "\.65rem", minHeight: 44/);
+});
+
+test("the browser sends only revision, name, checkbox and the athletes it showed — never identity", () => {
+  const body = ackUi.slice(ackUi.indexOf("body: JSON.stringify({"), ackUi.indexOf("}),", ackUi.indexOf("body: JSON.stringify({")));
+  assert.deepEqual([...body.matchAll(/^\s+(\w+):/gm)].map(m => m[1]), ["expected_revision", "full_name", "confirmed", "athlete_ids"]);
+  assert.doesNotMatch(ackUi, /member_id|account_id/);
+});
+
+test("parents see exactly which children are covered before submitting", () => {
+  assert.match(ackUi, /Your acknowledgment will be recorded for\{" "\}\s*<strong>\{listNames\(outstanding\.map\(c => c\.name\)\)\}<\/strong>/);
+});
+
+test("status: green check / red X with text (never colour alone); completed state hides the form", () => {
+  assert.match(ackUi, /fill="#16a34a"/);
+  assert.match(ackUi, /fill="#dc2626"/);
+  assert.match(ackUi, /className=\{styles\.srOnly\}>\{e\.satisfied \? " — complete" : " — outstanding"\}/);
+  assert.match(ackUi, /\{outstanding\.length > 0 && \(\s*<form/);
+  assert.match(ackUi, /complete for the current version of this task/);
+  assert.match(css, /\.srOnly \{[^}]*clip: rect\(0, 0, 0, 0\);/);
+});
+
+test("rows: athletes/parents get a status icon between title and chevron; screen-reader text included", () => {
+  assert.match(todo, /\{t\.my_ack && <AckRowIcon status=\{t\.my_ack\} \/>\}\s*<Chevron \/>/);
+  assert.match(todo, /<span className=\{styles\.srOnly\}>\{text\}<\/span>/);
+});
+
+test("no <section> elements in the new UI (global marketing padding)", () => {
+  assert.doesNotMatch(withoutComments(ackUi), /<section\b/);
 });
 
 test("task management controls are shown only when the API says canManage; no delete control", () => {
@@ -85,10 +129,10 @@ const css = src("./Team.module.css");
 
 const has = (hay: string, needle: string, msg = needle) => assert.ok(hay.includes(needle), msg);
 
-test("main list shows each task as a full-width row: title and chevron only", () => {
+test("main list shows each task as a full-width row: title, (families) status icon, chevron", () => {
   const rows = todo.slice(todo.indexOf("function TaskRows"), todo.indexOf("function TaskDetail"));
   has(rows, `<button type="button" className={styles.todoRow} onClick={() => onOpen(t)}>`);
-  assert.match(rows, /<span className=\{styles\.todoRowTitle\}[^>]*>\{t\.title\}<\/span>\s*<Chevron \/>/);
+  assert.match(rows, /<span className=\{styles\.todoRowTitle\}[^>]*>\{t\.title\}<\/span>\s*\{t\.my_ack && <AckRowIcon status=\{t\.my_ack\} \/>\}\s*<Chevron \/>/);
   // Nothing else from the task on the row.
   assert.doesNotMatch(rows, /instructions|body_text|resources|audience|TASK_AUDIENCE_LABELS/);
   // Existing order: rows render in the order the API returns.
@@ -308,4 +352,37 @@ test("revision: reordering and archiving never touch revision or version", () =>
   assert.match(move, /SET sort_order = s\.ord - 1/);
   assert.doesNotMatch(move, /revision|version\s*=|updated_at|title|audience/);
   assert.match(bodies.get("team_task_update")!.body, /IF v_task\.version <> p_expected_version THEN\s*RAISE EXCEPTION 'team_task_version_conflict';/);
+});
+
+// ── Item 7: failures are visible, never "done" ────────────────────────────
+
+test("row icon: unknown is a grey '?' with 'Acknowledgment status unavailable'; only 'done' is green", () => {
+  assert.match(todo, /done:\s+\{ fill: "#16a34a", text: "Acknowledged" \}/);
+  assert.match(todo, /todo:\s+\{ fill: "#dc2626", text: "Needs your acknowledgment" \}/);
+  assert.match(todo, /unknown: \{ fill: "#9ca3af", text: "Acknowledgment status unavailable" \}/);
+  assert.match(todo, />\?<\/text>/);
+  assert.match(todo, /my_ack\?: "done" \| "todo" \| "unknown" \| null;/);
+});
+
+test("list notice when any status couldn't be loaded", () => {
+  assert.match(todo, /\{tasks\.some\(t => t\.my_ack === "unknown"\) && \(\s*<p role="status"/);
+  assert.match(todo, /We couldn&apos;t load your acknowledgment status\. Refresh the page to try again\./);
+});
+
+test("detail: unavailable or failed lookups show a message with Try again — never a hidden section or a form", () => {
+  assert.match(ackUi, /const UNAVAILABLE = "Acknowledgments are temporarily unavailable\. Please try again\.";/);
+  assert.match(ackUi, /if \(data\.available === false\) \{ setLoadError\(UNAVAILABLE\); setView\(null\); return; \}/);
+  assert.match(ackUi, /if \(!res\.ok\) \{ setLoadError\(/);
+  assert.match(ackUi, /<div role="alert"[\s\S]*?\{loadError\}[\s\S]*?Try again/);
+  // The form only exists inside a loaded view.
+  assert.ok(ackUi.indexOf("if (!view) {") < ackUi.indexOf("<form onSubmit={submit}"));
+  // A successful submit whose fresh status can't be read says so.
+  assert.match(ackUi, /Your acknowledgment was submitted, but we couldn't reload its status\. Please try again\./);
+  assert.match(ackUi, /if \(data\.acknowledgment && allChildrenNamed\(data\.acknowledgment\)\) setView\(data\.acknowledgment\);/);
+});
+
+test("detail: a view with any unnamed child is shown as unavailable — no form, no generic 'Athlete' coverage", () => {
+  assert.match(ackUi, /if \(data\.acknowledgment && !allChildrenNamed\(data\.acknowledgment\)\) \{ setLoadError\(UNAVAILABLE\); setView\(null\); return; \}/);
+  assert.match(ackUi, /if \(data\.acknowledgment && allChildrenNamed\(data\.acknowledgment\)\) \{\s*setView\(data\.acknowledgment\);/);
+  assert.doesNotMatch(ackUi, /\?\? "Athlete"/);
 });

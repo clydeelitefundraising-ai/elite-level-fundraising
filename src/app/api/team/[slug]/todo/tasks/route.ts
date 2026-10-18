@@ -10,6 +10,8 @@ import {
   visibleAudiences,
 } from "@/lib/teamTasks";
 import { createTask, filesBelongToTeam, listTasks, taskActorIdentity } from "@/lib/teamTasksStore";
+import { ackRowStatus, buildAckView } from "@/lib/teamTaskAcks";
+import { getAckStatus, resolveAckIdentity } from "@/lib/teamTaskAcksStore";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
 import { failureResponse, ONLY_HEAD_COACH } from "../_shared";
 
@@ -43,7 +45,37 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     }
     return failureResponse(result.reason);
   }
-  return NextResponse.json({ available: true, tasks: result.value, canManage: canManageTasks(viewer), viewer });
+  const tasks = viewer === "athlete" || viewer === "parent"
+    ? await withAckRowStatus(actor, slug, result.value)
+    : result.value;
+  return NextResponse.json({ available: true, tasks, canManage: canManageTasks(viewer), viewer });
+}
+
+// Phase 3: each task's row icon for an athlete or parent — "done" when
+// their acknowledgment requirement is met for every linked athlete, "todo"
+// otherwise, null only when the task genuinely asks nothing of them. If
+// any lookup fails (identity, linked children, status) every row is
+// "unknown" — never "done" or null — and the list itself still loads.
+async function withAckRowStatus<T extends { id: string; revision: number; audience: string }>(
+  actor: Parameters<typeof resolveAckIdentity>[0],
+  slug: string,
+  tasks: T[],
+): Promise<(T & { my_ack: "done" | "todo" | "unknown" | null })[]> {
+  const unknown = tasks.map(t => ({ ...t, my_ack: "unknown" as const }));
+  if (tasks.length === 0) return [];
+  try {
+    const identity = await resolveAckIdentity(actor, slug);
+    if (!identity) return tasks.map(t => ({ ...t, my_ack: null }));
+    const status = await getAckStatus(slug, identity.athleteIds, tasks.map(t => t.id));
+    if (!status.ok) {
+      console.error("[todo/tasks] acknowledgment status unavailable:", status.reason);
+      return unknown;
+    }
+    return tasks.map(t => ({ ...t, my_ack: ackRowStatus(buildAckView(t, identity, status.value, new Map())) }));
+  } catch (err) {
+    console.error("[todo/tasks] acknowledgment status failed:", err);
+    return unknown;
+  }
 }
 
 // POST: create a task. Head Coach (or platform admin) only — enforced here,

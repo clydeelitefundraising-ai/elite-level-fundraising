@@ -286,3 +286,25 @@
 .btnOutline:disabled {
   background: #fff;
 }
+
+/*
+ * Team Management Phase 3 — acknowledgment status. Visually hidden text
+ * that screen readers still announce (status icons are never colour-only),
+ * and the small check / X shown on a task row for athletes and parents.
+ */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.todoRowAck {
+  display: inline-flex;
+  flex-shrink: 0;
+}
