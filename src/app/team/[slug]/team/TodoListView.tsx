@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
@@ -8,6 +8,8 @@ import { TASK_AUDIENCE_LABELS, type TaskAudience, type TaskViewer } from "@/lib/
 import ClearanceView from "./ClearanceView";
 import TaskFormModal, { type EditableTask } from "./TaskFormModal";
 import TaskAcknowledgment from "./TaskAcknowledgment";
+import { CompletionSummaryView, TaskCompletionDetailView } from "./TaskCompletionView";
+import { completionParentSearch, completionSearch } from "./completionView";
 import styles from "./Team.module.css";
 
 // Team Management Phase 2: the "To-Do List" tab (internal tab id is still
@@ -18,6 +20,11 @@ import styles from "./Team.module.css";
 // Phase 3: athletes and parents see a green check / red X on each row
 // (their own acknowledgment status, from the list API's my_ack) and the
 // acknowledgment section in the detail view (TaskAcknowledgment.tsx).
+//
+// Phase 3C-3: Head Coaches, Assistant Coaches and platform admins also get
+// the completion dashboard (TaskCompletionView.tsx) at ?view=completion
+// (team summary) and ?view=completion&task=<id> (one task's athletes) —
+// from the Completion button here or View Completion on a task.
 //
 // Uses <div>s, not <section>: globals.css has a marketing-site rule
 // `section { padding: 6rem 5%; }` that would add ~96px above and below.
@@ -93,6 +100,18 @@ function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Completion views are pushed with a marker saying where their on-screen
+// Back returns to. The marker lives in that history entry, so it survives
+// browser Back/Forward; a deep link or reload has none, and Back then
+// steps up in place (task -> summary -> To-Do List) instead of leaving.
+type CompletionBack = "list" | "completion" | "task";
+const subscribeHistory = (onChange: () => void) => {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
+};
+const historyBackTarget = (): CompletionBack | null =>
+  (window.history.state as { elfTodoBack?: CompletionBack } | null)?.elfTodoBack ?? null;
+
 async function fetchTaskList(slug: string, archived: boolean): Promise<TaskListResponse> {
   const res = await fetch(`/api/team/${slug}/todo/tasks${archived ? "?status=archived" : ""}`);
   const data = await res.json().catch(() => ({}));
@@ -150,7 +169,7 @@ function TaskRows({ tasks, muted, onOpen }: { tasks: TaskItem[]; muted?: boolean
 }
 
 function TaskDetail({
-  task, slug, canManage, showAudience, isFirst, isLast, onBack, onEdit, onChanged, onView, onDownload, downloadingId,
+  task, slug, canManage, showAudience, isFirst, isLast, onBack, onEdit, onChanged, onView, onDownload, downloadingId, onViewCompletion,
 }: {
   task: TaskItem;
   slug: string;
@@ -164,6 +183,9 @@ function TaskDetail({
   onView: (a: Attachment) => void;
   onDownload: (a: Attachment) => void;
   downloadingId: string | null;
+  /** Coaches, active tasks only: open this task's completion. Viewing
+   *  only — it grants nothing else (Assistant Coaches still can't edit). */
+  onViewCompletion?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const archived = task.status === "archived";
@@ -216,6 +238,12 @@ function TaskDetail({
           </div>
         )}
       </header>
+
+      {onViewCompletion && (
+        <div style={{ marginTop: ".65rem" }}>
+          <button type="button" onClick={onViewCompletion} className={`${styles.btnOutline} elf-focus-ring`}>View Completion</button>
+        </div>
+      )}
 
       {canManage && (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".4rem", marginTop: ".75rem", paddingBottom: ".75rem", borderBottom: "1px solid #e5e7eb" }}>
@@ -344,7 +372,22 @@ export default function TodoListView({ slug }: { slug: string }) {
   // TeamTabs reads ?tab= only on mount, so these changes never switch tabs.
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("task");
+  const viewParam = searchParams.get("view");
   const pushedRef = useRef(false);
+  const backTarget = useSyncExternalStore(subscribeHistory, historyBackTarget, () => null);
+
+  const openCompletion = (taskId: string | null, from: CompletionBack) => {
+    window.history.pushState({ elfTodoBack: from }, "", completionSearch(window.location.search, taskId));
+  };
+
+  const leaveCompletion = () => {
+    if (historyBackTarget()) {
+      window.history.back();
+      return;
+    }
+    const qs = completionParentSearch(window.location.search);
+    window.history.replaceState(null, "", qs || window.location.pathname);
+  };
 
   const openTask = (id: string) => {
     const params = new URLSearchParams(window.location.search);
@@ -400,7 +443,7 @@ export default function TodoListView({ slug }: { slug: string }) {
     if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
     // Left the detail view via the device/browser Back: our entry is gone.
     if (!selectedId) pushedRef.current = false;
-  }, [selectedId]);
+  }, [selectedId, viewParam]);
 
   const afterChange = (opts?: { leave?: boolean }) => {
     refresh();
@@ -452,17 +495,37 @@ export default function TodoListView({ slug }: { slug: string }) {
   const showTasks = !!data && viewer !== "booster" && viewer !== "none" && (data.available || canManage);
   const tasks = data?.tasks ?? [];
   const isCoachView = viewer === "manager" || viewer === "coach";
+  // The dashboard is for coaches only (and the API refuses anyone else);
+  // for anyone else ?view=completion is ignored.
+  const completionOpen = showTasks && isCoachView && data.available && viewParam === "completion";
 
   // The detail view reads from the loaded lists, so it always reflects the
   // latest refresh (after an edit, move, archive or restore).
   const activeIndex = selectedId ? tasks.findIndex(t => t.id === selectedId) : -1;
-  const selected = !showTasks || !selectedId ? null
+  const selected = !showTasks || !selectedId || completionOpen ? null
     : activeIndex >= 0 ? tasks[activeIndex]
     : archived?.find(t => t.id === selectedId) ?? null;
 
   return (
     <div ref={rootRef} style={{ animation: "elf-fadeUp .22s ease both", textAlign: "left" }}>
-      {selected ? (
+      {completionOpen ? (
+        selectedId ? (
+          <TaskCompletionDetailView
+            key={selectedId}
+            slug={slug}
+            taskId={selectedId}
+            backLabel={backTarget === "task" ? "Back to Task" : "Back to Completion"}
+            onBack={leaveCompletion}
+          />
+        ) : (
+          <CompletionSummaryView
+            slug={slug}
+            backLabel="Back to To-Do List"
+            onBack={leaveCompletion}
+            onOpenTask={id => openCompletion(id, "completion")}
+          />
+        )
+      ) : selected ? (
         <TaskDetail
           key={selected.id}
           task={selected}
@@ -477,6 +540,7 @@ export default function TodoListView({ slug }: { slug: string }) {
           onView={openView}
           onDownload={download}
           downloadingId={downloadingId}
+          onViewCompletion={isCoachView && selected.status === "active" ? () => openCompletion(selected.id, "task") : undefined}
         />
       ) : (
         <div style={column}>
@@ -497,12 +561,18 @@ export default function TodoListView({ slug }: { slug: string }) {
 
           {showTasks && (
             <div role="region" aria-labelledby="todo-active-heading" style={{ marginBottom: "1.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".5rem" }}>
-                <h3 id="todo-active-heading" style={{ ...sectionHeading, flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".5rem", marginBottom: ".5rem" }}>
+                <h3 id="todo-active-heading" style={{ ...sectionHeading, flex: "1 1 auto", minWidth: 0 }}>
                   {isCoachView ? "Active Tasks" : "Tasks"}
                 </h3>
-                {canManage && data.available && (
-                  <button type="button" onClick={() => setEditTarget("new")} className={`${styles.btnSolid} elf-focus-ring`} style={{ flexShrink: 0 }}>+ Create Task</button>
+                {/* Kept together: on a narrow phone both move under the heading. */}
+                {isCoachView && data.available && (
+                  <div style={{ display: "flex", gap: ".4rem", flexShrink: 0 }}>
+                    <button type="button" onClick={() => openCompletion(null, "list")} className={`${styles.btnOutline} elf-focus-ring`} style={{ flexShrink: 0 }}>Completion</button>
+                    {canManage && data.available && (
+                      <button type="button" onClick={() => setEditTarget("new")} className={`${styles.btnSolid} elf-focus-ring`} style={{ flexShrink: 0 }}>+ Create Task</button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -555,7 +625,7 @@ export default function TodoListView({ slug }: { slug: string }) {
       {/* Existing Clearance resources — same component, API and permissions
           as before. Kept mounted (hidden) while a task is open so it doesn't
           reload on the way back. */}
-      <div hidden={!!selected} style={column}>
+      <div hidden={!!selected || completionOpen} style={column}>
         <ClearanceView slug={slug} />
       </div>
 
