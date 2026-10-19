@@ -198,3 +198,35 @@ export async function loadAthleteCompletion(slug: string, athleteId: string) {
     return { ok: true as const, value: buildAthleteCompletion(athlete, tasks, rows) };
   });
 }
+
+// ── Phase 4: team-wide CSV export ─────────────────────────────────────────
+
+/** How many per-task status reads run at once for the team-wide export. */
+const EXPORT_STATUS_CONCURRENCY = 3;
+
+/** Every active task with every rostered athlete's requirement states, for
+ *  the all-tasks CSV. Reads the task list and the roster ONCE, then the
+ *  status rows one task at a time (each read paged with its own exact
+ *  count — much cheaper than paging one team-wide result, which the
+ *  database recomputes in full for every page). Each task's rows must be
+ *  exactly one per athlete per required role at that task's revision.
+ *  Any failure or inconsistency fails the whole export. Read-only. The
+ *  Phase 3C dashboard loaders above are unchanged. */
+export async function loadTeamCompletionExport(slug: string) {
+  return guarded("export", async () => {
+    const [tasks, athletes] = await Promise.all([activeTasks(slug), roster(slug)]);
+    const athleteIds = athletes.map(a => a.id);
+    const perTask: ReturnType<typeof buildTaskCompletion>[] = new Array(tasks.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < tasks.length) {
+        const i = next++;
+        const rows = await statusRows(slug, { taskId: tasks[i].id });
+        verifyStatusRows([tasks[i]], athleteIds, rows);
+        perTask[i] = buildTaskCompletion(tasks[i], athletes, rows);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(EXPORT_STATUS_CONCURRENCY, tasks.length) }, worker));
+    return { ok: true as const, value: { athleteCount: athletes.length, tasks: perTask } };
+  });
+}

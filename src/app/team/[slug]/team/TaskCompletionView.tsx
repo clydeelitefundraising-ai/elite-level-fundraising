@@ -18,6 +18,7 @@ import { requirementsFor } from "@/lib/teamTaskAcks";
 import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
 import { ALL_ATHLETES_TAB, buildGradeTabs, resolveGradeTab, type GradeTabKey } from "./rosterHelpers";
 import { COMPLETION_FILTERS, completionFilterCounts, filterCompletionRows, type CompletionFilter } from "./completionView";
+import ReportDownloadButton from "./ReportDownloadButton";
 import styles from "./Team.module.css";
 
 // Team Management Phase 3C-3 — the coach completion dashboard inside the
@@ -102,8 +103,11 @@ function Unavailable({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
-function Header({ title, backLabel, onBack, onRefresh, children }: {
-  title: string; backLabel: string; onBack: () => void; onRefresh?: () => void; children?: React.ReactNode;
+function Header({ title, backLabel, onBack, onRefresh, actions, children }: {
+  title: string; backLabel: string; onBack: () => void; onRefresh?: () => void;
+  /** Phase 4-2: the CSV download (shown next to Refresh). */
+  actions?: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   return (
     <header style={{ marginBottom: ".75rem" }}>
@@ -115,10 +119,18 @@ function Header({ title, backLabel, onBack, onRefresh, children }: {
         <h2 id="completion-title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: "1.15rem", fontWeight: 800, color: "#0b1e3d", lineHeight: 1.3, overflowWrap: "anywhere" }}>
           {title}
         </h2>
-        {onRefresh && (
+        {onRefresh && !actions && (
           <button type="button" onClick={onRefresh} className="elf-focus-ring" style={{ ...textBtn, flexShrink: 0 }}>Refresh</button>
         )}
       </div>
+      {actions && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: ".6rem", rowGap: ".3rem", marginTop: ".45rem" }}>
+          {actions}
+          {onRefresh && (
+            <button type="button" onClick={onRefresh} className="elf-focus-ring" style={{ ...textBtn, order: 1, flexShrink: 0 }}>Refresh</button>
+          )}
+        </div>
+      )}
       {children}
     </header>
   );
@@ -191,7 +203,19 @@ export function CompletionSummaryView({ slug, backLabel, onBack, onOpenTask }: {
   const { state, reload } = useCompletion(`/api/team/${slug}/todo/completion`, parseTeamSummaryResponse);
   return (
     <div role="region" aria-labelledby="completion-title" style={{ ...column, animation: "elf-fadeUp .18s ease both" }}>
-      <Header title="Task Completion" backLabel={backLabel} onBack={onBack} onRefresh={state.kind === "ready" ? reload : undefined}>
+      <Header
+        title="Task Completion"
+        backLabel={backLabel}
+        onBack={onBack}
+        onRefresh={state.kind === "ready" ? reload : undefined}
+        actions={state.kind === "ready" && state.value.tasks.length > 0 ? (
+          <ReportDownloadButton
+            url={`/api/team/${slug}/todo/completion/export`}
+            label="Download All Tasks CSV"
+            fallbackName="todo-all-tasks-completion.csv"
+          />
+        ) : undefined}
+      >
         <p style={{ ...muted, marginTop: ".25rem" }}>
           Acknowledgments for active tasks. Requirement counts include each athlete and parent/guardian requirement; athlete counts include each athlete once.
         </p>
@@ -282,7 +306,19 @@ export function TaskCompletionDetailView({ slug, taskId, backLabel, onBack }: {
   const title = state.kind === "ready" ? state.value.summary.task.title : "Task Completion";
   return (
     <div role="region" aria-labelledby="completion-title" style={{ ...column, animation: "elf-fadeUp .18s ease both" }}>
-      <Header title={title} backLabel={backLabel} onBack={onBack} onRefresh={state.kind === "ready" ? reload : undefined}>
+      <Header
+        title={title}
+        backLabel={backLabel}
+        onBack={onBack}
+        onRefresh={state.kind === "ready" ? reload : undefined}
+        actions={state.kind === "ready" ? (
+          <ReportDownloadButton
+            url={`/api/team/${slug}/todo/completion/tasks/${encodeURIComponent(taskId)}/export`}
+            label="Download CSV"
+            fallbackName="todo-task-completion.csv"
+          />
+        ) : undefined}
+      >
         {state.kind === "ready" && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem", marginTop: ".4rem" }}>
             <span style={chip}>{audienceLabel(state.value.summary.task.audience)}</span>

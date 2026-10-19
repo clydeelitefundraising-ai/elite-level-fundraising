@@ -327,3 +327,50 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   }
   if (line) ctx.fillText(line, x, lineY);
 }
+
+// ── Phase 4-2: share with a reported outcome ──────────────────────────────
+
+/** What happened when a file was handed to the device. */
+export type ShareOutcome =
+  | "saved"       // Android: AndroidFileBridge saved/shared it
+  | "shared"      // Web Share sheet completed
+  | "cancelled"   // the person closed the share sheet
+  | "needs_tap"   // Web Share refused because the tap that started this has
+                  // expired (iOS NotAllowedError, e.g. after a slow report) —
+                  // the caller must ask for one more direct tap
+  | "unsupported"; // no bridge and no file sharing — caller should download
+
+/**
+ * Same order as shareFileOrFallback (Android bridge, then Web Share), but
+ * instead of quietly running a fallback it REPORTS the outcome, so a
+ * caller that must never fail silently (Phase 4 CSV reports) can offer a
+ * second tap or a normal download. shareFileOrFallback and its callers are
+ * unchanged. Throws on a bridge failure or an unexpected share error.
+ */
+export async function shareFileWithOutcome(file: File): Promise<ShareOutcome> {
+  const bridge = getNativeFileBridge();
+  if (bridge) {
+    const base64 = arrayBufferToBase64(await file.arrayBuffer());
+    const result = parseBridgeResult(bridge.saveAndShare(base64, file.name, file.type || "application/octet-stream"));
+    if (!result.ok) throw new Error(result.error ? `Couldn't save file (${result.error}).` : "Couldn't save file.");
+    return "saved";
+  }
+
+  const nav = (typeof navigator === "undefined" ? undefined : navigator) as ShareNavigator | undefined;
+  const canShareFiles =
+    !!nav &&
+    typeof nav.canShare === "function" &&
+    typeof nav.share === "function" &&
+    nav.canShare({ files: [file] });
+  if (!canShareFiles) return "unsupported";
+
+  try {
+    await nav!.share!({ files: [file] });
+    return "shared";
+  } catch (err) {
+    const name = err instanceof DOMException || err instanceof Error ? err.name : "";
+    if (name === "AbortError") return "cancelled";
+    if (name === "NotAllowedError") return "needs_tap";
+    throw err instanceof Error ? err : new Error("Couldn't open the Share sheet.");
+  }
+}
