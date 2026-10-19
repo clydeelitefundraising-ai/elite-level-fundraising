@@ -3,6 +3,8 @@ import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
 import { requireTeamMembership, canAccessAthleteProfile } from "@/lib/permissions.server";
 import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
+import { taskViewerFor } from "@/lib/teamTasks";
+import { profileCompletionSource } from "@/lib/teamTaskCompletion";
 import AthleteProfileView from "./AthleteProfileView";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +83,12 @@ export default async function AthleteProfilePage({
   // no second definition of "active" introduced here.
   const fundraisingActive = isAthleteFundraisingVisible(settings);
 
+  // Phase 3C — the To-Do Tasks card. Athletes and parents (who reached
+  // this page through canAccessAthleteProfile above) get the family card;
+  // coaches and platform admins the coach card; boosters nothing. Each
+  // card's API re-checks its own rule on the server.
+  const taskCompletion = profileCompletionSource(actor.kind, taskViewerFor(actor));
+
   return (
     <AthleteProfileView
       slug={slug}
@@ -95,6 +103,7 @@ export default async function AthleteProfilePage({
       totalAthletes={athletes.length}
       donorCount={donorCount}
       topSupporter={topSupporter}
+      taskCompletion={taskCompletion}
     />
   );
 }

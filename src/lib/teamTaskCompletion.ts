@@ -395,3 +395,28 @@ export function parseTaskCompletionResponse(body: unknown): TaskCompletionView |
   if (byStatus.complete !== summary.athletes.complete || byStatus.outstanding !== summary.athletes.outstanding || byStatus.unknown !== summary.athletes.unknown) return null;
   return { summary, athletes: rows };
 }
+
+// ── Family view (athlete / parent on their own athlete profile) ──────────
+
+/** The same per-athlete completion coaches see, limited to the tasks this
+ *  family viewer can already see in their To-Do List (athletes: Athlete +
+ *  Both; parents: Parent + Both) — so the profile never reveals a task
+ *  title hidden from them. Each task keeps every requirement it asks for
+ *  (a Both task shows the athlete AND parent/guardian status). Totals are
+ *  recounted for the tasks kept. */
+export function familyAthleteCompletion(
+  view: { athlete: CompletionAthlete; tasks: AthleteTaskCompletion[] },
+  audiences: readonly string[],
+): { athlete: CompletionAthlete; tasks: AthleteTaskCompletion[]; totals: RequirementCounts } {
+  const tasks = view.tasks.filter(t => audiences.includes(t.task.audience));
+  return { athlete: view.athlete, tasks, totals: countEntries(tasks.flatMap(t => t.entries)) };
+}
+
+/** Which To-Do Tasks card the family athlete profile shows: "family" for
+ *  an athlete or parent member (the page has already checked they may open
+ *  this athlete), "coach" for coaches and platform admins, null for
+ *  boosters and anyone else. Each card's API enforces its own rule. */
+export function profileCompletionSource(actorKind: string, viewer: TaskViewer): "family" | "coach" | null {
+  if (actorKind === "member" && (viewer === "athlete" || viewer === "parent")) return "family";
+  return canViewCompletion(viewer) ? "coach" : null;
+}

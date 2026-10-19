@@ -618,3 +618,161 @@ test("read-only: completion never writes", async () => {
     assert.ok(w.requests.every(p => !p.startsWith("audit_logs")));
   });
 });
+
+// ── Family view: /api/team/[slug]/todo/family-completion/[athleteId] ─────
+
+async function getFamily(athleteId: string, slug = SLUG) {
+  const { GET } = await import("../family-completion/[athleteId]/route.ts");
+  return GET(req(`http://test.local/api/team/${slug}/todo/family-completion/${athleteId}`) as never, { params: Promise.resolve({ slug, athleteId }) });
+}
+const familyTasks = async (athleteId: string) => {
+  const res = await getFamily(athleteId);
+  assert.equal(res.status, 200, athleteId);
+  const body = await res.json();
+  return (body.tasks as { task: Row; entries: Entry[] }[]).map(t => [t.task.title, states(t.entries)]);
+};
+
+test("family: an athlete sees their own profile — athlete-visible tasks, both requirements of a Both task", async () => {
+  await withWorld(async () => {
+    as.member(MEMBERS.ava);
+    assert.deepEqual(await familyTasks(A(1)), [
+      ["Physical Forms", { athlete: "complete", parent: "complete" }],
+      ["Athlete Waiver", { athlete: "outstanding" }],
+      // "Parent Consent" (parent-only) is not visible to athletes in their To-Do List, so not here either.
+    ]);
+  });
+});
+
+test("family: an athlete can't view another athlete, another team's athlete, or a bad id", async () => {
+  await withWorld(async w => {
+    as.member(MEMBERS.ava);
+    const before = w.requests.length;
+    for (const id of [A(2), A(3), A(4), "nope", `${A(1)},${A(2)}`]) {
+      const res = await getFamily(id);
+      assert.equal(res.status, 404, id);
+      const body = await res.json();
+      assert.ok(!("tasks" in body) && !("athlete" in body), id);
+    }
+    assert.ok(!w.requests.slice(before).some(p => p.startsWith("rpc/team_task_ack_status")), "no status read for someone else's athlete");
+  });
+});
+
+test("family: a parent sees each linked child (legacy and second-child links) — parent-visible tasks", async () => {
+  await withWorld(async () => {
+    as.member(MEMBERS.pat);
+    assert.deepEqual(await familyTasks(A(1)), [
+      ["Physical Forms", { athlete: "complete", parent: "complete" }],
+      ["Parent Consent", { parent: "needs_update" }], // Sam acknowledged revision 1; it's revision 2 now
+    ]);
+    assert.deepEqual(await familyTasks(A(2)), [   // Jake: linked only through team_member_athletes
+      ["Physical Forms", { athlete: "not_joined", parent: "complete" }],
+      ["Parent Consent", { parent: "outstanding" }],
+    ]);
+  });
+});
+
+test("family: a parent can't view an unlinked child; another parent of one child can't view the other", async () => {
+  await withWorld(async () => {
+    as.member(MEMBERS.pat);
+    assert.equal((await getFamily(A(3))).status, 404);
+    as.member(MEMBERS.sam); // Sam: Ava only
+    assert.equal((await getFamily(A(1))).status, 200);
+    assert.equal((await getFamily(A(2))).status, 404);
+  });
+});
+
+test("family: removed links and deleted accounts take effect immediately", async () => {
+  await withWorld(async w => {
+    w.db.team_member_athletes = []; // Pat unlinked from Jake
+    as.member(MEMBERS.pat);
+    assert.equal((await getFamily(A(2))).status, 404);
+    assert.equal((await getFamily(A(1))).status, 200); // legacy link to Ava remains
+  });
+  await withWorld(async w => {
+    w.db.team_members.find(m => m.id === "m-pat")!.account_id = null; // Pat's account deleted
+    as.member(MEMBERS.pat);
+    // Pat's earlier acknowledgment no longer counts; Sam (still linked) hasn't acknowledged.
+    assert.deepEqual((await familyTasks(A(1)))[0], ["Physical Forms", { athlete: "complete", parent: "outstanding" }]);
+  });
+});
+
+test("family: current revision only — a revised task needs a new acknowledgment", async () => {
+  await withWorld(async w => {
+    w.db.team_tasks.find(t => t.id === T(1))!.revision = 2;
+    as.member(MEMBERS.ava);
+    assert.deepEqual((await familyTasks(A(1)))[0], ["Physical Forms", { athlete: "needs_update", parent: "needs_update" }]);
+  });
+});
+
+test("family: coaches (incl. a coach who is also a parent), boosters and visitors are refused; coach view unchanged", async () => {
+  await withWorld(async w => {
+    // The Assistant Coach's own account is also a parent of Lone Rider.
+    w.db.team_members.push({ id: "m-cpar", name: "Ari Asst", role: "parent", campaign_slug: SLUG, athlete_id: A(3), account_id: "acct-asst", salt: "t9" });
+    for (const [label, who, status] of [
+      ["coach-parent", () => as.coach(COACHES.assistant), 403],
+      ["head coach", () => as.coach(COACHES.head), 403],
+      ["platform admin", () => as.account("acct-admin", "sa"), 403],
+      ["booster coach", () => as.coach(COACHES.booster), 403],
+      ["booster member", () => as.member(MEMBERS.booster), 403],
+      ["visitor", () => as.nobody(), 401],
+    ] as const) {
+      who();
+      const res = await getFamily(A(3));
+      assert.equal(res.status, status, label);
+      assert.ok(!("tasks" in await res.json()), label);
+    }
+    // Coaches keep the coach view (all athletes) — the coach-parent included.
+    as.coach(COACHES.assistant);
+    assert.equal((await getAthlete(A(3))).status, 200);
+    // And the coach-only API stays coach-only for families.
+    for (const m of [MEMBERS.ava, MEMBERS.pat]) {
+      as.member(m);
+      assert.equal((await getAthlete(A(1))).status, 403);
+      assert.equal((await getSummary()).status, 403);
+    }
+  });
+});
+
+test("family: another team's parent is refused here", async () => {
+  await withWorld(async () => {
+    as.member(MEMBERS.hawkPar);
+    const res = await getFamily(A(4));
+    assert.ok(res.status === 401 || res.status === 403 || res.status === 404, String(res.status));
+    assert.ok(!("tasks" in await res.json()));
+  });
+});
+
+test("family: failed reads fail closed (identity links, status), then recover", async () => {
+  await withWorld(async w => {
+    as.member(MEMBERS.pat);
+    w.control.failPaths = ["team_member_athletes?"]; // can't verify Pat's second child
+    for (const id of [A(1), A(2)]) {
+      const res = await getFamily(id);
+      assert.equal(res.status, 503, id);
+      const body = await res.json();
+      assert.equal(body.error, "Completion status is temporarily unavailable. Please try again.");
+      assert.ok(!("tasks" in body));
+    }
+    w.control.failPaths = ["rpc/team_task_ack_status"];
+    assert.equal((await getFamily(A(1))).status, 503);
+    w.control.tamper = (resource, page, total) => resource.startsWith("rpc/") ? { page: page.slice(1), total } : undefined; // truncated
+    w.control.failPaths = [];
+    assert.equal((await getFamily(A(1))).status, 503);
+    w.control.tamper = undefined;
+    assert.equal((await getFamily(A(1))).status, 200);
+  });
+});
+
+test("family: no typed names, member names or ids; only athlete, tasks and counts", async () => {
+  await withWorld(async () => {
+    for (const [m, id] of [[MEMBERS.ava, A(1)], [MEMBERS.pat, A(1)], [MEMBERS.pat, A(2)]] as const) {
+      as.member(m);
+      const body = await (await getFamily(id)).json();
+      assert.deepEqual(Object.keys(body).sort(), ["athlete", "available", "tasks", "totals"]);
+      const text = JSON.stringify(body);
+      for (const secret of [...Object.values(TYPED), "Pat Parent", "Sam Parent", "Ava Account", "m-pat", "m-sam", "m-ava", "acct-", "ack-", "full_name", "member"]) {
+        assert.ok(!text.includes(secret), `${secret} leaked`);
+      }
+    }
+  });
+});

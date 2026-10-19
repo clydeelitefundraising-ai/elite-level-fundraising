@@ -45,7 +45,9 @@ test("page decides visibility on the server from the resolved actor; athletes/pa
   // The card is rendered only behind that flag, and it reads the coach-only API.
   assert.match(view, /\{showTaskCompletion && <AthleteTaskCompletion slug=\{slug\} athleteId=\{athlete\.id\} \/>\}/);
   assert.match(view, /showTaskCompletion = false,/); // default: hidden
-  assert.match(card, /`\/api\/team\/\$\{slug\}\/todo\/completion\/athletes\/\$\{athleteId\}`/);
+  // Coach source (the default here) reads the coach-only API.
+  assert.match(card, /: `\/api\/team\/\$\{slug\}\/todo\/completion\/athletes\/\$\{id\}`/);
+  assert.match(card, /source = "coach"/);
 });
 
 test("placement: after Linked Members, before (and outside) the fundraising sections", () => {

@@ -10,13 +10,19 @@ import {
   type CompletionEntry,
   type CompletionState,
 } from "@/lib/teamTaskCompletion";
+import styles from "../Team.module.css";
 
-// Team Management Phase 3C-2 — the "To-Do Tasks" card on a coach's view of
-// an athlete's profile: every active task with its athlete and/or
-// parent/guardian requirement (only the ones the task asks for), each with
-// an icon AND its text. Coach-only: the page renders this only for Head
-// Coaches, Assistant Coaches and platform admins, and the API it reads
-// (/api/team/[slug]/todo/completion/athletes/[id]) refuses anyone else.
+// Team Management Phase 3C-2 — the "To-Do Tasks" card on an athlete's
+// profile: every active task with its athlete and/or parent/guardian
+// requirement (only the ones the task asks for), each with an icon AND its
+// text. Two sources, each enforced on the server:
+//  - "coach" (staff profile, and the family profile when a coach opens
+//    it): /api/team/[slug]/todo/completion/athletes/[id] — Head Coaches,
+//    Assistant Coaches and platform admins only.
+//  - "family" (the athlete's or a linked parent's own profile):
+//    /api/team/[slug]/todo/family-completion/[id] — only the athlete
+//    themself or a currently linked parent, limited to the tasks they can
+//    see in their To-Do List; adds "Open To-Do List" to acknowledge there.
 //
 // Fail closed: if the data can't be loaded or verified, nothing green is
 // shown — only a temporary-unavailability message with Try again.
@@ -74,9 +80,22 @@ function EntryLine({ entry }: { entry: CompletionEntry }) {
   );
 }
 
-export default function AthleteTaskCompletion({ slug, athleteId }: { slug: string; athleteId: string }) {
+export type TaskCompletionSource = "coach" | "family";
+
+export function completionUrl(slug: string, athleteId: string, source: TaskCompletionSource): string {
+  const id = encodeURIComponent(athleteId);
+  return source === "family"
+    ? `/api/team/${slug}/todo/family-completion/${id}`
+    : `/api/team/${slug}/todo/completion/athletes/${id}`;
+}
+
+export default function AthleteTaskCompletion({ slug, athleteId, source = "coach" }: {
+  slug: string;
+  athleteId: string;
+  source?: TaskCompletionSource;
+}) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
-  const url = `/api/team/${slug}/todo/completion/athletes/${athleteId}`;
+  const url = completionUrl(slug, athleteId, source);
 
   const read = useCallback(async (): Promise<LoadState> => {
     try {
@@ -137,6 +156,16 @@ export default function AthleteTaskCompletion({ slug, athleteId }: { slug: strin
             </li>
           ))}
         </ul>
+      )}
+
+      {source === "family" && (
+        <a
+          href={`/team/${slug}/team?tab=todo`}
+          className={`${styles.btnOutline} elf-focus-ring`}
+          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 44, marginTop: ".85rem", textDecoration: "none" }}
+        >
+          Open To-Do List
+        </a>
       )}
     </div>
   );

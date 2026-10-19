@@ -6,6 +6,7 @@ import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../../_components/Modal";
 import { buildShareText, buildAthleteShareUrl } from "@/lib/shareCopy";
 import { Star } from "lucide-react";
+import AthleteTaskCompletion, { type TaskCompletionSource } from "../../team/[id]/AthleteTaskCompletion";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ export default function AthleteProfileView({
   totalAthletes,
   donorCount,
   topSupporter,
+  taskCompletion = null,
 }: {
   slug: string;
   athlete: TeamAthleteRow;
@@ -104,6 +106,10 @@ export default function AthleteProfileView({
   totalAthletes: number;
   donorCount: number;
   topSupporter: { name: string | null; amount_cents: number } | null;
+  /** Phase 3C: which To-Do Tasks card to show (decided on the server):
+   *  "family" for the athlete / a linked parent, "coach" for coaches,
+   *  null (boosters) for none. */
+  taskCompletion?: TaskCompletionSource | null;
 }) {
   const [showDonate, setShowDonate] = useState(false);
   const [preset,    setPreset]    = useState<number | null>(50);
@@ -276,6 +282,9 @@ export default function AthleteProfileView({
           )}
         </div>
       </div>
+
+      {/* ── To-Do Tasks (Phase 3C) — shown whether or not fundraising is active ── */}
+      {taskCompletion && <AthleteTaskCompletion slug={slug} athleteId={athleteId} source={taskCompletion} />}
 
       {/* Phase 1.2 — everything below (stats/donate/share/team-total) is
           fundraising-specific; hidden entirely when this team has no
