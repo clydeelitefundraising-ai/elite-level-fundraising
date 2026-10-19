@@ -76,3 +76,11 @@ test("existing downloads untouched: shareFileOrFallback / downloadViaFetch uncha
   const code = src("./reportDownload.ts").replace(/^\s*\/\/.*$/gm, "");
   assert.doesNotMatch(code, /downloadViaFetch|shareFileOrFallback/);
 });
+
+test("delivery is chosen by the ELF app platform, never by browser features or window size", () => {
+  const code = src("./reportDownload.ts").replace(/^\s*\/\/.*$/gm, "");
+  has(code, "const environment = opts.environment ?? deliveryEnvironment(getNativePlatform());");
+  assert.match(code, /if \(environment === "browser"\) \{\s*download\(file\);[^\n]*\n\s*return "downloaded";/);
+  assert.doesNotMatch(code, /innerWidth|matchMedia|userAgent|navigator\./, "no width, user-agent or navigator checks");
+});
+

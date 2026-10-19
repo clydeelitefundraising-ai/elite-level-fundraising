@@ -9,12 +9,20 @@
 //    text/csv starting with the UTF-8 BOM) becomes a plain message.
 //  - The bytes are kept exactly as sent (arrayBuffer, not text(), which
 //    would silently drop the BOM Excel needs).
-//  - Delivery: Android app -> native file bridge; iOS app / phones -> the
-//    Share sheet; elsewhere -> a normal download. If iOS refuses the Share
-//    sheet because the original tap has expired (a slow report), the
-//    caller is told ("needs_tap") so it can offer "Report ready — Save CSV"
-//    for one more direct tap, instead of failing silently.
+//  - Delivery is chosen by WHERE the page runs (the installed ELF app's
+//    Capacitor platform), never by browser features or window size:
+//      * any browser (Windows/macOS desktop, phone browsers, any width) ->
+//        a normal browser download;
+//      * the Android app -> the native file bridge (AndroidFileBridge);
+//      * the iOS app -> the Share sheet. If iOS refuses it because the
+//        original tap has expired (a slow report), the caller is told
+//        ("needs_tap") so it can offer "Report ready — Save CSV" for one
+//        more direct tap, instead of failing silently.
+//    (Phase 4-2 fix: desktop Chrome/Edge/Safari also support file sharing,
+//    so deciding by browser features sent desktop downloads into the Share
+//    flow, where the browser refused them.)
 import { shareFileWithOutcome } from "../_components/nativeFileShare.ts";
+import { getNativePlatform, type NativeDevicePlatform } from "../../../../lib/nativePushDevice.ts";
 
 export class ReportDownloadError extends Error {}
 
@@ -92,22 +100,47 @@ export function anchorDownload(file: File): void {
 
 export type DeliveryResult = "saved" | "shared" | "cancelled" | "downloaded" | "needs_tap";
 
+export type DeliveryEnvironment = "browser" | "android-app" | "ios-app";
+
+/** The installed app's platform (Capacitor) -> how a report is delivered.
+ *  null = not inside the ELF app = a browser, whatever its size or
+ *  sharing support. */
+export function deliveryEnvironment(nativePlatform: NativeDevicePlatform | null): DeliveryEnvironment {
+  if (nativePlatform === "android") return "android-app";
+  if (nativePlatform === "ios") return "ios-app";
+  return "browser";
+}
+
 /** Hands the file to the device (see the header comment). Throws
- *  ReportDownloadError if the device reports a failure. */
+ *  ReportDownloadError if the app can't save or share it — never a silent
+ *  no-op. */
 export async function deliverReport(
   file: File,
-  share: typeof shareFileWithOutcome = shareFileWithOutcome,
-  download: (file: File) => void = anchorDownload,
+  opts: {
+    environment?: DeliveryEnvironment;
+    share?: typeof shareFileWithOutcome;
+    download?: (file: File) => void;
+  } = {},
 ): Promise<DeliveryResult> {
+  const environment = opts.environment ?? deliveryEnvironment(getNativePlatform());
+  const share = opts.share ?? shareFileWithOutcome;
+  const download = opts.download ?? anchorDownload;
+
+  if (environment === "browser") {
+    download(file); // the browser's own download — no Share sheet on desktop
+    return "downloaded";
+  }
+
+  // Inside the app: Android uses the native bridge (shareFileWithOutcome
+  // prefers it); iOS uses the Share sheet. A plain <a download> does
+  // nothing inside either app's WebView, so it is never used here.
   let outcome;
   try {
     outcome = await share(file);
   } catch {
     throw new ReportDownloadError(REPORT_MESSAGES.shareFailed);
   }
-  if (outcome === "unsupported") {
-    download(file);
-    return "downloaded";
-  }
+  if (outcome === "unsupported") throw new ReportDownloadError(REPORT_MESSAGES.shareFailed);
+  if (outcome === "needs_tap" && environment === "android-app") throw new ReportDownloadError(REPORT_MESSAGES.shareFailed);
   return outcome;
 }

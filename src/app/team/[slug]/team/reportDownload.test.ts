@@ -7,11 +7,13 @@ import {
   ReportDownloadError,
   anchorDownload,
   deliverReport,
+  deliveryEnvironment,
   fetchCsvReport,
   reportErrorMessage,
   reportFilename,
 } from "./reportDownload.ts";
 import { shareFileWithOutcome } from "../_components/nativeFileShare.ts";
+import { getNativePlatform } from "../../../../lib/nativePushDevice.ts";
 
 const BOM = [0xef, 0xbb, 0xbf];
 const csvBytes = () => new Uint8Array([...BOM, ...new TextEncoder().encode("Grade,Athlete Name\r\nSenior,\"O'Brien, Kate\"\r\n")]);
@@ -65,32 +67,134 @@ test("filenames: filename* preferred; anything unusual falls back", () => {
   }
 });
 
-// ── Delivery ──────────────────────────────────────────────────────────────
+// ── Delivery: decided by where the page runs, never by browser features ──
 
 const aFile = () => new File([csvBytes()], "r.csv", { type: "text/csv;charset=utf-8" });
 
-test("delivery: no file sharing (desktop) -> one normal download", async () => {
-  let downloads = 0;
-  assert.equal(await deliverReport(aFile(), async () => "unsupported", () => { downloads++; }), "downloaded");
-  assert.equal(downloads, 1);
+/** Runs `run` with the globals a real environment would have. `app`
+ *  installs the bridge objects the installed ELF apps inject, which
+ *  Capacitor's own platform detection reads (window.androidBridge /
+ *  window.webkit.messageHandlers.bridge). */
+function inEnvironment<T>(env: { app?: "ios" | "android"; nav?: unknown; bridge?: unknown; width?: number; userAgent?: string }, run: () => Promise<T>): Promise<T> {
+  const g = globalThis as Record<string, unknown>;
+  const keep = { androidBridge: g.androidBridge, webkit: g.webkit, ElfAndroidFiles: g.ElfAndroidFiles, innerWidth: g.innerWidth };
+  const navDesc = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  const nav = env.nav ?? {};
+  if (env.userAgent) (nav as Record<string, unknown>).userAgent = env.userAgent;
+  Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true, writable: true });
+  g.androidBridge = env.app === "android" ? { postMessage() {} } : undefined;
+  g.webkit = env.app === "ios" ? { messageHandlers: { bridge: { postMessage() {} } } } : undefined;
+  g.ElfAndroidFiles = env.bridge;
+  g.innerWidth = env.width ?? 1440;
+  return run().finally(() => {
+    if (navDesc) Object.defineProperty(globalThis, "navigator", navDesc);
+    Object.assign(g, keep);
+  });
+}
+
+/** A browser that DOES support file sharing but refuses it, like Chrome /
+ *  Edge on Windows after an async report (the reported bug). */
+function refusingShareNavigator() {
+  const calls = { canShare: 0, share: 0 };
+  const nav = {
+    canShare: () => { calls.canShare++; return true; },
+    share: async () => { calls.share++; throw new DOMException("expired", "NotAllowedError"); },
+  };
+  return { nav, calls };
+}
+
+test("environment comes from the app platform: browser / Android app / iOS app", async () => {
+  assert.equal(deliveryEnvironment(null), "browser");
+  assert.equal(deliveryEnvironment("android"), "android-app");
+  assert.equal(deliveryEnvironment("ios"), "ios-app");
+  // Real Capacitor detection, as the apps' injected bridges make it.
+  assert.equal(await inEnvironment({}, async () => deliveryEnvironment(getNativePlatform())), "browser");
+  assert.equal(await inEnvironment({ app: "android" }, async () => deliveryEnvironment(getNativePlatform())), "android-app");
+  assert.equal(await inEnvironment({ app: "ios" }, async () => deliveryEnvironment(getNativePlatform())), "ios-app");
 });
 
-test("delivery: Android bridge / Share sheet / cancelled -> no extra download", async () => {
-  for (const outcome of ["saved", "shared", "cancelled"] as const) {
-    let downloads = 0;
-    assert.equal(await deliverReport(aFile(), async () => outcome, () => { downloads++; }), outcome);
-    assert.equal(downloads, 0, outcome);
+const WINDOWS_CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0";
+const MAC_SAFARI = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+
+test("Windows desktop (Chrome/Edge supports file sharing): a direct download — the Share API is never touched", async () => {
+  for (const width of [360, 390, 430, 1440]) { // a narrowed window changes nothing
+    const { nav, calls } = refusingShareNavigator();
+    const downloads: File[] = [];
+    const result = await inEnvironment({ nav, width, userAgent: WINDOWS_CHROME }, () => deliverReport(aFile(), { download: f => { downloads.push(f); } }));
+    assert.equal(result, "downloaded", String(width));
+    assert.equal(downloads.length, 1);
+    assert.deepEqual([...new Uint8Array(await downloads[0].arrayBuffer())], [...csvBytes()], "exact bytes, BOM first");
+    assert.equal(downloads[0].name, "r.csv");
+    assert.deepEqual(calls, { canShare: 0, share: 0 }, "no Share sheet on desktop");
   }
 });
 
-test("delivery: iOS refusing the Share sheet (expired tap) -> needs_tap, never a silent no-op download", async () => {
-  let downloads = 0;
-  assert.equal(await deliverReport(aFile(), async () => "needs_tap", () => { downloads++; }), "needs_tap");
-  assert.equal(downloads, 0);
+test("macOS Safari (supports file sharing): a direct download, never 'Report ready'", async () => {
+  const nav = { canShare: () => true, share: async () => { throw new Error("must not be called"); } };
+  let downloaded = 0;
+  assert.equal(await inEnvironment({ nav, userAgent: MAC_SAFARI }, () => deliverReport(aFile(), { download: () => { downloaded++; } })), "downloaded");
+  assert.equal(downloaded, 1);
 });
 
-test("delivery: a device failure is a plain error", async () => {
-  await rejects(deliverReport(aFile(), async () => { throw new Error("bridge said no"); }, () => {}), REPORT_MESSAGES.shareFailed);
+test("phone browsers (not the ELF app) download normally too", async () => {
+  const nav = { canShare: () => true, share: async () => { throw new Error("must not be called"); } };
+  let downloaded = 0;
+  assert.equal(await inEnvironment({ nav, width: 390 }, () => deliverReport(aFile(), { download: () => { downloaded++; } })), "downloaded");
+  assert.equal(downloaded, 1);
+});
+
+test("Android app: the native file bridge gets the exact bytes; no browser download", async () => {
+  let sent: string | null = null;
+  let downloaded = 0;
+  const bridge = { saveAndShare: (b64: string) => { sent = b64; return JSON.stringify({ ok: true }); } };
+  const result = await inEnvironment({ app: "android", bridge }, () => deliverReport(aFile(), { download: () => { downloaded++; } }));
+  assert.equal(result, "saved");
+  assert.deepEqual([...Buffer.from(sent!, "base64")], [...csvBytes()]);
+  assert.equal(downloaded, 0);
+});
+
+test("Android app: a bridge failure, or no bridge at all, is a visible error — never a silent no-op", async () => {
+  const failing = { saveAndShare: () => JSON.stringify({ ok: false, error: "no_space" }) };
+  await rejects(inEnvironment({ app: "android", bridge: failing }, () => deliverReport(aFile(), { download: () => assert.fail("no download in the app") })), REPORT_MESSAGES.shareFailed);
+  await rejects(inEnvironment({ app: "android" }, () => deliverReport(aFile(), { download: () => assert.fail("no download in the app") })), REPORT_MESSAGES.shareFailed);
+});
+
+test("iOS app: Share sheet; expired tap -> needs_tap, the next direct tap shares; no browser download", async () => {
+  let calls = 0;
+  const shared: number[][] = [];
+  const nav = {
+    canShare: () => true,
+    share: async ({ files }: { files: File[] }) => {
+      if (++calls === 1) throw new DOMException("expired", "NotAllowedError");
+      shared.push([...new Uint8Array(await files[0].arrayBuffer())].slice(0, 3));
+    },
+  };
+  await inEnvironment({ app: "ios", nav }, async () => {
+    const file = aFile();
+    const noDownload = { download: () => assert.fail("no download in the app") };
+    assert.equal(await deliverReport(file, noDownload), "needs_tap");   // after the slow report
+    assert.equal(await deliverReport(file, noDownload), "shared");      // "Report ready — Save CSV" tap
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(shared, [BOM]);
+});
+
+test("iOS app: cancelled stays quiet; no file sharing at all is a visible error", async () => {
+  const cancel = { canShare: () => true, share: async () => { throw new DOMException("x", "AbortError"); } };
+  assert.equal(await inEnvironment({ app: "ios", nav: cancel }, () => deliverReport(aFile())), "cancelled");
+  await rejects(inEnvironment({ app: "ios", nav: {} }, () => deliverReport(aFile())), REPORT_MESSAGES.shareFailed);
+  await rejects(inEnvironment({ app: "ios", nav: { canShare: () => true, share: async () => { throw new DOMException("x", "DataError"); } } }, () => deliverReport(aFile())), REPORT_MESSAGES.shareFailed);
+});
+
+test("explicit environments behave the same (used by the button)", async () => {
+  let downloads = 0;
+  assert.equal(await deliverReport(aFile(), { environment: "browser", share: async () => assert.fail("no share"), download: () => { downloads++; } }), "downloaded");
+  assert.equal(downloads, 1);
+  for (const outcome of ["saved", "shared", "cancelled"] as const) {
+    assert.equal(await deliverReport(aFile(), { environment: "ios-app", share: async () => outcome }), outcome);
+  }
+  assert.equal(await deliverReport(aFile(), { environment: "ios-app", share: async () => "needs_tap" }), "needs_tap");
+  await rejects(deliverReport(aFile(), { environment: "android-app", share: async () => "needs_tap" }), REPORT_MESSAGES.shareFailed);
 });
 
 // ── shareFileWithOutcome (new, alongside the unchanged shareFileOrFallback) ──
@@ -136,17 +240,6 @@ test("share outcome: Share sheet shared / cancelled / NotAllowedError (iOS expir
   assert.equal(await withGlobals({ nav: { canShare: () => false, share: async () => {} } }, () => shareFileWithOutcome(aFile())), "unsupported");
   assert.equal(await withGlobals({ nav: undefined }, () => shareFileWithOutcome(aFile())), "unsupported");
   await assert.rejects(withGlobals({ nav: nav(async () => { throw domError("DataError"); }) }, () => shareFileWithOutcome(aFile())));
-});
-
-test("iOS second tap: first share refused (expired tap), the next direct tap opens it", async () => {
-  let calls = 0;
-  const nav = { canShare: () => true, share: async () => { if (++calls === 1) throw domError("NotAllowedError"); } };
-  await withGlobals({ nav }, async () => {
-    const file = aFile();
-    assert.equal(await deliverReport(file), "needs_tap");      // after the slow report
-    assert.equal(await deliverReport(file), "shared");         // "Report ready — Save CSV" tap
-  });
-  assert.equal(calls, 2);
 });
 
 // ── Desktop download cleanup ──────────────────────────────────────────────
