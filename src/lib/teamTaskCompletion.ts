@@ -63,6 +63,46 @@ export function completionState(row: CompletionStatusRow | undefined, requiremen
 
 export const CANNOT_COMPLETE_YET: readonly CompletionState[] = ["not_joined", "no_parent_linked"];
 
+/** How a state is shown to coaches: icon kind and its always-visible text.
+ *  Only "complete" is ever green; "unknown" is grey, never green or red. */
+export const COMPLETION_STATE_DISPLAY: Record<CompletionState, { icon: "check" | "x" | "unknown"; text: string }> = {
+  complete:         { icon: "check",   text: "Acknowledged" },
+  outstanding:      { icon: "x",       text: "Not acknowledged yet" },
+  needs_update:     { icon: "x",       text: "Needs new acknowledgment" },
+  not_joined:       { icon: "x",       text: "Hasn't joined ELF yet" },
+  no_parent_linked: { icon: "x",       text: "No parent linked" },
+  unknown:          { icon: "unknown", text: "Status unavailable" },
+};
+
+export const REQUIREMENT_LABELS: Record<AckRequirement, string> = {
+  athlete: "Athlete",
+  parent:  "Parent/guardian",
+};
+
+export type AthleteTaskStatus = { task: { id: string; title: string }; entries: CompletionEntry[] };
+
+/** Client-side check of GET .../completion/athletes/[id]: exactly the
+ *  promised shape, or null (shown as unavailable — never partly shown).
+ *  A state the client doesn't recognise becomes "unknown", never green. */
+export function parseAthleteCompletionResponse(body: unknown): AthleteTaskStatus[] | null {
+  const b = body as { available?: unknown; tasks?: unknown } | null;
+  if (!b || b.available !== true || !Array.isArray(b.tasks)) return null;
+  const tasks: AthleteTaskStatus[] = [];
+  for (const t of b.tasks as { task?: { id?: unknown; title?: unknown }; entries?: unknown }[]) {
+    if (!t?.task || typeof t.task.id !== "string" || typeof t.task.title !== "string") return null;
+    if (!Array.isArray(t.entries) || t.entries.length === 0) return null;
+    const entries: CompletionEntry[] = [];
+    for (const e of t.entries as { requirement?: unknown; state?: unknown; acknowledgedAt?: unknown }[]) {
+      if (e?.requirement !== "athlete" && e?.requirement !== "parent") return null;
+      if (entries.some(x => x.requirement === e.requirement)) return null;
+      const state = (typeof e.state === "string" && Object.hasOwn(COMPLETION_STATE_DISPLAY, e.state) ? e.state : "unknown") as CompletionState;
+      entries.push({ requirement: e.requirement, state, acknowledgedAt: typeof e.acknowledgedAt === "string" ? e.acknowledgedAt : null });
+    }
+    tasks.push({ task: { id: t.task.id, title: t.task.title }, entries });
+  }
+  return tasks;
+}
+
 /** Requirement counts. Every requirement is in exactly one of complete,
  *  outstanding or unknown (complete + outstanding + unknown = required).
  *  outstanding = notAcknowledged + needsUpdate + cannotCompleteYet — the

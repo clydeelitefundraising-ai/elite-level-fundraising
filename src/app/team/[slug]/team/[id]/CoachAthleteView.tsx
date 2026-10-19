@@ -6,6 +6,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import { Phone, Mail } from "lucide-react";
 import Modal from "../../_components/Modal";
 import { buildAthleteShareUrl } from "@/lib/shareCopy";
+import AthleteTaskCompletion from "./AthleteTaskCompletion";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -522,6 +523,8 @@ export default function CoachAthleteView({
   totalAthletes,
   primaryColor,
   canDelete,
+  membersUnavailable = false,
+  showTaskCompletion = false,
 }: {
   slug: string;
   athlete: TeamAthleteRow;
@@ -540,6 +543,11 @@ export default function CoachAthleteView({
   totalAthletes: number;
   primaryColor: string;
   canDelete: boolean;
+  /** The linked-members read failed — say so instead of hiding the
+   *  section (which would look like "no linked members"). */
+  membersUnavailable?: boolean;
+  /** Head/Assistant Coach or platform admin (never a booster). */
+  showTaskCompletion?: boolean;
 }) {
   const router = useRouter();
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
@@ -633,7 +641,15 @@ export default function CoachAthleteView({
       </div>
 
       {/* ── Members section ── */}
-      {members.length > 0 && (
+      {membersUnavailable && (
+        <div style={card}>
+          <div style={sectionTitle}>Linked Members</div>
+          <p role="alert" style={{ margin: 0, fontSize: ".8rem", color: "#4b5563" }}>
+            Linked members couldn&apos;t be loaded. Refresh the page to try again.
+          </p>
+        </div>
+      )}
+      {!membersUnavailable && members.length > 0 && (
         <div style={card}>
           <div style={sectionTitle}>Linked Members</div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
@@ -662,6 +678,10 @@ export default function CoachAthleteView({
           </div>
         </div>
       )}
+
+      {/* ── To-Do Tasks (Phase 3C-2): coaches only; shown whether or not
+          fundraising is active ── */}
+      {showTaskCompletion && <AthleteTaskCompletion slug={slug} athleteId={athlete.id} />}
 
       {/* Phase 1.2 — Fundraising Progress / Contacts / Outreach are all
           fundraising-specific; hidden entirely when this team has no

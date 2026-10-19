@@ -3,35 +3,14 @@ import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 import { getAthleteById, getTeamAthletes } from "@/lib/teamData";
 import { getDonations, getCampaignSettings } from "@/lib/supabase";
 import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
+import { getAthleteLinkedMembers } from "@/lib/athleteLinkedMembers";
+import { taskViewerFor } from "@/lib/teamTasks";
+import { canViewCompletion } from "@/lib/teamTaskCompletion";
 import CoachAthleteView from "./CoachAthleteView";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_GOAL_CENTS = 50_000;
-
-const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-
-function h() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
-}
-
-type MemberRow = {
-  id: string;
-  name: string;
-  role: string;
-  athlete_id: string | null;
-  campaign_slug: string;
-};
-
-async function getAthleteMembers(slug: string, athleteId: string): Promise<MemberRow[]> {
-  const res = await fetch(
-    `${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=eq.${encodeURIComponent(athleteId)}&select=id,name,role,athlete_id,campaign_slug`,
-    { headers: h(), cache: "no-store" },
-  );
-  if (!res.ok) return [];
-  return res.json();
-}
 
 export default async function CoachAthletePage({
   params,
@@ -52,7 +31,9 @@ export default async function CoachAthletePage({
   const [athletes, donations, members] = await Promise.all([
     getTeamAthletes(slug),
     getDonations(slug),
-    getAthleteMembers(slug, id),
+    // Legacy athlete_id links AND team_member_athletes (second/later
+    // children), merged; a failed read is shown as such, not as "none".
+    getAthleteLinkedMembers(slug, athlete.id),
   ]);
 
   // Fundraising stats (same logic as athlete/[id]/page.tsx)
@@ -89,7 +70,8 @@ export default async function CoachAthletePage({
     <CoachAthleteView
       slug={slug}
       athlete={athlete}
-      members={members}
+      members={members.ok ? members.members : []}
+      membersUnavailable={!members.ok}
       fundraisingActive={fundraisingActive}
       raisedCents={raisedCents}
       goalCents={goalCents}
@@ -98,6 +80,10 @@ export default async function CoachAthletePage({
       totalAthletes={athletes.length}
       primaryColor={primaryColor}
       canDelete={isHeadCoach(actor)}
+      // Phase 3C-2: To-Do completion is for Head/Assistant Coaches and
+      // platform admins only — never boosters, who can open this page.
+      // The completion API enforces the same rule on the server.
+      showTaskCompletion={canViewCompletion(taskViewerFor(actor))}
     />
   );
 }
