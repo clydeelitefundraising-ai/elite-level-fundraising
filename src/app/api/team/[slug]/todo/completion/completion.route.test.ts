@@ -776,3 +776,271 @@ test("family: no typed names, member names or ids; only athlete, tasks and count
     }
   });
 });
+
+// ── Phase 4: CSV exports ─────────────────────────────────────────────────
+// GET /api/team/[slug]/todo/completion/export (all active tasks) and
+// GET /api/team/[slug]/todo/completion/tasks/[taskId]/export (one task).
+
+async function getTeamCsv(slug = SLUG) {
+  const { GET } = await import("./export/route.ts");
+  return GET(req(`${base}/export`) as never, { params: Promise.resolve({ slug }) });
+}
+async function getTaskCsv(taskId: string, slug = SLUG) {
+  const { GET } = await import("./tasks/[taskId]/export/route.ts");
+  return GET(req(`${base}/tasks/${taskId}/export`) as never, { params: Promise.resolve({ slug, taskId }) });
+}
+const bothCsv = () => [getTeamCsv(), getTaskCsv(T(1))];
+
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [], cell = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\r" && text[i + 1] === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; i++; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+async function csvOf(res: Response) {
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("content-type"), "text/csv; charset=utf-8");
+  // Raw bytes: Response.text() would silently drop a leading BOM.
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  assert.deepEqual([...bytes.slice(0, 3)], [0xEF, 0xBB, 0xBF], "UTF-8 BOM");
+  const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
+  const [header, ...rows] = parseCsvText(text.slice(1));
+  return { text, header, rows };
+}
+const CSV_HEADER = ["Grade", "Athlete Name", "Task", "Task Revision", "Task Audience", "Athlete Acknowledgment", "Athlete Acknowledged On",
+  "Parent/Guardian Acknowledgment", "Parent/Guardian Acknowledged On", "Overall Status", "Outstanding Reason"];
+async function expectJsonError(res: Response, status: number, label = "") {
+  assert.equal(res.status, status, label);
+  assert.match(res.headers.get("content-type") ?? "", /application\/json/, label);
+  const body = await res.json();
+  assert.ok(typeof body.error === "string" && body.error.length > 0, label);
+  return body;
+}
+const withSettings = (w: World) => { w.db.campaign_settings = [{ campaign_slug: SLUG, school_name: "Wolves High", sport_name: "Track & Field" }]; };
+
+test("csv: Head Coach, Assistant Coach and platform admin can download both reports", async () => {
+  await withWorld(async w => {
+    withSettings(w);
+    for (const who of [() => as.coach(COACHES.head), () => as.coach(COACHES.assistant), () => as.account("acct-admin", "sa")]) {
+      who();
+      for (const res of await Promise.all(bothCsv())) {
+        const { header } = await csvOf(res);
+        assert.deepEqual(header, CSV_HEADER);
+        assert.equal(res.headers.get("cache-control"), "no-store");
+        assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+      }
+    }
+  });
+});
+
+test("csv: boosters, athletes, parents, visitors and other teams get no CSV", async () => {
+  await withWorld(async w => {
+    for (const [label, who, status] of [
+      ["booster coach", () => as.coach(COACHES.booster), 403],
+      ["booster member", () => as.member(MEMBERS.booster), 403],
+      ["athlete", () => as.member(MEMBERS.ava), 403],
+      ["parent", () => as.member(MEMBERS.pat), 403],
+      ["visitor", () => as.nobody(), 401],
+      ["another team's account", () => as.account("acct-hawk-only", "sh"), 401],
+    ] as const) {
+      who();
+      const before = w.requests.length;
+      for (const res of await Promise.all(bothCsv())) {
+        assert.equal(res.status, status, label);
+        assert.doesNotMatch(res.headers.get("content-type") ?? "", /csv/, label);
+      }
+      assert.ok(!w.requests.slice(before).some(p => p.startsWith("rpc/team_task_ack_status")), `${label}: no status read`);
+    }
+    as.coach(COACHES.hawkHead); // a head coach — of the hawks
+    for (const res of await Promise.all(bothCsv())) assert.ok(res.status === 401 || res.status === 403, String(res.status));
+  });
+});
+
+test("csv: another team's task, malformed ids and archived tasks are refused as JSON", async () => {
+  await withWorld(async () => {
+    as.coach(COACHES.head);
+    await expectJsonError(await getTaskCsv(T(5)), 404, "hawks task");
+    for (const bad of ["nope", "}", `${T(1)},${T(5)}`]) await expectJsonError(await getTaskCsv(bad), 404, bad);
+    const archived = await expectJsonError(await getTaskCsv(T(4)), 409, "archived");
+    assert.equal(archived.reason, "inactive");
+  });
+});
+
+test("csv: all-tasks report — every athlete x active task, exact values, archived and other teams excluded", async () => {
+  await withWorld(async w => {
+    withSettings(w);
+    as.coach(COACHES.head);
+    const res = await getTeamCsv();
+    const { rows, text } = await csvOf(res);
+    assert.match(res.headers.get("content-disposition") ?? "", /^attachment; filename="wolves-high-track-field-todo-all-tasks-completion-\d{4}-\d{2}-\d{2}\.csv"; filename\*=UTF-8''wolves-high-track-field-todo-all-tasks-completion-\d{4}-\d{2}-\d{2}\.csv$/);
+    // Acknowledged at 2026-10-11..13 10:00Z = 03:00 the same day in Arizona.
+    assert.deepEqual(rows, [
+      ["Junior", "Jake Jr", "Athlete Waiver", "1", "Athlete", "Not Joined ELF", "", "Not Required", "", "Outstanding", "Athlete has not joined ELF"],
+      ["Junior", "Jake Jr", "Parent Consent", "2", "Parent", "Not Required", "", "Not Acknowledged", "", "Outstanding", "Parent/guardian has not acknowledged"],
+      ["Junior", "Jake Jr", "Physical Forms", "1", "Both", "Not Joined ELF", "", "Acknowledged", "2026-10-12", "Outstanding", "Athlete has not joined ELF"],
+      ["Senior", "Ava Athlete", "Athlete Waiver", "1", "Athlete", "Not Acknowledged", "", "Not Required", "", "Outstanding", "Athlete has not acknowledged"],
+      ["Senior", "Ava Athlete", "Parent Consent", "2", "Parent", "Not Required", "", "Needs New Acknowledgment", "", "Outstanding", "Parent/guardian must re-acknowledge (task updated)"],
+      ["Senior", "Ava Athlete", "Physical Forms", "1", "Both", "Acknowledged", "2026-10-13", "Acknowledged", "2026-10-11", "Complete", ""],
+      ["No grade set", "Lone Rider", "Athlete Waiver", "1", "Athlete", "Not Joined ELF", "", "Not Required", "", "Outstanding", "Athlete has not joined ELF"],
+      ["No grade set", "Lone Rider", "Parent Consent", "2", "Parent", "Not Required", "", "No Parent Linked", "", "Outstanding", "No parent/guardian linked"],
+      ["No grade set", "Lone Rider", "Physical Forms", "1", "Both", "Not Joined ELF", "", "No Parent Linked", "", "Outstanding", "Athlete has not joined ELF; No parent/guardian linked"],
+    ]);
+    assert.ok(!text.includes("Old Archived") && !text.includes("Hawks Task") && !text.includes("Hawk Kid"));
+  });
+});
+
+test("csv: one-task report — the same rows for that task; filename names the task", async () => {
+  await withWorld(async w => {
+    withSettings(w);
+    as.coach(COACHES.assistant);
+    const res = await getTaskCsv(T(1));
+    const { rows } = await csvOf(res);
+    assert.deepEqual(rows.map(r => [r[1], r[2], r[5], r[7], r[9]]), [
+      ["Jake Jr", "Physical Forms", "Not Joined ELF", "Acknowledged", "Outstanding"],     // parent via the second-child link
+      ["Ava Athlete", "Physical Forms", "Acknowledged", "Acknowledged", "Complete"],     // one parent covers both children
+      ["Lone Rider", "Physical Forms", "Not Joined ELF", "No Parent Linked", "Outstanding"],
+    ]);
+    assert.match(res.headers.get("content-disposition") ?? "", /filename="wolves-high-track-field-todo-physical-forms-completion-\d{4}-\d{2}-\d{2}\.csv"/);
+  });
+});
+
+test("csv: revised tasks report the current revision; unlinked/deleted accounts stop counting", async () => {
+  await withWorld(async w => {
+    w.db.team_tasks.find(t => t.id === T(1))!.revision = 3;
+    w.db.team_member_athletes = [];                                          // Pat unlinked from Jake
+    as.coach(COACHES.head);
+    const { rows } = await csvOf(await getTaskCsv(T(1)));
+    assert.deepEqual(rows.map(r => [r[1], r[3], r[5], r[7]]), [
+      ["Jake Jr", "3", "Not Joined ELF", "No Parent Linked"],
+      ["Ava Athlete", "3", "Needs New Acknowledgment", "Needs New Acknowledgment"],
+      ["Lone Rider", "3", "Not Joined ELF", "No Parent Linked"],
+    ]);
+  });
+  await withWorld(async w => {
+    w.db.team_members.find(m => m.id === "m-pat")!.account_id = null; // Pat's account deleted
+    as.coach(COACHES.head);
+    const { rows } = await csvOf(await getTaskCsv(T(1)));
+    assert.equal(rows.find(r => r[1] === "Ava Athlete")![7], "Not Acknowledged"); // Sam can still acknowledge
+    assert.equal(rows.find(r => r[1] === "Jake Jr")![7], "Not Acknowledged");
+  });
+});
+
+test("csv: empty task list and empty roster give header-only reports", async () => {
+  await withWorld(async w => {
+    w.db.team_tasks = w.db.team_tasks.filter(t => t.campaign_slug !== SLUG || t.status !== "active");
+    as.coach(COACHES.head);
+    const { rows } = await csvOf(await getTeamCsv());
+    assert.deepEqual(rows, []);
+  });
+  await withWorld(async w => {
+    w.db.athletes = w.db.athletes.filter(a => a.campaign_slug !== SLUG);
+    as.coach(COACHES.head);
+    assert.deepEqual((await csvOf(await getTeamCsv())).rows, []);
+    assert.deepEqual((await csvOf(await getTaskCsv(T(1)))).rows, []);
+  });
+});
+
+test("csv: pagination — 1,100 athletes x 2 tasks (4,400 status rows) all exported, read per task", async () => {
+  await withWorld(async w => {
+    bigTeam(w, 1100, [{ id: T(11), audience: "both" }, { id: T(12), audience: "both" }]);
+    as.coach(COACHES.head);
+    const before = w.requests.length;
+    const { rows } = await csvOf(await getTeamCsv());
+    assert.equal(rows.length, 2200);
+    assert.equal(new Set(rows.map(r => `${r[1]}|${r[2]}`)).size, 2200);
+    assert.equal(rows.filter(r => r[2] === "Big 0" && r[5] === "Acknowledged").length, 366);
+    const reads = w.requests.slice(before);
+    const status = reads.filter(p => p.startsWith("rpc/team_task_ack_status"));
+    assert.equal(status.length, 6); // 2 tasks x 3 pages of 1,000 (2,200 rows each)
+    assert.ok(status.every(p => p.includes("p_task_ids=")), "status read one task at a time");
+    assert.equal(reads.filter(p => p.startsWith("athletes?")).length, 2); // roster read once (2 pages)
+    assert.equal(reads.filter(p => p.startsWith("team_tasks?")).length, 1);
+    assert.equal((await csvOf(await getTaskCsv(T(11)))).rows.length, 1100);
+  });
+  await withWorld(async w => {
+    bigTeam(w, 600, [{ id: T(11), audience: "both" }]);
+    w.control.maxRows = 250; // a lower server cap still reads everything
+    as.coach(COACHES.head);
+    assert.equal((await csvOf(await getTeamCsv())).rows.length, 600);
+  });
+});
+
+test("csv: truncated, duplicate, missing, extra, stale or failed reads fail the whole export", async () => {
+  const cases: [string, (w: World) => void][] = [
+    ["truncated", w => { w.control.tamper = (r, page, total) => r.startsWith("rpc/") ? { page: page.slice(0, -1), total } : undefined; }],
+    ["no count", w => { w.control.tamper = (r, page) => r.startsWith("rpc/") ? { page, total: null } : undefined; }],
+    ["duplicate", w => { w.control.tamper = (r, page, total) => r.startsWith("rpc/") && page.length > 1 ? { page: [...page.slice(0, -1), page[0]], total } : undefined; }],
+    ["missing row", w => { w.control.tamper = (r, page) => r.startsWith("rpc/") ? { page: page.slice(1), total: page.length - 1 } : undefined; }],
+    ["extra athlete", w => { w.control.tamper = (r, page) => r.startsWith("rpc/") && page.length ? { page: [...page, { ...page[0], athlete_id: A(77) }], total: page.length + 1 } : undefined; }],
+    ["stale revision", w => { w.control.tamper = (r, page, total) => r.startsWith("rpc/") ? { page: page.map(x => ({ ...x, task_revision: (x.task_revision as number) + 1 })), total } : undefined; }],
+    ["status error", w => { w.control.failPaths = ["rpc/team_task_ack_status"]; }],
+    ["roster error", w => { w.control.failPaths = ["athletes?"]; }],
+    ["tasks error", w => { w.control.failPaths = ["team_tasks?"]; }],
+  ];
+  for (const [label, setup] of cases) {
+    await withWorld(async w => {
+      setup(w);
+      as.coach(COACHES.head);
+      for (const res of await Promise.all(bothCsv())) {
+        const body = await expectJsonError(res, 503, label);
+        assert.equal(body.error, "The report couldn't be created because the data couldn't be fully verified. Please try again.");
+      }
+    });
+  }
+  await withWorld(async w => {
+    w.control.missingFunctions = true;
+    as.coach(COACHES.head);
+    for (const res of await Promise.all(bothCsv())) assert.equal((await expectJsonError(res, 503)).reason, "unavailable");
+  });
+});
+
+test("csv: formula injection and escaping in roster names and task titles", async () => {
+  await withWorld(async w => {
+    w.db.athletes.find(a => a.id === A(1))!.name = "=HYPERLINK(\"http://evil\",\"x\")";
+    w.db.athletes.find(a => a.id === A(2))!.name = " @SUM(1,2)";
+    w.db.team_tasks.find(t => t.id === T(1))!.title = "+Forms, \"2027\"\nPage 2";
+    as.coach(COACHES.head);
+    const res = await getTaskCsv(T(1));
+    const { rows, text } = await csvOf(res);
+    assert.ok(text.includes(`"'=HYPERLINK(""http://evil"",""x"")"`));
+    const names = rows.map(r => r[1]);
+    assert.ok(names.includes(`'=HYPERLINK("http://evil","x")`) && names.includes("' @SUM(1,2)"));
+    assert.ok(rows.every(r => r[2] === "'+Forms, \"2027\"\nPage 2"), "title kept intact apart from the apostrophe");
+    assert.match(res.headers.get("content-disposition") ?? "", /filename="wolves-todo-forms-2027-page-2-completion-/); // no settings: slug
+  });
+});
+
+test("csv: response size limit maps to a JSON error, never a cut-off file", async () => {
+  const { readFileSync } = await import("node:fs");
+  const helper = readFileSync(new URL("./export/csvResponse.ts", import.meta.url), "utf8");
+  assert.match(helper, /err instanceof CompletionCsvError && err\.reason === "too_large"[\s\S]*?jsonError\(413, REPORT_TOO_LARGE, "too_large"\)/);
+});
+
+test("csv: no typed names, member names, ids or audit data; read-only", async () => {
+  await withWorld(async w => {
+    const before = JSON.stringify(w.db);
+    for (const who of [() => as.coach(COACHES.head), () => as.account("acct-admin", "sa")]) {
+      who();
+      for (const res of await Promise.all([...bothCsv(), getTaskCsv(T(3))])) {
+        const { text } = await csvOf(res);
+        for (const secret of [...Object.values(TYPED), "Pat Parent", "Sam Parent", "Ava Account", "m-pat", "m-sam", "m-ava", "acct-", "ack-", "coach-", "@", "ip"]) {
+          assert.ok(!text.toLowerCase().includes(secret.toLowerCase()) || secret === "ip" && !/\bip\b/i.test(text), `${secret} leaked`);
+        }
+        assert.doesNotMatch(text, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i, "no ids");
+      }
+    }
+    assert.equal(JSON.stringify(w.db), before, "nothing written");
+    assert.ok(w.requests.every(p => !p.startsWith("audit_logs")));
+  });
+});
