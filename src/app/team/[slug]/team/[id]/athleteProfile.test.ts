@@ -72,7 +72,7 @@ test("every state has its icon and visible text; only complete is green, unknown
   assert.match(card, /const fill = icon === "check" \? "#16a34a" : icon === "x" \? "#dc2626" : "#9ca3af";/);
   // The text is always rendered next to the icon (never icon-only), and the date only when complete.
   assert.match(card, /<StateIcon state=\{entry\.state\} \/>[\s\S]*?\{REQUIREMENT_LABELS\[entry\.requirement\]\}:[\s\S]*?\{text\}/);
-  assert.match(card, /const date = entry\.state === "complete" \? fmtDate\(entry\.acknowledgedAt\) : "";/);
+  assert.match(card, /const date = entry\.state === "complete" \? formatAcknowledgedDate\(entry\.acknowledgedAt\) : "";/);
 });
 
 const ok = (tasks: unknown[]) => ({ available: true, tasks });

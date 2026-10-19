@@ -156,7 +156,11 @@ function entriesFor(index: Map<string, CompletionStatusRow>, task: CompletionTas
   return requirementsFor(task.audience).map(req => completionState(rowFor(index, task, athleteId, req), req));
 }
 
-function athleteStatus(entries: readonly CompletionEntry[]): "complete" | "outstanding" | "unknown" {
+/** An athlete is complete for a task only when EVERY requirement the task
+ *  asks of them is complete; outstanding when any is outstanding; unknown
+ *  otherwise (some unknown, none outstanding). */
+export function athleteStatus(entries: readonly CompletionEntry[]): "complete" | "outstanding" | "unknown" {
+  if (entries.length === 0) return "unknown";
   if (entries.some(e => e.state !== "complete" && e.state !== "unknown")) return "outstanding";
   if (entries.some(e => e.state === "unknown")) return "unknown";
   return "complete";
@@ -262,4 +266,132 @@ export function verifyStatusRows(
     }
   }
   if (seen.size !== expected.size) throw new CompletionVerificationError(`missing ${expected.size - seen.size} status row(s)`);
+}
+
+// ── Display: dates in the team's time zone ────────────────────────────────
+
+/** Teams have no stored time zone setting yet; every ELF team is in
+ *  Arizona, and the Calendar uses the same fixed zone (calendarShared.ts).
+ *  If a per-team setting is added, pass it to formatAcknowledgedDate. */
+export const DEFAULT_TEAM_TIME_ZONE = "America/Phoenix";
+
+/** "Oct 17, 2026" in the team's zone, whatever the viewer's device zone.
+ *  Display only — stored timestamps are never changed. */
+export function formatAcknowledgedDate(iso: string | null, timeZone: string = DEFAULT_TEAM_TIME_ZONE): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(d);
+}
+
+// ── Client-side checks of the coach completion responses ─────────────────
+// The dashboard shows a response only if it is exactly the promised shape
+// and internally consistent; otherwise it is "temporarily unavailable" —
+// never partly shown. Every athlete's status is recomputed from its
+// entries rather than trusted.
+
+const COUNT_KEYS = ["required", "complete", "outstanding", "notAcknowledged", "needsUpdate", "cannotCompleteYet", "unknown"] as const;
+const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0;
+
+function parseCounts(c: unknown): RequirementCounts | null {
+  if (!c || typeof c !== "object") return null;
+  const r = c as Record<string, unknown>;
+  if (!COUNT_KEYS.every(k => isCount(r[k]))) return null;
+  const v = Object.fromEntries(COUNT_KEYS.map(k => [k, r[k]])) as RequirementCounts;
+  if (v.complete + v.outstanding + v.unknown !== v.required) return null;
+  if (v.notAcknowledged + v.needsUpdate + v.cannotCompleteYet !== v.outstanding) return null;
+  return v;
+}
+
+function parseTask(t: unknown): CompletionTask | null {
+  const x = t as Record<string, unknown> | null;
+  if (!x || typeof x.id !== "string" || typeof x.title !== "string" || typeof x.audience !== "string" || !Number.isInteger(x.revision)) return null;
+  if (requirementsFor(x.audience).length === 0) return null;
+  return { id: x.id, title: x.title, audience: x.audience, revision: x.revision as number };
+}
+
+function parseSummary(s: unknown, expectedAthletes?: number): TaskCompletionSummary | null {
+  const x = s as Record<string, unknown> | null;
+  const task = parseTask(x?.task);
+  if (!x || !task) return null;
+  const reqs = requirementsFor(task.audience);
+  const given = x.requirements as Record<string, unknown> | null;
+  if (!given || typeof given !== "object" || Object.keys(given).sort().join() !== [...reqs].sort().join()) return null;
+  const requirements: Partial<Record<AckRequirement, RequirementCounts>> = {};
+  for (const req of reqs) {
+    const c = parseCounts(given[req]);
+    if (!c) return null;
+    requirements[req] = c;
+  }
+  const totals = parseCounts(x.totals);
+  const a = x.athletes as Record<string, unknown> | null;
+  if (!totals || !a || !["total", "complete", "outstanding", "unknown"].every(k => isCount(a[k]))) return null;
+  const athletes = { total: a.total, complete: a.complete, outstanding: a.outstanding, unknown: a.unknown } as AthleteCounts;
+  if (athletes.complete + athletes.outstanding + athletes.unknown !== athletes.total) return null;
+  if (expectedAthletes !== undefined && athletes.total !== expectedAthletes) return null;
+  // Totals are the sum of the requirements; each requirement covers every athlete once.
+  for (const k of COUNT_KEYS) if (reqs.reduce((n, r) => n + requirements[r]![k], 0) !== totals[k]) return null;
+  for (const r of reqs) if (requirements[r]!.required !== athletes.total) return null;
+  return { task, requirements, totals, athletes };
+}
+
+export type TeamSummaryView = { athleteCount: number; tasks: TaskCompletionSummary[] };
+
+export function parseTeamSummaryResponse(body: unknown): TeamSummaryView | null {
+  const b = body as { available?: unknown; athleteCount?: unknown; tasks?: unknown } | null;
+  if (!b || b.available !== true || !isCount(b.athleteCount) || !Array.isArray(b.tasks)) return null;
+  const tasks: TaskCompletionSummary[] = [];
+  const ids = new Set<string>();
+  for (const t of b.tasks) {
+    const s = parseSummary(t, b.athleteCount);
+    if (!s || ids.has(s.task.id)) return null;
+    ids.add(s.task.id);
+    tasks.push(s);
+  }
+  return { athleteCount: b.athleteCount, tasks };
+}
+
+export type TaskCompletionView = { summary: TaskCompletionSummary; athletes: AthleteCompletionRow[] };
+
+export function parseTaskCompletionResponse(body: unknown): TaskCompletionView | null {
+  const b = body as { available?: unknown; summary?: unknown; athletes?: unknown } | null;
+  if (!b || b.available !== true || !Array.isArray(b.athletes)) return null;
+  const summary = parseSummary(b.summary, b.athletes.length);
+  if (!summary) return null;
+  const reqs = requirementsFor(summary.task.audience);
+  const rows: AthleteCompletionRow[] = [];
+  const ids = new Set<string>();
+  for (const r of b.athletes as Record<string, unknown>[]) {
+    const a = r?.athlete as Record<string, unknown> | undefined;
+    if (!a || typeof a.id !== "string" || typeof a.name !== "string" || ids.has(a.id)) return null;
+    ids.add(a.id);
+    if (!Array.isArray(r.entries) || r.entries.length !== reqs.length) return null;
+    const entries: CompletionEntry[] = [];
+    for (const [i, e] of (r.entries as Record<string, unknown>[]).entries()) {
+      if (e?.requirement !== reqs[i]) return null; // exactly the task's requirements, in order
+      const state = (typeof e.state === "string" && Object.hasOwn(COMPLETION_STATE_DISPLAY, e.state) ? e.state : "unknown") as CompletionState;
+      entries.push({ requirement: reqs[i], state, acknowledgedAt: state === "complete" && typeof e.acknowledgedAt === "string" ? e.acknowledgedAt : null });
+    }
+    rows.push({
+      athlete: {
+        id: a.id,
+        name: a.name,
+        class_year: typeof a.class_year === "string" ? a.class_year : null,
+        jersey_number: typeof a.jersey_number === "number" ? a.jersey_number : null,
+      },
+      entries,
+      status: athleteStatus(entries),
+    });
+  }
+  // The counts shown must be the counts of the rows shown.
+  const recount = countEntries(rows.flatMap(r => r.entries));
+  if (COUNT_KEYS.some(k => recount[k] !== summary.totals[k])) return null;
+  for (const req of reqs) {
+    const perReq = countEntries(rows.flatMap(r => r.entries.filter(e => e.requirement === req)));
+    if (COUNT_KEYS.some(k => perReq[k] !== summary.requirements[req]![k])) return null;
+  }
+  const byStatus = { complete: 0, outstanding: 0, unknown: 0 };
+  for (const r of rows) byStatus[r.status]++;
+  if (byStatus.complete !== summary.athletes.complete || byStatus.outstanding !== summary.athletes.outstanding || byStatus.unknown !== summary.athletes.unknown) return null;
+  return { summary, athletes: rows };
 }

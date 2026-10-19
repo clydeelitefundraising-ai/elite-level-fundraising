@@ -146,7 +146,8 @@ test("left-aligned column with a desktop max width; Resources stays below the li
   has(todo, `const column: React.CSSProperties = { width: "100%", maxWidth: 760, minWidth: 0 };`);
   assert.doesNotMatch(withoutComments(todo), /margin: "0 auto"/);
   assert.ok(todo.indexOf("<TaskRows tasks={tasks}") < todo.indexOf("<ClearanceView slug={slug} />"));
-  assert.match(todo, /<div hidden=\{!!selected\} style=\{column\}>\s*<ClearanceView slug=\{slug\} \/>/);
+  // Hidden (kept mounted) while a task or, for coaches, the completion dashboard is open.
+  assert.match(todo, /<div hidden=\{!!selected \|\| completionOpen\} style=\{column\}>\s*<ClearanceView slug=\{slug\} \/>/);
   // Resources empty/loading states are left-aligned and compact too.
   assert.doesNotMatch(clearance, /textAlign: "center", padding: "2rem/);
 });
@@ -208,7 +209,7 @@ test("buttons reuse the Communications tokens: solid Create Task / Add Resource,
   has(clearance, solid);
   has(clearance, "const outlineBtn = `${styles.btnOutline} elf-focus-ring`;");
   assert.equal(clearance.match(/className=\{outlineBtn\}/g)?.length, 3); // Open Link, View, Download
-  assert.equal(todo.match(/className=\{`\$\{styles\.btnOutline\} elf-focus-ring`\}/g)?.length, 2); // task View, Download
+  assert.equal(todo.match(/className=\{`\$\{styles\.btnOutline\} elf-focus-ring`\}/g)?.length, 4); // task View, Download; Completion, View Completion (3C-3)
   // Destructive actions stay distinct from the team colour.
   assert.match(todo, /color: "#b91c1c", border: "1\.5px solid #fecaca"[^>]*>\s*Archive/);
   assert.match(clearance, /color: "#dc2626" \}\}>\s*Delete/);

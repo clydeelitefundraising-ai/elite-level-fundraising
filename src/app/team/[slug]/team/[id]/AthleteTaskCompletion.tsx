@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   COMPLETION_STATE_DISPLAY,
   REQUIREMENT_LABELS,
+  formatAcknowledgedDate,
   parseAthleteCompletionResponse,
   type AthleteTaskStatus,
   type CompletionEntry,
@@ -42,12 +43,6 @@ const sectionTitle: React.CSSProperties = {
 
 export const UNAVAILABLE_TEXT = "To-Do task status is temporarily unavailable.";
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
 function StateIcon({ state }: { state: CompletionState }) {
   const { icon } = COMPLETION_STATE_DISPLAY[state];
   const fill = icon === "check" ? "#16a34a" : icon === "x" ? "#dc2626" : "#9ca3af";
@@ -65,7 +60,8 @@ function StateIcon({ state }: { state: CompletionState }) {
 
 function EntryLine({ entry }: { entry: CompletionEntry }) {
   const { text } = COMPLETION_STATE_DISPLAY[entry.state];
-  const date = entry.state === "complete" ? fmtDate(entry.acknowledgedAt) : "";
+  // In the team's time zone (America/Phoenix), not the viewer's device.
+  const date = entry.state === "complete" ? formatAcknowledgedDate(entry.acknowledgedAt) : "";
   return (
     <li style={{ display: "flex", alignItems: "flex-start", gap: ".45rem", fontSize: ".78rem", lineHeight: 1.35 }}>
       <StateIcon state={entry.state} />

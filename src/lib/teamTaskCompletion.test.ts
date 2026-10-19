@@ -1,15 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tests mutate parsed JSON fixtures */
 // Team Management Phase 3C — pure completion rules.
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
   COMPLETION_STATUS_COLUMNS,
   CompletionVerificationError,
+  DEFAULT_TEAM_TIME_ZONE,
   buildAthleteCompletion,
   buildTaskCompletion,
   buildTeamSummary,
   canViewCompletion,
   completionState,
   countEntries,
+  formatAcknowledgedDate,
+  parseTaskCompletionResponse,
+  parseTeamSummaryResponse,
   verifyStatusRows,
   type CompletionAthlete,
   type CompletionStatusRow,
@@ -120,4 +125,114 @@ test("verification: exact set required — missing, extra, duplicate, stale revi
   for (const [label, rows] of bad) {
     assert.throws(() => verifyStatusRows([both, parentOnly], ["a1"], rows), CompletionVerificationError, label);
   }
+});
+
+// ── 3C-3: team time zone and the dashboard's response checks ──────────────
+
+test("dates are shown in the team's zone (America/Phoenix), whatever the device zone", () => {
+  assert.equal(DEFAULT_TEAM_TIME_ZONE, "America/Phoenix");
+  // 00:27 UTC on Oct 18 is still Oct 17 in Arizona (UTC-7, no DST).
+  assert.equal(formatAcknowledgedDate("2026-10-18T00:27:25.083433+00:00"), "Oct 17, 2026");
+  assert.equal(formatAcknowledgedDate("2026-10-18T07:00:00Z"), "Oct 18, 2026");
+  assert.equal(formatAcknowledgedDate("2026-01-01T06:59:59Z"), "Dec 31, 2025");
+  assert.equal(formatAcknowledgedDate("2026-10-18T00:27:25Z", "America/New_York"), "Oct 17, 2026");
+  assert.equal(formatAcknowledgedDate("2026-10-18T05:00:00Z", "America/New_York"), "Oct 18, 2026");
+  for (const bad of [null, "", "not a date"]) assert.equal(formatAcknowledgedDate(bad), "");
+});
+
+const roundTrip = <T>(v: T): unknown => JSON.parse(JSON.stringify(v));
+const team = () => {
+  const athletes = [ath("a1", "Ava"), ath("a2", "Jake"), ath("a3", "Lone")];
+  const parentTask: CompletionTask = { id: "t2", title: "Consent", audience: "parent", revision: 1 };
+  const athleteTask: CompletionTask = { id: "t3", title: "Waiver", audience: "athlete", revision: 1 };
+  const rows = [
+    row({ task_id: "t1", athlete_id: "a1", requirement: "athlete", satisfied: true, acknowledged_at: "2026-10-18T00:27:25Z" }),
+    row({ task_id: "t1", athlete_id: "a1", requirement: "parent", satisfied: true, acknowledged_at: "2026-10-18T00:28:20Z" }),
+    row({ task_id: "t1", athlete_id: "a2", requirement: "athlete", has_eligible_member: false }),
+    row({ task_id: "t1", athlete_id: "a2", requirement: "parent", satisfied: true }),
+    row({ task_id: "t1", athlete_id: "a3", requirement: "athlete", has_eligible_member: false }),
+    row({ task_id: "t1", athlete_id: "a3", requirement: "parent", has_eligible_member: false }),
+    ...["a1", "a2", "a3"].map(a => row({ task_id: "t2", athlete_id: a, requirement: "parent", earlier_revision_acknowledged: a === "a1" })),
+    ...["a1", "a2", "a3"].map(a => row({ task_id: "t3", athlete_id: a, requirement: "athlete", satisfied: a !== "a3" })),
+  ];
+  return { athletes, tasks: [both, parentTask, athleteTask], rows };
+};
+
+test("summary response: exactly what the server builds is accepted", () => {
+  const { athletes, tasks, rows } = team();
+  const body = roundTrip({ available: true, athleteCount: 3, tasks: buildTeamSummary(tasks, athletes, rows) });
+  const v = parseTeamSummaryResponse(body)!;
+  assert.deepEqual(v.tasks.map(t => [t.task.title, Object.keys(t.requirements), t.athletes.outstanding, t.totals.outstanding]), [
+    ["Forms", ["athlete", "parent"], 2, 3],   // 3 outstanding requirements, 2 distinct athletes
+    ["Consent", ["parent"], 3, 3],
+    ["Waiver", ["athlete"], 1, 1],
+  ]);
+  assert.equal(v.tasks[0].totals.cannotCompleteYet, 3);
+  assert.equal(v.tasks[1].totals.needsUpdate, 1);
+  assert.deepEqual(parseTeamSummaryResponse({ available: true, athleteCount: 0, tasks: [] }), { athleteCount: 0, tasks: [] });
+});
+
+test("summary response: inconsistent or partial data is rejected (shown as unavailable)", () => {
+  const { athletes, tasks, rows } = team();
+  const good = () => roundTrip({ available: true, athleteCount: 3, tasks: buildTeamSummary(tasks, athletes, rows) }) as {
+    available: boolean; athleteCount: number; tasks: Record<string, any>[];
+  };
+  const cases: [string, (b: ReturnType<typeof good>) => void][] = [
+    ["not available", b => { b.available = false; }],
+    ["counts don't add up", b => { b.tasks[0].totals.complete += 1; }],
+    ["breakdown doesn't add up", b => { b.tasks[0].requirements.athlete.cannotCompleteYet -= 1; }],
+    ["totals != sum of requirements", b => { b.tasks[0].totals.required += 1; b.tasks[0].totals.outstanding += 1; b.tasks[0].totals.notAcknowledged += 1; }],
+    ["athlete counts don't add up", b => { b.tasks[0].athletes.complete += 1; }],
+    ["roster size mismatch", b => { b.athleteCount = 4; }],
+    ["missing requirement", b => { delete b.tasks[0].requirements.parent; }],
+    ["requirement the task doesn't ask", b => { b.tasks[1].requirements.athlete = b.tasks[1].requirements.parent; }],
+    ["duplicate task", b => { b.tasks.push(b.tasks[0]); }],
+    ["negative count", b => { b.tasks[2].requirements.athlete.unknown = -1; }],
+    ["bad audience", b => { b.tasks[0].task.audience = "coach"; }],
+  ];
+  for (const [label, mutate] of cases) {
+    const b = good();
+    mutate(b);
+    assert.equal(parseTeamSummaryResponse(b), null, label);
+  }
+});
+
+test("task response: rows recomputed — complete only when every applicable requirement is complete", () => {
+  const { athletes, rows } = team();
+  const v = parseTaskCompletionResponse(roundTrip({ available: true, ...buildTaskCompletion(both, athletes, rows) }))!;
+  assert.deepEqual(v.athletes.map(r => [r.athlete.name, r.status, r.entries.map(e => e.state)]), [
+    ["Ava", "complete", ["complete", "complete"]],
+    ["Jake", "outstanding", ["not_joined", "complete"]],       // parent done, athlete not: not complete
+    ["Lone", "outstanding", ["not_joined", "no_parent_linked"]],
+  ]);
+  assert.equal(v.athletes[0].entries[0].acknowledgedAt, "2026-10-18T00:27:25Z");
+});
+
+test("task response: tampered or inconsistent rows are rejected; unknown is never complete", () => {
+  const { athletes, rows } = team();
+  const good = () => roundTrip({ available: true, ...buildTaskCompletion(both, athletes, rows) }) as { summary: Record<string, any>; athletes: Record<string, any>[] };
+  const cases: [string, (b: ReturnType<typeof good>) => void][] = [
+    ["status claims complete", b => { b.athletes[1].status = "complete"; b.summary.athletes.complete = 2; b.summary.athletes.outstanding = 1; }],
+    ["state not recognised (becomes unknown, counts no longer match)", b => { b.athletes[1].entries[0].state = "done"; }],
+    ["requirements out of order", b => { b.athletes[0].entries.reverse(); }],
+    ["missing requirement", b => { b.athletes[0].entries.pop(); }],
+    ["extra requirement", b => { b.athletes[0].entries.push(b.athletes[0].entries[0]); }],
+    ["duplicate athlete", b => { b.athletes.push(b.athletes[0]); }],
+    ["row missing (partial list)", b => { b.athletes.pop(); }],
+    ["per-requirement counts wrong", b => {
+      b.summary.requirements.athlete.complete += 1; b.summary.requirements.athlete.outstanding -= 1; b.summary.requirements.athlete.cannotCompleteYet -= 1;
+      b.summary.requirements.parent.complete -= 1; b.summary.requirements.parent.outstanding += 1; b.summary.requirements.parent.cannotCompleteYet += 1;
+    }],
+  ];
+  for (const [label, mutate] of cases) {
+    const b = good();
+    mutate(b);
+    assert.equal(parseTaskCompletionResponse(b), null, label);
+  }
+  // An unknown state with matching counts is accepted but shown grey, never green.
+  const unknownRows = rows.filter(r => !(r.task_id === "t1" && r.athlete_id === "a1"));
+  const v = parseTaskCompletionResponse(roundTrip({ available: true, ...buildTaskCompletion(both, athletes, unknownRows) }))!;
+  const ava = v.athletes.find(r => r.athlete.name === "Ava")!;
+  assert.deepEqual([ava.status, ava.entries.map(e => e.state)], ["unknown", ["unknown", "unknown"]]);
+  assert.ok(ava.entries.every(e => e.acknowledgedAt === null));
 });
