@@ -44,6 +44,7 @@ import {
   computeAttendanceTotals,
   finalizeMark,
   isAbsenceReason,
+  isAttendanceStatus,
   markAbsent,
   markDifferences,
   markFromStored,
@@ -440,6 +441,77 @@ export function buildSavePayload(draft: AttendanceDraft): SavePayloadResult {
   if (issues.length > 0) return { ok: false, issues };
   records.sort((a, b) => a.athlete_id.localeCompare(b.athlete_id));
   return { ok: true, payload: { sessionDate: draft.sessionDate, expectedVersion: draft.version, records } };
+}
+
+// ── Server-side check of a submitted save ─────────────────────────────────
+
+const REQUEST_KEYS = new Set(["expectedVersion", "records"]);
+const RECORD_KEYS = new Set(["athlete_id", "status", "absence_reason", "note", "confirm_added_after_date"]);
+const MAX_VERSION = 2_147_483_647;
+
+export type ParsedSaveRequest =
+  | { ok: true; expectedVersion: number; records: AttendanceSaveRecord[] }
+  | { ok: false; issues: AttendanceIssue[] };
+
+/** Strictly checks a save request body ({ expectedVersion, records }) as
+ *  the API receives it, with the same rules as buildSavePayload: only the
+ *  database's record fields (no names, ids or roles — any other field,
+ *  e.g. a coach or account id, is refused), valid athlete ids, Present
+ *  with no reason/note, Absent with a reason, notes normalized like the
+ *  database, no duplicates, 1..5,000 records. Whether the records match
+ *  the roster is decided by the database. */
+export function parseSaveRequest(body: unknown): ParsedSaveRequest {
+  const bad = (code: AttendanceIssue["code"], athleteId: string | null = null): ParsedSaveRequest =>
+    ({ ok: false, issues: [{ code, athleteId }] });
+  if (!body || typeof body !== "object" || Array.isArray(body)) return bad("invalid_roster");
+  const b = body as Record<string, unknown>;
+  if (Object.keys(b).some(k => !REQUEST_KEYS.has(k))) return bad("invalid_roster");
+  const v = b.expectedVersion;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > MAX_VERSION) return bad("invalid_roster");
+  if (!Array.isArray(b.records)) return bad("invalid_roster");
+  if (b.records.length === 0) return bad("roster_empty");
+  if (b.records.length > ATTENDANCE_MAX_RECORDS) return bad("too_many_records");
+
+  const issues: AttendanceIssue[] = [];
+  const records: AttendanceSaveRecord[] = [];
+  const seen = new Set<string>();
+  for (const raw of b.records) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) { issues.push({ code: "invalid_roster", athleteId: null }); continue; }
+    const r = raw as Record<string, unknown>;
+    if (Object.keys(r).some(k => !RECORD_KEYS.has(k)) || !isUuid(r.athlete_id)) { issues.push({ code: "invalid_roster", athleteId: null }); continue; }
+    const athleteId = r.athlete_id.toLowerCase();
+    if (seen.has(athleteId)) { issues.push({ code: "duplicate_athlete", athleteId }); continue; }
+    seen.add(athleteId);
+    if (!isAttendanceStatus(r.status)) { issues.push({ code: "invalid_status", athleteId }); continue; }
+    if (r.confirm_added_after_date !== undefined && r.confirm_added_after_date !== null && typeof r.confirm_added_after_date !== "boolean") {
+      issues.push({ code: "invalid_roster", athleteId }); continue;
+    }
+    let mark: AttendanceMark;
+    try {
+      mark = finalizeMark(markFromRequest(r.status, r.absence_reason ?? null, r.note ?? null));
+    } catch (err) {
+      issues.push({ code: err instanceof AttendanceRuleError ? err.code : "invalid_status", athleteId });
+      continue;
+    }
+    const record: AttendanceSaveRecord = { athlete_id: athleteId, status: mark.status, absence_reason: mark.absenceReason, note: mark.note };
+    if (r.confirm_added_after_date === true) record.confirm_added_after_date = true;
+    records.push(record);
+  }
+  if (issues.length > 0) return { ok: false, issues };
+  records.sort((a, b2) => a.athlete_id.localeCompare(b2.athlete_id));
+  return { ok: true, expectedVersion: v, records };
+}
+
+function markFromRequest(status: "present" | "absent", reason: unknown, note: unknown): AttendanceMark {
+  if (status === "present") {
+    if (reason !== null) throw new AttendanceRuleError("invalid_reason");
+    if (note !== null) throw new AttendanceRuleError("note_requires_absent");
+    return PRESENT;
+  }
+  if (reason === null) throw new AttendanceRuleError("reason_required");
+  if (!isAbsenceReason(reason)) throw new AttendanceRuleError("invalid_reason");
+  if (typeof note !== "string" && note !== null) throw new AttendanceRuleError("invalid_note");
+  return { status: "absent", absenceReason: reason, note };
 }
 
 // ── Totals ────────────────────────────────────────────────────────────────

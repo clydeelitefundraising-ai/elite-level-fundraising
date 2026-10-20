@@ -534,3 +534,50 @@ test("both coaches start the same new date: the first save creates it, the secon
 test("merging drafts of different dates is refused", () => {
   assert.equal(ruleCode(() => mergeServerDraft(coachB(), draftOf(v3Rows(), session(4), "2026-10-18"))), "invalid_roster");
 });
+
+// ── The API's check of a submitted save (Phase 5-3) ──────────────────────
+
+test("parseSaveRequest: accepts exactly what buildSavePayload produces", async () => {
+  const { parseSaveRequest } = await import("./teamAttendanceDraft.ts");
+  let d = draftOf([row(1), row(2), row(5, { late: true })]);
+  d = setAthleteNote(setAthleteAbsent(d, id(2), "other"), id(2), "  Bus  ");
+  d = includeLateAthlete(d, id(5), "present");
+  const p = buildSavePayload(d);
+  assert.ok(p.ok);
+  const parsed = parseSaveRequest({ expectedVersion: p.payload.expectedVersion, records: p.payload.records });
+  assert.deepEqual(parsed, { ok: true, expectedVersion: 0, records: p.payload.records });
+});
+
+test("parseSaveRequest: refuses identity fields, bad shapes and invalid marks (codes + athlete ids only)", async () => {
+  const { parseSaveRequest } = await import("./teamAttendanceDraft.ts");
+  const ok = [{ athlete_id: id(1), status: "present" }];
+  const shape = { ok: false, issues: [{ code: "invalid_roster", athleteId: null }] };
+  for (const bad of [null, [], "x", { records: ok }, { expectedVersion: -1, records: ok }, { expectedVersion: 0.5, records: ok },
+    { expectedVersion: 0, records: {} }, { expectedVersion: 0, records: ok, coach_id: "c" }, { expectedVersion: 0, records: ok, actor: {} }]) {
+    assert.deepEqual(parseSaveRequest(bad), shape, JSON.stringify(bad));
+  }
+  assert.deepEqual(parseSaveRequest({ expectedVersion: 0, records: [] }), { ok: false, issues: [{ code: "roster_empty", athleteId: null }] });
+  assert.deepEqual(parseSaveRequest({ expectedVersion: 0, records: [{ ...ok[0], platform_admin_id: "p" }] }), shape);
+  const r = parseSaveRequest({ expectedVersion: 2, records: [
+    { athlete_id: id(1), status: "absent" },
+    { athlete_id: id(2), status: "present", note: "x" },
+    { athlete_id: id(3), status: "absent", absence_reason: "sick" },
+    { athlete_id: id(4), status: "maybe" },
+    { athlete_id: id(4), status: "present" },
+  ] });
+  assert.deepEqual(r, { ok: false, issues: [
+    { code: "reason_required", athleteId: id(1) },
+    { code: "note_requires_absent", athleteId: id(2) },
+    { code: "invalid_reason", athleteId: id(3) },
+    { code: "invalid_status", athleteId: id(4) },
+    { code: "duplicate_athlete", athleteId: id(4) },
+  ] });
+  const notes = parseSaveRequest({ expectedVersion: 1, records: [
+    { athlete_id: id(2).toUpperCase(), status: "absent", absence_reason: "excused", note: " \t\n " },
+    { athlete_id: id(1), status: "absent", absence_reason: "other", note: "  ok \r\n" },
+  ] });
+  assert.deepEqual(notes, { ok: true, expectedVersion: 1, records: [
+    { athlete_id: id(1), status: "absent", absence_reason: "other", note: "ok" },
+    { athlete_id: id(2), status: "absent", absence_reason: "excused", note: null },
+  ] });
+});

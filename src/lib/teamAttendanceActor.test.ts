@@ -81,8 +81,9 @@ const attendanceFiles = files.filter(f => /attendance/i.test(f.p) || /team_atten
 test("tripwire: only attendanceDbActor() builds the database actor", () => {
   for (const { p, code } of attendanceFiles) {
     if (p.endsWith(join("lib", "teamAttendanceActor.ts"))) continue;
-    // No hand-built identity keys anywhere in attendance code.
-    assert.doesNotMatch(code, /\b(coach_id|platform_admin_id)\s*:/, `${p} builds an identity by hand; use attendanceDbActor()`);
+    // No identity fields anywhere in attendance code outside this module —
+    // not built, not read, not typed (attendanceDbActor() is the only source).
+    assert.doesNotMatch(code, /\b(coach_id|platform_admin_id|coachId|platformAdminId)\b/, `${p} handles an identity field; use attendanceDbActor()`);
     if (/team_attendance_save_draft/.test(code)) {
       assert.match(code, /attendanceDbActor\(/, `${p} calls the save function without attendanceDbActor()`);
     }
