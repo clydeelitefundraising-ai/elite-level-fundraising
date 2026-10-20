@@ -602,3 +602,43 @@ SELECT qa.check('Q3 the roster read and summary cover all 2,000 athletes',
   (SELECT count(*) FROM public.team_attendance_session_roster('team-large', qa.today()) WHERE has_record AND on_roster) = 2000
   AND EXISTS (SELECT 1 FROM public.team_attendance_session_summaries('team-large', qa.today(), qa.today()) WHERE recorded_count = 2000 AND present_count = 2000));
 RESET ROLE;
+
+-- ═══ R. Athletes with no recorded add date ══════════════════════════════
+-- athletes.created_at is nullable; an unknown add date must count as on
+-- the roster (required), never as "added after" or optional.
+INSERT INTO public.campaign_settings VALUES ('team-n');
+INSERT INTO public.team_coaches (id, campaign_slug, name, role) VALUES (qa.u('c9'), 'team-n', 'Nia Null', 'head_coach');
+INSERT INTO public.athletes (id, campaign_slug, name, class_year, created_at) VALUES
+  (qa.u('e1'), 'team-n', 'Ned Known', 'Senior', '2026-01-01T12:00:00Z'),
+  (qa.u('e2'), 'team-n', 'Nora Nodate', 'Junior', NULL);
+SET ROLE service_role;
+SELECT qa.check('R1 the roster read never returns NULL flags: no add date = on the roster, no decision needed',
+  EXISTS (SELECT 1 FROM public.team_attendance_session_roster('team-n', qa.d(-5)) r
+          WHERE r.athlete_id = qa.u('e2') AND r.added_after_session_date = false AND r.requires_decision = false));
+SELECT qa.expect_error('R2 leaving out an athlete with no add date is refused (required)',
+  $q$SELECT qa.save('team-n', qa.d(-5), 0, qa.p(ARRAY['e1']), qa.coach('c9'))$q$, 'attendance_roster_incomplete');
+SELECT qa.save('team-n', qa.d(-5), 0, qa.p(ARRAY['e1', 'e2']), qa.coach('c9'));
+RESET ROLE;
+SELECT qa.check('R3 ...and saving them needs no "added after" confirmation',
+  qa.v('team-n', qa.d(-5)) = 1
+  AND (SELECT count(*) FROM public.team_attendance_records WHERE session_id = qa.sid('team-n', qa.d(-5))) = 2);
+
+-- ═══ S. Identity swapping (a forwarded/forged actor) ════════════════════
+-- The database can't see the session cookie (see the migration header);
+-- it does refuse every identity that isn't exactly an authorized coach
+-- row of this team or a platform_admins row.
+SET ROLE service_role;
+SELECT qa.expect_error('S1 a Head Coach''s ELF account id passed as a coach id is refused',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), jsonb_build_object('coach_id', qa.u('a1')))$q$, 'attendance_actor_not_authorized');
+SELECT qa.expect_error('S2 a platform admin''s account id passed as a platform admin id is refused',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), jsonb_build_object('platform_admin_id', qa.u('a4')))$q$, 'attendance_actor_not_authorized');
+SELECT qa.expect_error('S3 a coach id passed as a platform admin id is refused',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), jsonb_build_object('platform_admin_id', qa.u('c9')))$q$, 'attendance_actor_not_authorized');
+SELECT qa.expect_error('S4 a platform admin id passed as a coach id is refused',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), jsonb_build_object('coach_id', qa.u('f1')))$q$, 'attendance_actor_not_authorized');
+SELECT qa.expect_error('S5 a client-style actor carrying an account id or role claim is refused outright',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), qa.coach('c9') || '{"account_id": "00000000-0000-0000-0000-0000000000a1", "role": "head_coach"}')$q$, 'attendance_actor_invalid');
+SELECT qa.expect_error('S6 an actor given as an array of identities is refused',
+  $q$SELECT qa.save('team-n', qa.d(-4), 0, qa.p(ARRAY['e1','e2']), jsonb_build_array(qa.coach('c9')))$q$, 'attendance_actor_invalid');
+RESET ROLE;
+SELECT qa.check('S7 none of the swapped identities created a session', qa.sid('team-n', qa.d(-4)) IS NULL);

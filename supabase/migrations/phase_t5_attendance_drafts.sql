@@ -37,6 +37,13 @@
 --     admin, can save. The app server passes the resolved identity (a
 --     team_coaches id or a platform_admins id); the database re-checks it.
 --     Boosters, members, other teams' coaches are refused.
+--     Trust boundary: like every ELF table, these are reachable only with
+--     the service-role key, held by the app server. The database cannot
+--     see the request's cookies (they are verified with secrets it does
+--     not hold), so it cannot prove WHO is calling — only that the
+--     identity it was given is an authorized one. The server must build
+--     p_actor solely from its verified session (src/lib/
+--     teamAttendanceActor.ts), never from anything the client sends.
 --   * the submitted roster must match the team's roster exactly:
 --     no duplicates, no other team's athletes, no deleted athletes, and no
 --     required athlete left out (see "Roster changes")
@@ -55,7 +62,9 @@
 -- never recorded silently: including one needs an explicit
 -- "confirm_added_after_date": true from the coach.
 -- team_attendance_session_roster() flags them (requires_decision) so the
--- editor can ask. Athletes deleted from the roster keep their records
+-- editor can ask. An athlete with no recorded add date (athletes.created_at
+-- is nullable) is treated as on the roster: required, never "added after".
+-- Athletes deleted from the roster keep their records
 -- (athlete_id becomes NULL; the name and grade snapshots stay); they are
 -- no longer required and saves never touch those records again.
 --
@@ -640,7 +649,8 @@ BEGIN
     WHERE a.campaign_slug = p_campaign_slug
       AND s.athlete_id IS NULL
       AND (
-        public.team_attendance_local_date(a.created_at, v_zone) <= p_session_date
+        -- An athlete with no recorded add date counts as on the roster (required).
+        coalesce(public.team_attendance_local_date(a.created_at, v_zone) <= p_session_date, true)
         OR EXISTS (
           SELECT 1 FROM public.team_attendance_records r
           WHERE r.session_id = v_session.id AND r.athlete_id = a.id
@@ -654,7 +664,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM jsonb_to_recordset(v_sub) AS s(athlete_id uuid, status text, absence_reason text, note text, confirm boolean, valid boolean)
     JOIN public.athletes a ON a.id = s.athlete_id
-    WHERE public.team_attendance_local_date(a.created_at, v_zone) > p_session_date
+    WHERE coalesce(public.team_attendance_local_date(a.created_at, v_zone) > p_session_date, false)
       AND NOT s.confirm
       AND NOT EXISTS (
         SELECT 1 FROM public.team_attendance_records r
@@ -869,9 +879,9 @@ AS $$
   )
   SELECT
     r.id, a.id, a.name, a.class_year, true,
-    public.team_attendance_local_date(a.created_at, (SELECT tz FROM zone)) > p_session_date,
+    coalesce(public.team_attendance_local_date(a.created_at, (SELECT tz FROM zone)) > p_session_date, false),
     r.id IS NOT NULL,
-    r.id IS NULL AND public.team_attendance_local_date(a.created_at, (SELECT tz FROM zone)) > p_session_date,
+    r.id IS NULL AND coalesce(public.team_attendance_local_date(a.created_at, (SELECT tz FROM zone)) > p_session_date, false),
     r.status, r.absence_reason, r.note, r.updated_at, r.updated_by_name
   FROM public.athletes a
   LEFT JOIN public.team_attendance_records r

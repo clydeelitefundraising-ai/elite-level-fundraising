@@ -155,6 +155,13 @@ test("save function: team, actor, window, version, full-roster and late-athlete 
   assert.match(save, /team_attendance_local_date\(now\(\), v_zone\)/);
   assert.match(save, /ON CONFLICT \(campaign_slug, session_date\) DO NOTHING/);
   assert.match(save, /FOR UPDATE;/);
+  // athletes.created_at is nullable: an unknown add date is "on the roster"
+  // (required), never optional and never "added after" (fail closed).
+  assert.match(save, /coalesce\(public\.team_attendance_local_date\(a\.created_at, v_zone\) <= p_session_date, true\)/);
+  assert.match(save, /coalesce\(public\.team_attendance_local_date\(a\.created_at, v_zone\) > p_session_date, false\)/);
+  assert.doesNotMatch(save.replace(/coalesce\(public\.team_attendance_local_date\(a\.created_at, v_zone\) [<>]=? p_session_date, (true|false)\)/g, ""), /team_attendance_local_date\(a\.created_at/);
+  const roster = functions.get("team_attendance_session_roster")!.body;
+  assert.equal([...roster.matchAll(/coalesce\(public\.team_attendance_local_date\(a\.created_at, \(SELECT tz FROM zone\)\) > p_session_date, false\)/g)].length, 2);
 });
 
 test("time zone: America/Phoenix is decided in exactly one place", () => {
