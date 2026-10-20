@@ -69,5 +69,7 @@ $P -U postgres -d elf5 -t -A -c "SELECT 'LARGE ROSTER (2,000 athletes): ' || v F
 [ "${VERBOSE:-0}" = 1 ] && cat "$WORK/results.txt"
 
 bash "$HERE/concurrency.sh" || failed=1
+# Phase 5-2: the TypeScript rules drive the real functions end to end.
+node --no-warnings "$HERE/agreement.mjs" || failed=1
 [ $failed = 0 ] && echo "ALL PASSED" || echo "SOME CHECKS FAILED"
 exit $failed
