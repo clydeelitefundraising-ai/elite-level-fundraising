@@ -59,7 +59,7 @@ test("new session: header, Draft status, every athlete defaulting to Present, Sa
   assert.match(t, /Wolves High Track/);
   assert.match(t, /Draft · not saved yet/);
   assert.match(t, /Tuesday, October 20, 2026 \(today\)/);
-  assert.match(out, /href="\/team\/wolves\/team"/, "return navigation to the team");
+  assert.match(out, /href="\/team\/wolves\/team\?tab=roster"[^>]*>.*?Roster<\/a>/, "back to this team's roster tab");
   assert.equal(count(out, /<input(?=[^>]*value="present")(?=[^>]*checked="")[^>]*>/), 5);
   assert.equal(count(out, /value="absent"/), 5);
   assert.match(t, /Attendance for Ava Adams/, "each athlete's choice has an accessible name");
@@ -289,11 +289,19 @@ test("no browser storage, no logging, no analytics in the attendance screen code
   }
 });
 
-test("no entry point yet: the Team/Roster header and navigation don't link to attendance (Phase 5-5)", () => {
+test("the only entry point is the roster's Take Attendance (Phase 5-5): no nav or Home links", () => {
   const root = new URL("../", import.meta.url);
-  for (const f of ["team/TeamView.tsx", "team/RosterTabs.tsx", "team/TeamTabs.tsx", "_components/TeamNav.tsx", "_components/desktopNavItems.ts", "_components/DesktopSidebar.tsx", "home/QuickActions.tsx"]) {
+  for (const f of ["team/RosterTabs.tsx", "team/TeamTabs.tsx", "_components/TeamNav.tsx", "_components/desktopNavItems.ts", "_components/DesktopSidebar.tsx", "home/QuickActions.tsx"]) {
     assert.doesNotMatch(readFileSync(new URL(f, root), "utf8"), /attendance/i, f);
   }
+});
+
+test("with unsaved changes, the back link to the roster is guarded (Stay / Discard)", async () => {
+  const { guardedNavigationTarget } = await import("./unsavedChangesGuard.ts");
+  const out = html(edit(ready(F.TODAY, F.newRoster()), { op: "absent", athleteId: F.A(1) }));
+  const href = /<a href="([^"]+)"[^>]*>.*?Roster<\/a>/.exec(out)![1];
+  const click = { href, target: null, download: false, button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false };
+  assert.equal(guardedNavigationTarget(click, "https://app.test/team/wolves/attendance"), "/team/wolves/team?tab=roster");
 });
 
 // ── Who can open the page ─────────────────────────────────────────────────

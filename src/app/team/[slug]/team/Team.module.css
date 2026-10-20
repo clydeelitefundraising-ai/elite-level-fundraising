@@ -308,3 +308,59 @@
   display: inline-flex;
   flex-shrink: 0;
 }
+
+/*
+ * Team Management Phase 5-5 — Take Attendance (TakeAttendanceLink.tsx):
+ * the roster header's secondary, outlined action beside the primary
+ * Add Athlete button. Same compact look as Add Athlete (CoachBar) with a
+ * full 44px touch target: the ::after hit area extends above and below
+ * the visible pill without changing the layout.
+ */
+.takeAttendance {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .4rem .85rem;
+  border: 1.5px solid var(--team-primary);
+  border-radius: var(--radius-md);
+  background: var(--surface-light);
+  color: var(--text-primary-app);
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.takeAttendance::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+.takeAttendance:hover {
+  background: var(--surface-light-elevated);
+}
+
+.takeAttendanceMd {
+  padding: .5rem 1rem;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+/* Mobile roster header actions: beside the title when they fit, on their
+   own right-aligned line when they don't (never overflowing). */
+.rosterHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: .5rem;
+  margin-left: auto;
+  min-width: 0;
+}

@@ -30,6 +30,7 @@ export default function TeamView({
   contactCounts,
   outreachMap,
   linkedAthleteIds = [],
+  attendanceHref = null,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
@@ -42,6 +43,8 @@ export default function TeamView({
   // (team/page.tsx, via getLinkedAthleteIdsForMember). Empty for staff/athlete
   // actors, who use a different rule in AthleteRosterGrid.
   linkedAthleteIds?: string[];
+  // Phase 5-5: the Take Attendance link (takeAttendanceHref, on the server).
+  attendanceHref?: string | null;
 }) {
   const roster = useAthleteRoster(slug, initialAthletes, actor);
   const showDesktop = shouldShowDesktopRoster(actor);
@@ -61,6 +64,7 @@ export default function TeamView({
           pendingRequestCount={pendingRequestCount}
           actor={actor}
           linkedAthleteIds={linkedAthleteIds}
+          attendanceHref={attendanceHref}
         />
       </div>
       {showDesktop && (
@@ -71,6 +75,7 @@ export default function TeamView({
             attribution={attribution}
             contactCounts={contactCounts}
             outreachMap={outreachMap}
+            attendanceHref={attendanceHref}
           />
         </div>
       )}

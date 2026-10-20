@@ -6,6 +6,7 @@ import { ChevronLeft, Search } from "lucide-react";
 import { attendanceRuleMessage } from "@/lib/teamAttendance";
 import { draftChanges, type AttendanceEntry } from "@/lib/teamAttendanceDraft";
 import GradeTabs, { gradeTabId, gradeTabPanelId } from "../team/GradeTabs";
+import { rosterPath } from "../team/takeAttendance";
 import {
   ATTENDANCE_FILTERS,
   attendanceListView,
@@ -111,9 +112,11 @@ export default function AttendanceScreen({
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
-        <Link href={`/team/${slug}/team`} className={`${styles.backLink} elf-focus-ring`}>
+        {/* Back to this team's roster (where Take Attendance is). A normal
+            link, so the unsaved-changes guard still asks first. */}
+        <Link href={rosterPath(slug)} className={`${styles.backLink} elf-focus-ring`}>
           <ChevronLeft size={16} aria-hidden="true" />
-          Team
+          Roster
         </Link>
         <p className={styles.teamName}>{teamName}</p>
         <div className={styles.titleRow}>

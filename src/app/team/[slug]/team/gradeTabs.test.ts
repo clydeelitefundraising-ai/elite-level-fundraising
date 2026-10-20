@@ -240,5 +240,12 @@ test("existing roster actions, profile navigation and permissions are unchanged"
 
 test("Phase 1 adds no attendance functionality", () => {
   const withoutComments = (code: string) => code.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  for (const code of [tabsComponent, mobileGrid, desktopTable]) assert.doesNotMatch(withoutComments(code), /attendance/i);
+  assert.doesNotMatch(withoutComments(tabsComponent), /attendance/i);
+  // Phase 5-5 added only the Take Attendance link (an href decided on the
+  // server, see takeAttendance.ts) — no attendance data, fetches or calls.
+  const linkOnly = (code: string) => withoutComments(code)
+    .replace(/import TakeAttendanceLink from "\.\/TakeAttendanceLink";/g, "")
+    .replace(/<TakeAttendanceLink href=\{attendanceHref\}( size="md")? \/>/g, "")
+    .replace(/\battendanceHref\b/g, "");
+  for (const code of [mobileGrid, desktopTable]) assert.doesNotMatch(linkOnly(code), /attendance/i);
 });

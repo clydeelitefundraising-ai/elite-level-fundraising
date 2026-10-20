@@ -17,6 +17,8 @@ import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
 import type { TeamActor } from "@/lib/permissions";
 import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import CoachBar from "../_components/CoachBar";
+import TakeAttendanceLink from "./TakeAttendanceLink";
+import styles from "./Team.module.css";
 import type { AthleteRosterState } from "./useAthleteRoster";
 
 // Phase 5: replaces the previous 2-column padded-card grid with a
@@ -146,9 +148,13 @@ export default function AthleteRosterGrid({
   pendingRequestCount = 0,
   actor,
   linkedAthleteIds = [],
+  attendanceHref = null,
 }: {
   slug: string;
   roster: AthleteRosterState;
+  // Phase 5-5: Take Attendance (takeAttendanceHref, decided on the server);
+  // null hides it.
+  attendanceHref?: string | null;
   // The Requests Center (/team/[slug]/requests) is the canonical place to
   // review/approve pending athlete requests — this is only a small
   // contextual pointer, not the approval workflow itself.
@@ -223,7 +229,9 @@ export default function AthleteRosterGrid({
 
       {/* Section header */}
       <div style={{ marginBottom: "var(--space-3)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+        {/* Phase 5-5: wraps (actions on their own right-aligned line) when
+            Take Attendance + Add Athlete don't fit beside the title. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             Team
           </h2>
@@ -232,8 +240,10 @@ export default function AthleteRosterGrid({
               {athletes.length} athlete{athletes.length !== 1 ? "s" : ""}
             </span>
           )}
-          <div style={{ flex: 1 }} />
-          <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
+          <div className={styles.rosterHeaderActions}>
+            {attendanceHref && <TakeAttendanceLink href={attendanceHref} />}
+            <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
+          </div>
         </div>
       </div>
 

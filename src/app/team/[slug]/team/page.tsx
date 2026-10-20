@@ -11,6 +11,7 @@ import RosterTabs from "./RosterTabs";
 import OverviewView from "./OverviewView";
 import TeamStaffRosterView from "./TeamStaffRosterView";
 import TodoListView from "./TodoListView";
+import { takeAttendanceHref } from "./takeAttendance";
 
 export default async function TeamPage({
   params,
@@ -71,6 +72,7 @@ export default async function TeamPage({
               contactCounts={contactCounts}
               outreachMap={outreachMap}
               linkedAthleteIds={linkedAthleteIds}
+              attendanceHref={takeAttendanceHref(slug, actor)}
             />
           }
           staff={<TeamStaffRosterView slug={slug} />}

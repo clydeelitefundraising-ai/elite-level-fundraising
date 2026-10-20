@@ -21,6 +21,7 @@ import {
   type FundraisingFilter,
 } from "./rosterHelpers";
 import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
+import TakeAttendanceLink from "./TakeAttendanceLink";
 
 function fmtMoney(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -70,12 +71,16 @@ export default function DesktopRosterTable({
   attribution,
   contactCounts,
   outreachMap,
+  attendanceHref = null,
 }: {
   slug: string;
   roster: AthleteRosterState;
   attribution: AttributionTotals;
   contactCounts: Record<string, number>;
   outreachMap: Record<string, OutreachCurrentRow>;
+  // Phase 5-5: Take Attendance (takeAttendanceHref, decided on the server);
+  // null hides it.
+  attendanceHref?: string | null;
 }) {
   const router = useRouter();
   const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
@@ -131,6 +136,7 @@ export default function DesktopRosterTable({
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {attendanceHref && <TakeAttendanceLink href={attendanceHref} size="md" />}
         {staffMode && (
           <button
             onClick={openAdd}
