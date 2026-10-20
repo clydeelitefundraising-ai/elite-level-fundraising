@@ -459,6 +459,29 @@
   opacity: .8;
 }
 
+/* ── Class tabs (the roster's GradeTabs) and class groups ───────────── */
+
+.classPanel {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  min-width: 0;
+}
+
+.classHeading {
+  margin: .35rem 0 .45rem;
+  font-size: .82rem;
+  font-weight: 800;
+  color: #0b1e3d;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.classHeadingCount {
+  font-weight: 700;
+  color: var(--text-muted-app);
+}
+
 /* ── Roster rows ────────────────────────────────────────────────────── */
 
 .list {

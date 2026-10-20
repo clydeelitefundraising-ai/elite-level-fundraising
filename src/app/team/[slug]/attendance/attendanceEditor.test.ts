@@ -200,7 +200,8 @@ test("'Needs attention' finds every blocked athlete after a failed save attempt"
   assert.equal(s.save.kind, "blocked");
   assert.equal(attendanceListView(s)!.hiddenProblems, 2);
   s = run(s, { type: "show_attention" });
-  assert.deepEqual(attendanceListView(s)!.visible.map(e => e.athleteId), [A(3), A(5)]);
+  // Class order under All Athletes: Eli (Junior), then Cy (No grade set, last).
+  assert.deepEqual(attendanceListView(s)!.visible.map(e => e.athleteId), [A(5), A(3)]);
   assert.match(saveStatusText(s.save, "America/Phoenix")!, /Not saved/);
 });
 
@@ -535,4 +536,135 @@ test("250 athletes: edits touch one entry; unchanged rows keep their identity (c
   const changed = after.draft!.entries.filter((e, i) => e !== s.draft!.entries[i]);
   assert.equal(changed.length, 1);
   assert.equal(attendanceListView(after)!.visible.length, 250);
+});
+
+// ── Class tabs ────────────────────────────────────────────────────────────
+
+/** A mixed roster: every class, out of order, plus a missing and an unrecognized class. */
+const classRoster = () => [
+  row(1, "Zoe Senior", { class_year: "Senior" }),
+  row(2, "Amy Senior", { class_year: "Senior" }),
+  row(3, "Finn Fresh", { class_year: "Freshman" }),
+  row(4, "Sam Soph", { class_year: "Sophomore" }),
+  row(5, "Jack Junior", { class_year: "Junior" }),
+  row(6, "Abe Fresh", { class_year: "Freshman" }),
+  row(7, "Nia Nograde", { class_year: null }),
+  row(8, "Rex Redshirt", { class_year: "RS Sophomore" }),
+  row(9, "Bea Fresh", { class_year: "Freshman" }),
+];
+
+test("class tabs: All Athletes by default, counts from the loaded roster, the roster's class order", () => {
+  const s = readyToday(classRoster());
+  const v = attendanceListView(s)!;
+  assert.equal(s.grade, "all");
+  assert.equal(v.grade, "all");
+  assert.deepEqual(v.tabs.map(t => [t.label, t.count]), [
+    ["All Athletes", 9], ["Freshman", 3], ["Sophomore", 1], ["Junior", 1], ["Senior", 2],
+    ["RS Sophomore", 1], ["No grade set", 1],
+  ]);
+});
+
+test("All Athletes: grouped Freshman → Senior (then unrecognized, then no grade), alphabetical within each class", () => {
+  const v = attendanceListView(readyToday(classRoster()))!;
+  assert.deepEqual(v.groups!.map(g => [g.label, g.entries.map(e => e.name)]), [
+    ["Freshman", ["Abe Fresh", "Bea Fresh", "Finn Fresh"]],
+    ["Sophomore", ["Sam Soph"]],
+    ["Junior", ["Jack Junior"]],
+    ["Senior", ["Amy Senior", "Zoe Senior"]],
+    ["RS Sophomore", ["Rex Redshirt"]],
+    ["No grade set", ["Nia Nograde"]],
+  ]);
+  assert.equal(v.visible.length, 9, "nobody hidden, whatever their class value");
+});
+
+test("selecting a class shows only that class (no headings); unknown and missing classes have their own tabs", () => {
+  let s = run(readyToday(classRoster()), { type: "grade", value: "grade:Senior" });
+  const v = attendanceListView(s)!;
+  assert.equal(v.groups, null);
+  assert.deepEqual(v.visible.map(e => e.name), ["Amy Senior", "Zoe Senior"]);
+  assert.equal(v.filtered, true);
+  s = run(s, { type: "grade", value: "grade:RS Sophomore" });
+  assert.deepEqual(attendanceListView(s)!.visible.map(e => e.name), ["Rex Redshirt"]);
+  s = run(s, { type: "grade", value: "none" });
+  assert.deepEqual(attendanceListView(s)!.visible.map(e => e.name), ["Nia Nograde"]);
+  // A tab that no longer exists falls back to All Athletes.
+  s = run(s, { type: "grade", value: "grade:Graduate" });
+  assert.equal(attendanceListView(s)!.grade, "all");
+});
+
+test("class + status + search work together; status counts follow the class and search", () => {
+  let s = edit(readyToday(classRoster()),
+    { op: "absent", athleteId: A(3) }, { op: "reason", athleteId: A(3), reason: "excused" },
+    { op: "absent", athleteId: A(6) },
+    { op: "absent", athleteId: A(1) }, { op: "reason", athleteId: A(1), reason: "other" });
+  s = run(s, { type: "grade", value: "grade:Freshman" });
+  let v = attendanceListView(s)!;
+  assert.deepEqual(v.counts, { all: 3, present: 1, absent: 2, attention: 1 });
+  s = run(s, { type: "filter", value: "absent" });
+  assert.deepEqual(attendanceListView(s)!.visible.map(e => e.name), ["Abe Fresh", "Finn Fresh"]);
+  s = run(s, { type: "search", value: "finn" });
+  v = attendanceListView(s)!;
+  assert.deepEqual(v.visible.map(e => e.name), ["Finn Fresh"]);
+  assert.equal(v.hiddenProblems, 1, "Abe's missing reason is hidden by the search");
+  assert.deepEqual(v.tabs.find(t => t.label === "Freshman")!.count, 3, "tab counts aren't narrowed by search");
+  // Show athletes that need attention clears the class tab too.
+  const shown = run(s, { type: "show_attention" });
+  assert.equal(shown.grade, "all");
+  assert.deepEqual(attendanceListView(shown)!.visible.map(e => e.name), ["Abe Fresh"]);
+});
+
+test("switching class tabs and filters never touches unsaved marks, reasons or notes", () => {
+  let s = edit(readyToday(classRoster()),
+    { op: "absent", athleteId: A(5) }, { op: "reason", athleteId: A(5), reason: "unexcused" }, { op: "note", athleteId: A(5), note: "Bus late" });
+  const draft = s.draft!;
+  for (const a of [
+    { type: "grade", value: "grade:Senior" }, { type: "filter", value: "present" }, { type: "search", value: "zoe" },
+    { type: "grade", value: "none" }, { type: "grade", value: "all" }, { type: "filter", value: "all" }, { type: "search", value: "" },
+  ] as EditorAction[]) {
+    s = run(s, a);
+    assert.equal(s.draft, draft, `${a.type} kept the draft`);
+  }
+  assert.deepEqual(s.draft!.entries.find(e => e.athleteId === A(5))!.state.mark, { status: "absent", absenceReason: "unexcused", note: "Bus late" });
+  assert.equal(isDirty(s), true);
+});
+
+test("Save Draft with a class tab active still saves the complete eligible roster", () => {
+  let s = edit(readyToday(classRoster()), { op: "absent", athleteId: A(2) }, { op: "reason", athleteId: A(2), reason: "excused" });
+  s = run(s, { type: "grade", value: "grade:Junior" }, { type: "filter", value: "present" }, { type: "search", value: "jack" });
+  assert.equal(attendanceListView(s)!.visible.length, 1);
+  const built = prepareSave(s)!;
+  assert.ok(built.ok);
+  if (built.ok) {
+    assert.equal(built.payload.records.length, 9);
+    assert.deepEqual(built.payload.records.find(r => r.athlete_id === A(2)), { athlete_id: A(2), status: "absent", absence_reason: "excused", note: null });
+  }
+});
+
+test("class tabs: late-added athletes stay separate (not counted) and removed athletes stay history", () => {
+  const gone = { ...saved(row(20, "Gus Gone", { class_year: "Senior" }), 20, "present"), athlete_id: null, on_roster: false };
+  const rows = [
+    saved(row(1, "Ava Senior", { class_year: "Senior" }), 1, "present"),
+    saved(row(2, "Bo Fresh", { class_year: "Freshman" }), 2, "present"),
+    row(6, "Fay Late", { class_year: "Senior", added_after_session_date: true, requires_decision: true }),
+    gone,
+  ];
+  let s = readyDate("2026-10-15", rows, { session: session("2026-10-15", 1, { present: 2, removed: 1 }) });
+  let v = attendanceListView(s)!;
+  assert.deepEqual(v.tabs.map(t => [t.label, t.count]), [["All Athletes", 2], ["Freshman", 1], ["Senior", 1]], "neither late nor removed athletes counted");
+  s = run(s, { type: "grade", value: "grade:Senior" });
+  v = attendanceListView(s)!;
+  assert.deepEqual(v.visible.map(e => e.name), ["Ava Senior"]);
+  assert.deepEqual(v.pendingLate.map(e => e.name), ["Fay Late"]);
+  assert.deepEqual(v.removed.map(e => e.name), ["Gus Gone"]);
+  s = run(s, { type: "grade", value: "grade:Freshman" });
+  v = attendanceListView(s)!;
+  assert.deepEqual([v.pendingLate.length, v.removed.length], [0, 0]);
+  // Including the late athlete adds them to their class's count.
+  s = edit(run(s, { type: "grade", value: "all" }), { op: "include_late", athleteId: A(6), status: "present" });
+  assert.equal(attendanceListView(s)!.tabs.find(t => t.label === "Senior")!.count, 2);
+});
+
+test("a new date resets the class tab to All Athletes", () => {
+  const s = run(readyToday(classRoster()), { type: "grade", value: "grade:Senior" }, { type: "select_date", date: "2026-10-19" });
+  assert.equal(s.grade, "all");
 });

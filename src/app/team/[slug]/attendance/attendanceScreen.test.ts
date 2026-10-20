@@ -201,6 +201,39 @@ test("saving: controls disabled and the button says Saving…; never 'Saved' bef
   assert.doesNotMatch(text(out), /Saved(?! attendance)/);
 });
 
+test("class tabs: the roster's tab row with real counts, All Athletes selected, grouped headings in class order", () => {
+  const rows = [
+    F.row(1, "Zed Senior", { class_year: "Senior" }), F.row(2, "Al Fresh", { class_year: "Freshman" }),
+    F.row(3, "Jo Junior", { class_year: "Junior" }), F.row(4, "Bo Fresh", { class_year: "Freshman" }),
+    F.row(5, "Ned None", { class_year: null }),
+  ];
+  const out = html(ready(F.TODAY, rows));
+  assert.match(out, /role="tablist" aria-label="Show athletes by class" class="gradeTabs"/, "the shared, horizontally scrolling tab row");
+  const tabs = [...out.matchAll(/role="tab"[^>]*aria-selected="(true|false)"[^>]*>.*?<span>([^<]+)<\/span><span class="gradeTabCount">(\d+)<\/span>/g)].map(m => [m[2], m[3], m[1]]);
+  assert.deepEqual(tabs, [["All Athletes", "5", "true"], ["Freshman", "2", "false"], ["Junior", "1", "false"], ["Senior", "1", "false"], ["No grade set", "1", "false"]]);
+  assert.match(out, /id="att-class-panel" role="tabpanel" aria-labelledby="att-class-tab-all"/);
+  const headings = [...out.matchAll(/<h3[^>]*class="classHeading"[^>]*>([^<]+) <span[^>]*>\((\d+)\)<\/span><\/h3>/g)].map(m => `${m[1]} ${m[2]}`);
+  assert.deepEqual(headings, ["Freshman 2", "Junior 1", "Senior 1", "No grade set 1"]);
+  const names = [...out.matchAll(/class="athleteName">([^<]+)</g)].map(m => m[1]);
+  assert.deepEqual(names, ["Al Fresh", "Bo Fresh", "Jo Junior", "Zed Senior", "Ned None"]);
+});
+
+test("one class selected: only that class, no headings, and the reminder that saving includes everyone", () => {
+  const rows = [F.row(1, "Zed Senior", { class_year: "Senior" }), F.row(2, "Al Fresh", { class_year: "Freshman" }), F.row(3, "Amy Senior", { class_year: "Senior" })];
+  const s = run(ready(F.TODAY, rows), { type: "grade", value: "grade:Senior" });
+  const out = html(s);
+  assert.match(out, /aria-selected="true"[^>]*><span[^>]*><span>Senior<\/span>/);
+  assert.doesNotMatch(out, /class="classHeading"/);
+  assert.deepEqual([...out.matchAll(/class="athleteName">([^<]+)</g)].map(m => m[1]), ["Amy Senior", "Zed Senior"]);
+  assert.match(text(out), /Showing 2 of 3 athletes\. Filters only change what's shown — Save Draft always saves every athlete\./);
+});
+
+test("the reused roster tab row scrolls horizontally with 44px touch targets", () => {
+  const css = readFileSync(new URL("../team/Team.module.css", import.meta.url), "utf8");
+  assert.match(css, /\.gradeTabs \{[^}]*overflow-x: auto/);
+  assert.match(css, /\.gradeTab \{[^}]*min-height: 44px/);
+});
+
 test("Stay / Discard dialog: an accessible alert dialog that says nothing was saved", () => {
   const s = run(edit(ready(F.TODAY, F.newRoster()), { op: "absent", athleteId: F.A(1) }), { type: "select_date", date: "2026-10-19" });
   const out = html(s);
@@ -440,5 +473,22 @@ test("end to end: a late-added athlete must be explicitly included; the confirma
     const lee = (w.saves[1].p_records as Record<string, unknown>[]).find(r => r.athlete_id === W.A(5));
     assert.equal(lee!.confirm_added_after_date, true);
     assert.equal(s.draft!.entries.find(e => e.athleteId === W.A(5))!.kind, "late_included");
+  });
+});
+
+test("end to end: with a class tab, filter and search active, Save Draft sends the whole eligible roster", async () => {
+  await W.withWorld(async (w: { saves: Record<string, unknown>[] }) => {
+    W.ROLES.head();
+    const api = createAttendanceApi(W.SLUG, appFetch());
+    let s = await openEditor(api);
+    s = edit(s, { op: "absent", athleteId: W.A(2) }, { op: "reason", athleteId: W.A(2), reason: "other" });
+    s = run(s, { type: "grade", value: "grade:Senior" }, { type: "filter", value: "present" }, { type: "search", value: "ava" });
+    assert.equal(E.attendanceListView(s)!.visible.length, 1);
+    s = await save(api, s);
+    assert.equal(s.save.kind, "saved");
+    const sent = w.saves[0].p_records as { athlete_id: string; status: string }[];
+    assert.deepEqual(sent.map(r => r.athlete_id).sort(), [W.A(1), W.A(2), W.A(3)]);
+    assert.equal(sent.find(r => r.athlete_id === W.A(2))!.status, "absent");
+    assert.equal(s.grade, "grade:Senior", "the view stays where the coach was");
   });
 });

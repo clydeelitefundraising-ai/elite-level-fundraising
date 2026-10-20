@@ -17,6 +17,7 @@ import {
   type EditOp,
 } from "./attendanceEditor";
 import { useUnsavedChangesGuard, type GuardRequest } from "./unsavedChangesGuard";
+import type { GradeTabKey } from "../team/rosterHelpers";
 
 /** History shown under the editor: the last year of saved sessions. */
 const HISTORY_DAYS = 365;
@@ -102,6 +103,7 @@ export function useAttendanceEditor(slug: string, initialDate: string | null, ap
     save: () => void save(),
     search: (value: string) => dispatch({ type: "search", value }),
     filter: (value: AttendanceFilter) => dispatch({ type: "filter", value }),
+    grade: (value: GradeTabKey) => dispatch({ type: "grade", value }),
     showAttention: () => dispatch({ type: "show_attention" }),
     stay: () => dispatch({ type: "stay" }),
     discard,

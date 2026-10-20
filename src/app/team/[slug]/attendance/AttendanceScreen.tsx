@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Search } from "lucide-react";
 import { attendanceRuleMessage } from "@/lib/teamAttendance";
-import { draftChanges } from "@/lib/teamAttendanceDraft";
+import { draftChanges, type AttendanceEntry } from "@/lib/teamAttendanceDraft";
+import GradeTabs, { gradeTabId, gradeTabPanelId } from "../team/GradeTabs";
 import {
   ATTENDANCE_FILTERS,
   attendanceListView,
@@ -38,6 +39,19 @@ import styles from "./Attendance.module.css";
 
 /** Rows rendered at once; more on request ("Show all"), never silently cut. */
 export const ROW_RENDER_LIMIT = 400;
+
+const CLASS_TABS = "att-class";
+
+/** Class groups cut to the first `limit` rows overall (in display order). */
+function groupsWithin(groups: { label: string; entries: AttendanceEntry[] }[], limit: number) {
+  let left = limit;
+  return groups.flatMap(g => {
+    if (left <= 0) return [];
+    const entries = g.entries.slice(0, left);
+    left -= entries.length;
+    return [{ label: g.label, total: g.entries.length, entries }];
+  });
+}
 
 export default function AttendanceScreen({
   slug,
@@ -75,6 +89,24 @@ export default function AttendanceScreen({
 
   const visible = list?.visible ?? [];
   const rendered = renderAll ? visible : visible.slice(0, ROW_RENDER_LIMIT);
+
+  const renderRow = (e: AttendanceEntry) => (readOnly
+    // Read-only: saved marks only ("Not recorded" otherwise — never a
+    // draft default). If the date became read-only during a save, the
+    // coach's unsaved marks stay visible (and the save status says they
+    // weren't saved).
+    ? <ReadOnlyRow key={e.key} entry={e} recorded={e.savedInSession || dirty} />
+    : (
+      <AttendanceRow
+        key={e.key}
+        entry={e}
+        editable={editing && !draft!.conflicts[e.key]}
+        problems={entryProblems(draft!, e, state.serverIssues)}
+        serverCodes={serverIssueCodesFor(e, state.serverIssues)}
+        showProblems={state.attempted}
+        onEdit={actions.edit}
+      />
+    ));
 
   return (
     <div className={styles.screen}>
@@ -195,8 +227,16 @@ export default function AttendanceScreen({
             </div>
           )}
 
+          {showList && list && list.inSession > 0 && (
+            // The Team/Roster screen's own class tabs (unchanged component).
+            <GradeTabs tabs={list.tabs} value={list.grade} onChange={actions.grade} idPrefix={CLASS_TABS} label="Show athletes by class" />
+          )}
+
           {showList && list && (
-            <>
+            <div
+              className={styles.classPanel}
+              {...(list.inSession > 0 ? { id: gradeTabPanelId(CLASS_TABS), role: "tabpanel", "aria-labelledby": gradeTabId(CLASS_TABS, list.grade) } : {})}
+            >
               {editing && list.pendingLate.length > 0 && (
                 <section className={styles.card} aria-labelledby="att-late-title">
                   <h2 id="att-late-title" className={styles.cardTitle}>Added after this date ({list.pendingLate.length})</h2>
@@ -258,26 +298,18 @@ export default function AttendanceScreen({
                 <p className={styles.muted}>No athletes match.</p>
               )}
 
-              {rendered.length > 0 && (
-                <ul className={styles.list} aria-label="Athletes">
-                  {rendered.map(e => (readOnly
-                    // Read-only: saved marks only ("Not recorded" otherwise —
-                    // never a draft default). If the date became read-only
-                    // during a save, the coach's unsaved marks stay visible
-                    // (and the save status says they weren't saved).
-                    ? <ReadOnlyRow key={e.key} entry={e} recorded={e.savedInSession || dirty} />
-                    : (
-                      <AttendanceRow
-                        key={e.key}
-                        entry={e}
-                        editable={editing && !draft!.conflicts[e.key]}
-                        problems={entryProblems(draft!, e, state.serverIssues)}
-                        serverCodes={serverIssueCodesFor(e, state.serverIssues)}
-                        showProblems={state.attempted}
-                        onEdit={actions.edit}
-                      />
-                    )))}
-                </ul>
+              {list.groups ? (
+                // All Athletes: under class headings, in the roster's class order.
+                groupsWithin(list.groups, renderAll ? Infinity : ROW_RENDER_LIMIT).map((g, i) => (
+                  <section key={g.label} aria-labelledby={`att-class-${i}`}>
+                    <h3 id={`att-class-${i}`} className={styles.classHeading}>
+                      {g.label} <span className={styles.classHeadingCount}>({g.total})</span>
+                    </h3>
+                    <ul className={styles.list}>{g.entries.map(renderRow)}</ul>
+                  </section>
+                ))
+              ) : rendered.length > 0 && (
+                <ul className={styles.list} aria-label="Athletes">{rendered.map(renderRow)}</ul>
               )}
               {!renderAll && visible.length > ROW_RENDER_LIMIT && (
                 <div>
@@ -299,7 +331,7 @@ export default function AttendanceScreen({
                   </ul>
                 </section>
               )}
-            </>
+            </div>
           )}
         </div>
 

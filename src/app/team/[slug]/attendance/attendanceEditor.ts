@@ -42,7 +42,16 @@ import {
   type AttendanceEntry,
   type MergeOutcome,
 } from "../../../../lib/teamAttendanceDraft.ts";
-import { matchesRosterSearch } from "../team/rosterHelpers.ts";
+import {
+  ALL_ATHLETES_TAB,
+  buildGradeTabs,
+  groupAthletesByClass,
+  matchesGradeTab,
+  matchesRosterSearch,
+  resolveGradeTab,
+  type GradeTab,
+  type GradeTabKey,
+} from "../team/rosterHelpers.ts";
 import type {
   AttendanceApi,
   AttendanceClockView,
@@ -126,6 +135,8 @@ export type EditorState = {
   merge: MergeNotice | null;
   search: string;
   filter: AttendanceFilter;
+  /** Class tab — the roster's grade tabs (rosterHelpers). Display only. */
+  grade: GradeTabKey;
   pending: PendingLeave | null;
   /** Navigation away was confirmed: stop guarding. */
   leaving: boolean;
@@ -136,7 +147,7 @@ export type EditorState = {
 export function initialEditorState(initialDate: string | null = null): EditorState {
   const base: EditorState = {
     clock: null, list: { kind: "loading" }, selectedDate: null, load: { kind: "idle" }, draft: null, meta: null,
-    save: { kind: "idle" }, serverIssues: [], attempted: false, merge: null, search: "", filter: "all",
+    save: { kind: "idle" }, serverIssues: [], attempted: false, merge: null, search: "", filter: "all", grade: ALL_ATHLETES_TAB,
     pending: null, leaving: false, dateError: null, seq: 0,
   };
   return initialDate && isIsoDate(initialDate) ? startLoad(base, initialDate) : base;
@@ -192,6 +203,7 @@ export type EditorAction =
   | { type: "save_finished"; draft: AttendanceDraft; outcome: SaveOutcome }
   | { type: "search"; value: string }
   | { type: "filter"; value: AttendanceFilter }
+  | { type: "grade"; value: GradeTabKey }
   | { type: "show_attention" }
   | { type: "request_leave"; to: PendingLeave }
   | { type: "stay" }
@@ -214,6 +226,7 @@ function startLoad(state: EditorState, date: string): EditorState {
     pending: null,
     dateError: null,
     filter: "all",
+    grade: ALL_ATHLETES_TAB,
   };
 }
 
@@ -412,8 +425,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "filter":
       return { ...state, filter: action.value };
 
+    case "grade":
+      return { ...state, grade: action.value };
+
     case "show_attention":
-      return { ...state, filter: "attention", search: "" };
+      return { ...state, filter: "attention", search: "", grade: ALL_ATHLETES_TAB };
 
     case "request_leave":
       if (!isDirty(state)) return state;
@@ -496,8 +512,17 @@ function matchesFilter(draft: AttendanceDraft, e: AttendanceEntry, filter: Atten
 }
 
 export type AttendanceListView = {
-  /** Athletes in this session (enrolled, late included) that match the search and filter. */
+  /** Athletes in this session (enrolled, late included) that match the
+   *  class tab, search and filter — under All Athletes in class order
+   *  (the roster's), by name within each class. */
   visible: AttendanceEntry[];
+  /** Under All Athletes: `visible` grouped under class headings (the
+   *  roster's groupAthletesByClass). One class selected: null. */
+  groups: { label: string; entries: AttendanceEntry[] }[] | null;
+  /** The roster's grade tabs, with counts of athletes in this session. */
+  tabs: GradeTab[];
+  /** The selected tab (All Athletes if the chosen one no longer exists). */
+  grade: GradeTabKey;
   /** Athletes in this session, before search/filter. */
   inSession: number;
   /** Added after the date and not (yet) included: the coach decides. */
@@ -515,25 +540,43 @@ export function attendanceListView(state: EditorState): AttendanceListView | nul
   const draft = state.draft;
   if (!draft) return null;
   const inSession = draft.entries.filter(e => e.kind !== "removed" && e.state.included);
-  const searched = inSession.filter(e => matchesRosterSearch(e.name, state.search));
+  // Class tabs exactly like the Team/Roster screen: derived from the data
+  // (no fixed list), unrecognized values as their own tabs after the
+  // standard classes, "No grade set" last — nobody is ever hidden.
+  const tabs = buildGradeTabs(inSession.map(e => ({ class_year: e.classYear })));
+  const grade = resolveGradeTab(state.grade, tabs);
+  const inGrade = (e: AttendanceEntry) => matchesGradeTab(e.classYear, grade);
+  const searched = inSession.filter(e => inGrade(e) && matchesRosterSearch(e.name, state.search));
   const counts = {
     all: searched.length,
     present: searched.filter(e => matchesFilter(draft, e, "present", state.serverIssues)).length,
     absent: searched.filter(e => matchesFilter(draft, e, "absent", state.serverIssues)).length,
     attention: searched.filter(e => matchesFilter(draft, e, "attention", state.serverIssues)).length,
   };
-  const visible = searched.filter(e => matchesFilter(draft, e, state.filter, state.serverIssues));
+  const filtered = searched.filter(e => matchesFilter(draft, e, state.filter, state.serverIssues));
+  // Entries are already by name; grouping keeps that order within a class.
+  const groups = grade === ALL_ATHLETES_TAB
+    ? groupAthletesByClass(filtered.map(e => ({ class_year: e.classYear, entry: e })))
+      .map(g => ({ label: g.label, entries: g.athletes.map(a => a.entry) }))
+    : null;
+  const visible = groups ? groups.flatMap(g => g.entries) : filtered;
   const visibleKeys = new Set(visible.map(e => e.key));
   const problemEntries = inSession.filter(e => entryProblems(draft, e, state.serverIssues).length > 0);
+  const shown = (e: AttendanceEntry) => inGrade(e) && matchesRosterSearch(e.name, state.search);
   return {
     visible,
+    groups,
+    tabs,
+    grade,
     inSession: inSession.length,
-    pendingLate: draft.entries.filter(e => e.kind === "late_pending" && !e.state.included && matchesRosterSearch(e.name, state.search)),
-    removed: draft.entries.filter(e => e.kind === "removed" && matchesRosterSearch(e.name, state.search)),
+    // Kept in their own sections (never counted as enrolled); the class
+    // tab and search narrow them too.
+    pendingLate: draft.entries.filter(e => e.kind === "late_pending" && !e.state.included && shown(e)),
+    removed: draft.entries.filter(e => e.kind === "removed" && shown(e)),
     counts,
     problems: problemEntries.length,
     hiddenProblems: problemEntries.filter(e => !visibleKeys.has(e.key)).length,
-    filtered: state.search.trim() !== "" || state.filter !== "all",
+    filtered: state.search.trim() !== "" || state.filter !== "all" || grade !== ALL_ATHLETES_TAB,
   };
 }
 
