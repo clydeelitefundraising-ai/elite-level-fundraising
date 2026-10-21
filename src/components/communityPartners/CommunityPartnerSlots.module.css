@@ -1,0 +1,167 @@
+/* ELF Community Partners — the 21 advertising positions (shared by the Team
+ * App Home grid, the Partners tab and the public campaign page).
+ * Reference: "ELF Community Partner Advertising Card Design Spec". */
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* Three columns on phones: 21 positions = seven full rows. minmax(0, …)
+   * lets a column shrink below its content so nothing overflows sideways. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .6rem;
+}
+
+/* Team App, wider screens (tablet Home, desktop Coach Dashboard, Partners
+ * tab): as many ~124px columns as fit. The public page keeps three. */
+@media (min-width: 640px) {
+  .gridApp {
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: .75rem;
+  }
+}
+/* Same spacing below the section's subcopy as the old public grid. */
+.gridPublic { margin-top: 1.1rem; }
+@media (min-width: 640px) {
+  .gridPublic { gap: .9rem; }
+}
+
+.cell {
+  min-width: 0;
+  display: flex;
+}
+
+/* Every position — occupied or blank — is the same square box. */
+.card {
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .2rem;
+  padding: .5rem .4rem .45rem;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+
+.partner {
+  background: #fff;
+  border: 1.5px solid #D9A441;
+}
+
+/* A blank position: nothing visible inside, only a screen-reader label. */
+.empty {
+  position: relative;
+  background: #FAF9F6;
+  border: 1px solid #E5E7EB;
+}
+
+/* Linked cards: a gentle hover on devices that can hover, and a clear
+ * keyboard focus ring. */
+.link {
+  cursor: pointer;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+@media (hover: hover) {
+  .link:hover {
+    border-color: #C48E2C;
+    box-shadow: 0 2px 10px rgba(217, 164, 65, .22);
+  }
+}
+.link:focus-visible {
+  outline: 2px solid #B7791F;
+  outline-offset: 2px;
+}
+
+/* The logo is the main element: ~66% of the card's width, taking whatever
+ * height the name and Visit cue leave; never cropped or distorted. */
+.logoBox {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 66%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.logo {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.initial {
+  height: 100%;
+  max-height: 3rem;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: #F3F4F6;
+  color: #6B7280;
+  font-weight: 800;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.name {
+  flex-shrink: 0;
+  max-width: 100%;
+  font-size: .62rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #1F2937;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.visit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: .15rem;
+  font-size: .6rem;
+  font-weight: 500;
+  line-height: 1;
+  color: #6B7280;
+}
+
+.featured {
+  flex-shrink: 0;
+  font-size: .55rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #92400E;
+}
+
+/* Small text on phones keeps the logo the main element of a ~105px card;
+ * a little larger where cards are wider. */
+@media (min-width: 640px) {
+  .card { gap: .3rem; padding: .65rem .5rem .55rem; }
+  .name { font-size: .74rem; }
+  .visit { font-size: .7rem; }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

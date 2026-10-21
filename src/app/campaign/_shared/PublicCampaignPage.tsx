@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
-import { AVAILABLE_SLOT_A11Y_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
+import CommunityPartnerSlots from "@/components/communityPartners/CommunityPartnerSlots";
 import { resolveFundUseIcon } from "@/lib/fundUseIcons";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
@@ -130,7 +130,6 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
   const visibleDonations = donationsExpanded ? recentDonations : recentDonations.slice(0, 5);
 
   const hasCommunityPartners = communityPartners !== null;
-  const partnerSlots = fillPartnerSlots(communityPartners);
 
   return (
     <div className="pc-page">
@@ -468,41 +467,11 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               <div id="pc-partners">
                 <h2 className="pc-h2">ELF Community Partners</h2>
                 <p className="pc-subcopy">Local businesses supporting {schoolName} {sportName}.</p>
-                {/* All 21 advertising positions (fillPartnerSlots, shared
-                    with the Team App): today's partners first, in the
-                    order the API returned them, then blank cards — no
-                    text, no icon, never links, never partner records. */}
-                <ul className="pc-sponsor-grid" aria-label="ELF Community Partners">
-                  {partnerSlots.map((slot) => {
-                    if (slot.kind === "available") {
-                      return (
-                        <li key={slot.key} data-slot="available">
-                          <div className="pc-sponsor-card pc-sponsor-card--available">
-                            <span className="pc-visually-hidden">{AVAILABLE_SLOT_A11Y_LABEL}</span>
-                          </div>
-                        </li>
-                      );
-                    }
-                    const p = slot.partner;
-                    const href = partnerHref(p.website_url);
-                    return (
-                      <li key={slot.key} data-slot="partner">
-                        <a
-                          href={href ?? undefined}
-                          target={href ? "_blank" : undefined}
-                          rel={href ? "noopener noreferrer" : undefined}
-                          className="pc-sponsor-card"
-                          style={href ? undefined : { cursor: "default" }}
-                        >
-                          {p.logo_url
-                            ? <img src={p.logo_url} alt={p.business_name} className="pc-sponsor-logo-img" />
-                            : <span className="pc-sponsor-logo-fallback">{p.business_name.trim()[0]?.toUpperCase() ?? "P"}</span>}
-                          <span className="pc-sponsor-name">{p.business_name}</span>
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
+                {/* All 21 advertising positions — the same shared cards
+                    as the Team App (CommunityPartnerSlots): today's
+                    partners first, in the order the API returned them,
+                    then blank positions. */}
+                <CommunityPartnerSlots partners={communityPartners} variant="public" />
               </div>
             )}
           </div>

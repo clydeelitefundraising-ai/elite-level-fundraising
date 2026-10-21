@@ -1,14 +1,14 @@
 import type { ActiveCommunityPartner } from "@/lib/platform/communityPartners";
 import { fillPartnerSlots } from "@/lib/platform/communityPartnerSlots";
-import { CommunityPartnerTiles } from "../home/CommunityPartnerGrid";
+import CommunityPartnerSlots from "@/components/communityPartners/CommunityPartnerSlots";
 
 // ── Main view ─────────────────────────────────────────────────────────────
 // Server-rendered content only — no client state. page.tsx has already
 // resolved both "is advertising on for this school" and "what are the
 // active partners," so this component's only job is to render exactly
-// what it was handed: all 21 advertising positions in the same compact
-// tile grid as the Home screen (CommunityPartnerTiles — three columns on
-// a phone) — the active partners first in their existing display_order,
+// what it was handed: all 21 advertising positions in the same cards and
+// grid as the Home screen (CommunityPartnerSlots — three columns on a
+// phone) — the active partners first in their existing display_order,
 // then blank positions. More than 21 active partners are all shown, with
 // no blanks. Each partner tile links to its website (new tab,
 // noopener/noreferrer) and marks a featured partner; with no partners
@@ -44,7 +44,7 @@ export default function CommunityPartnersListView({
         )}
       </div>
 
-      <CommunityPartnerTiles partners={partners} />
+      <CommunityPartnerSlots partners={partners} variant="app" />
     </div>
   );
 }
