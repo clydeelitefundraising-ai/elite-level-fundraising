@@ -1,4 +1,7 @@
+import type { CSSProperties } from "react";
+import { Plus } from "lucide-react";
 import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
+import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
 
 // Phase 2.2D-2 — shared by BOTH the mobile Home experience (HomeView.tsx's
 // HomeContent, rendered at every width for non-coach-dashboard roles and
@@ -14,39 +17,50 @@ import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
 // requirement, distinct from the existing Our Sponsors treatment, which
 // this component does not touch, replace, or share markup with.
 //
-// Renders ONLY occupied slots, already sorted by position ascending by
-// resolveGridSlots() — no synthesized empty cells for the positions
-// nothing currently fills. Source order IS the definition of "position
-// N" here: the Nth slot in this array is the Nth card in the DOM, first
-// in both a 2-column mobile wrap and a 6-column desktop wrap alike,
-// because neither layout uses explicit per-item grid placement — see the
-// Phase 2.2D-2 audit's "definition of a reserved position" section.
+// Always renders all COMMUNITY_PARTNER_SLOT_COUNT (20) positions: the
+// occupied slots first, in the position order resolveGridSlots() already
+// sorted them into, then "Your Business Here" placeholders
+// (fillPartnerSlots, shared with the Partners tab and the public campaign
+// page). A placeholder is not a partner — no link, no name, no logo — and
+// is the same size as a real card, so the grid reads as available
+// inventory rather than missing content. Source order is still the
+// definition of "position N": neither the 2-column mobile wrap nor the
+// 6-column desktop wrap uses explicit per-item grid placement.
 export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
-  if (slots.length === 0) return null;
+  const cells = fillPartnerSlots(slots.map(s => s.partner));
 
   return (
-    <div
+    <ul
+      aria-label="ELF Community Partners"
       style={{
+        listStyle: "none",
+        margin: 0,
+        padding: 0,
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
         gap: ".6rem",
       }}
     >
-      {slots.map(({ position, partner }) => {
+      {cells.map(cell => {
+        if (cell.kind === "available") {
+          return (
+            <li key={cell.key} data-slot="available" style={{ minWidth: 0 }}>
+              <div style={{ ...cardStyle, ...availableCardStyle }}>
+                <div aria-hidden="true" style={{ ...logoBoxStyle, border: "1px dashed var(--border-app)", color: "var(--text-muted-app)" }}>
+                  <Plus size={18} />
+                </div>
+                <span style={{ ...nameStyle, color: "var(--text-muted-app)", fontWeight: 600 }}>
+                  {AVAILABLE_SLOT_LABEL}
+                </span>
+              </div>
+            </li>
+          );
+        }
+
+        const { partner } = cell;
+        const href = partnerHref(partner.website_url);
         const card = (
-          <div
-            style={{
-              background: "var(--surface-light)",
-              border: "1px solid var(--border-app)",
-              borderRadius: 12,
-              padding: ".6rem .4rem .5rem",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: ".3rem",
-              height: "100%",
-            }}
-          >
+          <div style={cardStyle}>
             {partner.logo_url ? (
               <img
                 src={partner.logo_url}
@@ -56,48 +70,69 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
             ) : (
               <div
                 style={{
-                  width: 44, height: 44, borderRadius: 6,
+                  ...logoBoxStyle,
                   background: "var(--surface-light-elevated)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
                   fontWeight: 800, fontSize: ".9rem", color: "var(--team-primary)",
                 }}
               >
                 {partner.business_name.trim()[0]?.toUpperCase() ?? "P"}
               </div>
             )}
-            <span
-              style={{
-                fontSize: ".58rem", fontWeight: 700, color: "var(--text-secondary-app)",
-                textAlign: "center", lineHeight: 1.25,
-                overflow: "hidden", display: "-webkit-box",
-                WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-              }}
-            >
-              {partner.business_name}
-            </span>
+            <span style={nameStyle}>{partner.business_name}</span>
           </div>
         );
 
         // A partner with no website on file still renders (logo/name
         // alone has value); it just isn't wrapped in a link to nowhere —
         // same judgment call as the Partners tab's CommunityPartnersListView.
-        if (!partner.website_url) {
-          return <div key={`${position}-${partner.id}`}>{card}</div>;
-        }
-
         return (
-          <a
-            key={`${position}-${partner.id}`}
-            href={partner.website_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="elf-focus-ring"
-            style={{ textDecoration: "none", display: "block" }}
-          >
-            {card}
-          </a>
+          <li key={cell.key} data-slot="partner" style={{ minWidth: 0 }}>
+            {href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="elf-focus-ring"
+                style={{ textDecoration: "none", display: "block", height: "100%" }}
+              >
+                {card}
+              </a>
+            ) : card}
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
+
+const cardStyle: CSSProperties = {
+  background: "var(--surface-light)",
+  border: "1px solid var(--border-app)",
+  borderRadius: 12,
+  padding: ".6rem .4rem .5rem",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: ".3rem",
+  height: "100%",
+  boxSizing: "border-box",
+};
+
+// Same box as a real card; only the dashed outline and the fill say
+// "available".
+const availableCardStyle: CSSProperties = {
+  background: "var(--surface-light-elevated)",
+  border: "1px dashed var(--border-app)",
+};
+
+const logoBoxStyle: CSSProperties = {
+  width: 44, height: 44, borderRadius: 6, flexShrink: 0,
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+const nameStyle: CSSProperties = {
+  fontSize: ".58rem", fontWeight: 700, color: "var(--text-secondary-app)",
+  textAlign: "center", lineHeight: 1.25, overflowWrap: "anywhere",
+  overflow: "hidden", display: "-webkit-box",
+  WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+};

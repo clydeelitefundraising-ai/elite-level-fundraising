@@ -710,15 +710,18 @@ html { scroll-behavior: smooth; }
 }
 .pc-empty { color: #9ca3af; font-size: .88rem; padding: 1rem 0; }
 
+/* 20 ELF Community Partner positions: as many ~140px columns as fit (two
+ * on a 320px phone, more once the section is full width below 900px),
+ * equal-height rows so real and "Your Business Here" cards line up. */
 .pc-sponsor-grid {
+  list-style: none;
+  padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
   gap: .9rem;
-  margin-top: 1.1rem;
+  margin: 1.1rem 0 0;
 }
-@media (max-width: 480px) {
-  .pc-sponsor-grid { grid-template-columns: 1fr; }
-}
+.pc-sponsor-grid > li { min-width: 0; display: flex; }
 .pc-sponsor-card {
   border: 1px solid #eceef1;
   border-radius: .7rem;
@@ -726,10 +729,30 @@ html { scroll-behavior: smooth; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: .5rem;
   text-align: center;
   text-decoration: none;
   color: inherit;
+  flex: 1;
+  min-width: 0;
+  min-height: 7rem;
+  box-sizing: border-box;
+}
+.pc-sponsor-card--available {
+  border-style: dashed;
+  border-color: #d9dde3;
+  background: #fafbfc;
+  color: #6b7280;
+}
+.pc-sponsor-available-mark {
+  background: transparent;
+  border: 1px dashed #d9dde3;
+  color: #9ca3af;
+}
+@media (max-width: 480px) {
+  .pc-sponsor-grid { gap: .6rem; }
+  .pc-sponsor-card { padding: .8rem .6rem; }
 }
 .pc-sponsor-logo-img { max-height: 42px; max-width: 100%; object-fit: contain; }
 .pc-sponsor-logo-fallback {
@@ -743,7 +766,8 @@ html { scroll-behavior: smooth; }
   font-weight: 800;
   color: #6b7280;
 }
-.pc-sponsor-name { font-size: .82rem; font-weight: 700; }
+.pc-sponsor-name { font-size: .82rem; font-weight: 700; overflow-wrap: anywhere; }
+.pc-sponsor-card--available .pc-sponsor-name { font-weight: 600; }
 .pc-sponsor-tier-label {
   font-size: .72rem;
   font-weight: 700;

@@ -437,10 +437,11 @@ type HomeViewProps = {
   // server-side) and threaded through unchanged to both HomeContent and
   // CoachDashboard. Never recomputed here — that single shared computation
   // is what guarantees mobile and desktop can never disagree about which
-  // partner occupies which position. Empty array (never undefined-treated-
-  // as-missing) when advertising is off or the school has no reservation/
-  // rotation data — same "degrade to nothing shown" pattern as `sponsors`.
-  communityPartnerGridSlots?: GridSlot[];
+  // partner occupies which position. null when advertising is off (no
+  // section at all); an array — possibly empty — when it is on, and the
+  // grid then always shows its 20 positions, unfilled ones as "Your
+  // Business Here" placeholders.
+  communityPartnerGridSlots?: GridSlot[] | null;
   // Phase 2.2D-3 — same "resolved once by page.tsx" discipline as
   // communityPartnerGridSlots above, and fully independent of it: this
   // is a separate advertising placement (the Featured Partner banner),
@@ -498,7 +499,7 @@ function HomeContent({
   goalCents = 0,
   topAthleteName = null,
   pendingRequestCount = 0,
-  communityPartnerGridSlots = [],
+  communityPartnerGridSlots = null,
   featuredPartner = null,
   hasActiveFundraiser = false,
 }: HomeViewProps) {
@@ -762,7 +763,7 @@ function HomeContent({
           (/team/[slug]/sponsors?tab=team). ELF Community Partners below
           is a wholly separate advertising surface and was never part of
           this removal. */}
-      {communityPartnerGridSlots.length > 0 && (
+      {communityPartnerGridSlots && (
         <div style={{ marginTop: ".9rem" }}>
           <div style={{ marginBottom: ".5rem" }}>
             <span className={styles.sectionKicker}>ELF Community Partners</span>

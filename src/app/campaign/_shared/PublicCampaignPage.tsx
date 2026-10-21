@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
+import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X, Plus } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
+import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
 import { resolveFundUseIcon } from "@/lib/fundUseIcons";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
@@ -68,7 +69,10 @@ export type PublicCampaignPageProps = {
   participantFilter: "All" | "Athletes" | "Coaches";
   setParticipantFilter: (f: "All" | "Athletes" | "Coaches") => void;
   recentDonations: Donation[];
-  communityPartners: CommunityPartnerItem[];
+  // null = this school's public advertising is off (no section). An
+  // array, even an empty one, = on: the section always shows 20
+  // positions, unfilled ones as "Your Business Here".
+  communityPartners: CommunityPartnerItem[] | null;
   missionItems: MissionItem[];
   showLeaderboard: boolean;
   showFundUses: boolean;
@@ -125,7 +129,8 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
   const visibleAthletes = leaderboardExpanded ? searchedAthletes : searchedAthletes.slice(0, LEADERBOARD_PREVIEW_COUNT);
   const visibleDonations = donationsExpanded ? recentDonations : recentDonations.slice(0, 5);
 
-  const hasCommunityPartners = communityPartners.length > 0;
+  const hasCommunityPartners = communityPartners !== null;
+  const partnerSlots = fillPartnerSlots(communityPartners);
 
   return (
     <div className="pc-page">
@@ -463,23 +468,42 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               <div id="pc-partners">
                 <h2 className="pc-h2">ELF Community Partners</h2>
                 <p className="pc-subcopy">Local businesses supporting {schoolName} {sportName}.</p>
-                <div className="pc-sponsor-grid">
-                  {communityPartners.map((p) => (
-                    <a
-                      key={p.id}
-                      href={p.website_url ?? undefined}
-                      target={p.website_url ? "_blank" : undefined}
-                      rel={p.website_url ? "noopener noreferrer" : undefined}
-                      className="pc-sponsor-card"
-                      style={p.website_url ? undefined : { cursor: "default" }}
-                    >
-                      {p.logo_url
-                        ? <img src={p.logo_url} alt={p.business_name} className="pc-sponsor-logo-img" />
-                        : <span className="pc-sponsor-logo-fallback">{p.business_name[0]?.toUpperCase() ?? "P"}</span>}
-                      <span className="pc-sponsor-name">{p.business_name}</span>
-                    </a>
-                  ))}
-                </div>
+                {/* All 20 advertising positions (fillPartnerSlots, shared
+                    with the Team App): today's partners first, in the
+                    order the API returned them, then "Your Business Here"
+                    placeholders — never links, never partner records. */}
+                <ul className="pc-sponsor-grid" aria-label="ELF Community Partners">
+                  {partnerSlots.map((slot) => {
+                    if (slot.kind === "available") {
+                      return (
+                        <li key={slot.key} data-slot="available">
+                          <div className="pc-sponsor-card pc-sponsor-card--available">
+                            <span className="pc-sponsor-logo-fallback pc-sponsor-available-mark" aria-hidden="true"><Plus size={18} /></span>
+                            <span className="pc-sponsor-name">{AVAILABLE_SLOT_LABEL}</span>
+                          </div>
+                        </li>
+                      );
+                    }
+                    const p = slot.partner;
+                    const href = partnerHref(p.website_url);
+                    return (
+                      <li key={slot.key} data-slot="partner">
+                        <a
+                          href={href ?? undefined}
+                          target={href ? "_blank" : undefined}
+                          rel={href ? "noopener noreferrer" : undefined}
+                          className="pc-sponsor-card"
+                          style={href ? undefined : { cursor: "default" }}
+                        >
+                          {p.logo_url
+                            ? <img src={p.logo_url} alt={p.business_name} className="pc-sponsor-logo-img" />
+                            : <span className="pc-sponsor-logo-fallback">{p.business_name.trim()[0]?.toUpperCase() ?? "P"}</span>}
+                          <span className="pc-sponsor-name">{p.business_name}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </div>

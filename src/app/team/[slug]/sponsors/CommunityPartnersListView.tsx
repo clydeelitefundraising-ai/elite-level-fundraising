@@ -1,6 +1,6 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 import type { ActiveCommunityPartner } from "@/lib/platform/communityPartners";
-import CommunityPartnersEmptyState from "./CommunityPartnersEmptyState";
+import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
 
 // ── Logo placeholder ──────────────────────────────────────────────────────
 // Same hashed-color-initial approach as SponsorsView.tsx's LogoPlaceholder
@@ -32,14 +32,17 @@ function LogoPlaceholder({ name, size }: { name: string; size: number }) {
 // site from getting a handle back to this window (tabnabbing), noreferrer
 // withholds the Referer header. website_url is already validated
 // server-side as a well-formed https:// URL at creation/edit time
-// (communityPartners.ts's isValidHttpsUrl) — never re-validated here,
-// same trust boundary the admin tooling already established.
+// (communityPartners.ts's isValidHttpsUrl); partnerHref() re-applies the
+// same https-only rule so a malformed stored value renders unlinked
+// rather than as a broken link.
 function PartnerCard({ partner }: { partner: ActiveCommunityPartner }) {
+  const href = partnerHref(partner.website_url);
   const card = (
     <div style={{
       display: "flex", gap: ".75rem", alignItems: "center",
       background: "var(--surface-light)", borderRadius: "var(--radius-lg)",
       padding: ".85rem", border: "1px solid var(--border-app)",
+      height: "100%", boxSizing: "border-box",
       borderLeft: partner.is_featured ? "3px solid #b45309" : "3px solid transparent",
     }}>
       {partner.logo_url ? (
@@ -54,7 +57,7 @@ function PartnerCard({ partner }: { partner: ActiveCommunityPartner }) {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".15rem" }}>
-          <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)" }}>
+          <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)", overflowWrap: "anywhere" }}>
             {partner.business_name}
           </span>
           {partner.is_featured && (
@@ -73,23 +76,54 @@ function PartnerCard({ partner }: { partner: ActiveCommunityPartner }) {
         )}
       </div>
 
-      {partner.website_url && <ArrowUpRight size={15} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />}
+      {href && <ArrowUpRight size={15} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />}
     </div>
   );
 
   // A partner with no website on file is still shown (logo/name/description
   // have value on their own) — just not wrapped in a link to nowhere.
-  if (!partner.website_url) return card;
+  if (!href) return card;
 
   return (
     <a
-      href={partner.website_url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      style={{ display: "block", textDecoration: "none" }}
+      className="elf-focus-ring"
+      style={{ display: "block", textDecoration: "none", height: "100%" }}
     >
       {card}
     </a>
+  );
+}
+
+// ── Available position ────────────────────────────────────────────────────
+// One of the 20 advertising positions no partner fills. The same box as a
+// PartnerCard (44px mark + one line of text) so real and available cards
+// line up; a dashed outline and a quieter fill say "available" without
+// looking broken. Not a partner and not a link — there is no inquiry
+// workflow to send anyone to yet.
+function AvailableCard() {
+  return (
+    <div style={{
+      display: "flex", gap: ".75rem", alignItems: "center",
+      background: "var(--surface-light-elevated)", borderRadius: "var(--radius-lg)",
+      // +2px left padding stands in for a PartnerCard's 3px left accent
+      // border, so the marks of real and available cards line up.
+      padding: ".85rem", paddingLeft: "calc(.85rem + 2px)", border: "1px dashed var(--border-app)",
+      height: "100%", boxSizing: "border-box",
+    }}>
+      <div aria-hidden="true" style={{
+        width: 44, height: 44, borderRadius: 8, flexShrink: 0,
+        border: "1px dashed var(--border-app)", color: "var(--text-muted-app)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Plus size={18} />
+      </div>
+      <span style={{ fontWeight: 600, fontSize: ".85rem", color: "var(--text-muted-app)" }}>
+        {AVAILABLE_SLOT_LABEL}
+      </span>
+    </div>
   );
 }
 
@@ -97,13 +131,20 @@ function PartnerCard({ partner }: { partner: ActiveCommunityPartner }) {
 // Server-rendered content only — no client state. page.tsx has already
 // resolved both "is advertising on for this school" and "what are the
 // active partners," so this component's only job is to render exactly
-// what it was handed. Mirrors SponsorsView's "No sponsors yet" empty
-// state shape for a consistent feel between the two Partners sub-tabs.
+// what it was handed: all 20 advertising positions (fillPartnerSlots,
+// shared with the Home grid and the public campaign page) — the active
+// partners first in their existing display_order, then "Your Business
+// Here" placeholders. More than 20 active partners are all shown, with no
+// placeholders. With no partners yet, the explanatory line the old empty
+// state carried stays above the 20 open positions.
 export default function CommunityPartnersListView({
   partners,
 }: {
   partners: ActiveCommunityPartner[];
 }) {
+  const slots = fillPartnerSlots(partners);
+  const partnerCount = slots.filter(s => s.kind === "partner").length;
+
   return (
     <div>
       <div style={{ marginBottom: ".65rem" }}>
@@ -114,21 +155,34 @@ export default function CommunityPartnersListView({
           <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             ELF Community Partners
           </h2>
-          {partners.length > 0 && (
+          {partnerCount > 0 && (
             <span style={{ background: "var(--team-primary)", color: "var(--team-primary-foreground)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".13rem .48rem", lineHeight: 1.4 }}>
-              {partners.length} partner{partners.length !== 1 ? "s" : ""}
+              {partnerCount} partner{partnerCount !== 1 ? "s" : ""}
             </span>
           )}
         </div>
+        {partnerCount === 0 && (
+          <p style={{ margin: ".4rem 0 0", fontSize: ".85rem", color: "var(--text-secondary-app)", lineHeight: 1.55, maxWidth: 560 }}>
+            Our community partners help keep ELF Team free for coaches, athletes, and families while helping us offer low-fee fundraising to teams.
+          </p>
+        )}
       </div>
 
-      {partners.length === 0 ? (
-        <CommunityPartnersEmptyState />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
-          {partners.map(p => <PartnerCard key={p.id} partner={p} />)}
-        </div>
-      )}
+      <ul
+        aria-label="ELF Community Partners"
+        style={{
+          listStyle: "none", margin: 0, padding: 0,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
+          gap: ".55rem",
+        }}
+      >
+        {slots.map(slot => (
+          <li key={slot.key} data-slot={slot.kind} style={{ minWidth: 0 }}>
+            {slot.kind === "partner" ? <PartnerCard partner={slot.partner} /> : <AvailableCard />}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -66,7 +66,10 @@ export default async function HomePage({
   const organizationId = settings?.organization_id ?? null;
   const schoolAdvertising = organizationId ? await getSchoolAdvertisingSetting(organizationId) : null;
   const showCommunityPartners = schoolAdvertising?.show_community_partners ?? false;
-  let communityPartnerGridSlots: GridSlot[] = [];
+  // null = advertising off (no section); an array, even an empty one, =
+  // advertising on: CommunityPartnerGrid then shows all 20 positions,
+  // placeholders included.
+  let communityPartnerGridSlots: GridSlot[] | null = null;
   let featuredPartner: FeaturedPartner | null = null;
   if (showCommunityPartners) {
     const tick = getUtcDayTick();

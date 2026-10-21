@@ -204,15 +204,16 @@ export async function GET(
             listAllLockedPositions(),
           ]);
           const slots = resolveGridSlots(activePartners, reservedPositions, getUtcDayTick());
-          if (slots.length > 0) {
-            communityPartners = slots.map(s => ({
-              id:                s.partner.id,
-              business_name:     s.partner.business_name,
-              short_description: s.partner.short_description,
-              website_url:       s.partner.website_url,
-              logo_url:          s.partner.logo_url,
-            }));
-          }
+          // Returned even when empty: an empty array means "advertising is
+          // on, no partner today" — the page then shows 20 "Your Business
+          // Here" positions — while an absent field still means "off".
+          communityPartners = slots.map(s => ({
+            id:                s.partner.id,
+            business_name:     s.partner.business_name,
+            short_description: s.partner.short_description,
+            website_url:       s.partner.website_url,
+            logo_url:          s.partner.logo_url,
+          }));
         }
       } catch { /* keep undefined — never block the public page over this */ }
     }

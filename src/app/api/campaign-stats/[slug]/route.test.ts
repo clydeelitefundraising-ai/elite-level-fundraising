@@ -25,11 +25,14 @@ function makeFakeDb() {
     sponsors:          [],
     fund_uses:         [],
     campaign_coach_fundraisers: [],
+    organizations:     [],
+    community_partners: [],
   };
   const queriedTables: string[] = [];
 
   function matches(row: Row, field: string, expr: string): boolean {
     if (expr.startsWith("eq.")) return String(row[field]) === expr.slice(3);
+    if (expr === "not.is.null") return row[field] !== null && row[field] !== undefined;
     return true;
   }
 
@@ -211,5 +214,57 @@ test("a nonexistent campaign still falls through to the existing full-fetch path
     assert.equal(res.status, 200);
     assert.equal(data.raised, 0);
     assert.equal(queriedTables.includes("donations"), true);
+  });
+});
+
+// ── ELF Community Partners: 20-slot public section ─────────────────────────
+// The page shows its 20 advertising positions whenever the school's PUBLIC
+// toggle is on — so "on, no partner today" must arrive as an empty array,
+// distinct from "off" (field absent, no section at all).
+
+const ORG_ID = "11111111-2222-4333-8444-555555555555";
+
+function seedSchool(db: Record<string, Row[]>, showPublic: boolean) {
+  db.organizations.push({ id: ORG_ID, school_name: "Wolves HS", show_community_partners: true, show_community_partners_public: showPublic });
+}
+
+function seedPartner(db: Record<string, Row[]>, id: string, overrides: Partial<Row> = {}) {
+  db.community_partners.push({
+    id, business_name: `Partner ${id}`, short_description: null, website_url: `https://${id}.example.com`,
+    logo_url: null, is_active: true, locked_position: null, created_at: `2026-01-0${db.community_partners.length + 1}T00:00:00Z`,
+    ...overrides,
+  });
+}
+
+test("community partners: public toggle on with no active partner -> community_partners is an empty array (20 open positions)", async () => {
+  await withFakeDb(async ({ db }) => {
+    seedCampaign(db, { fundraising_enabled: true, organization_id: ORG_ID });
+    seedSchool(db, true);
+    seedPartner(db, "inactive", { is_active: false });
+    const data = await (await getStats(SLUG)).json();
+    assert.deepEqual(data.community_partners, []);
+  });
+});
+
+test("community partners: public toggle on with one active partner -> exactly that partner, public-safe fields only", async () => {
+  await withFakeDb(async ({ db }) => {
+    seedCampaign(db, { fundraising_enabled: true, organization_id: ORG_ID });
+    seedSchool(db, true);
+    seedPartner(db, "acme");
+    const data = await (await getStats(SLUG)).json();
+    assert.deepEqual(data.community_partners, [
+      { id: "acme", business_name: "Partner acme", short_description: null, website_url: "https://acme.example.com", logo_url: null },
+    ]);
+  });
+});
+
+test("community partners: public toggle off -> no community_partners field (no section), partners never queried", async () => {
+  await withFakeDb(async ({ db, queriedTables }) => {
+    seedCampaign(db, { fundraising_enabled: true, organization_id: ORG_ID });
+    seedSchool(db, false);
+    seedPartner(db, "acme");
+    const data = await (await getStats(SLUG)).json();
+    assert.equal("community_partners" in data, false);
+    assert.equal(queriedTables.includes("community_partners"), false);
   });
 });

@@ -245,7 +245,7 @@ export type CoachDashboardProps = {
   season?: string;
   // Phase 2.2D-2 — see HomeView.tsx's identical field for the full
   // rationale: resolved once by page.tsx, never recomputed here.
-  communityPartnerGridSlots?: GridSlot[];
+  communityPartnerGridSlots?: GridSlot[] | null;
   // Phase 2.2D-3 — see HomeView.tsx's identical field: a separate
   // advertising placement, resolved once by page.tsx, independent of
   // communityPartnerGridSlots above.
@@ -270,7 +270,7 @@ export default function CoachDashboard({
   schoolName,
   sportName,
   season,
-  communityPartnerGridSlots = [],
+  communityPartnerGridSlots = null,
   featuredPartner = null,
   hasActiveFundraiser = false,
 }: CoachDashboardProps) {
@@ -418,7 +418,7 @@ export default function CoachDashboard({
             (/team/[slug]/sponsors?tab=team). ELF Community Partners
             below is a wholly separate advertising surface and was never
             part of this removal. */}
-        {communityPartnerGridSlots.length > 0 && (
+        {communityPartnerGridSlots && (
           <div className={styles.communityPartnersArea}>
             <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>
               ELF Community Partners

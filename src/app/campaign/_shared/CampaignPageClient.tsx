@@ -82,7 +82,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   // removed from this page entirely; the tiers/CRUD/authenticated Partners
   // page are untouched, just no longer rendered here). ELF Community
   // Partners, not a team's own sponsors.
-  const [communityPartners, setCommunityPartners] = useState<CommunityPartnerItem[]>([]);
+  // null until the stats load says advertising is on (no section, no
+  // flash of empty positions); an array — even an empty one — once it is.
+  const [communityPartners, setCommunityPartners] = useState<CommunityPartnerItem[] | null>(null);
   const [schoolName,      setSchoolName]      = useState("School Name");
   const [sportName,       setSportName]       = useState("Athletics");
   const [mascot,          setMascot]          = useState("Team");
@@ -185,16 +187,16 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
         }
         // Phase 2.2E-2 — ELF Community Partners, separate from (and no
         // longer reading) the team's own sponsor tiers above. Always
-        // synced to the real value, including an empty array when the
-        // toggle is off or no partner occupies a slot today — never
-        // lingers on a stale list from a previous fetch.
+        // synced to the real value — null when the toggle is off (field
+        // absent), an empty array when it is on but no partner occupies a
+        // slot today — never lingers on a stale list from a previous fetch.
         setCommunityPartners(
           Array.isArray(data.community_partners)
             ? data.community_partners.map((p: CommunityPartnerItem) => ({
                 id: p.id, business_name: p.business_name, short_description: p.short_description,
                 website_url: p.website_url, logo_url: p.logo_url,
               }))
-            : [],
+            : null,
         );
       })
       .catch(() => {/* keep fallback data */});
