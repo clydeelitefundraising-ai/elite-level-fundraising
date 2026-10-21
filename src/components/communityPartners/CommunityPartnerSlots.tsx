@@ -33,12 +33,13 @@ export default function CommunityPartnerSlots({
 }: {
   partners: readonly CommunityPartnerCardData[] | null | undefined;
   // "app": three columns on phones, auto-fill (~124px) from 640px.
-  // "public": three columns at every width (the campaign page's column).
+  // "public": follows the campaign column's width — three, four, then five
+  // columns (see .publicFrame).
   variant: "app" | "public";
 }) {
   const slots = fillPartnerSlots(partners);
 
-  return (
+  const grid = (
     <ul
       aria-label="ELF Community Partners"
       className={`${styles.grid} ${variant === "app" ? styles.gridApp : styles.gridPublic}`}
@@ -56,6 +57,8 @@ export default function CommunityPartnerSlots({
       ))}
     </ul>
   );
+
+  return variant === "public" ? <div className={styles.publicFrame}>{grid}</div> : grid;
 }
 
 function PartnerCard({ partner }: { partner: CommunityPartnerCardData }) {

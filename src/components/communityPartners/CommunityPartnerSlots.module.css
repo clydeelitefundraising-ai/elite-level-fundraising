@@ -21,10 +21,25 @@
     gap: .75rem;
   }
 }
-/* Same spacing below the section's subcopy as the old public grid. */
-.gridPublic { margin-top: 1.1rem; }
-@media (min-width: 640px) {
-  .gridPublic { gap: .9rem; }
+/* Public campaign page: the grid sits in one column of the Recent Support /
+ * Community Partners row, so its columns follow the width of that column
+ * (a container query), not the screen: three on phones, four on tablets and
+ * small laptops (~420px+), five once there is room (~520px+; the desktop
+ * column is ~540px, so 21 = four rows of five + one). Browsers without
+ * container queries keep three columns. */
+.publicFrame {
+  container-type: inline-size;
+  /* Same spacing below the section's subcopy as the old public grid. */
+  margin-top: 1.1rem;
+}
+@container (min-width: 420px) {
+  .gridPublic {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .7rem;
+  }
+}
+@container (min-width: 520px) {
+  .gridPublic { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 .cell {
@@ -146,12 +161,19 @@
   color: #92400E;
 }
 
-/* Small text on phones keeps the logo the main element of a ~105px card;
- * a little larger where cards are wider. */
+/* Small text keeps the logo the main element of a ~100px card; a little
+ * larger where cards are wider — from 640px in the Team App, and in the
+ * public grid only once its column is wide enough (~140px cards) that the
+ * five-across desktop cards keep the phone proportions. */
 @media (min-width: 640px) {
-  .card { gap: .3rem; padding: .65rem .5rem .55rem; }
-  .name { font-size: .74rem; }
-  .visit { font-size: .7rem; }
+  .gridApp .card { gap: .3rem; padding: .65rem .5rem .55rem; }
+  .gridApp .name { font-size: .74rem; }
+  .gridApp .visit { font-size: .7rem; }
+}
+@container (min-width: 720px) {
+  .gridPublic .card { gap: .3rem; padding: .65rem .5rem .55rem; }
+  .gridPublic .name { font-size: .74rem; }
+  .gridPublic .visit { font-size: .7rem; }
 }
 
 .visuallyHidden {

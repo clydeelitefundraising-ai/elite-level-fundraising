@@ -139,14 +139,37 @@ test("interaction: gentle hover only on hover-capable devices, and a visible key
   assert.ok(/\.link:focus-visible \{[^}]*outline: 2px solid #B7791F;/.test(CSS));
 });
 
-test("layout: three columns on phones (21 = seven full rows) with no horizontal overflow; app goes auto-fill from 640px, public stays at three", () => {
+test("layout: three columns on phones (21 = seven full rows) with no horizontal overflow; app goes auto-fill from 640px (unchanged)", () => {
   assert.ok(/grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/.test(rule(".grid")));
   assert.ok(/min-width: 0;/.test(rule(".cell")) && /min-width: 0;/.test(rule(".card")));
   assert.ok(/@media \(min-width: 640px\) \{\s*\.gridApp \{\s*grid-template-columns: repeat\(auto-fill, minmax\(124px, 1fr\)\);/.test(CSS));
-  assert.ok(!/\.gridPublic \{[^}]*grid-template-columns/.test(CSS), "the public grid never changes its three columns");
   assert.equal(21 % 3, 0);
-  assert.ok(renderSlots([], "app").includes('class="grid gridApp"'));
-  assert.ok(renderSlots([], "public").includes('class="grid gridPublic"'));
+  const app = renderSlots([], "app");
+  assert.ok(app.startsWith('<ul aria-label="ELF Community Partners" class="grid gridApp">'), "the Team App grid has no extra wrapper");
+  assert.ok(!app.includes("publicFrame"));
+  for (const block of CSS.split("@container").slice(1)) {
+    assert.ok(!block.slice(0, block.indexOf("\n}")).includes(".gridApp"), "no container query touches the Team App grid");
+  }
+  assert.ok(/@media \(min-width: 640px\) \{\s*\.gridApp \.card \{ gap: \.3rem; padding: \.65rem \.5rem \.55rem; \}\s*\.gridApp \.name \{ font-size: \.74rem; \}\s*\.gridApp \.visit \{ font-size: \.7rem; \}/.test(CSS), "Team App card text sizes unchanged");
+});
+
+test("public layout: columns follow the campaign column's width — three on phones, four on tablets, five on desktop", () => {
+  const html = renderSlots([], "public");
+  assert.ok(html.startsWith('<div class="publicFrame"><ul aria-label="ELF Community Partners" class="grid gridPublic">'));
+  assert.ok(/container-type: inline-size;/.test(rule(".publicFrame")), "the wrapper is the size container");
+  // Phones (column under 420px): no query matches -> the shared three columns.
+  assert.ok(/@container \(min-width: 420px\) \{\s*\.gridPublic \{\s*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);\s*gap: \.7rem;/.test(CSS), "tablet: four columns");
+  assert.ok(/@container \(min-width: 520px\) \{\s*\.gridPublic \{ grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); \}/.test(CSS), "desktop: five columns");
+  // Later rules win: 3 (default) -> 4 -> 5.
+  assert.ok(CSS.indexOf("repeat(3, minmax(0, 1fr))") < CSS.indexOf("repeat(4, minmax(0, 1fr))"));
+  assert.ok(CSS.indexOf("repeat(4, minmax(0, 1fr))") < CSS.indexOf("repeat(5, minmax(0, 1fr))"));
+  // 21 positions five across = four full rows + one card.
+  assert.equal((html.match(/<li /g) ?? []).length, 21);
+  assert.deepEqual([Math.floor(21 / 5), 21 % 5], [4, 1]);
+  // Equal cards: equal minmax(0, 1fr) columns, no card spans or is placed on its own.
+  assert.ok(!/grid-column|grid-row|span \d/.test(CSS));
+  // A ~540px desktop column holds five ~100px cards, so the larger text waits for ~140px cards.
+  assert.ok(/@container \(min-width: 720px\) \{\s*\.gridPublic \.card \{/.test(CSS));
 });
 
 // ── Team App Home grid (mobile Home + desktop Coach Dashboard) ──────────────
@@ -246,9 +269,9 @@ for (const [n, open] of [[0, 21], [1, 20], [5, 16], [20, 1], [21, 0]] as const) 
   });
 }
 
-test("Public campaign: the same shared cards (three columns), real links and API order kept", () => {
+test("Public campaign: the same shared cards in the responsive public grid, real links and API order kept", () => {
   const html = renderCampaign([partner(2), partner(1, { website_url: null })]);
-  assert.ok(html.includes('class="grid gridPublic"'));
+  assert.ok(html.includes('<div class="publicFrame"><ul aria-label="ELF Community Partners" class="grid gridPublic">'));
   assert.ok(html.includes('<a href="https://partner2.example.com" target="_blank" rel="noopener noreferrer" aria-label="Visit Partner Business 2 (opens in a new tab)" class="card partner link">'));
   assert.ok(html.indexOf("Partner Business 2") < html.indexOf("Partner Business 1"));
   assertSlots(html, 2, 19);
