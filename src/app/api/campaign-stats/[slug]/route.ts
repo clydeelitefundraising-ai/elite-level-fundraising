@@ -205,8 +205,8 @@ export async function GET(
           ]);
           const slots = resolveGridSlots(activePartners, reservedPositions, getUtcDayTick());
           // Returned even when empty: an empty array means "advertising is
-          // on, no partner today" — the page then shows 20 "Your Business
-          // Here" positions — while an absent field still means "off".
+          // on, no partner today" — the page then shows 21 blank
+          // positions — while an absent field still means "off".
           communityPartners = slots.map(s => ({
             id:                s.partner.id,
             business_name:     s.partner.business_name,

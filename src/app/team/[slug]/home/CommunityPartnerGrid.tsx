@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
-import { Plus } from "lucide-react";
 import type { GridSlot } from "@/lib/platform/communityPartnerRotation";
-import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
+import { AVAILABLE_SLOT_A11Y_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
 
 // Phase 2.2D-2 — shared by BOTH the mobile Home experience (HomeView.tsx's
 // HomeContent, rendered at every width for non-coach-dashboard roles and
@@ -17,17 +16,31 @@ import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platf
 // requirement, distinct from the existing Our Sponsors treatment, which
 // this component does not touch, replace, or share markup with.
 //
-// Always renders all COMMUNITY_PARTNER_SLOT_COUNT (20) positions: the
-// occupied slots first, in the position order resolveGridSlots() already
-// sorted them into, then "Your Business Here" placeholders
-// (fillPartnerSlots, shared with the Partners tab and the public campaign
-// page). A placeholder is not a partner — no link, no name, no logo — and
-// is the same size as a real card, so the grid reads as available
-// inventory rather than missing content. Source order is still the
-// definition of "position N": neither the 2-column mobile wrap nor the
-// 6-column desktop wrap uses explicit per-item grid placement.
+// Always renders all COMMUNITY_PARTNER_SLOT_COUNT (21) positions — seven
+// full rows of three on a phone: the occupied slots first, in the
+// position order resolveGridSlots() already sorted them into, then blank
+// positions (fillPartnerSlots, shared with the Partners tab and the public
+// campaign page). Source order is still the definition of "position N":
+// neither layout uses explicit per-item grid placement.
 export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
-  const cells = fillPartnerSlots(slots.map(s => s.partner));
+  return <CommunityPartnerTiles partners={slots.map(s => s.partner)} />;
+}
+
+type TilePartner = {
+  id: string;
+  business_name: string;
+  website_url: string | null;
+  logo_url: string | null;
+  is_featured?: boolean;
+};
+
+/** The 21-position tile grid itself — also used by the Partners tab
+ *  (CommunityPartnersListView), so both Team App surfaces share one
+ *  layout. A blank position is the same box as a partner tile (fixed
+ *  minimum height, same radius/padding) with nothing visible inside: no
+ *  text, no icon, no link — only a screen-reader label. */
+export function CommunityPartnerTiles({ partners }: { partners: TilePartner[] }) {
+  const cells = fillPartnerSlots(partners);
 
   return (
     <ul
@@ -46,12 +59,7 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
           return (
             <li key={cell.key} data-slot="available" style={{ minWidth: 0 }}>
               <div style={{ ...cardStyle, ...availableCardStyle }}>
-                <div aria-hidden="true" style={{ ...logoBoxStyle, border: "1px dashed var(--border-app)", color: "var(--text-muted-app)" }}>
-                  <Plus size={18} />
-                </div>
-                <span style={{ ...nameStyle, color: "var(--text-muted-app)", fontWeight: 600 }}>
-                  {AVAILABLE_SLOT_LABEL}
-                </span>
+                <span style={visuallyHidden}>{AVAILABLE_SLOT_A11Y_LABEL}</span>
               </div>
             </li>
           );
@@ -60,7 +68,7 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
         const { partner } = cell;
         const href = partnerHref(partner.website_url);
         const card = (
-          <div style={cardStyle}>
+          <div style={partner.is_featured ? { ...cardStyle, borderColor: "#d97706" } : cardStyle}>
             {partner.logo_url ? (
               <img
                 src={partner.logo_url}
@@ -70,8 +78,9 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
             ) : (
               <div
                 style={{
-                  ...logoBoxStyle,
+                  width: 44, height: 44, borderRadius: 6, flexShrink: 0,
                   background: "var(--surface-light-elevated)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
                   fontWeight: 800, fontSize: ".9rem", color: "var(--team-primary)",
                 }}
               >
@@ -79,12 +88,16 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
               </div>
             )}
             <span style={nameStyle}>{partner.business_name}</span>
+            {partner.is_featured && (
+              <span style={{ fontSize: ".5rem", fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                Featured
+              </span>
+            )}
           </div>
         );
 
         // A partner with no website on file still renders (logo/name
-        // alone has value); it just isn't wrapped in a link to nowhere —
-        // same judgment call as the Partners tab's CommunityPartnersListView.
+        // alone has value); it just isn't wrapped in a link to nowhere.
         return (
           <li key={cell.key} data-slot="partner" style={{ minWidth: 0 }}>
             {href ? (
@@ -105,6 +118,9 @@ export default function CommunityPartnerGrid({ slots }: { slots: GridSlot[] }) {
   );
 }
 
+// minHeight fixes every tile (real or blank) to the height of a logo plus
+// a two-line name, so a row of only blank positions is the same size as a
+// row of partners.
 const cardStyle: CSSProperties = {
   background: "var(--surface-light)",
   border: "1px solid var(--border-app)",
@@ -115,19 +131,14 @@ const cardStyle: CSSProperties = {
   alignItems: "center",
   gap: ".3rem",
   height: "100%",
+  minHeight: 96,
   boxSizing: "border-box",
 };
 
-// Same box as a real card; only the dashed outline and the fill say
-// "available".
+// Same box as a partner tile; only the quieter fill says "open".
 const availableCardStyle: CSSProperties = {
   background: "var(--surface-light-elevated)",
-  border: "1px dashed var(--border-app)",
-};
-
-const logoBoxStyle: CSSProperties = {
-  width: 44, height: 44, borderRadius: 6, flexShrink: 0,
-  display: "flex", alignItems: "center", justifyContent: "center",
+  position: "relative", // contains the screen-reader label
 };
 
 const nameStyle: CSSProperties = {
@@ -135,4 +146,9 @@ const nameStyle: CSSProperties = {
   textAlign: "center", lineHeight: 1.25, overflowWrap: "anywhere",
   overflow: "hidden", display: "-webkit-box",
   WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+};
+
+const visuallyHidden: CSSProperties = {
+  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+  overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0,
 };

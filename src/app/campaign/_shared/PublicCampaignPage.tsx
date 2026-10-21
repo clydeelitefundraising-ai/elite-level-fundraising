@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X, Plus } from "lucide-react";
+import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
-import { AVAILABLE_SLOT_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
+import { AVAILABLE_SLOT_A11Y_LABEL, fillPartnerSlots, partnerHref } from "@/lib/platform/communityPartnerSlots";
 import { resolveFundUseIcon } from "@/lib/fundUseIcons";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
@@ -70,8 +70,8 @@ export type PublicCampaignPageProps = {
   setParticipantFilter: (f: "All" | "Athletes" | "Coaches") => void;
   recentDonations: Donation[];
   // null = this school's public advertising is off (no section). An
-  // array, even an empty one, = on: the section always shows 20
-  // positions, unfilled ones as "Your Business Here".
+  // array, even an empty one, = on: the section always shows 21
+  // positions, unfilled ones as blank cards.
   communityPartners: CommunityPartnerItem[] | null;
   missionItems: MissionItem[];
   showLeaderboard: boolean;
@@ -468,18 +468,17 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
               <div id="pc-partners">
                 <h2 className="pc-h2">ELF Community Partners</h2>
                 <p className="pc-subcopy">Local businesses supporting {schoolName} {sportName}.</p>
-                {/* All 20 advertising positions (fillPartnerSlots, shared
+                {/* All 21 advertising positions (fillPartnerSlots, shared
                     with the Team App): today's partners first, in the
-                    order the API returned them, then "Your Business Here"
-                    placeholders — never links, never partner records. */}
+                    order the API returned them, then blank cards — no
+                    text, no icon, never links, never partner records. */}
                 <ul className="pc-sponsor-grid" aria-label="ELF Community Partners">
                   {partnerSlots.map((slot) => {
                     if (slot.kind === "available") {
                       return (
                         <li key={slot.key} data-slot="available">
                           <div className="pc-sponsor-card pc-sponsor-card--available">
-                            <span className="pc-sponsor-logo-fallback pc-sponsor-available-mark" aria-hidden="true"><Plus size={18} /></span>
-                            <span className="pc-sponsor-name">{AVAILABLE_SLOT_LABEL}</span>
+                            <span className="pc-visually-hidden">{AVAILABLE_SLOT_A11Y_LABEL}</span>
                           </div>
                         </li>
                       );

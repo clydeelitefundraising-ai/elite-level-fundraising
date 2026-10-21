@@ -217,8 +217,8 @@ test("a nonexistent campaign still falls through to the existing full-fetch path
   });
 });
 
-// ── ELF Community Partners: 20-slot public section ─────────────────────────
-// The page shows its 20 advertising positions whenever the school's PUBLIC
+// ── ELF Community Partners: 21-slot public section ─────────────────────────
+// The page shows its 21 advertising positions whenever the school's PUBLIC
 // toggle is on — so "on, no partner today" must arrive as an empty array,
 // distinct from "off" (field absent, no section at all).
 
@@ -236,7 +236,7 @@ function seedPartner(db: Record<string, Row[]>, id: string, overrides: Partial<R
   });
 }
 
-test("community partners: public toggle on with no active partner -> community_partners is an empty array (20 open positions)", async () => {
+test("community partners: public toggle on with no active partner -> community_partners is an empty array (21 open positions)", async () => {
   await withFakeDb(async ({ db }) => {
     seedCampaign(db, { fundraising_enabled: true, organization_id: ORG_ID });
     seedSchool(db, true);

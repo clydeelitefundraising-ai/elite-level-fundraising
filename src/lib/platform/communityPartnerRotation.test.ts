@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveGridSlots, getUtcDayTick, pickFeaturedPartner, type GridPartnerInput, type FeaturedPartnerInput } from "./communityPartnerRotation.ts";
+import { COMMUNITY_PARTNER_SLOT_COUNT } from "./communityPartnerSlots.ts";
+
+// The grid size (21 since the 21-slot refinement), shared with the display layer.
+const GRID = COMMUNITY_PARTNER_SLOT_COUNT;
 
 function makePartner(id: string, overrides: Partial<GridPartnerInput> = {}): GridPartnerInput {
   return {
@@ -36,11 +40,11 @@ function gcd(a: number, b: number): number {
 
 function assertExactFairness(U: number, A: number) {
   const partners = Array.from({ length: U }, (_, i) => makePartner(String(i + 1).padStart(2, "0")));
-  // availablePositions.length === A is simulated by locking (20 - A) of
-  // the 20 positions to otherwise-irrelevant filler partners, so the
+  // availablePositions.length === A is simulated by locking (GRID - A) of
+  // the GRID positions to otherwise-irrelevant filler partners, so the
   // function under test sees a real A, not a hand-picked parameter.
   const lockedFillers: GridPartnerInput[] = [];
-  for (let pos = 1; pos <= 20 - A; pos++) {
+  for (let pos = 1; pos <= GRID - A; pos++) {
     lockedFillers.push(makePartner(`locked-${pos}`, { locked_position: pos }));
   }
   const allPartners = [...partners, ...lockedFillers];
@@ -191,9 +195,9 @@ test("multiple inactive-reserved positions are all withheld from rotation simult
   for (const pos of reservedPositions) {
     assert.equal(slots.find(s => s.position === pos), undefined, `position ${pos} must stay reserved and empty`);
   }
-  // Exactly 20 - 4 = 16 slots available, exactly 16 of the 20 active
+  // Exactly GRID - 4 = 17 slots available, exactly 17 of the 20 active
   // partners get shown this tick.
-  assert.equal(slots.length, 16);
+  assert.equal(slots.length, GRID - 4);
 });
 
 test("reservedPositions and an active partner's own lock can coexist without conflict (the normal, non-inactive case)", () => {
@@ -347,4 +351,39 @@ test("pickFeaturedPartner: shares no data or behavior with resolveGridSlots — 
   const result = pickFeaturedPartner([featuredPartner], 0);
   assert.equal(result?.id, "shared");
   assert.equal("locked_position" in (result ?? {}), false, "FeaturedPartner output must never carry a locked_position field");
+});
+
+// ── 21 positions (21-slot refinement) ────────────────────────────────────
+
+test("21 positions: GRID is 21", () => {
+  assert.equal(GRID, 21);
+});
+
+test("21 positions: 21 unlocked partners all appear every tick, in positions 1..21", () => {
+  const partners = Array.from({ length: 21 }, (_, i) => makePartner(String(i + 1).padStart(2, "0")));
+  for (let tick = 0; tick < 5; tick++) {
+    const slots = resolveGridSlots(partners, [], tick);
+    assert.deepEqual(slots.map(s => s.position), Array.from({ length: 21 }, (_, i) => i + 1));
+    assert.equal(new Set(slots.map(s => s.partner.id)).size, 21);
+  }
+});
+
+test("21 positions: 22+ partners never exceed 21 shown, and every partner still rotates in (no data loss)", () => {
+  assertExactFairness(22, 21);
+  assertExactFairness(30, 21);
+  const partners = Array.from({ length: 30 }, (_, i) => makePartner(String(i + 1).padStart(2, "0")));
+  assert.equal(resolveGridSlots(partners, [], 0).length, 21);
+});
+
+test("21 positions: with locks on all of 1-20 (the database's lock range), position 21 still rotates", () => {
+  const locked = Array.from({ length: 20 }, (_, i) => makePartner(`locked-${i + 1}`, { locked_position: i + 1 }));
+  const rotating = [makePartner("r1"), makePartner("r2")];
+  const all = [...locked, ...rotating];
+  const seen = new Set<string>();
+  for (let tick = 0; tick < 2; tick++) {
+    const slots = resolveGridSlots(all, lockedPositionsOf(all), tick);
+    assert.equal(slots.length, 21);
+    seen.add(slots.find(s => s.position === 21)!.partner.id);
+  }
+  assert.deepEqual([...seen].sort(), ["r1", "r2"]);
 });

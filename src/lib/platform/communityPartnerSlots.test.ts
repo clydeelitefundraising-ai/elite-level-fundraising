@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  AVAILABLE_SLOT_LABEL,
+  AVAILABLE_SLOT_A11Y_LABEL,
   COMMUNITY_PARTNER_SLOT_COUNT,
   fillPartnerSlots,
   partnerHref,
@@ -17,34 +17,34 @@ function partners(n: number): P[] {
 const real = (slots: PartnerSlot<P>[]) => slots.filter(s => s.kind === "partner");
 const open = (slots: PartnerSlot<P>[]) => slots.filter(s => s.kind === "available");
 
-test("20 positions, 'Your Business Here' label", () => {
-  assert.equal(COMMUNITY_PARTNER_SLOT_COUNT, 20);
-  assert.equal(AVAILABLE_SLOT_LABEL, "Your Business Here");
+test("21 positions; blank positions have only a screen-reader label", () => {
+  assert.equal(COMMUNITY_PARTNER_SLOT_COUNT, 21);
+  assert.equal(AVAILABLE_SLOT_A11Y_LABEL, "Open advertising position");
 });
 
-for (const [count, expectedReal, expectedOpen] of [[0, 0, 20], [1, 1, 19], [5, 5, 15], [19, 19, 1], [20, 20, 0]] as const) {
-  test(`${count} partners -> ${expectedReal} real + ${expectedOpen} placeholders = 20 positions`, () => {
+for (const [count, expectedReal, expectedOpen] of [[0, 0, 21], [1, 1, 20], [5, 5, 16], [20, 20, 1], [21, 21, 0]] as const) {
+  test(`${count} partners -> ${expectedReal} real + ${expectedOpen} blank = 21 positions`, () => {
     const slots = fillPartnerSlots(partners(count));
-    assert.equal(slots.length, 20);
+    assert.equal(slots.length, 21);
     assert.equal(real(slots).length, expectedReal);
     assert.equal(open(slots).length, expectedOpen);
   });
 }
 
-test("more than 20 partners: every partner is kept, in order, with no placeholders (nothing discarded)", () => {
-  const input = partners(23);
+test("more than 21 partners: every partner is kept, in order, with no blanks (nothing discarded)", () => {
+  const input = partners(24);
   const slots = fillPartnerSlots(input);
-  assert.equal(slots.length, 23);
+  assert.equal(slots.length, 24);
   assert.equal(open(slots).length, 0);
   assert.deepEqual(slots.map(s => s.kind === "partner" && s.partner.id), input.map(p => p.id));
 });
 
-test("real partners come first, in the order given; placeholders follow; positions run 1..20", () => {
+test("real partners come first, in the order given; blanks follow; positions run 1..21", () => {
   const input = [partners(3)[2], partners(3)[0], partners(3)[1]];
   const slots = fillPartnerSlots(input);
   assert.deepEqual(slots.slice(0, 3).map(s => s.kind === "partner" && s.partner.id), ["p3", "p1", "p2"]);
   assert.ok(slots.slice(3).every(s => s.kind === "available"));
-  assert.deepEqual(slots.map(s => s.position), Array.from({ length: 20 }, (_, i) => i + 1));
+  assert.deepEqual(slots.map(s => s.position), Array.from({ length: 21 }, (_, i) => i + 1));
 });
 
 test("the same partner object is passed through untouched (links, logos preserved)", () => {
@@ -53,24 +53,24 @@ test("the same partner object is passed through untouched (links, logos preserve
   assert.equal(first.kind === "partner" && first.partner, p);
 });
 
-test("never duplicates a partner to fill space: a repeated id is shown once", () => {
+test("each partner appears exactly once: a repeated id is never used to fill space", () => {
   const [a, b] = partners(2);
-  const slots = fillPartnerSlots([a, b, a]);
+  const slots = fillPartnerSlots([a, b, a, b, a]);
   assert.deepEqual(real(slots).map(s => s.kind === "partner" && s.partner.id), ["p1", "p2"]);
-  assert.equal(open(slots).length, 18);
+  assert.equal(open(slots).length, 19);
 });
 
-test("keys are unique and stable: partner keys follow the id, placeholder keys the position", () => {
+test("keys are unique and stable: partner keys follow the id, blank keys the position", () => {
   const first = fillPartnerSlots(partners(2));
   const again = fillPartnerSlots(partners(2));
   const keys = first.map(s => s.key);
-  assert.equal(new Set(keys).size, 20);
+  assert.equal(new Set(keys).size, 21);
   assert.deepEqual(keys, again.map(s => s.key));
   assert.equal(first[0].key, "partner-p1");
   assert.equal(first[2].key, "available-3");
 });
 
-test("placeholders carry no partner data at all (no id, name, link or logo)", () => {
+test("blank positions carry no partner data at all (no id, name, link or logo)", () => {
   for (const s of open(fillPartnerSlots(partners(1)))) {
     assert.deepEqual(Object.keys(s).sort(), ["key", "kind", "position"]);
   }
@@ -83,12 +83,12 @@ test("malformed rows (missing/blank id or name, non-objects) are skipped, not re
   ] as unknown as P[];
   const slots = fillPartnerSlots(input);
   assert.deepEqual(real(slots).map(s => s.kind === "partner" && s.partner.id), ["ok"]);
-  assert.equal(slots.length, 20);
+  assert.equal(slots.length, 21);
 });
 
-test("null / undefined partner lists give 20 placeholders", () => {
-  assert.equal(open(fillPartnerSlots(null)).length, 20);
-  assert.equal(open(fillPartnerSlots(undefined)).length, 20);
+test("null / undefined partner lists give 21 blanks", () => {
+  assert.equal(open(fillPartnerSlots(null)).length, 21);
+  assert.equal(open(fillPartnerSlots(undefined)).length, 21);
 });
 
 test("partnerHref: only well-formed https URLs are linked", () => {

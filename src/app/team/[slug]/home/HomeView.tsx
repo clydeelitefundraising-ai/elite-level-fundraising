@@ -439,8 +439,8 @@ type HomeViewProps = {
   // is what guarantees mobile and desktop can never disagree about which
   // partner occupies which position. null when advertising is off (no
   // section at all); an array — possibly empty — when it is on, and the
-  // grid then always shows its 20 positions, unfilled ones as "Your
-  // Business Here" placeholders.
+  // grid then always shows its 21 positions, unfilled ones as blank
+  // cards.
   communityPartnerGridSlots?: GridSlot[] | null;
   // Phase 2.2D-3 — same "resolved once by page.tsx" discipline as
   // communityPartnerGridSlots above, and fully independent of it: this

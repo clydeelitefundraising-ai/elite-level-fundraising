@@ -1,6 +1,6 @@
 // Phase 2.2D-2/2.2D-3 — ELF Community Partner Home Screen advertising.
 // Two independent, deterministic rotation mechanisms live in this file:
-// resolveGridSlots() (the 20-position grid) and pickFeaturedPartner()
+// resolveGridSlots() (the 21-position grid) and pickFeaturedPartner()
 // (the Featured Partner banner, added in 2.2D-3) — see that function's
 // own header for why they share no state or types despite the similar
 // technique. Pure, deterministic, stateless: resolveGridSlots() is a plain function
@@ -21,7 +21,13 @@
 // ad blockers, etc.) — those are a future, separate concern (impression
 // reporting, not built in this phase).
 
-const GRID_SIZE = 20;
+import { COMMUNITY_PARTNER_SLOT_COUNT } from "./communityPartnerSlots.ts";
+
+// The number of visible advertising positions — shared with the display
+// layer so the rotation window and the rendered grid can never disagree
+// (21 since the 21-slot refinement; locked_position stays limited to 1-20
+// by the database, so position 21 is always a rotating position).
+const GRID_SIZE = COMMUNITY_PARTNER_SLOT_COUNT;
 
 export type GridPartnerInput = {
   id:                string;

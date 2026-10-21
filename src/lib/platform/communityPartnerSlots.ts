@@ -1,23 +1,25 @@
-// ELF Community Partners — the 20 visible advertising positions.
+// ELF Community Partners — the 21 visible advertising positions.
 //
 // Presentation only. Every ELF Community Partners section (Team App Home
 // grid, Team App Partners tab, public campaign page) shows exactly
 // COMMUNITY_PARTNER_SLOT_COUNT positions: the real partners it was handed,
 // in the order it was handed them (each surface keeps its own existing
 // ordering rule — resolveGridSlots() position order for the Home grid and
-// the public page, display_order for the Partners tab), followed by
-// "Your Business Here" placeholders for the positions nothing fills.
+// the public page, display_order for the Partners tab), followed by blank
+// positions for whatever nothing fills. 21 = seven full rows of three on
+// a phone.
 //
-// Placeholders are never partner records: no id, no name, no link, no
-// logo — nothing is written anywhere and nothing is duplicated to fill
-// space. More than 20 real partners are all kept (no placeholders, no
-// truncation); whether a surface can ever receive more than 20 is that
-// surface's own rule (resolveGridSlots() never returns more than 20).
+// Blank positions are never partner records: no id, no name, no link, no
+// logo, no visible text — nothing is written anywhere and nothing is
+// duplicated to fill space. More than 21 real partners are all kept (no
+// blanks, no truncation); whether a surface can ever receive more than 21
+// is that surface's own rule (resolveGridSlots() never returns more than
+// this many — it uses the same constant as its window).
 //
 // Client-safe: no server imports, so the public campaign page's client
 // component can use it as well as the server-rendered Team App views.
 
-export const COMMUNITY_PARTNER_SLOT_COUNT = 20;
+export const COMMUNITY_PARTNER_SLOT_COUNT = 21;
 
 export type PartnerSlot<P> =
   | { kind: "partner"; key: string; position: number; partner: P }
@@ -35,8 +37,8 @@ function isDisplayable(p: unknown): p is PartnerLike {
 }
 
 /** Real partners first (input order, first occurrence of each id only),
- *  then placeholders up to `total`. Keys are stable: a partner's key is
- *  its id; a placeholder's key is its position number. */
+ *  then blank positions up to `total`. Keys are stable: a partner's key is
+ *  its id; a blank position's key is its position number. */
 export function fillPartnerSlots<P extends PartnerLike>(
   partners: readonly P[] | null | undefined,
   total: number = COMMUNITY_PARTNER_SLOT_COUNT,
@@ -69,4 +71,5 @@ export function partnerHref(websiteUrl: string | null | undefined): string | nul
   }
 }
 
-export const AVAILABLE_SLOT_LABEL = "Your Business Here";
+/** Screen-reader-only name for a blank position (never shown visually). */
+export const AVAILABLE_SLOT_A11Y_LABEL = "Open advertising position";
