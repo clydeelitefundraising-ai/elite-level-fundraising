@@ -6,6 +6,11 @@ import { assertDeploymentSafe } from "./src/lib/deploymentGuard.ts";
 // inert for every other deployment. See src/lib/deploymentGuard.ts.
 export default function config(phase: string): NextConfig {
   const deployment = assertDeploymentSafe(process.env, phase === "phase-production-build" ? "build" : `server start (${phase})`);
+  if (deployment.mode === "qa") {
+    // Evidence in the QA build log that the guard ran and passed (signal
+    // names only, never values). Standard builds print nothing.
+    console.log(`[deployment-guard] QA configuration accepted: ${deployment.triggers.join("; ")}`);
+  }
   return {
     /* config options here */
     reactCompiler: true,

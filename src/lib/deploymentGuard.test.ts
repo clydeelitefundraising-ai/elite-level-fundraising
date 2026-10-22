@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   assertDeploymentSafe, checkDeployment, isProductionHost, isQaVercelHost,
-  PRODUCTION_SUPABASE_REF, QA_SUPABASE_REF,
+  PRODUCTION_SUPABASE_REF, PRODUCTION_VERCEL_PROJECT_ID, QA_SUPABASE_REF, QA_VERCEL_PROJECT_ID,
 } from "./deploymentGuard.ts";
 import { teamAppLoginUrl } from "./teamAppLogin.ts";
 
@@ -14,6 +14,11 @@ const ROOT = join(import.meta.dirname, "..", "..");
 // Synthetic, unsigned Supabase-style JWTs (claims only — never real keys).
 const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const jwt = (ref: string, role: string) => `${b64url({ alg: "HS256", typ: "JWT" })}.${b64url({ iss: "supabase", ref, role })}.c2lnbmF0dXJl`;
+// Synthetic Vercel OIDC token (claims shape only).
+const oidc = (project: string, project_id: string) =>
+  `${b64url({ alg: "RS256", typ: "JWT" })}.${b64url({ iss: "https://oidc.vercel.com/team", owner: "team", project, project_id, environment: "production" })}.c2lnbmF0dXJl`;
+const SHORTENED_HOST = "elf-team-71cj9c4kl-clydeelitefundraising-5717s-projects.vercel.app";
+const PROTECTED_QA_HOST = "elf-team-qa-clydeelitefundraising-5717s-projects.vercel.app";
 
 const QA_ENV: Record<string, string> = {
   ELF_DEPLOYMENT: "qa",
@@ -73,7 +78,18 @@ test("marketing Log in: production destination unchanged; QA stays on its own /l
 // ── Valid QA configuration ───────────────────────────────────────────────
 
 test("valid QA configuration is accepted", () => {
-  assert.deepEqual(checkDeployment(QA_ENV), { mode: "qa", triggers: ["ELF_DEPLOYMENT=qa"], errors: [] });
+  assert.deepEqual(checkDeployment(QA_ENV), {
+    mode: "qa",
+    triggers: ["ELF_DEPLOYMENT=qa", "NEXT_PUBLIC_SUPABASE_URL is the QA Supabase project", "ELF_QA_SUPABASE_REF is set"],
+    errors: [],
+  });
+  // As the deployed elf-team-qa build sees it: protected project hostname,
+  // shortened deployment hostname, platform OIDC token for elf-team-qa.
+  assert.deepEqual(errorsOf(qa({
+    NEXT_PUBLIC_APP_URL: `https://${PROTECTED_QA_HOST}`, VERCEL: "1", VERCEL_ENV: "production",
+    VERCEL_URL: SHORTENED_HOST, VERCEL_PROJECT_PRODUCTION_URL: PROTECTED_QA_HOST,
+    VERCEL_OIDC_TOKEN: oidc("elf-team-qa", QA_VERCEL_PROJECT_ID), VERCEL_PROJECT_ID: QA_VERCEL_PROJECT_ID,
+  })), []);
   assert.deepEqual(errorsOf(qa({ VERCEL: "1", VERCEL_URL: "elf-team-qa-abc123-team.vercel.app", VERCEL_PROJECT_PRODUCTION_URL: "elf-team-qa.vercel.app" })), []);
   assert.deepEqual(errorsOf(qa({ STRIPE_SECRET_KEY: "sk_test_synthetic", STRIPE_WEBHOOK_SECRET: "whsec_synthetic" })), []);
   assert.deepEqual(errorsOf(qa({ STRIPE_SECRET_KEY: "rk_test_synthetic" })), []);
@@ -102,6 +118,38 @@ test("the elf-team-qa Vercel project is detected without ELF_DEPLOYMENT, and ref
   }
   // A QA project deployment with an otherwise production-shaped config.
   refused({ VERCEL_URL: "elf-team-qa-abc123-team.vercel.app", NEXT_PUBLIC_SUPABASE_URL: `https://${PRODUCTION_SUPABASE_REF}.supabase.co` }, /NEXT_PUBLIC_SUPABASE_URL/);
+});
+
+test("QA mode can't be bypassed through Vercel's shortened deployment hostname", () => {
+  // Every host-free signal on its own switches QA mode on — and with
+  // ELF_DEPLOYMENT missing, the configuration is refused.
+  const noMode = qa({ ELF_DEPLOYMENT: undefined, VERCEL: "1", VERCEL_URL: SHORTENED_HOST });
+  assert.equal(checkDeployment(noMode).mode, "qa");
+  refused(noMode, /ELF_DEPLOYMENT is not "qa"/);
+  for (const [label, env] of [
+    ["QA Supabase URL", { NEXT_PUBLIC_SUPABASE_URL: `https://${QA_SUPABASE_REF}.supabase.co`, VERCEL_URL: SHORTENED_HOST }],
+    ["ELF_QA_SUPABASE_REF", { ELF_QA_SUPABASE_REF: QA_SUPABASE_REF, VERCEL_URL: SHORTENED_HOST }],
+    ["OIDC project name", { VERCEL_OIDC_TOKEN: oidc("elf-team-qa", "prj_other"), VERCEL_URL: SHORTENED_HOST }],
+    ["OIDC project id", { VERCEL_OIDC_TOKEN: oidc("renamed", QA_VERCEL_PROJECT_ID), VERCEL_URL: SHORTENED_HOST }],
+    ["VERCEL_PROJECT_ID", { VERCEL_PROJECT_ID: QA_VERCEL_PROJECT_ID, VERCEL_URL: SHORTENED_HOST }],
+    ["protected project host", { VERCEL_PROJECT_PRODUCTION_URL: PROTECTED_QA_HOST }],
+  ] as const) {
+    const r = checkDeployment(env);
+    assert.equal(r.mode, "qa", label);
+    assert.ok(r.errors.some(e => /ELF_DEPLOYMENT is not "qa"/.test(e)), label);
+    assert.ok(r.errors.some(e => /is required in QA/.test(e)), `${label}: full QA config enforced`);
+  }
+});
+
+test("a QA configuration inside the production Vercel project is refused", () => {
+  refused(qa({ VERCEL_OIDC_TOKEN: oidc("elf-team-app", PRODUCTION_VERCEL_PROJECT_ID) }), /production elf-team-app project/);
+  refused(qa({ VERCEL_PROJECT_ID: PRODUCTION_VERCEL_PROJECT_ID }), /production elf-team-app project/);
+  // …while production's own configuration (no QA signal) stays untouched.
+  assert.deepEqual(checkDeployment({
+    NEXT_PUBLIC_SUPABASE_URL: `https://${PRODUCTION_SUPABASE_REF}.supabase.co`,
+    VERCEL_OIDC_TOKEN: oidc("elf-team-app", PRODUCTION_VERCEL_PROJECT_ID), VERCEL_PROJECT_ID: PRODUCTION_VERCEL_PROJECT_ID,
+    VERCEL_URL: "elf-team-71cj9c4kl-team.vercel.app",
+  }), { mode: "standard", triggers: [], errors: [] });
 });
 
 test("host matching", () => {

@@ -6,13 +6,18 @@
 // (src/instrumentation.ts). Inert for every other deployment: unless the
 // QA mode is switched on, it returns { mode: "standard" } and changes nothing.
 //
-// QA mode is switched on by EITHER of two independent signals, so leaving
+// QA mode is switched on by ANY of several independent signals, so leaving
 // one out can't silently skip the checks:
 //   1. ELF_DEPLOYMENT=qa
-//   2. Vercel reports this deployment as part of the elf-team-qa project
-//      (VERCEL_PROJECT_PRODUCTION_URL / VERCEL_URL / VERCEL_BRANCH_URL host
-//      starts with "elf-team-qa"). When only this signal is present the
-//      configuration is refused until ELF_DEPLOYMENT=qa is set as well.
+//   2. the configuration points at the QA Supabase project
+//      (NEXT_PUBLIC_SUPABASE_URL, or ELF_QA_SUPABASE_REF is set)
+//   3. Vercel identifies the elf-team-qa project: the platform-signed OIDC
+//      token's project claims, VERCEL_PROJECT_ID, or an elf-team-qa host in
+//      VERCEL_PROJECT_PRODUCTION_URL / VERCEL_URL / VERCEL_BRANCH_URL.
+//      (Hosts alone aren't enough — Vercel shortens deployment hostnames,
+//      e.g. "elf-team-71cj9c4kl-…".)
+// Whenever QA mode is on, the configuration is refused unless
+// ELF_DEPLOYMENT=qa is set as well.
 //
 // In QA mode the configuration must point at the QA Supabase project only,
 // with no live Stripe key, no production URLs and no outbound email, push or
@@ -24,6 +29,9 @@
 export const PRODUCTION_SUPABASE_REF = "nggabucgcoaffpppchsp";
 export const QA_SUPABASE_REF = "mzsvbxosoidwhntpjdkf";
 export const QA_VERCEL_PROJECT = "elf-team-qa";
+export const QA_VERCEL_PROJECT_ID = "prj_OPk52HPvdi6YlAvxSQ4F1nZwmKiJ";
+export const PRODUCTION_VERCEL_PROJECT = "elf-team-app";
+export const PRODUCTION_VERCEL_PROJECT_ID = "prj_JWwA83cDkMZjECnrhdRbaC9lRLgc";
 
 type Env = Record<string, string | undefined>;
 
@@ -118,9 +126,32 @@ function jwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+/** The Vercel project this build/runtime belongs to, as far as the platform
+ *  says: VERCEL_PROJECT_ID and the OIDC token's project claims. */
+function vercelProject(env: Env): { ids: string[]; names: string[] } {
+  const ids: string[] = [];
+  const names: string[] = [];
+  const projectId = value(env, "VERCEL_PROJECT_ID");
+  if (projectId) ids.push(projectId);
+  const oidc = jwtPayload(value(env, "VERCEL_OIDC_TOKEN"));
+  if (oidc) {
+    if (typeof oidc.project_id === "string") ids.push(oidc.project_id);
+    if (typeof oidc.project === "string") names.push(oidc.project);
+  }
+  return { ids, names };
+}
+
 function qaTriggers(env: Env): string[] {
   const triggers: string[] = [];
   if (value(env, "ELF_DEPLOYMENT") === "qa") triggers.push("ELF_DEPLOYMENT=qa");
+  if (hostOf(value(env, "NEXT_PUBLIC_SUPABASE_URL")) === `${QA_SUPABASE_REF}.supabase.co`) {
+    triggers.push("NEXT_PUBLIC_SUPABASE_URL is the QA Supabase project");
+  }
+  if (value(env, "ELF_QA_SUPABASE_REF")) triggers.push("ELF_QA_SUPABASE_REF is set");
+  const project = vercelProject(env);
+  if (project.ids.includes(QA_VERCEL_PROJECT_ID) || project.names.includes(QA_VERCEL_PROJECT)) {
+    triggers.push(`Vercel identifies the ${QA_VERCEL_PROJECT} project`);
+  }
   for (const name of ["VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_URL", "VERCEL_BRANCH_URL"]) {
     const v = value(env, name);
     if (v && isQaVercelHost(v)) triggers.push(`${name} is an ${QA_VERCEL_PROJECT} host`);
@@ -143,7 +174,11 @@ export function checkDeployment(env: Env = process.env): DeploymentCheck {
 
   const errors: string[] = [];
   if (deployment !== "qa") {
-    errors.push(`this is the ${QA_VERCEL_PROJECT} Vercel project but ELF_DEPLOYMENT is not "qa"`);
+    errors.push(`QA deployment detected (${triggers.join("; ")}) but ELF_DEPLOYMENT is not "qa"`);
+  }
+  const project = vercelProject(env);
+  if (project.ids.includes(PRODUCTION_VERCEL_PROJECT_ID) || project.names.includes(PRODUCTION_VERCEL_PROJECT)) {
+    errors.push(`Vercel identifies this as the production ${PRODUCTION_VERCEL_PROJECT} project — QA configuration refused`);
   }
 
   for (const name of REQUIRED_IN_QA) {
