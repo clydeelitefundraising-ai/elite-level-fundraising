@@ -1,0 +1,6 @@
+# QA secrets never belong in the repository (they live in %USERPROFILE%\.elf-qa).
+*.env
+!qa.env.example
+seed-vars.sql
+qa-logins.txt
+qa-app-secrets.env
