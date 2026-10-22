@@ -36,11 +36,15 @@ if (s.mode === "qa") {
     try {
       const headers = { apikey: key };
       if (!key.startsWith("sb_")) headers.Authorization = `Bearer ${key}`;
-      const res = await fetch(`${result.cfg.QA_SUPABASE_URL}/rest/v1/`, { method: "GET", headers });
-      await res.arrayBuffer(); // discard the body; never shown
-      const ok = res.status === 200;
+      // A read of a table that doesn't exist: a key the project accepts gets
+      // PostgREST's "table not found" (404 PGRST205); a rejected key gets 401.
+      // (The schema root /rest/v1/ itself may be restricted to the service key.)
+      const res = await fetch(`${result.cfg.QA_SUPABASE_URL}/rest/v1/elf_qa_preflight_probe?select=1&limit=1`, { method: "GET", headers });
+      let code = "";
+      try { code = String((await res.json())?.code ?? ""); } catch { /* no JSON body */ }
+      const ok = res.status === 404 && code === "PGRST205";
       if (!ok) failed = true;
-      console.log(`API    ${ok ? "OK  " : "FAIL"}  ${name}: HTTP ${res.status} from ${new URL(result.cfg.QA_SUPABASE_URL).host}`);
+      console.log(`API    ${ok ? "OK  " : "FAIL"}  ${name}: ${new URL(result.cfg.QA_SUPABASE_URL).host} answered HTTP ${res.status}${code ? ` ${code}` : ""}${ok ? " (key valid; probe table absent as expected)" : ""}`);
     } catch {
       failed = true;
       console.log(`API    FAIL  ${name}: the QA API could not be reached`);

@@ -1,10 +1,16 @@
 -- ELF QA connection preflight — READ-ONLY. SELECT statements only, inside a
--- READ ONLY transaction that is rolled back; the session is also opened
--- with default_transaction_read_only=on by preflight.mjs, so the server
+-- READ ONLY transaction that is rolled back; the session is also set
+-- default_transaction_read_only=on (below, and by preflight.mjs), so the server
 -- itself would refuse any write. Prints facts about the database, never
 -- secrets or row data.
 \set ON_ERROR_STOP on
 \set QUIET on
+-- Read-only for the whole session, set in-session because connection poolers
+-- drop startup options (PGOPTIONS); refuse to continue unless it took effect.
+SET default_transaction_read_only = on;
+DO $$ BEGIN
+  IF current_setting('default_transaction_read_only') <> 'on' THEN RAISE EXCEPTION 'preflight_session_not_read_only'; END IF;
+END $$;
 BEGIN TRANSACTION READ ONLY;
 SELECT 'read_only_session=' || current_setting('default_transaction_read_only')
     || ' read_only_transaction=' || current_setting('transaction_read_only');
