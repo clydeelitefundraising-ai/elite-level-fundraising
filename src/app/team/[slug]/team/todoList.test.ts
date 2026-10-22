@@ -28,7 +28,9 @@ test("tab is labelled To-Do List; internal id stays 'clearance'; ?tab=todo is an
 });
 
 test("the tab renders the To-Do List, which embeds the existing Clearance resources", () => {
-  assert.match(page, /clearance=\{<TodoListView slug=\{slug\} \/>\}/);
+  // The To-Do tab is the To-Do List first; Complete Season Phase 3 adds a
+  // flag- and role-gated entry card beneath it (complete-season/).
+  assert.match(page, /clearance=\{\s*<>\s*<TodoListView slug=\{slug\} \/>/);
   assert.match(todo, /<ClearanceView slug=\{slug\} \/>/);
 });
 
