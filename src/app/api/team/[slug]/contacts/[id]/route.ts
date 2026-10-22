@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canManageContactForActor } from "@/lib/platform/coachFundraising";
@@ -37,6 +38,8 @@ async function fetchContact(id: string, slug: string) {
 // — see canManageContact() for the full rule.
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
 
   if (actor.kind === "public") {
@@ -107,6 +110,8 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
 // — see canManageContact() for the full rule.
 export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
 
   if (actor.kind === "public") {

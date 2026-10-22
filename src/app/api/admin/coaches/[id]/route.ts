@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -28,6 +29,8 @@ export async function PATCH(
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
+  if (seasonBlocked) return seasonBlocked;
   const { password } = await req.json();
 
   if (!password || password.length < 8) {
@@ -61,6 +64,8 @@ export async function DELETE(
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
+  if (seasonBlocked) return seasonBlocked;
 
   // Fetch the target coach to know their role and campaign
   const coachRes = await fetch(

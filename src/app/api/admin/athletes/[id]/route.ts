@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -13,6 +14,8 @@ async function authed(): Promise<boolean> {
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("athletes", id);
+  if (seasonBlocked) return seasonBlocked;
   const { name, event, class_year } = await req.json();
   if (!name?.trim() || !class_year?.trim()) {
     return NextResponse.json({ error: "name and class are required" }, { status: 400 });
@@ -39,6 +42,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("athletes", id);
+  if (seasonBlocked) return seasonBlocked;
   // G3A review correction: messaging access (any active group
   // participant/auto-included family identity tied to this athlete's
   // roster assignments) is now cleaned up BEFORE the athlete row itself is

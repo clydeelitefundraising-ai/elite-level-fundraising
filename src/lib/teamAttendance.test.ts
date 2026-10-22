@@ -44,6 +44,7 @@ import { isCoachOnly, type TeamActor } from "./permissions.ts";
 
 const sql = readFileSync(new URL("../../supabase/migrations/phase_t5_attendance_drafts.sql", import.meta.url), "utf8")
   .replace(/\r\n/g, "\n").replace(/--.*$/gm, "");
+const seasonSql = readFileSync(new URL("../../supabase/migrations/phase_s2_completed_season_read_only.sql", import.meta.url), "utf8");
 const source = readFileSync(new URL("./teamAttendance.ts", import.meta.url), "utf8");
 const draftSource = readFileSync(new URL("./teamAttendanceDraft.ts", import.meta.url), "utf8");
 
@@ -312,7 +313,11 @@ test("constants agree with phase_t5_attendance_drafts.sql", () => {
 });
 
 test("every database error code is known here, and nothing here is invented", () => {
-  const raised = new Set([...sql.matchAll(/RAISE EXCEPTION '(attendance_[a-z_]+)'/g)].map(m => m[1]));
+  const raised = new Set([
+    ...[...sql.matchAll(/RAISE EXCEPTION '(attendance_[a-z_]+)'/g)].map(m => m[1]),
+    // Complete Season Phase 2 guards that refuse an attendance save.
+    ...[...seasonSql.matchAll(/RAISE EXCEPTION '(attendance_[a-z_]+|season_completed_read_only)'/g)].map(m => m[1]),
+  ]);
   assert.deepEqual([...raised].sort(), [...ATTENDANCE_DB_ERRORS].sort());
 });
 

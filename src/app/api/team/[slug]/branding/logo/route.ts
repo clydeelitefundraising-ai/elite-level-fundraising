@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { updateCampaignSettings } from "@/lib/supabase";
@@ -33,6 +34,8 @@ type RouteContext = { params: Promise<{ slug: string }> };
 // secondary_color for a team that never opted into custom colors.
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can change the team logo." }, { status: 403 });

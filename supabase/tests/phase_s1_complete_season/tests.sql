@@ -133,9 +133,11 @@ SELECT qa.denied('A9 authenticated is refused team_season_preview', 'authenticat
 SELECT qa.check('A10 every Phase 1 function pins an empty search_path',
   (SELECT bool_and(array_to_string(proconfig, ',') LIKE '%search_path=""%') FROM pg_proc
    WHERE pronamespace = 'public'::regnamespace AND (proname LIKE 'season\_%' OR proname LIKE 'team\_season\_%')));
-SELECT qa.check('A11 only team_season_complete is SECURITY DEFINER; it bounds lock waits (lock_timeout=10s)',
+SELECT qa.check('A11 only team_season_complete is SECURITY DEFINER among Phase 1 functions; it bounds lock waits (lock_timeout=10s)',
   (SELECT array_agg(proname::text ORDER BY proname) FROM pg_proc WHERE pronamespace = 'public'::regnamespace
-     AND (proname LIKE 'season\_%' OR proname LIKE 'team\_season\_%') AND prosecdef) = ARRAY['team_season_complete']
+     AND (proname LIKE 'season\_%' OR proname LIKE 'team\_season\_%')
+     AND proname <> 'season_write_guard'  -- Phase 2's trigger function (owner rights by design)
+     AND prosecdef) = ARRAY['team_season_complete']
   AND (SELECT 'lock_timeout=10s' = ANY (proconfig) FROM pg_proc WHERE proname = 'team_season_complete'));
 SELECT qa.check('A12 program_id backfilled = team_id for every existing team; NOT NULL with a random default',
   NOT EXISTS (SELECT 1 FROM public.campaign_settings WHERE program_id IS DISTINCT FROM team_id)
@@ -549,7 +551,7 @@ SELECT qa.expect_error('K3 an old record can advance only once',
   $q$ INSERT INTO public.athletes (campaign_slug, name, previous_season_athlete_id) VALUES ('lions-track-2029', 'Dup', qa.u('s03')) $q$,
   'athletes_previous_season_uniq');
 SELECT qa.expect_error('K4 a season can have only one successor',
-  $q$ UPDATE public.campaign_settings SET successor_campaign_slug = 'lions-track-2029' WHERE campaign_slug = 'bears-hoops-2027' $q$,
+  $q$ UPDATE public.campaign_settings SET successor_campaign_slug = 'lions-track-2029' WHERE campaign_slug = 'taken-2027' $q$,
   'campaign_settings_successor_uniq');
 
 -- ═══ L. Failure part-way rolls everything back ═══════════════════════
@@ -666,6 +668,23 @@ SELECT qa.check('N2 large team completes in under 30 seconds',
   qa.get('timing complete (2,000 athletes)') #>> '{}');
 
 -- ═══ O. Existing admin hard-delete still works ═══════════════════════
+-- With Phase 2 applied (run with -v phase2=1), a completed season is
+-- read-only, so it cannot be hard-deleted; deleting its (active) successor
+-- still works and clears the link.
+\if :{?phase2}
+SELECT qa.put('del_go', qa.go('del-2027', qa.coach('c-del'), 'k-del', 'COMPLETE 2027 SEASON')::text);
+SELECT qa.expect_error('O1 Phase 2: a completed season cannot be hard-deleted',
+  $q$ DELETE FROM public.campaign_settings WHERE campaign_slug = 'del-2027' $q$, 'season_completed_read_only');
+DELETE FROM public.campaign_settings WHERE campaign_slug = 'del-2028';
+SELECT qa.check('O2 Phase 2: deleting the active successor works; the completed season keeps its history, its link is cleared, the audit row survives',
+  NOT EXISTS (SELECT 1 FROM public.campaign_settings WHERE campaign_slug = 'del-2028')
+  AND (SELECT successor_campaign_slug IS NULL AND season_completed_at IS NOT NULL AND archived FROM public.campaign_settings WHERE campaign_slug = 'del-2027')
+  AND EXISTS (SELECT 1 FROM public.team_season_transitions WHERE from_campaign_slug = 'del-2027'));
+DELETE FROM public.elf_accounts WHERE id = qa.u('del-acct');
+SELECT qa.check('O3 Phase 2: deleting the actor''s account clears it on the completed season''s coach row and in the audit row',
+  (SELECT actor_account_id IS NULL FROM public.team_season_transitions WHERE from_campaign_slug = 'del-2027')
+  AND (SELECT account_id IS NULL FROM public.team_coaches WHERE campaign_slug = 'del-2027'));
+\else
 SELECT qa.put('del_go', qa.go('del-2027', qa.coach('c-del'), 'k-del', 'COMPLETE 2027 SEASON')::text);
 DELETE FROM public.campaign_settings WHERE campaign_slug = 'del-2027';
 SELECT qa.check('O1 deleting a completed season works: the successor''s link is cleared, the audit row survives with the actor coach cleared',
@@ -680,3 +699,4 @@ SELECT qa.check('O2 deleting the successor works too; the audit row remains',
 DELETE FROM public.elf_accounts WHERE id = qa.u('del-acct');
 SELECT qa.check('O3 deleting the actor''s account clears it in the audit row; the row survives',
   (SELECT actor_account_id IS NULL FROM public.team_season_transitions WHERE from_campaign_slug = 'del-2027'));
+\endif

@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -42,6 +43,8 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const body = await req.json().catch(() => null);
   const goal = typeof body?.goal === "number" ? body.goal : parseInt(body?.goal, 10);

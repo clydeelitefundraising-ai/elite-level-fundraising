@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -17,6 +18,8 @@ export async function PUT(
 ) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("fund_uses", id);
+  if (seasonBlocked) return seasonBlocked;
   const { title, description, icon, sort_order } = await req.json();
   await updateFundUse(id, { title, description, icon, sort_order });
   logAuditEvent({
@@ -38,6 +41,8 @@ export async function DELETE(
 ) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("fund_uses", id);
+  if (seasonBlocked) return seasonBlocked;
   await deleteFundUse(id);
   logAuditEvent({
     actor: ADMIN_TOOL_ACTOR,

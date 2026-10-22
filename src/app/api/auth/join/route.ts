@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse, after } from "next/server";
 import { makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
@@ -74,6 +75,8 @@ export async function POST(req: NextRequest) {
   }
 
   const campaign_slug = joinCode.campaign_slug as string;
+  const seasonBlocked = await seasonWriteBlocked(campaign_slug);
+  if (seasonBlocked) return seasonBlocked;
 
   // Athlete role: this endpoint is now only for "select yourself from the
   // roster" — the "not listed" case goes through /api/auth/join-request

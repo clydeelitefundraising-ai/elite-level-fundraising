@@ -3,6 +3,7 @@ import { getCampaignSettings } from "@/lib/supabase";
 import { getAnnouncements, getTeamFiles, getTeamAthletes } from "@/lib/teamData";
 import { requireTeamMembership, isStaff } from "@/lib/permissions.server";
 import { getThreadsForActor, type ActorKey } from "@/lib/messages";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import CommunicationsView from "./CommunicationsView";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function CommunicationsPage({
       actorName={actor.session.name}
       isStaff={isStaff(actor)}
       primaryColor={settings.primary_color}
+      seasonReadOnly={isSeasonCompleted(settings)}
     />
   );
 }

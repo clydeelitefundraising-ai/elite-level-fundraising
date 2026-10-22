@@ -26,6 +26,7 @@ export type AttendanceErrorCode =
   | "invalid_date" | "invalid_range" | "invalid_request" | "invalid_records"
   | "payload_too_large" | "unsupported_media_type"
   | "version_conflict" | "roster_changed" | "session_not_draft" | "date_not_editable" | "date_in_future"
+  | "season_completed" | "before_season_start"
   | "team_not_found" | "attendance_unavailable" | "error";
 
 const ERRORS: Record<AttendanceErrorCode, { status: number; error: string; reload?: true }> = {
@@ -42,6 +43,8 @@ const ERRORS: Record<AttendanceErrorCode, { status: number; error: string; reloa
   session_not_draft:       { status: 409, error: "This attendance has been finalized and can't be changed." },
   date_not_editable:       { status: 409, error: "Attendance older than 14 days is read-only." },
   date_in_future:          { status: 409, error: "Attendance can't be taken for a future date." },
+  season_completed:        { status: 409, error: "This season has been completed. Its attendance is read-only." },
+  before_season_start:     { status: 409, error: "This date is before the current season started." },
   team_not_found:          { status: 404, error: "Team not found." },
   attendance_unavailable:  { status: 503, error: "Attendance isn't available right now. Please try again." },
   error:                   { status: 500, error: "Something went wrong. Please try again." },
@@ -74,6 +77,8 @@ export const DB_ERROR_RESPONSES: Record<AttendanceDbError, AttendanceErrorCode> 
   attendance_athlete_duplicate:        "invalid_records",
   attendance_athlete_cross_team:       "invalid_records",
   attendance_range_invalid:            "invalid_range",
+  attendance_before_season_start:      "before_season_start",
+  season_completed_read_only:          "season_completed",
 };
 
 /** Head Coach, Assistant Coach and platform admins of THIS team only —

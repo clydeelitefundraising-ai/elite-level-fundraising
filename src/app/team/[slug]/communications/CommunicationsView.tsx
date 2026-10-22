@@ -29,6 +29,7 @@ export default function CommunicationsView({
   actorName,
   isStaff,
   primaryColor,
+  seasonReadOnly = false,
 }: {
   slug: string;
   initialUpdates: AnnouncementRow[];
@@ -41,6 +42,8 @@ export default function CommunicationsView({
   actorName: string | null;
   isStaff: boolean;
   primaryColor: string;
+  // Complete Season: this team's season is completed (read-only).
+  seasonReadOnly?: boolean;
 }) {
   const searchParams = useSearchParams();
   const initialSection: Section = searchParams.get("tab") === "messages" ? "messages" : "updates";
@@ -189,6 +192,7 @@ export default function CommunicationsView({
             canCreateGroup={actor.kind === "coach" && isCoachOnlyRole(actor.session.role)}
             primaryColor={primaryColor}
             onUnreadChange={setDmUnreadCount}
+            seasonReadOnly={seasonReadOnly}
           />
         )}
         </div>

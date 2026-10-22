@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
@@ -17,6 +18,8 @@ type RouteCtx = { params: Promise<{ slug: string; id: string }> };
 // even if they somehow learn its id.
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const [actor, account] = await Promise.all([getTeamActor(slug), getAccountSession()]);
   if (!isHeadCoach(actor) || !account) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

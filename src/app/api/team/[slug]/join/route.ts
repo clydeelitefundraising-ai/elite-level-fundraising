@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { generateMemberSalt, makeMemberCookie } from "@/lib/memberAuth";
 import { checkRateLimit, recordFailure, getClientIp } from "@/lib/rateLimit";
@@ -25,6 +26,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const key = `rl:member-join:${slug}:${getClientIp(req)}`;
   const rl  = await checkRateLimit(key, LIMIT);

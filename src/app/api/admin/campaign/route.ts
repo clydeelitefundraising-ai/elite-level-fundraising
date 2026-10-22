@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -22,6 +23,8 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   const { slug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, theme_primary_color, theme_secondary_color, theme_accent_color, theme_button_color, location, season, logo_url, description, archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents, allow_coach_fundraising } = body;
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   // Theme fields use undefined (not null) when absent from the request body,
   // so partial updates — e.g. archiveCampaign() only ever sends {slug,
   // archived} — don't accidentally wipe out previously-configured theme

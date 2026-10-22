@@ -99,20 +99,20 @@ export async function restInsert<T>(path: string, body: unknown, extraHeaders?: 
   return res.json();
 }
 
-export async function restUpdate<T>(path: string, body: unknown): Promise<T[]> {
+export async function restUpdate<T>(path: string, body: unknown, extraHeaders?: Record<string, string>): Promise<T[]> {
   const res = await fetch(restUrl(path), {
     method:  "PATCH",
-    headers: restHeaders({ Prefer: "return=representation" }),
+    headers: restHeaders({ Prefer: "return=representation", ...extraHeaders }),
     body:    JSON.stringify(body),
   });
   if (!res.ok) throw await toRestError(res);
   return res.json();
 }
 
-export async function restDelete<T>(path: string): Promise<T[]> {
+export async function restDelete<T>(path: string, extraHeaders?: Record<string, string>): Promise<T[]> {
   const res = await fetch(restUrl(path), {
     method:  "DELETE",
-    headers: restHeaders({ Prefer: "return=representation" }),
+    headers: restHeaders({ Prefer: "return=representation", ...extraHeaders }),
   });
   if (!res.ok) throw await toRestError(res);
   return res.json();

@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canViewTask, taskViewerFor } from "@/lib/teamTasks";
@@ -106,6 +107,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // POST { expected_revision, full_name, confirmed: true, athlete_ids }
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug, taskId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") return ackError("invalid_request");
 

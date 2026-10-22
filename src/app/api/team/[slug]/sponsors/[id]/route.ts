@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isCoachOnly } from "@/lib/permissions.server";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
@@ -19,6 +20,8 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (actor.kind !== "coach" && actor.kind !== "platform_admin") {
@@ -71,6 +74,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isCoachOnly(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (actor.kind !== "coach" && actor.kind !== "platform_admin") {

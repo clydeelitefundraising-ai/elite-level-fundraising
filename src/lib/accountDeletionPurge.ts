@@ -34,6 +34,13 @@
 // independent of the live account, exactly like every other
 // already-shipped author-snapshot in this codebase.
 import { restList, restDelete, restUpdate } from "./platform/_client.ts";
+import { writePurposeHeaders } from "./writePurpose.ts";
+
+// Personal data is removed from completed (read-only) seasons too; the
+// purpose header tells the database guard this is an account deletion.
+const PURGE_HEADERS = writePurposeHeaders("account_deletion");
+const purgeDelete = <T>(path: string) => restDelete<T>(path, PURGE_HEADERS);
+const purgeUpdate = <T>(path: string, body: unknown) => restUpdate<T>(path, body, PURGE_HEADERS);
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -96,7 +103,7 @@ export async function collectIdentities(accountId: string): Promise<Identity[]> 
 }
 
 async function purgeComments(identity: Identity): Promise<number> {
-  const deleted = await restDelete<{ id: string }>(
+  const deleted = await purgeDelete<{ id: string }>(
     `announcement_comments?${AUTHOR_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}`,
   );
   return deleted.length;
@@ -112,18 +119,18 @@ async function purgeMessagesAndAttachments(identity: Identity): Promise<{ messag
     `message_attachments?${UPLOADER_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}&select=id,storage_path`,
   );
   if (attachmentRows.length > 0) {
-    await restDelete(`message_attachments?${UPLOADER_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}`);
+    await purgeDelete(`message_attachments?${UPLOADER_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}`);
     await deleteStorageObjects(MESSAGE_ATTACHMENTS_BUCKET, attachmentRows.map(a => a.storage_path));
   }
 
-  const deletedMessages = await restDelete<{ id: string }>(
+  const deletedMessages = await purgeDelete<{ id: string }>(
     `messages?${SENDER_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}`,
   );
   return { messages: deletedMessages.length, attachments: attachmentRows.length };
 }
 
 async function purgeLikes(identity: Identity): Promise<number> {
-  const deleted = await restDelete<{ id: string }>(
+  const deleted = await purgeDelete<{ id: string }>(
     `post_likes?${AUTHOR_COL[identity.kind]}=eq.${encodeURIComponent(identity.id)}`,
   );
   return deleted.length;
@@ -132,10 +139,10 @@ async function purgeLikes(identity: Identity): Promise<number> {
 async function purgeBlocks(identity: Identity): Promise<number> {
   // Purely personal interaction records — no moderation/audit value in
   // either direction, unlike content_reports below.
-  const asBlocker = await restDelete<{ id: string }>(
+  const asBlocker = await purgeDelete<{ id: string }>(
     `user_blocks?blocker_kind=eq.${encodeURIComponent(identity.kind)}&blocker_id=eq.${encodeURIComponent(identity.id)}`,
   );
-  const asBlocked = await restDelete<{ id: string }>(
+  const asBlocked = await purgeDelete<{ id: string }>(
     `user_blocks?blocked_kind=eq.${encodeURIComponent(identity.kind)}&blocked_id=eq.${encodeURIComponent(identity.id)}`,
   );
   return asBlocker.length + asBlocked.length;
@@ -148,7 +155,7 @@ async function purgeBlocks(identity: Identity): Promise<number> {
 // entirely — that is the other party's evidence, never this account's own
 // data to remove.
 async function anonymizeFiledReports(identity: Identity): Promise<number> {
-  const updated = await restUpdate<{ id: string }>(
+  const updated = await purgeUpdate<{ id: string }>(
     `content_reports?reporter_kind=eq.${encodeURIComponent(identity.kind)}&reporter_id=eq.${encodeURIComponent(identity.id)}`,
     { reporter_name: "Deleted user" },
   );
@@ -180,7 +187,7 @@ async function purgeProfilePhoto(accountId: string): Promise<void> {
     `team_members?account_id=eq.${encodeURIComponent(accountId)}&athlete_id=not.is.null&select=athlete_id`,
   );
   await Promise.all(
-    linkedAthletes.map(m => restUpdate(`athletes?id=eq.${encodeURIComponent(m.athlete_id)}`, { profile_photo: null })),
+    linkedAthletes.map(m => purgeUpdate(`athletes?id=eq.${encodeURIComponent(m.athlete_id)}`, { profile_photo: null })),
   );
 }
 

@@ -11,21 +11,28 @@ export default function CoachLoginPage() {
   const [password, setPassword] = useState("");
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
+  // Same email + password on more than one team: the server signs nothing in
+  // until the coach picks the team (code team_selection_required).
+  const [teams,    setTeams]    = useState<string[]>([]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const signIn = async (campaignSlug?: string) => {
     setLoading(true);
     setError("");
 
     const res = await fetch("/api/team/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({ email: email.trim(), password, ...(campaignSlug ? { campaign_slug: campaignSlug } : {}) }),
     });
 
     const data = await res.json();
     setLoading(false);
 
+    if (res.status === 409 && data.code === "team_selection_required" && Array.isArray(data.teams)) {
+      setTeams(data.teams);
+      return;
+    }
+    setTeams([]);
     if (!res.ok) {
       setError(data.error ?? "Login failed.");
       return;
@@ -38,6 +45,11 @@ export default function CoachLoginPage() {
     }
 
     router.push(`/team/${slug}/home`);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void signIn();
   };
 
   return (
@@ -125,6 +137,18 @@ export default function CoachLoginPage() {
               }}
             />
           </label>
+
+          {teams.length > 0 && (
+            <div role="group" aria-label="Choose your team" style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
+              <p style={{ margin: 0, fontSize: ".82rem", color: "#374151" }}>This sign-in is used on more than one team. Choose the team to open:</p>
+              {teams.map(t => (
+                <button key={t} type="button" disabled={loading} onClick={() => void signIn(t)}
+                  style={{ padding: ".5rem .7rem", border: "1.5px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#0b1e3d", fontSize: ".85rem", fontWeight: 600, textAlign: "left", cursor: "pointer" }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
 
           {error && (
             <p style={{ margin: 0, padding: ".5rem .7rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>

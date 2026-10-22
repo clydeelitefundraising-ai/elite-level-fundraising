@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest) {
 
   const { slug } = await req.json() as { slug?: string };
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const campaignRes = await fetch(
     `${BASE}/rest/v1/campaign_settings?campaign_slug=eq.${encodeURIComponent(slug)}&select=campaign_slug,is_demo,demo_template,school_name,sport_name&limit=1`,

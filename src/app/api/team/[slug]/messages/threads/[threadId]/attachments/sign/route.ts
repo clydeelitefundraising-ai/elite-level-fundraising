@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import {
@@ -23,6 +24,8 @@ export async function POST(
   { params }: RouteCtx,
 ) {
   const { slug, threadId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (actor.kind === "public") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

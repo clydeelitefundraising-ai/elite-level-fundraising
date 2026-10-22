@@ -758,6 +758,7 @@ export default function MessagesView({
   canCreateGroup = false,
   primaryColor,
   onUnreadChange,
+  seasonReadOnly = false,
 }: {
   slug: string;
   initialThreads: ThreadWithDetails[];
@@ -769,6 +770,9 @@ export default function MessagesView({
   canCreateGroup?: boolean;
   primaryColor: string;
   onUnreadChange?: (count: number) => void;
+  // Complete Season: past conversations stay listed and readable; nothing
+  // new can be started (the server refuses it regardless).
+  seasonReadOnly?: boolean;
 }) {
   const router = useRouter();
   const [threads, setThreads] = useState<ThreadWithDetails[]>(initialThreads);
@@ -839,6 +843,11 @@ export default function MessagesView({
             Messages
           </h2>
         </div>
+        {seasonReadOnly ? (
+          <span role="status" style={{ fontSize: ".75rem", color: "var(--text-secondary-app, #6b7280)" }}>
+            Season completed — read-only
+          </span>
+        ) : (
         <div style={{ display: "flex", gap: ".4rem" }}>
           <button
             onClick={() => setShowCompose(true)}
@@ -878,6 +887,7 @@ export default function MessagesView({
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Head Coach only: For Me / Oversight — separates threads where this
