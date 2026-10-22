@@ -37,6 +37,7 @@ Nothing here runs against Supabase until you approve it. Rehearse locally first:
 | `guard.mjs`, `guard.test.mjs` | connection guard and its tests |
 | `install-order.txt` | baseline → 27 later migrations → Complete Season 1–3 → buckets |
 | `prepare-baseline.mjs` | leaves Supabase's own `rls_auto_enable` function alone |
+| `preflight.mjs`, `sql/preflight.sql` | READ-ONLY checks: guard, API keys (status codes only), database facts in a server-enforced read-only session |
 | `apply-schema.sh` | marker + ordered, recorded install |
 | `sql/storage_buckets.sql` | the 9 storage buckets (2 private, 7 public) |
 | `generate-secrets.mjs` | new QA-only app secrets → `%USERPROFILE%\.elf-qa\qa-app-secrets.env` |
@@ -48,6 +49,7 @@ Nothing here runs against Supabase until you approve it. Rehearse locally first:
 
 ## QA run (only after approval)
     node scripts/qa/guard.mjs check
+    node scripts/qa/preflight.mjs
     node scripts/qa/generate-secrets.mjs
     node scripts/qa/generate-seed-vars.mjs
     ELF_QA_CONFIRM=mzsvbxosoidwhntpjdkf bash scripts/qa/apply-schema.sh
