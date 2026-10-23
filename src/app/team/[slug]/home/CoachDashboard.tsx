@@ -8,6 +8,7 @@ import type { TeamActor } from "@/lib/permissions";
 import type { PendingRequestSummary } from "@/lib/platform/requests";
 import type { GridSlot, FeaturedPartner } from "@/lib/platform/communityPartnerRotation";
 import EventDetailsModal from "../_components/EventDetailsModal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import {
   fmtMoney,
   relativeTime,
@@ -276,7 +277,8 @@ export default function CoachDashboard({
 }: CoachDashboardProps) {
   const [viewingEvent, setViewingEvent] = useState<CalendarEventRow | null>(null);
 
-  const quickActions = buildQuickActions(slug, actor);
+  const seasonReadOnly = useSeasonReadOnly();
+  const quickActions = buildQuickActions(slug, actor, { seasonReadOnly });
   const requestsData = pendingRequestSummary ? resolveRequestsCardData(actor, pendingRequestSummary) : null;
   const upcoming = initialUpcoming.slice(0, 5);
   // First item gets its own "Latest Update" treatment; the rest form the
@@ -333,10 +335,12 @@ export default function CoachDashboard({
         )}
 
         {/* Quick actions — compact icon tiles, top-right beside fundraising */}
-        <div className={styles.actionsArea}>
-          <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Quick Actions</h2>
-          <QuickActions actions={quickActions} />
-        </div>
+        {quickActions.length > 0 && (
+          <div className={styles.actionsArea}>
+            <h2 className={styles.sectionHeading} style={{ fontSize: "var(--text-base)", marginBottom: "var(--space-2)" }}>Quick Actions</h2>
+            <QuickActions actions={quickActions} />
+          </div>
+        )}
 
         {/* LEFT / MAIN — latest update + recent activity feed */}
         <div className={styles.mainColumn}>
@@ -392,9 +396,11 @@ export default function CoachDashboard({
               <div className="elf-empty-state">
                 <CalendarPlusIcon aria-hidden="true" size={20} strokeWidth={1.75} />
                 <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-secondary-app)" }}>No upcoming events</div>
-                <Link href={`/team/${slug}/calendar`} className="elf-btn elf-btn-secondary elf-focus-ring" style={{ marginTop: "var(--space-1)", padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}>
-                  + Add Event
-                </Link>
+                {!seasonReadOnly && (
+                  <Link href={`/team/${slug}/calendar`} className="elf-btn elf-btn-secondary elf-focus-ring" style={{ marginTop: "var(--space-1)", padding: "var(--space-1) var(--space-3)", fontSize: "var(--text-xs)" }}>
+                    + Add Event
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="elf-section-flat" style={{ padding: 0 }}>

@@ -45,6 +45,7 @@ function AthleteRow({
   a,
   slug,
   staffMode,
+  canEdit,
   canDelete,
   canOpen,
   onEdit,
@@ -53,6 +54,8 @@ function AthleteRow({
   a: TeamAthleteRow;
   slug: string;
   staffMode: boolean;
+  /** Edit/Remove controls — off on a completed season even in staff view. */
+  canEdit: boolean;
   canDelete: boolean;
   // Whether THIS viewer is authorized to open THIS athlete's profile —
   // staff always; an athlete only their own row; a parent only a row
@@ -112,7 +115,7 @@ function AthleteRow({
         </span>
       )}
 
-      {staffMode && (
+      {canEdit && (
         <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
           <button
             aria-label={`Edit ${a.name}`}
@@ -162,7 +165,7 @@ export default function AthleteRosterGrid({
   actor: TeamActor;
   linkedAthleteIds?: string[];
 }) {
-  const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
+  const { staffMode, canEdit, canDelete, seasonReadOnly, athletes, openAdd, openEdit, handleDelete } = roster;
   const [search, setSearch] = useState("");
   const [gradeTab, setGradeTab] = useState<GradeTabKey>(ALL_ATHLETES_TAB);
   const tabIdPrefix = `roster-grade-${useId().replace(/:/g, "")}`;
@@ -241,7 +244,7 @@ export default function AthleteRosterGrid({
             </span>
           )}
           <div className={styles.rosterHeaderActions}>
-            {attendanceHref && <TakeAttendanceLink href={attendanceHref} />}
+            {attendanceHref && !seasonReadOnly && <TakeAttendanceLink href={attendanceHref} />}
             <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
           </div>
         </div>
@@ -276,7 +279,7 @@ export default function AthleteRosterGrid({
           <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: "var(--space-1)" }}>
             No athletes yet.
           </div>
-          {staffMode ? (
+          {canEdit ? (
             <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Add your first athlete above.</div>
           ) : (
             <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Team roster coming soon.</div>
@@ -317,6 +320,7 @@ export default function AthleteRosterGrid({
                     a={a}
                     slug={slug}
                     staffMode={staffMode}
+                    canEdit={canEdit}
                     canDelete={canDelete}
                     canOpen={canOpenAthlete(a.id)}
                     onEdit={openEdit}

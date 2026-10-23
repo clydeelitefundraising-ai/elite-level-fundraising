@@ -54,3 +54,15 @@ export function formatCents(cents: number | null | undefined): string {
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+// Complete Season Phase 4 — the form's placeholders show the proposed next
+// season when the preview has one; otherwise an example built from THIS
+// team (never another team's address).
+export function nextSeasonLabelPlaceholder(proposed: string | null | undefined, nextYear: number): string {
+  return proposed || `e.g. ${nextYear} Season`;
+}
+
+export function nextSlugPlaceholder(currentSlug: string, proposed: string | null | undefined, nextYear: number): string {
+  if (proposed) return proposed;
+  return currentSlug ? `e.g. ${currentSlug}-${nextYear}` : `e.g. team-name-${nextYear}`;
+}

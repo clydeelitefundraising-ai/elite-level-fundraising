@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // D3: the athlete list state, Add/Edit modal state, and every CRUD/photo
 // handler previously owned directly inside TeamView.tsx (verbatim logic,
@@ -45,8 +46,13 @@ export function athleteFormFromRow(a: TeamAthleteRow): AthForm {
 }
 
 export function useAthleteRoster(slug: string, initialAthletes: TeamAthleteRow[], actor: TeamActor) {
+  // staffMode is the staff *view* (columns, coach athlete pages) and stays
+  // on for a completed season; canEdit/canDelete are the change controls,
+  // which a completed (archived) season never offers (Complete Season Phase 4).
+  const seasonReadOnly = useSeasonReadOnly();
   const staffMode = isStaff(actor);
-  const canDelete = isHeadCoach(actor);
+  const canEdit   = staffMode && !seasonReadOnly;
+  const canDelete = isHeadCoach(actor) && !seasonReadOnly;
   const [athletes,       setAthletes]       = useState<TeamAthleteRow[]>(initialAthletes);
   const [form,           setForm]           = useState<AthForm>(BLANK_ATHLETE_FORM);
   const [editing,        setEditing]        = useState<TeamAthleteRow | null>(null);
@@ -170,7 +176,7 @@ export function useAthleteRoster(slug: string, initialAthletes: TeamAthleteRow[]
   const modalOpen = showAdd || isEditing;
 
   return {
-    staffMode, canDelete,
+    staffMode, canEdit, canDelete, seasonReadOnly,
     athletes, form, editing, showAdd, saving, error,
     photoPreview, photoUploading, photoError,
     isEditing, modalOpen,

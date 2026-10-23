@@ -13,6 +13,7 @@ import LikeButton from "./LikeButton";
 import Avatar from "../messages/_shared/Avatar";
 import ReportModal from "../_components/ReportModal";
 import { useSeenTracker } from "../_components/useSeenTracker";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import { type RecipientScope, SCOPE_LABELS } from "./useUpdatesWorkspace";
 
 // D5: the announcement card, its section-divider label, and the lazy
@@ -184,6 +185,7 @@ export function UpdateCard({
    *  UpdatesWorkspaceView.tsx. Purely visual; no other behavior changes. */
   highlighted?: boolean;
 }) {
+  const seasonReadOnly = useSeasonReadOnly();
   const cat         = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   const isPinned    = a.priority === "pinned";
   const isHigh      = a.priority === "high";
@@ -323,7 +325,9 @@ export function UpdateCard({
       {/* Staff actions + read receipts */}
       {canEdit && (
         <div style={{ marginTop: ".38rem" }}>
-          <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end" }}>
+          {/* Complete Season Phase 4: no editing or deleting archived updates;
+              read receipts stay visible. */}
+          {!seasonReadOnly && <div style={{ display: "flex", gap: ".15rem", justifyContent: "flex-end" }}>
             <button
               onClick={() => onEdit(a)}
               className="elf-focus-ring"
@@ -340,7 +344,7 @@ export function UpdateCard({
                 Delete
               </button>
             )}
-          </div>
+          </div>}
           <ReadReceiptPanel slug={slug} announcementId={a.id} />
         </div>
       )}

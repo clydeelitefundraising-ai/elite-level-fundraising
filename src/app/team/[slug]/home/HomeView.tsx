@@ -17,6 +17,7 @@ import CoachDashboard from "./CoachDashboard";
 import CommunityPartnerGrid from "./CommunityPartnerGrid";
 import FeaturedPartnerBanner from "./FeaturedPartnerBanner";
 import QuickActions from "./QuickActions";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import styles from "./Home.module.css";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
@@ -503,11 +504,15 @@ function HomeContent({
   featuredPartner = null,
   hasActiveFundraiser = false,
 }: HomeViewProps) {
-  const canEdit   = isStaff(actor);
-  const canDelete = isHeadCoach(actor);
+  // Complete Season Phase 4: a completed season's announcements and events
+  // are archived — no posting, editing or deleting (the API refuses anyway).
+  const seasonReadOnly = useSeasonReadOnly();
+  const isStaffViewer = isStaff(actor);
+  const canEdit   = isStaffViewer && !seasonReadOnly;
+  const canDelete = isHeadCoach(actor) && !seasonReadOnly;
   // Separately named (rather than reusing canDelete) so the Requests-card
-  // gate below reads clearly on its own — same underlying check.
-  const isHeadCoachViewer = canDelete;
+  // gate below reads clearly on its own — role only, not season state.
+  const isHeadCoachViewer = isHeadCoach(actor);
   const [items,     setItems]     = useState<AnnouncementRow[]>(initialAnnouncements);
   const [form,    setForm]    = useState<AForm>(BLANK);
   const [editing, setEditing] = useState<AnnouncementRow | null>(null);
@@ -594,7 +599,7 @@ function HomeContent({
   // isStaff()-gated inside the helper itself. This just renders that
   // existing, already-role-aware helper on mobile too (it was previously
   // only mounted in the separate desktop CoachDashboard).
-  const quickActions = buildQuickActions(slug, actor);
+  const quickActions = buildQuickActions(slug, actor, { seasonReadOnly });
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
@@ -630,7 +635,7 @@ function HomeContent({
           raisedCents={raisedCents}
           goalCents={goalCents}
           topAthleteName={topAthleteName}
-          isStaffViewer={canEdit}
+          isStaffViewer={isStaffViewer}
         />
       )}
 

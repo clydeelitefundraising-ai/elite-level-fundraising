@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ThumbsUp } from "lucide-react";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // Post Likes (Phase 11b) — optimistic tap-to-toggle, one like per account
 // per post, no moderation (unlike comments). Reads/writes go through
@@ -20,6 +21,8 @@ export default function LikeButton({
 }) {
   const [status, setStatus] = useState<{ count: number; liked_by_me: boolean } | null>(null);
   const [busy,   setBusy]   = useState(false);
+  // Complete Season Phase 4: the count stays visible; liking is closed.
+  const seasonReadOnly = useSeasonReadOnly();
 
   useEffect(() => {
     let cancelled = false;
@@ -57,13 +60,13 @@ export default function LikeButton({
   return (
     <button
       onClick={handleToggle}
-      disabled={busy}
+      disabled={busy || seasonReadOnly}
       aria-pressed={status.liked_by_me}
       className="elf-focus-ring"
       style={{
         display: "inline-flex", alignItems: "center", gap: ".3rem",
         background: "none", border: "none", padding: 0,
-        cursor: busy ? "default" : "pointer",
+        cursor: busy || seasonReadOnly ? "default" : "pointer",
         fontSize: ".78rem", fontWeight: 700,
         color: status.liked_by_me ? "var(--team-primary)" : "var(--text-muted-app)",
       }}

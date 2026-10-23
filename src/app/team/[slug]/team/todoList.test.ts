@@ -83,7 +83,8 @@ test("status: green check / red X with text (never colour alone); completed stat
   assert.match(ackUi, /fill="#16a34a"/);
   assert.match(ackUi, /fill="#dc2626"/);
   assert.match(ackUi, /className=\{styles\.srOnly\}>\{e\.satisfied \? " — complete" : " — outstanding"\}/);
-  assert.match(ackUi, /\{outstanding\.length > 0 && \(\s*<form/);
+  // Complete Season Phase 4: no form on a completed season (status stays).
+  assert.match(ackUi, /\{outstanding\.length > 0 && !seasonReadOnly && \(\s*<form/);
   assert.match(ackUi, /complete for the current version of this task/);
   assert.match(css, /\.srOnly \{[^}]*clip: rect\(0, 0, 0, 0\);/);
 });

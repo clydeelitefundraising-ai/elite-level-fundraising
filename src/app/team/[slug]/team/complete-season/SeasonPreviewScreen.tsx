@@ -6,7 +6,9 @@
 // completes a season.
 import { useCallback, useEffect, useState } from "react";
 import type { OpenCheckouts, SeasonPreview } from "@/lib/seasonPreview";
+import { arizonaTodayISO } from "@/lib/calendarShared";
 import SeasonPreviewReport from "./SeasonPreviewReport";
+import { nextSeasonLabelPlaceholder, nextSlugPlaceholder } from "./seasonPreviewText";
 import styles from "./SeasonPreview.module.css";
 
 type State =
@@ -43,6 +45,8 @@ export default function SeasonPreviewScreen({ slug }: { slug: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [nextSlug, setNextSlug] = useState("");
   const [nextLabel, setNextLabel] = useState("");
+  // Example year for the placeholders (Arizona date, like the rest of the app).
+  const nextYear = Number(arizonaTodayISO().slice(0, 4)) + 1;
 
   const load = useCallback(async (s: string, l: string) => {
     setState({ kind: "loading" });
@@ -73,13 +77,13 @@ export default function SeasonPreviewScreen({ slug }: { slug: string }) {
         <label className={styles.field}>
           New season name (optional)
           <input value={nextLabel} onChange={e => setNextLabel(e.target.value)} maxLength={40}
-            placeholder={state.kind === "ready" ? state.preview.proposed.season_label ?? "e.g. 2028 Season" : "e.g. 2028 Season"} />
+            placeholder={nextSeasonLabelPlaceholder(state.kind === "ready" ? state.preview.proposed.season_label : null, nextYear)} />
         </label>
         <label className={styles.field}>
           New team address (optional)
           <input value={nextSlug} onChange={e => setNextSlug(e.target.value.toLowerCase())} maxLength={80}
             autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            placeholder={state.kind === "ready" ? state.preview.proposed.slug ?? "e.g. lions-track-2028" : "e.g. lions-track-2028"} />
+            placeholder={nextSlugPlaceholder(slug, state.kind === "ready" ? state.preview.proposed.slug : null, nextYear)} />
         </label>
         <button type="submit" className={styles.btn} disabled={state.kind === "loading"}>Update preview</button>
       </form>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Modal from "../_components/Modal";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
 import styles from "./Team.module.css";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Attachment = { id: string; name: string; file_type: "pdf" | "image" | "doc"; size_bytes: number };
 
@@ -288,7 +289,10 @@ function EditModal({
 // a convenience, not the authorization boundary).
 export default function ClearanceView({ slug }: { slug: string }) {
   const [resources, setResources] = useState<ClearanceResource[]>([]);
-  const [canManage, setCanManage] = useState(false);
+  const [canManageResources, setCanManage] = useState(false);
+  // Complete Season Phase 4: resources are read-only on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManage = canManageResources && !seasonReadOnly;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editTarget, setEditTarget] = useState<ClearanceResource | null | "new">(null);

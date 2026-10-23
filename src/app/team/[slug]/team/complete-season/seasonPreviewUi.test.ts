@@ -163,8 +163,10 @@ test("entry card under the To-Do List explains the effect and links to the previ
   assert.ok(html.includes('href="/team/lions-track-2027/team/complete-season"'));
   const page = read("src/app/team/[slug]/team/page.tsx");
   const todo = page.indexOf("<TodoListView slug={slug} />");
-  const entry = page.indexOf("isSeasonPreviewEnabled() && canPreviewSeason(actor) && <CompleteSeasonEntry slug={slug} />");
+  const entry = page.indexOf("isSeasonPreviewEnabled() && canPreviewSeason(actor) && (");
   assert.ok(todo > 0 && entry > todo, "rendered beneath the To-Do List, behind the flag and the role check");
+  // Phase 4: and only while the season is active (hidden once completed).
+  assert.ok(page.indexOf("<ActiveSeasonOnly><CompleteSeasonEntry slug={slug} /></ActiveSeasonOnly>") > entry);
 });
 
 test("the preview page is flag- and role-gated (404, not revealed) before anything loads", () => {

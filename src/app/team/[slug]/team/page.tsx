@@ -14,6 +14,7 @@ import TodoListView from "./TodoListView";
 import { takeAttendanceHref } from "./takeAttendance";
 import { canPreviewSeason, isSeasonPreviewEnabled } from "@/lib/seasonPreview";
 import CompleteSeasonEntry from "./complete-season/CompleteSeasonEntry";
+import { ActiveSeasonOnly } from "../_components/SeasonStatus";
 
 export default async function TeamPage({
   params,
@@ -84,8 +85,11 @@ export default async function TeamPage({
         <>
           <TodoListView slug={slug} />
           {/* Complete Season Phase 3: preview entry for the Head Coach /
-              platform admin, behind COMPLETE_SEASON_PREVIEW (off by default). */}
-          {isSeasonPreviewEnabled() && canPreviewSeason(actor) && <CompleteSeasonEntry slug={slug} />}
+              platform admin, behind COMPLETE_SEASON_PREVIEW (off by default).
+              Phase 4: not shown on a season that is already completed. */}
+          {isSeasonPreviewEnabled() && canPreviewSeason(actor) && (
+            <ActiveSeasonOnly><CompleteSeasonEntry slug={slug} /></ActiveSeasonOnly>
+          )}
         </>
       }
     />

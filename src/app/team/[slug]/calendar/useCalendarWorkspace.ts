@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { isStaff, type TeamActor } from "@/lib/permissions";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import {
   type EventType,
   arizonaTodayISO,
@@ -67,7 +68,10 @@ export function useCalendarWorkspace(
   // booster), per the RC-1 permission audit — unchanged by D4. Desktop
   // *presentation* eligibility (see calendarHelpers.ts) is a separate,
   // narrower boundary that never affects this.
-  const canManage = isStaff(actor);
+  // Complete Season Phase 4: a completed season's calendar is history —
+  // no adding, editing or deleting events and no sync-link changes.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManage = isStaff(actor) && !seasonReadOnly;
   const [events,  setEvents]  = useState<CalendarEventRow[]>(initialEvents);
   const [form,    setForm]    = useState<EvForm>(BLANK_EVENT_FORM);
   const [editing, setEditing] = useState<CalendarEventRow | null>(null);

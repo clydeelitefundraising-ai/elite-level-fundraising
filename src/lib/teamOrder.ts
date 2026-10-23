@@ -94,6 +94,13 @@ export function orderAccountTeams<T extends Sluggable>(
   return applySlugOrder(sortByJoinedAt(teams, joinedAtBySlug), savedSlugs);
 }
 
+/** Complete Season Phase 4: active seasons before completed (archived) ones.
+ *  Stable — each group keeps the order it came in (the account's saved
+ *  order), so custom ordering still applies within active and completed. */
+export function activeSeasonsFirst<T>(teams: readonly T[], isCompleted: (team: T) => boolean): T[] {
+  return [...teams.filter(t => !isCompleted(t)), ...teams.filter(t => isCompleted(t))];
+}
+
 /** Moves one item; out-of-range moves return an unchanged copy. */
 export function moveItem<T>(items: readonly T[], from: number, to: number): T[] {
   const next = [...items];

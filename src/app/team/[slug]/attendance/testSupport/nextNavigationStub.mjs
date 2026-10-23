@@ -21,3 +21,6 @@ const router = {
 export function useRouter() { return router; }
 export function usePathname() { return "/"; }
 export function useSearchParams() { return new URLSearchParams(); }
+// Route params for components that call useParams(); tests set
+// globalThis.__testRouteParams before rendering.
+export function useParams() { return globalThis.__testRouteParams ?? {}; }

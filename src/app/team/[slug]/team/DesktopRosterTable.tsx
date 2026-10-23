@@ -83,7 +83,7 @@ export default function DesktopRosterTable({
   attendanceHref?: string | null;
 }) {
   const router = useRouter();
-  const { staffMode, canDelete, athletes, openAdd, openEdit, handleDelete } = roster;
+  const { staffMode, canEdit, canDelete, seasonReadOnly, athletes, openAdd, openEdit, handleDelete } = roster;
 
   const [search, setSearch] = useState("");
   const [gradeTab, setGradeTab] = useState<GradeTabKey>(DEFAULT_ROSTER_FILTERS.grade);
@@ -136,8 +136,8 @@ export default function DesktopRosterTable({
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        {attendanceHref && <TakeAttendanceLink href={attendanceHref} size="md" />}
-        {staffMode && (
+        {attendanceHref && !seasonReadOnly && <TakeAttendanceLink href={attendanceHref} size="md" />}
+        {canEdit && (
           <button
             onClick={openAdd}
             className="elf-focus-ring"
@@ -191,7 +191,7 @@ export default function DesktopRosterTable({
           <Users size={30} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: ".75rem" }} aria-hidden="true" />
           <div style={{ fontWeight: 700, fontSize: ".95rem", color: "var(--text-primary-app)", marginBottom: ".3rem" }}>Team is empty</div>
           <div style={{ fontSize: ".85rem", color: "var(--text-muted-app)" }}>
-            {staffMode ? "Add your first athlete above." : "Team roster coming soon."}
+            {canEdit ? "Add your first athlete above." : "Team roster coming soon."}
           </div>
         </div>
       ) : rows.length === 0 ? (
@@ -227,7 +227,8 @@ export default function DesktopRosterTable({
                 <th style={th}>Contacts</th>
                 <th style={th}>Fundraising</th>
                 <th style={th}>Outreach</th>
-                <th style={{ ...th, textAlign: "right" }}>Actions</th>
+                {/* No Actions column when nothing can be changed (e.g. a completed season). */}
+                {canEdit && <th style={{ ...th, textAlign: "right" }}>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -302,8 +303,8 @@ export default function DesktopRosterTable({
                         <span style={{ fontSize: ".78rem", color: "var(--text-muted-app)" }}>{row.outreachStatus}</span>
                       )}
                     </td>
-                    <td style={{ ...td, textAlign: "right" }}>
-                      {staffMode && (
+                    {canEdit && <td style={{ ...td, textAlign: "right" }}>
+                      {canEdit && (
                         <button
                           onClick={() => { const a = findAthlete(row.id); if (a) openEdit(a); }}
                           className="elf-focus-ring"
@@ -321,7 +322,7 @@ export default function DesktopRosterTable({
                           Remove
                         </button>
                       )}
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}

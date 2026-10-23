@@ -190,7 +190,12 @@ export default function TeamSwitcher({
                     <div style={{ fontSize: ".88rem", fontWeight: 700, color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {team.school_name}
                     </div>
-                    <div style={{ fontSize: ".72rem", color: "#6b7280" }}>{team.sport_name}</div>
+                    {/* Season (and "Completed" for an archived one) so two
+                        seasons of the same team are easy to tell apart. */}
+                    <div style={{ fontSize: ".72rem", color: "#6b7280" }}>
+                      {[team.sport_name, team.season].filter(Boolean).join(" · ")}
+                      {team.season_completed && <strong style={{ color: "#4b5563" }}> · Completed</strong>}
+                    </div>
                   </div>
                   {isCurrent && (
                     <span style={{ fontSize: ".72rem", color: "#22c55e", fontWeight: 800 }}>✓</span>

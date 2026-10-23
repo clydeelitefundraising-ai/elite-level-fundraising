@@ -2,7 +2,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { parseAccountId, verifyAccountCookie } from "@/lib/accountAuth";
 import { mergeRoleBySlug, resolveAccountActorKind } from "@/lib/accountTeamsMerge";
-import { earliestJoinedAtBySlug, orderAccountTeams } from "@/lib/teamOrder";
+import { activeSeasonsFirst, earliestJoinedAtBySlug, orderAccountTeams } from "@/lib/teamOrder";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import { getSavedTeamOrder } from "@/lib/accountTeamOrder";
 import type { TeamActor } from "@/lib/permissions";
 
@@ -37,6 +38,11 @@ export type TeamSummary = {
   branding_customized: boolean;
   role:          string;       // raw role string (head_coach / assistant_coach / booster / athlete / parent)
   role_kind:     "coach" | "member";
+  // Complete Season Phase 4: true for a completed (archived) season, so the
+  // Team Selector can badge it and list active seasons first. Read
+  // separately and best-effort (see getAccountTeams) — false when the
+  // season columns don't exist yet.
+  season_completed?: boolean;
 };
 
 // Memoized per render — prevents duplicate DB calls when both getTeamActor
@@ -183,11 +189,35 @@ export async function getAccountTeams(accountId: string): Promise<TeamSummary[]>
     if (Array.isArray(parsed)) rows = parsed;
   }
 
+  const completedSlugs = await getCompletedSeasonSlugs(inList);
   const teams = rows.map(r => ({
     ...r,
     branding_customized: r.branding_customized ?? false,
     role:      roleBySlug[r.campaign_slug]?.role ?? "",
     role_kind: roleBySlug[r.campaign_slug]?.role_kind ?? "member",
+    season_completed: completedSlugs.has(r.campaign_slug),
   }));
-  return orderAccountTeams(teams, earliestJoinedAtBySlug([...coachRows, ...memberRows]), savedOrder);
+  return activeSeasonsFirst(
+    orderAccountTeams(teams, earliestJoinedAtBySlug([...coachRows, ...memberRows]), savedOrder),
+    t => t.season_completed === true,
+  );
+}
+
+// Complete Season Phase 4: which of these teams are completed seasons. A
+// separate, best-effort read so the Team Selector query above is unchanged
+// where the season columns don't exist yet (PostgREST 400s on an unknown
+// column) — any failure simply means "no completed seasons".
+async function getCompletedSeasonSlugs(inList: string): Promise<Set<string>> {
+  try {
+    const res = await fetch(
+      `${BASE}/rest/v1/campaign_settings?campaign_slug=in.(${inList})&select=campaign_slug,season_completed_at,successor_campaign_slug`,
+      { headers: h(), cache: "no-store" },
+    );
+    if (!res.ok) return new Set();
+    const parsed = await res.json();
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter(r => isSeasonCompleted(r)).map(r => String(r.campaign_slug)));
+  } catch {
+    return new Set();
+  }
 }
