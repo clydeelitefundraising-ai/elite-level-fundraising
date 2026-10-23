@@ -33,7 +33,10 @@ SELECT pg_temp.ok('install: Complete Season schema present (lineage, audit log, 
   to_regclass('public.team_season_transitions') IS NOT NULL
   AND (SELECT count(*) FROM pg_trigger WHERE tgname = 'season_write_guard') = 34
   AND has_function_privilege('service_role', 'public.team_season_preview(text,jsonb,text,text)', 'EXECUTE')
-  AND has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('authenticated', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
   AND NOT has_function_privilege('authenticated', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE'));
 SELECT pg_temp.ok('storage: 9 buckets; message-attachments and team-files private, the rest public',

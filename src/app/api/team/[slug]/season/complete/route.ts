@@ -1,4 +1,4 @@
-// Complete Season Phase 5A — POST /api/team/[slug]/season/complete
+// Complete Season Phase 5A/5B — POST /api/team/[slug]/season/complete
 //
 // Completes this team's season: archives it as read-only history and makes
 // the next season active, in one database transaction
@@ -9,20 +9,25 @@
 // session (getTeamActor), never from the request, and the database checks
 // it again. Before calling the database, the server re-checks on a FRESH
 // preview: the coach's preview is still current (fingerprint), there are no
-// blockers, both typed confirmations match, and no Stripe checkout for this
-// team is still open. The database then repeats every season check under a
-// row lock, so two simultaneous requests can never both complete it.
+// blockers, both typed confirmations match, and Stripe confirms no checkout
+// for this team is still open. Payments fail closed (Phase 5B): if Stripe
+// can't confirm that, completion is refused (503) — except on the isolated
+// QA deployment with Stripe intentionally unconfigured. The database then
+// repeats every season check under a row lock, so two simultaneous requests
+// can never both complete it.
 //
 // Repeats are safe: the client sends one idempotency key per confirmation,
-// and a retry with the same key returns the original receipt (replayed).
-// A season that is already completed skips the app-side pre-checks and goes
-// straight to the database, which either replays that receipt or refuses.
+// and a retry with the same key returns the original receipt (replayed) —
+// but only to an actor the database still authorizes, and never with the new
+// join code. A season that is already completed skips the app-side
+// pre-checks and goes straight to the database, which replays or refuses.
 //
 // No rollback exists or is offered: completion can't be undone from the app.
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { canPreviewSeason, countOpenCheckouts, fetchSeasonPreview, type PreviewFailure } from "@/lib/seasonPreview";
 import {
+  allowUnverifiedCheckouts,
   confirmationMatches,
   executeSeasonCompletion,
   isSeasonCompletionEnabled,
@@ -80,6 +85,7 @@ export async function POST(
   const fresh = await fetchSeasonPreview(slug, actor, { toSlug: request.toSlug, toSeasonLabel: request.toSeasonLabel });
   if (!fresh.ok) return fail(PREVIEW_FAILURES[fresh.failure]);
   const preview = fresh.preview;
+  let paymentsUnverified = false;
 
   if (!preview.from.completed) {
     if (preview.fingerprint !== request.fingerprint) return fail("stale");
@@ -88,16 +94,27 @@ export async function POST(
       { teamSlug: request.confirmTeamSlug, phrase: request.confirmation },
       { teamSlug: slug, phrase: preview.proposed.confirmation_phrase },
     )) return fail("confirmation");
-    // A checkout still open would record its donation against this season
-    // after it is archived; wait for it. "unknown" (Stripe not configured or
-    // unreachable) doesn't block: late donations are still recorded against
-    // the completed season by the webhook.
+    // Payments fail closed (Phase 5B). A checkout still open would record its
+    // donation against this season after it is archived: wait for it. If
+    // Stripe can't be asked (not configured, unreachable, unexpected answer),
+    // completion is refused too — except on the isolated QA deployment with
+    // Stripe intentionally unconfigured (allowUnverifiedCheckouts).
     const open = await countOpenCheckouts(slug);
     if (open.state === "checked" && (open.count > 0 || open.more)) {
       return json({
         error: "A donation checkout for this team is still open. Wait for it to finish (up to 24 hours), then try again.",
         code: "open_checkouts",
       }, 409);
+    }
+    if (open.state !== "checked") {
+      if (!allowUnverifiedCheckouts()) {
+        return json({
+          error: "Open donation checkouts couldn't be verified right now, so the season can't be completed yet. Try again later.",
+          code: "payments_unverified",
+        }, 503);
+      }
+      paymentsUnverified = true;
+      console.warn("[season-complete] QA only: completing with Stripe intentionally unconfigured (checkouts not verified)");
     }
   }
 
@@ -115,6 +132,7 @@ export async function POST(
       summary: r.summary,
       newSeasonUrl: `/team/${encodeURIComponent(r.to_slug)}/home`,
       archivedSeasonUrl: `/team/${encodeURIComponent(r.from_slug)}/home`,
+      ...(paymentsUnverified ? { paymentsUnverified: true } : {}),
     },
   });
 }

@@ -57,7 +57,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA qa TO PUBLIC;
 CREATE FUNCTION qa.pv(p_slug text, p_actor jsonb) RETURNS text LANGUAGE sql IMMUTABLE AS $$
   SELECT format('SELECT public.team_season_preview(%L, %L::jsonb)', p_slug, p_actor::text) $$;
 CREATE FUNCTION qa.cp(p_slug text, p_actor jsonb, p_fp text, p_key uuid, p_phrase text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
-  SELECT format('SELECT public.team_season_complete(%L, %L::jsonb, NULL, NULL, %L, %L::uuid, %L)', p_slug, p_actor::text, p_fp, p_key, p_phrase) $$;
+  SELECT format('SELECT public.team_season_complete_checked(%L, %L::jsonb, NULL, NULL, %L, %L::uuid, %L)', p_slug, p_actor::text, p_fp, p_key, p_phrase) $$;
 
 -- Actors (fixtures): c01 Hana Head (account a01, also Head Coach of
 -- other-team-2027 and a Lions parent), c02 Assistant, c04 legacy Head Coach
@@ -65,10 +65,16 @@ CREATE FUNCTION qa.cp(p_slug text, p_actor jsonb, p_fp text, p_key uuid, p_phras
 SELECT qa.put('head', to_jsonb(jsonb_build_object('coach_id', qa.u('c01')))::text);
 
 -- ═══ A. Exactly one new permission ════════════════════════════════════
-SELECT qa.check('A1 service_role may execute team_season_complete; anon and authenticated may not',
-  has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
-  AND NOT has_function_privilege('anon', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
-  AND NOT has_function_privilege('authenticated', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE'));
+SELECT qa.check('A1 service_role may execute ONLY the checked entry point; the raw transition stays owner-only; anon and authenticated get neither',
+  has_function_privilege('service_role', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('authenticated', 'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) r
+                  WHERE has_function_privilege(r, 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')));
+SELECT qa.as_role('raw_denied', 'service_role',
+  $q$ SELECT public.team_season_complete('lions-track-2027', '{"coach_id":"00000000-0000-0000-0000-000000000000"}', NULL, NULL, md5('x'), gen_random_uuid(), 'x') $q$);
+SELECT qa.check('A1b the server key is refused the raw transition (no unchecked replay path)',
+  qa.get('raw_denied') ->> 'error' LIKE '%permission denied%', qa.get('raw_denied')::text);
 SELECT qa.check('A2 the fingerprint, replay and every helper stay owner-only (no API role)',
   NOT EXISTS (SELECT 1 FROM unnest(ARRAY['anon', 'authenticated', 'service_role']) r,
     unnest(ARRAY['team_season_fingerprint(text)', 'team_season_actor(jsonb,text)', 'team_season_athlete_plan(text)',
@@ -76,9 +82,11 @@ SELECT qa.check('A2 the fingerprint, replay and every helper stay owner-only (no
                  'season_slug_valid(text)', 'season_flag_reason(text)', 'season_label_end_year(text)',
                  'season_write_guard()', 'season_is_completed(text)']) f
     WHERE has_function_privilege(r, 'public.' || f, 'EXECUTE')));
-SELECT qa.check('A3 the transition runs with owner rights, an empty search_path and a lock timeout',
+SELECT qa.check('A3 both run with owner rights and an empty search_path; the transition keeps its lock timeout',
   (SELECT prosecdef AND array_to_string(proconfig, ',') LIKE '%search_path=""%' AND array_to_string(proconfig, ',') LIKE '%lock_timeout=10s%'
-   FROM pg_proc WHERE proname = 'team_season_complete'));
+   FROM pg_proc WHERE proname = 'team_season_complete')
+  AND (SELECT prosecdef AND array_to_string(proconfig, ',') LIKE '%search_path=""%'
+   FROM pg_proc WHERE proname = 'team_season_complete_checked'));
 SELECT qa.check('A4 the audit log stays read-only to the server key (no insert/update/delete)',
   has_table_privilege('service_role', 'public.team_season_transitions', 'SELECT')
   AND NOT has_table_privilege('service_role', 'public.team_season_transitions', 'INSERT')
@@ -143,6 +151,9 @@ SELECT qa.check('C1 the Head Coach completes the season (phrase case and spacing
   (qa.get('done') ->> 'ok')::boolean AND qa.get('done') -> 'value' ->> 'from_slug' = 'lions-track-2027'
   AND qa.get('done') -> 'value' ->> 'to_slug' = 'lions-track-2028' AND qa.get('done') -> 'value' ->> 'to_season_label' = '2028 Season'
   AND (qa.get('done') -> 'value' ->> 'replayed')::boolean = false, qa.get('done')::text);
+SELECT qa.check('C1b the result carries no join code (the successor''s credential); the audit record still has it for the owner',
+  NOT (qa.get('done') -> 'value' ? 'join_code')
+  AND (SELECT result ? 'join_code' FROM public.team_season_transitions WHERE from_campaign_slug = 'lions-track-2027'));
 SELECT qa.check('C2 the old season is archived and completed, linked to its successor',
   (SELECT archived AND season_completed_at IS NOT NULL AND successor_campaign_slug = 'lions-track-2028'
    FROM public.campaign_settings WHERE campaign_slug = 'lions-track-2027'));
@@ -184,7 +195,29 @@ SELECT qa.as_role('replay', 'service_role', qa.cp('lions-track-2027', qa.get('he
 SELECT qa.check('D1 a retry with the same key and request returns the same result as a replay, writing nothing',
   (qa.get('replay') ->> 'ok')::boolean AND (qa.get('replay') -> 'value' ->> 'replayed')::boolean
   AND qa.get('replay') -> 'value' ->> 'transition_id' = qa.get('done') -> 'value' ->> 'transition_id'
+  AND NOT (qa.get('replay') -> 'value' ? 'join_code')
   AND qa.dbhash() = qa.get('hash1') #>> '{}', qa.get('replay')::text);
+
+-- Replay authorization: knowing the confirmation id is not enough.
+SELECT qa.as_role('replay_other', 'service_role', qa.cp('lions-track-2027', jsonb_build_object('coach_id', qa.u('c10')), qa.get('fp') #>> '{}', (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
+SELECT qa.as_role('replay_asst', 'service_role', qa.cp('lions-track-2027', jsonb_build_object('coach_id', qa.u('c02')), qa.get('fp') #>> '{}', (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
+SELECT qa.as_role('replay_ghost_admin', 'service_role', qa.cp('lions-track-2027', jsonb_build_object('platform_admin_id', qa.u('no-such-admin')), qa.get('fp') #>> '{}', (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
+SELECT qa.check('D1b another team''s Head Coach, the Assistant Coach or an unknown admin with the SAME confirmation id: refused as unauthorized (no receipt, not even a conflict)',
+  qa.get('replay_other') ->> 'error' = 'season_actor_not_authorized' AND qa.get('replay_asst') ->> 'error' = 'season_actor_not_authorized'
+  AND qa.get('replay_ghost_admin') ->> 'error' = 'season_actor_not_authorized'
+  AND qa.dbhash() = qa.get('hash1') #>> '{}',
+  qa.get('replay_other')::text || qa.get('replay_asst')::text || qa.get('replay_ghost_admin')::text);
+-- Revocation: the original Head Coach loses the Head Coach role in the new season.
+UPDATE public.team_coaches SET role = 'assistant_coach' WHERE campaign_slug = 'lions-track-2028' AND account_id = qa.u('a01');
+SELECT qa.as_role('replay_revoked', 'service_role', qa.cp('lions-track-2027', qa.get('head'), qa.get('fp') #>> '{}', (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
+UPDATE public.team_coaches SET role = 'head_coach' WHERE campaign_slug = 'lions-track-2028' AND account_id = qa.u('a01');
+SELECT qa.as_role('replay_restored', 'service_role', qa.cp('lions-track-2027', qa.get('head'), qa.get('fp') #>> '{}', (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
+SELECT qa.check('D1c a Head Coach no longer running the team (revoked in the new season) can''t retrieve the receipt; once restored, the replay works again',
+  qa.get('replay_revoked') ->> 'error' = 'season_actor_not_authorized'
+  AND (qa.get('replay_restored') -> 'value' ->> 'replayed')::boolean
+  AND qa.get('replay_restored') -> 'value' ->> 'transition_id' = qa.get('done') -> 'value' ->> 'transition_id',
+  qa.get('replay_revoked')::text || qa.get('replay_restored')::text);
+SELECT qa.put('hash1', to_jsonb(qa.dbhash())::text);
 SELECT qa.as_role('conflict', 'service_role', qa.cp('lions-track-2027', qa.get('head'), md5('other'), (qa.get('key1') #>> '{}')::uuid, 'COMPLETE 2027 SEASON'));
 SELECT qa.check('D2 the same key with a different request is refused (idempotency conflict)',
   qa.get('conflict') ->> 'error' = 'season_idempotency_conflict', qa.get('conflict')::text);

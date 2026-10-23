@@ -96,6 +96,17 @@ test("the receipt confirms the result and links to the new season and the archiv
   assert.match(html, /href="\/team\/lions-track-2028\/home"[^>]*>Go to the new season/);
   assert.match(html, /href="\/team\/lions-track-2027\/home"[^>]*>View the archived season/);
   assert.match(html, /new fundraiser is off until ELF turns it on/);
+  assert.doesNotMatch(html, /payments-unverified|not verified/, "no QA note on a normal receipt");
+});
+
+test("Phase 5B: a QA completion with Stripe unconfigured says so on the receipt", () => {
+  const html = decode(renderToStaticMarkup(h(CompletionReceiptView as never, { receipt: {
+    transitionId: "t-1", fromSlug: "lions-track-2027", toSlug: "lions-track-2028", toSeasonLabel: "2028 Season",
+    completedAt: "2026-10-23T17:00:00Z", replayed: false, summary: {}, paymentsUnverified: true,
+    newSeasonUrl: "/team/lions-track-2028/home", archivedSeasonUrl: "/team/lions-track-2027/home",
+  } } as never)));
+  assert.match(html, /data-testid="payments-unverified"/);
+  assert.match(html, /QA test environment: open donation checkouts were not verified/);
 });
 
 test("with the execute flag off nothing completes: no panel, and the report still says preview only", () => {

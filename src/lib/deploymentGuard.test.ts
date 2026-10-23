@@ -64,6 +64,32 @@ test("standard mode: no QA signal means no checks (production configuration pass
   assert.deepEqual(checkDeployment({}), { mode: "standard", triggers: [], errors: [] });
 });
 
+test("Phase 5B: ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS is refused outside QA (production build/start fail with it set)", () => {
+  const production = {
+    NEXT_PUBLIC_SUPABASE_URL: `https://${PRODUCTION_SUPABASE_REF}.supabase.co`,
+    SUPABASE_SERVICE_ROLE_KEY: jwt(PRODUCTION_SUPABASE_REF, "service_role"),
+    NEXT_PUBLIC_APP_URL: "https://app.elitelevelfundraising.com",
+    VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: PRODUCTION_VERCEL_PROJECT_ID,
+  };
+  for (const v of ["true", "1", "TRUE", "false"]) {
+    refused({ ...production, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: v }, /QA-only and is not allowed/);
+    refused({ ...production, STRIPE_SECRET_KEY: "sk_live_synthetic", ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: v }, /QA-only and is not allowed/);
+    assert.throws(() => assertDeploymentSafe({ ...production, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: v }, "build"), /refused this configuration at build/);
+  }
+  refused({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" }, /QA-only and is not allowed/);
+  // Pointing a QA-flagged deployment at production is refused anyway.
+  refused({ ...production, ELF_DEPLOYMENT: "qa", ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" }, /production/);
+  // Whitespace-only counts as unset (no error, no effect).
+  assert.deepEqual(errorsOf({ ...production, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "  " }), []);
+});
+
+test("Phase 5B: in QA the override must be exactly \"true\" and only while Stripe is unconfigured", () => {
+  assert.deepEqual(errorsOf(qa({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" })), []);
+  refused(qa({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "yes" }), /must be "true" or unset/);
+  refused(qa({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "TRUE" }), /must be "true" or unset/);
+  refused(qa({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true", STRIPE_SECRET_KEY: "sk_test_synthetic" }), /only allowed while Stripe is unconfigured/);
+});
+
 test("standard mode: a misspelt ELF_DEPLOYMENT is refused rather than silently ignored", () => {
   refused({ ELF_DEPLOYMENT: "QA" }, /ELF_DEPLOYMENT must be "qa" or unset/);
   refused({ ELF_DEPLOYMENT: "staging" }, /ELF_DEPLOYMENT must be "qa" or unset/);
@@ -265,6 +291,10 @@ test("next.config.ts refuses a bad QA configuration and keeps production's confi
     setEnv({ PATH: saved.PATH, ...QA_ENV, STRIPE_SECRET_KEY: "sk_live_synthetic" });
     assert.throws(() => config("phase-production-build"), /refused this configuration at build/);
     assert.throws(() => config("phase-production-server"), /refused this configuration at server start/);
+    setEnv({ PATH: saved.PATH, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" });
+    assert.throws(() => config("phase-production-build"), /QA-only and is not allowed/, "production build with the QA override fails");
+    setEnv({ PATH: saved.PATH, ...QA_ENV, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" });
+    assert.equal(config("phase-production-build").env?.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, "qa");
     setEnv({ PATH: saved.PATH, VERCEL_URL: "elf-team-qa-abc123-team.vercel.app" });
     assert.throws(() => config("phase-production-build"), /ELF_DEPLOYMENT is not "qa"/);
   } finally {

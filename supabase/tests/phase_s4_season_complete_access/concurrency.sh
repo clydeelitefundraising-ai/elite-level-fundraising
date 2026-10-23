@@ -18,7 +18,7 @@ for t in svca svcb; do
       INSERT INTO public.athletes (campaign_slug, name, class_year) VALUES ('$t-2027', 'A', 'Freshman'), ('$t-2027', 'B', 'Junior'), ('$t-2027', 'C', 'Senior');" >/dev/null
 done
 fp() { SQ "SELECT public.team_season_fingerprint('$1-2027');" | tr -d '[:space:]'; }
-go() { echo "SELECT public.team_season_complete('$1-2027', jsonb_build_object('coach_id', qa.u('$1-coach')), NULL, NULL, '$2', qa.u('$3'), 'COMPLETE 2027 SEASON');"; }
+go() { echo "SELECT public.team_season_complete_checked('$1-2027', jsonb_build_object('coach_id', qa.u('$1-coach')), NULL, NULL, '$2', qa.u('$3'), 'COMPLETE 2027 SEASON');"; }
 successors() { SQ "SELECT count(*) FROM public.campaign_settings WHERE predecessor_campaign_slug = '$1-2027';"; }
 audits() { SQ "SELECT count(*) FROM public.team_season_transitions WHERE from_campaign_slug = '$1-2027';"; }
 

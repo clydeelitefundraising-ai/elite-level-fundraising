@@ -19,7 +19,7 @@ register(new URL("../../../../../../lib/testSupport/nextStubLoader.mjs", import.
 const { SLUG, ROLES, makeWorld, clearCookies } = await import("../../attendance/testSupport/attendanceWorld.mjs");
 const { NextRequest } = await import("../../../../../../lib/testSupport/nextServerStub.mjs");
 const route = await import("./route.ts");
-const { confirmationMatches, normalizeConfirmation, parseCompletionRequest, classifyCompletionError, isSeasonCompletionEnabled } =
+const { confirmationMatches, normalizeConfirmation, parseCompletionRequest, classifyCompletionError, isSeasonCompletionEnabled, allowUnverifiedCheckouts } =
   await import("../../../../../../lib/seasonComplete.ts");
 
 const FP = "0123456789abcdef0123456789abcdef";
@@ -48,7 +48,10 @@ const RESULT = {
 };
 
 type Rpc = { status: number; body: unknown } | "throw";
-type Opts = { preview?: Rpc; complete?: Rpc | Rpc[]; stripe?: Rpc; flags?: { preview?: string; execute?: string }; stripeKey?: string };
+// stripeKey: by default a test-mode key is set and Stripe reports no open
+// checkouts (payments verified); null = Stripe unconfigured.
+type Opts = { preview?: Rpc; complete?: Rpc | Rpc[]; stripe?: Rpc; flags?: { preview?: string; execute?: string }; stripeKey?: string | null;
+              env?: Record<string, string | undefined> };
 type Calls = { preview: Record<string, unknown>[]; complete: Record<string, unknown>[]; stripe: string[] };
 
 async function withWorld(opts: Opts, run: (calls: Calls) => Promise<void>) {
@@ -60,22 +63,27 @@ async function withWorld(opts: Opts, run: (calls: Calls) => Promise<void>) {
   const flags = opts.flags ?? { preview: "true", execute: "true" };
   set("COMPLETE_SEASON_PREVIEW", flags.preview);
   set("COMPLETE_SEASON_EXECUTE", flags.execute);
-  set("STRIPE_SECRET_KEY", opts.stripeKey);
+  set("STRIPE_SECRET_KEY", opts.stripeKey === undefined ? "sk_test_default" : (opts.stripeKey ?? undefined));
+  const savedExtra = Object.fromEntries(Object.keys(opts.env ?? {}).map(k => [k, process.env[k]]));
+  for (const [k, v] of Object.entries(opts.env ?? {})) set(k, v);
   const completes = Array.isArray(opts.complete) ? [...opts.complete] : null;
   const reply = (r: Rpc) => { if (r === "throw") throw new Error("network"); return new Response(JSON.stringify(r.body), { status: r.status }); };
   globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.startsWith("https://api.stripe.com/")) { calls.stripe.push(u); return reply(opts.stripe ?? { status: 200, body: { data: [], has_more: false } }); }
     if (u.endsWith("/rest/v1/rpc/team_season_preview")) { calls.preview.push(JSON.parse(String(init?.body))); return reply(opts.preview ?? { status: 200, body: PREVIEW }); }
-    if (u.endsWith("/rest/v1/rpc/team_season_complete")) {
+    if (u.endsWith("/rest/v1/rpc/team_season_complete_checked")) {
       calls.complete.push(JSON.parse(String(init?.body)));
       return reply(completes ? (completes.shift() ?? { status: 500, body: {} }) : ((opts.complete as Rpc | undefined) ?? { status: 200, body: RESULT }));
     }
-    return w.fetchImpl(u, init);
+    // Modules captured the fake Supabase URL at import; the world resolves
+    // paths against the current one (a test may switch to a QA-shaped env).
+    return w.fetchImpl(u.replace("https://fake.supabase.co", process.env.NEXT_PUBLIC_SUPABASE_URL!), init);
   }) as typeof fetch;
   try { await run(calls); } finally {
     globalThis.fetch = realFetch;
     set("COMPLETE_SEASON_PREVIEW", saved.p); set("COMPLETE_SEASON_EXECUTE", saved.e); set("STRIPE_SECRET_KEY", saved.s);
+    for (const [k, v] of Object.entries(savedExtra)) set(k, v);
     clearCookies();
   }
 }
@@ -250,7 +258,7 @@ test("typed confirmation must name THIS team and THIS season → otherwise 400, 
   }
 });
 
-test("payments: an open Stripe checkout for this team blocks completion; none (or Stripe unknown) doesn't", async () => {
+test("payments: an open Stripe checkout for this team blocks completion; another team's doesn't", async () => {
   const open = { status: 200, body: { data: [{ metadata: { campaign_slug: SLUG } }], has_more: false } };
   await withWorld({ stripeKey: "sk_test_x", stripe: open }, async calls => {
     ROLES.head();
@@ -265,12 +273,78 @@ test("payments: an open Stripe checkout for this team blocks completion; none (o
     assert.equal((await post(GOOD)).status, 200, "another team's checkout doesn't block");
     assert.equal(calls.complete.length, 1);
   });
-  await withWorld({}, async calls => {
+});
+
+// ── Phase 5B: payments fail closed ─────────────────────────────────────
+// A valid QA deployment's configuration (synthetic values only).
+const b64url = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+const QA_ENV: Record<string, string | undefined> = {
+  ELF_DEPLOYMENT: "qa",
+  ELF_QA_SUPABASE_REF: "mzsvbxosoidwhntpjdkf",
+  NEXT_PUBLIC_SUPABASE_URL: "https://mzsvbxosoidwhntpjdkf.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY: `${b64url({ alg: "HS256", typ: "JWT" })}.${b64url({ iss: "supabase", ref: "mzsvbxosoidwhntpjdkf", role: "service_role" })}.c2ln`,
+  NEXT_PUBLIC_APP_URL: "https://elf-team-qa-clydeelitefundraising-5717s-projects.vercel.app",
+  ADMIN_PEPPER: "s4", ADMIN_PASSWORD: "s5", CALENDAR_SYNC_PEPPER: "s6", CRON_SECRET: "s7",
+};
+
+test("payments unverified fail closed: Stripe unconfigured → 503, nothing executed", async () => {
+  await withWorld({ stripeKey: null }, async calls => {
     ROLES.head();
-    assert.equal((await post(GOOD)).status, 200, "Stripe not configured → unknown → doesn't block");
-    assert.equal(calls.stripe.length, 0);
+    const res = await post(GOOD);
+    assert.equal(res.status, 503);
+    assert.equal((await body(res)).code, "payments_unverified");
+    assert.equal(calls.complete.length, 0);
+  });
+});
+
+test("payments unverified fail closed: Stripe configured but failing (error, outage, bad answer) → 503, even with the QA override set", async () => {
+  for (const stripe of [{ status: 500, body: {} }, "throw" as const, { status: 200, body: { unexpected: true } }]) {
+    await withWorld({ stripe, env: { ...QA_ENV, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" } }, async calls => {
+      ROLES.head();
+      const res = await post(GOOD);
+      assert.equal(res.status, 503, JSON.stringify(stripe));
+      assert.equal(calls.complete.length, 0);
+    });
+  }
+});
+
+test("QA-only override: proceeds ONLY in a valid QA deployment with Stripe unconfigured; the receipt says payments were unverified", async () => {
+  await withWorld({ stripeKey: null, env: { ...QA_ENV, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" } }, async calls => {
+    ROLES.head();
+    const res = await post(GOOD);
+    assert.equal(res.status, 200);
+    const text = JSON.stringify(await body(res));
+    assert.equal(JSON.parse(text).receipt.paymentsUnverified, true);
+    assert.ok(!/join_?code|ABC123/i.test(text), "no join code in the receipt");
     assert.equal(calls.complete.length, 1);
   });
+  // Production-shaped configuration (no QA signals) with the override set: refused.
+  await withWorld({ stripeKey: null, env: { ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" } }, async calls => {
+    ROLES.head();
+    assert.equal((await post(GOOD)).status, 503, "not a QA deployment");
+    assert.equal(calls.complete.length, 0);
+  });
+  // QA deployment, override set to anything but "true": refused.
+  await withWorld({ stripeKey: null, env: { ...QA_ENV, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "1" } }, async calls => {
+    ROLES.head();
+    assert.equal((await post(GOOD)).status, 503);
+    assert.equal(calls.complete.length, 0);
+  });
+  // QA signals present but the QA configuration is invalid (production Supabase URL): refused.
+  await withWorld({ stripeKey: null, env: { ...QA_ENV, NEXT_PUBLIC_SUPABASE_URL: "https://nggabucgcoaffpppchsp.supabase.co", ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" } }, async calls => {
+    ROLES.head();
+    assert.equal((await post(GOOD)).status, 503);
+    assert.equal(calls.complete.length, 0);
+  });
+});
+
+test("allowUnverifiedCheckouts: pure policy", () => {
+  const ok = { ...QA_ENV, ADMIN_PEPPER: "x", ELF_ACCOUNT_PEPPER: "x", TEAM_COACH_PEPPER: "x", TEAM_MEMBER_PEPPER: "x", ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" };
+  assert.equal(allowUnverifiedCheckouts(ok), true);
+  assert.equal(allowUnverifiedCheckouts({ ...ok, STRIPE_SECRET_KEY: "sk_test_x" }), false, "Stripe configured");
+  assert.equal(allowUnverifiedCheckouts({ ...ok, ELF_DEPLOYMENT: undefined, ELF_QA_SUPABASE_REF: undefined, NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co" }), false, "not QA");
+  assert.equal(allowUnverifiedCheckouts({ ...ok, ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: undefined }), false, "not requested");
+  assert.equal(allowUnverifiedCheckouts({ ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS: "true" }), false, "production-shaped");
 });
 
 test("preview failures stop before the transition (legacy Head Coach, missing grant, database error)", async () => {
@@ -323,6 +397,39 @@ test("retry after a lost response: an already-completed season goes straight to 
     assert.equal(res.status, 200);
     assert.equal((await body(res)).receipt.replayed, true);
     assert.equal(calls.complete[0].p_idempotency_key, KEY);
+  });
+});
+
+test("Phase 5B timeout → retry: the request dies after the database committed; the retry (same id) gets the receipt, never a join code; payments aren't re-checked for a completed season", async () => {
+  const completed = { ...PREVIEW, from: { ...PREVIEW.from, completed: true, archived: true, successor_slug: "wolves-2028" },
+                      blockers: ["season_already_completed"], fingerprint: "e".repeat(32) };
+  // 1) The first request times out (network error after the commit): a safe-to-retry 500.
+  await withWorld({ complete: "throw" }, async calls => {
+    ROLES.head();
+    const res = await post(GOOD);
+    assert.equal(res.status, 500);
+    assert.match((await body(res)).error, /safely try again/);
+    assert.equal(calls.complete.length, 1);
+  });
+  // 2) The retry: the season now shows completed; Stripe is unconfigured but irrelevant to a replay.
+  await withWorld({ stripeKey: null, preview: { status: 200, body: completed },
+                    complete: { status: 200, body: { ...RESULT, replayed: true } } }, async calls => {
+    ROLES.head();
+    const res = await post(GOOD);
+    assert.equal(res.status, 200);
+    const text = JSON.stringify(await body(res));
+    assert.equal(JSON.parse(text).receipt.replayed, true);
+    assert.equal(JSON.parse(text).receipt.paymentsUnverified, undefined);
+    assert.ok(!/join_?code|ABC123/i.test(text), "no join code in the replayed receipt");
+    assert.equal(calls.complete[0].p_idempotency_key, KEY);
+    assert.equal(calls.stripe.length, 0);
+  });
+  // 3) Retried by someone the database no longer authorizes (e.g. demoted in the new season): 403.
+  await withWorld({ preview: { status: 200, body: completed }, complete: dbError("season_actor_not_authorized") }, async () => {
+    ROLES.head();
+    const res = await post(GOOD);
+    assert.equal(res.status, 403);
+    assert.equal((await body(res)).receipt, undefined);
   });
 });
 

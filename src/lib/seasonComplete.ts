@@ -1,11 +1,14 @@
 // Complete Season Phase 5A — completing a season (the real transition).
 //
-// Server only. Calls public.team_season_complete() (phase_s1; made callable
-// by the server key in phase_s4). The database function is the authority
-// and does the whole transition in ONE transaction: it locks the season,
-// replays a repeated idempotency key, re-checks the actor, recomputes the
-// preview and refuses a stale fingerprint, a wrong confirmation phrase, an
-// already-completed season and every blocker before it writes anything.
+// Server only. Calls public.team_season_complete_checked() (phase_s4: the
+// only completion entry point the server key may run). It checks the actor
+// BEFORE any replay — and, for an already-completed season, that a Head
+// Coach still runs the successor season — strips the new join code from
+// every result, then runs the unchanged phase_s1 transition, which does
+// everything in ONE transaction: it locks the season, replays a repeated
+// idempotency key, recomputes the preview and refuses a stale fingerprint,
+// a wrong confirmation phrase, an already-completed season and every
+// blocker before it writes anything.
 // Nothing here re-implements any of that; this file only
 //   * decides whether completion is switched on (COMPLETE_SEASON_EXECUTE),
 //   * validates the request shape,
@@ -14,6 +17,7 @@
 import type { TeamActor } from "./permissions.ts";
 import { seasonPreviewDbActor } from "./seasonPreview.ts";
 import { isMissingSchemaError } from "./teamTasksStore.ts";
+import { checkDeployment, QA_UNVERIFIED_CHECKOUTS } from "./deploymentGuard.ts";
 
 // The typed-confirmation rules live in a client-safe module (the browser
 // uses them to enable the button); re-exported here for the server.
@@ -26,6 +30,21 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
  *  default; server-side only. */
 export function isSeasonCompletionEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.COMPLETE_SEASON_PREVIEW === "true" && env.COMPLETE_SEASON_EXECUTE === "true";
+}
+
+/** Phase 5B — payments fail closed: when open Stripe checkouts can't be
+ *  verified ("unknown"), completion is refused. The ONE exception is the
+ *  isolated QA deployment exercising synthetic completions with Stripe
+ *  intentionally unconfigured: ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS is exactly
+ *  "true", no Stripe key is set, and the deployment guard confirms a valid QA
+ *  deployment (the guard also refuses the variable everywhere else, so a
+ *  production build with it set fails). Never true for an unreachable Stripe
+ *  that IS configured. */
+export function allowUnverifiedCheckouts(env: Record<string, string | undefined> = process.env): boolean {
+  if (env[QA_UNVERIFIED_CHECKOUTS] !== "true") return false;
+  if ((env.STRIPE_SECRET_KEY ?? "").trim()) return false;
+  const deployment = checkDeployment(env);
+  return deployment.mode === "qa" && deployment.errors.length === 0;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,7 +144,7 @@ export async function executeSeasonCompletion(slug: string, actor: TeamActor, re
   if (!dbActor) return { ok: false, failure: "forbidden" };
   try {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const res = await fetch(`${BASE}/rest/v1/rpc/team_season_complete`, {
+    const res = await fetch(`${BASE}/rest/v1/rpc/team_season_complete_checked`, {
       method: "POST",
       headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({

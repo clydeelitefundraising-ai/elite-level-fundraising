@@ -32,6 +32,10 @@ export const QA_VERCEL_PROJECT = "elf-team-qa";
 export const QA_VERCEL_PROJECT_ID = "prj_OPk52HPvdi6YlAvxSQ4F1nZwmKiJ";
 export const PRODUCTION_VERCEL_PROJECT = "elf-team-app";
 export const PRODUCTION_VERCEL_PROJECT_ID = "prj_JWwA83cDkMZjECnrhdRbaC9lRLgc";
+/** QA-only: lets season completion proceed when Stripe is intentionally
+ *  unconfigured (checkout status unknown). Refused by this guard anywhere
+ *  but a valid QA deployment, and while a Stripe key is set. */
+export const QA_UNVERIFIED_CHECKOUTS = "ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS";
 
 type Env = Record<string, string | undefined>;
 
@@ -166,10 +170,12 @@ export function checkDeployment(env: Env = process.env): DeploymentCheck {
   if (triggers.length === 0) {
     // Standard (production, preview, marketing, local) deployments are left
     // alone — except a misspelt ELF_DEPLOYMENT, which must not silently
-    // turn the QA checks off.
-    return deployment
-      ? { mode: "standard", triggers, errors: [`ELF_DEPLOYMENT must be "qa" or unset (it is set to something else)`] }
-      : { mode: "standard", triggers, errors: [] };
+    // turn the QA checks off, and the QA-only payment override, which must
+    // never reach any other deployment.
+    const errors: string[] = [];
+    if (deployment) errors.push(`ELF_DEPLOYMENT must be "qa" or unset (it is set to something else)`);
+    if (value(env, QA_UNVERIFIED_CHECKOUTS)) errors.push(`${QA_UNVERIFIED_CHECKOUTS} is QA-only and is not allowed in this deployment`);
+    return { mode: "standard", triggers, errors };
   }
 
   const errors: string[] = [];
@@ -233,6 +239,11 @@ export function checkDeployment(env: Env = process.env): DeploymentCheck {
   if (stripeKey && !/^(sk|rk)_test_/.test(stripeKey)) {
     errors.push("STRIPE_SECRET_KEY must be a Stripe test-mode key (sk_test_/rk_test_)");
   }
+  // The QA-only payment override (season completion with Stripe
+  // intentionally unconfigured): exactly "true", and only while Stripe is off.
+  const unverified = value(env, QA_UNVERIFIED_CHECKOUTS);
+  if (unverified && unverified !== "true") errors.push(`${QA_UNVERIFIED_CHECKOUTS} must be "true" or unset`);
+  if (unverified && stripeKey) errors.push(`${QA_UNVERIFIED_CHECKOUTS} is only allowed while Stripe is unconfigured (STRIPE_SECRET_KEY unset)`);
 
   // APNs: never the production push gateway.
   if (value(env, "APNS_ENVIRONMENT") === "production") errors.push("APNS_ENVIRONMENT=production is not allowed in QA");

@@ -16,6 +16,8 @@
 #     audit, unrelated teams untouched, multi-team access kept); replays,
 #     conflicts and second completions; the archived season stays read-only
 #   * concurrency.sh: parallel service_role sessions (double submit, two tabs)
+#   * large.sh: realistically large teams — timing, timeout abort + retry,
+#     lost response, replay authorization, concurrent submits
 # Exit status is non-zero if any check fails. The cluster is always deleted.
 set -u
 export PGCLIENTENCODING=UTF8
@@ -56,7 +58,7 @@ echo "schema: baseline + $(echo $AFTER_BASELINE | wc -w) later migrations + phas
 $SU -d postgres -c "CREATE DATABASE elf TEMPLATE elfbase OWNER postgres" -c "CREATE DATABASE elfrb TEMPLATE elfbase OWNER postgres" >/dev/null || exit 1
 
 # ── Migration ──────────────────────────────────────────────────────────
-FN="SELECT p.oid::regprocedure || ':' || prosecdef || ':' || coalesce(proacl::text, '') || ':' || coalesce(array_to_string(proconfig, ','), '') || ':' || md5(prosrc) FROM pg_proc p WHERE proname = 'team_season_complete'"
+FN="SELECT p.oid::regprocedure || ':' || prosecdef || ':' || coalesce(proacl::text, '') || ':' || coalesce(array_to_string(proconfig, ','), '') || ':' || md5(prosrc) FROM pg_proc p WHERE proname IN ('team_season_complete', 'team_season_complete_checked') ORDER BY 1"
 $SU -d elf -t -A -f "$S2/snapshot.sql" > "$WORK/snap.before"
 $OW -d elf -f "$MIG/phase_s4_season_complete_access.sql" >/dev/null 2>"$WORK/s4.err"; first=$?
 $SU -d elf -t -A -f "$S2/snapshot.sql" > "$WORK/snap.after"
@@ -65,19 +67,22 @@ $OW -d elf -f "$MIG/phase_s4_season_complete_access.sql" >/dev/null 2>>"$WORK/s4
 $SU -d elf -t -A -c "$FN" > "$WORK/s4.second"
 [ $first = 0 ] && [ $second = 0 ] && pass "migration applies (exit $first) and reapplies (exit $second) as the non-superuser owner" \
   || { fail "migration exit codes: first=$first rerun=$second"; cat "$WORK/s4.err"; }
-changed=$(diff "$WORK/snap.before" "$WORK/snap.after" | grep -E '^[<>]' | grep -vc 'team_season_complete(')
+changed=$(diff "$WORK/snap.before" "$WORK/snap.after" | grep -E '^[<>]' | grep -vcE 'team_season_complete(_checked)?\(')
 if [ ! -s "$WORK/snap.before" ]; then fail "catalog snapshot is empty"
 elif [ "$changed" = 0 ] && ! diff -q "$WORK/snap.before" "$WORK/snap.after" >/dev/null; then
-  pass "only team_season_complete's privileges changed ($(wc -l < "$WORK/snap.before") catalog/data rows compared; body, data and everything else identical)"
-else fail "unexpected changes ($changed lines besides team_season_complete):"; diff "$WORK/snap.before" "$WORK/snap.after"; fi
-diff -q "$WORK/s4.first" "$WORK/s4.second" >/dev/null && pass "rerun leaves the transition function identical" || fail "rerun changed the transition function"
+  pass "only the new checked entry point was added ($(wc -l < "$WORK/snap.before") catalog/data rows compared; the transition's body, data and everything else identical)"
+else fail "unexpected changes ($changed lines besides the completion functions):"; diff "$WORK/snap.before" "$WORK/snap.after"; fi
+diff -q "$WORK/s4.first" "$WORK/s4.second" >/dev/null && pass "rerun leaves both completion functions identical" || fail "rerun changed a completion function"
+BODY="SELECT md5(prosrc) FROM pg_proc WHERE proname = 'team_season_complete'"
+body_before=$($SU -d elfbase -t -A -c "$BODY"); body_after=$($SU -d elf -t -A -c "$BODY")
+[ -n "$body_before" ] && [ "$body_before" = "$body_after" ] && pass "the transition's body is byte-for-byte unchanged (md5 $body_after)" || fail "the transition body changed: $body_before -> $body_after"
 $OW -d elfnos3 -f "$MIG/phase_s4_season_complete_access.sql" >/dev/null 2>"$WORK/nos3.err"
-grant=$($SU -d elfnos3 -t -A -c "SELECT has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')")
-grep -q "requires phase_s3" "$WORK/nos3.err" && [ "$grant" = "f" ] && pass "refuses to apply before phase_s3 (and grants nothing)" || fail "applied without phase_s3: $grant $(cat "$WORK/nos3.err")"
+grant=$($SU -d elfnos3 -t -A -c "SELECT to_regprocedure('public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)') IS NULL AND NOT has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')")
+grep -q "requires phase_s3" "$WORK/nos3.err" && [ "$grant" = "t" ] && pass "refuses to apply before phase_s3 (and creates/grants nothing)" || fail "applied without phase_s3: $grant $(cat "$WORK/nos3.err")"
 sed 's/^COMMIT;\r\?$/SELECT 1\/0;\nCOMMIT;/' "$MIG/phase_s4_season_complete_access.sql" > "$WORK/s4.broken.sql"
 $OW -d elfrb -f "$WORK/s4.broken.sql" >/dev/null 2>&1
-left=$($SU -d elfrb -t -A -c "SELECT has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')")
-grep -q '1/0' "$WORK/s4.broken.sql" && [ "$left" = "f" ] && pass "a failure inside the migration rolls everything back" || fail "partial migration left: $left"
+left=$($SU -d elfrb -t -A -c "SELECT (to_regprocedure('public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)') IS NOT NULL) || ',' || has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')")
+grep -q '1/0' "$WORK/s4.broken.sql" && [ "$left" = "false,false" ] && pass "a failure inside the migration rolls everything back" || fail "partial migration left: $left"
 
 # ── Behavior ───────────────────────────────────────────────────────────
 $SU -d elf -f "$HERE/tests.sql" > "$WORK/tests.out" 2>&1 || { fail "tests.sql aborted:"; tail -15 "$WORK/tests.out"; }
@@ -88,6 +93,9 @@ if grep '^FAIL' "$WORK/results.txt"; then failed=1; fi
 
 # ── Concurrency ────────────────────────────────────────────────────────
 bash "$HERE/concurrency.sh" || failed=1
+
+# ── Large teams (Phase 5B) ─────────────────────────────────────────────
+bash "$HERE/large.sh" || failed=1
 
 [ $failed = 0 ] && echo "ALL PASSED" || echo "SOME CHECKS FAILED"
 exit $failed

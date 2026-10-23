@@ -22,6 +22,8 @@ export type CompletionReceipt = {
   summary: Record<string, number | boolean>;
   newSeasonUrl: string;
   archivedSeasonUrl: string;
+  /** QA deployment only: completed with Stripe intentionally unconfigured. */
+  paymentsUnverified?: boolean;
 };
 
 /** Codes after which the preview must be reloaded before trying again. */
@@ -161,6 +163,9 @@ export function CompletionReceiptView({ receipt }: { receipt: CompletionReceipt 
         <li>{n("members_must_rejoin") + n("coaches_must_rejoin")} people need to rejoin or be invited to the new season.</li>
         <li>{n("calendar_events_copied")} upcoming calendar events copied. The new fundraiser is off until ELF turns it on.</li>
       </ul>
+      {receipt.paymentsUnverified && (
+        <p role="note" data-testid="payments-unverified">QA test environment: open donation checkouts were not verified (Stripe isn&apos;t configured here).</p>
+      )}
       <p style={{ fontSize: ".8rem" }}>Confirmation {receipt.transitionId}</p>
       <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
         <a className={styles.btn} href={receipt.newSeasonUrl}>Go to the new season</a>
