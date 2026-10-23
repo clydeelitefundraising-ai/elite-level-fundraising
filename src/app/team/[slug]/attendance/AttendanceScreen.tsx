@@ -31,6 +31,7 @@ import { AttendanceRow, LateAthleteRow, ReadOnlyRow } from "./AttendanceRow";
 import { ConflictPanel, DatePanel, HistoryPanel, LeaveDialog, MergeNoticePanel, SummaryPanel } from "./AttendancePanels";
 import type { AttendanceEditorActions } from "./useAttendanceEditor";
 import styles from "./Attendance.module.css";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // Team Management Phase 5-4 — the coach attendance screen (presentation
 // only: everything it shows comes from the editor state; every change goes
@@ -68,6 +69,7 @@ export default function AttendanceScreen({
   actions: AttendanceEditorActions;
 }) {
   const [renderAll, setRenderAll] = useState(false);
+  const seasonReadOnly = useSeasonReadOnly();
   const draft = state.draft;
   const mode = attendanceMode(state);
   const editing = canEdit(state);
@@ -132,7 +134,7 @@ export default function AttendanceScreen({
             {dateLabel}{state.selectedDate === today ? " (today)" : ""}
           </p>
         )}
-        {mode.kind === "read_only" && <p className={styles.muted}>{readOnlyReasonText(mode.reason)}</p>}
+        {mode.kind === "read_only" && <p className={styles.muted}>{seasonReadOnly ? "This season is completed, so its attendance is read-only." : readOnlyReasonText(mode.reason)}</p>}
         {session && (
           <p className={styles.muted}>
             Last saved {formatSavedAt(session.updatedAt, session.timeZone)}{session.updatedByName ? ` by ${session.updatedByName}` : ""}.
@@ -226,7 +228,7 @@ export default function AttendanceScreen({
           {state.load.kind === "ready" && draft && readOnly && !draft.exists && state.meta?.editability !== "date_in_future" && (
             <div className={`${styles.card} ${styles.empty}`}>
               <p className={styles.emptyTitle}>No Attendance Recorded</p>
-              <p className={styles.muted}>Attendance wasn&apos;t saved for this date, and it&apos;s too long ago to add now.</p>
+              <p className={styles.muted}>{seasonReadOnly ? "No attendance was recorded for this date during the season." : <>Attendance wasn&apos;t saved for this date, and it&apos;s too long ago to add now.</>}</p>
             </div>
           )}
 

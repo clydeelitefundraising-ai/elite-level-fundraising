@@ -6,6 +6,7 @@ import { Share2, Copy, QrCode, Check, Users, Trophy, HandCoins } from "lucide-re
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import styles from "./Fundraiser.module.css";
 import { buildShareText } from "@/lib/shareCopy";
 
@@ -119,6 +120,8 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
 // outreach tracking itself is explicitly out of scope for this phase).
 
 function PeopleToContactCard({ slug, primary }: { slug: string; primary: string }) {
+  // Complete Season Phase 4B: on a completed season the card only views contacts.
+  const seasonReadOnly = useSeasonReadOnly();
   const [count, setCount] = useState<number | null>(null);
   const [goal,  setGoal]  = useState<number>(10);
 
@@ -132,7 +135,7 @@ function PeopleToContactCard({ slug, primary }: { slug: string; primary: string 
 
   const pct       = goal > 0 && count !== null ? Math.min(100, Math.round((count / goal) * 100)) : 0;
   const goalMet    = count !== null && count >= goal;
-  const ctaLabel   = goalMet ? "View Contacts →" : "Add Contacts →";
+  const ctaLabel   = goalMet || seasonReadOnly ? "View Contacts →" : "Add Contacts →";
 
   return (
     <div style={{
@@ -414,6 +417,9 @@ function TeamDonationFeed({
 
 function ClaimView({ slug, roster }: ClaimMode) {
   const router = useRouter();
+  // Complete Season Phase 4B: linking a profile changes the season roster —
+  // not possible once the season is completed.
+  const seasonReadOnly = useSeasonReadOnly();
   const [selected, setSelected] = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
@@ -490,7 +496,11 @@ function ClaimView({ slug, roster }: ClaimMode) {
           Select your name from the roster to track your personal fundraising progress and share your page.
         </p>
 
-        {roster.length === 0 ? (
+        {seasonReadOnly ? (
+          <p role="note" style={{ textAlign: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
+            This season is completed — profiles can&apos;t be linked. Open the team&apos;s current season instead.
+          </p>
+        ) : roster.length === 0 ? (
           <p style={{ textAlign: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
             The roster is empty. Contact your coach to be added.
           </p>

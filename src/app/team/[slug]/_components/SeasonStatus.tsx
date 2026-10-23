@@ -42,6 +42,20 @@ export function ActiveSeasonOnly({ children }: { children: ReactNode }) {
   return useContext(SeasonStatusContext).readOnly ? null : <>{children}</>;
 }
 
+/** Keeps a settings/form section visible on a completed season but disables
+ *  every input and button inside it (native <fieldset disabled>), with a
+ *  short note. Renders the section untouched while the season is active. */
+export function ReadOnlyFieldset({ children, label = "This setting is read-only because the season is completed." }: { children: ReactNode; label?: string }) {
+  const readOnly = useContext(SeasonStatusContext).readOnly;
+  if (!readOnly) return <>{children}</>;
+  return (
+    <fieldset disabled data-season-readonly="true" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <p role="note" style={{ margin: "0 0 .5rem", fontSize: ".78rem", color: "var(--text-muted-app, #6b7280)" }}>{label}</p>
+      {children}
+    </fieldset>
+  );
+}
+
 /** The archived-season banner shown at the top of every completed-season page. */
 export function CompletedSeasonBanner({ completedAt }: { completedAt: string | null }) {
   return (

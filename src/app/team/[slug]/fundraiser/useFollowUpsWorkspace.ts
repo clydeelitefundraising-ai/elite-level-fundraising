@@ -13,6 +13,7 @@ import {
 } from "@/lib/followUps";
 import type { OutreachRow } from "@/lib/teamData";
 import { shareFileOrFallback } from "../_components/nativeFileShare";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // D6: the row array, sort/filter state, and Update/History modal-open
 // state previously owned directly inside FollowUpsView.tsx (verbatim
@@ -31,6 +32,9 @@ export function useFollowUpsWorkspace(
   settings: CampaignSettings,
   initialRows: FollowUpRow[],
 ) {
+  // Complete Season Phase 4B: follow-up history, export and print stay on a
+  // completed season; logging new outreach (Update) is not offered.
+  const canUpdate = !useSeasonReadOnly();
   const [rows,           setRows]           = useState<FollowUpRow[]>(initialRows);
   const [sort,           setSort]           = useState<FollowUpSort>(DEFAULT_FOLLOW_UP_SORT);
   const [filter,         setFilter]         = useState<FollowUpFilter>("all");
@@ -85,7 +89,7 @@ export function useFollowUpsWorkspace(
     rows, sort, setSort, filter, setFilter,
     sortedRows, visibleRows, reportTitle,
     updateAthlete, historyAthlete, openUpdate, closeUpdate, openHistory, closeHistory,
-    applyOutreachUpdate, handleExport, handlePrint,
+    applyOutreachUpdate, handleExport, handlePrint, canUpdate,
   };
 }
 

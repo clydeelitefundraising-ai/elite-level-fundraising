@@ -15,6 +15,7 @@ import CoachFundraisingSection from "./CoachFundraisingSection";
 import AccountPrivacySection from "./AccountPrivacySection";
 import NotificationPreferencesSection from "./NotificationPreferencesSection";
 import IdentityAvatar from "./IdentityAvatar";
+import { ReadOnlyFieldset, useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Props = {
   slug: string;
@@ -42,6 +43,10 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
   const [copied, setCopied]   = useState(false);
   const [error, setError]     = useState("");
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  // Complete Season Phase 4B: a completed season's join code is retired
+  // (the new season gets its own) and its team settings are history.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManageJoinCode = coach.role === "head_coach" && !seasonReadOnly;
 
   // Phase 5: shares the *same* code with the existing New Code/Revoke UI
   // below (seeded from it, and pushes its own regenerate result back into
@@ -235,7 +240,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
                   /api/team/[slug]/join-codes; hidden here too so a
                   non-head-coach never sees a control that would just 401.
                   Copy Join Link stays available to all staff above. */}
-              {coach.role === "head_coach" && (
+              {canManageJoinCode && (
                 <>
                   <button
                     onClick={handleGenerate}
@@ -302,9 +307,9 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           <div style={{ textAlign: "center", padding: "1.25rem 0 .5rem", display: "flex", flexDirection: "column", alignItems: "center", gap: ".5rem" }}>
             <Link2 size={26} style={{ color: "var(--text-muted-app)", opacity: .6 }} />
             <p style={{ margin: "0 0 .5rem", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
-              No join code yet. Generate one to let parents and athletes join.
+              {seasonReadOnly ? "This season is completed — join with the current season's code." : "No join code yet. Generate one to let parents and athletes join."}
             </p>
-            <button
+            {!seasonReadOnly && <button
               onClick={handleGenerate}
               disabled={working}
               style={{
@@ -319,7 +324,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               }}
             >
               {working ? "Generating…" : "Generate Join Code"}
-            </button>
+            </button>}
           </div>
         )}
 
@@ -350,7 +355,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               Team Branding
             </span>
           </div>
-          <TeamBrandingSection slug={slug} branding={branding} />
+          <ReadOnlyFieldset><TeamBrandingSection slug={slug} branding={branding} /></ReadOnlyFieldset>
         </>
       )}
 
@@ -362,7 +367,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
               Coach Fundraising
             </span>
           </div>
-          <CoachFundraisingSection slug={slug} initialAllowCoachFundraising={allowCoachFundraising} />
+          <ReadOnlyFieldset><CoachFundraisingSection slug={slug} initialAllowCoachFundraising={allowCoachFundraising} /></ReadOnlyFieldset>
         </>
       )}
 
@@ -474,7 +479,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           qrFilename={joinCodeState.qrFilename}
           signupData={joinCodeState.signupData}
           generateOrRegenerate={joinCodeState.generateOrRegenerate}
-          canManageJoinCode={coach.role === "head_coach"}
+          canManageJoinCode={canManageJoinCode}
           onClose={() => setQrModalOpen(false)}
         />
       )}

@@ -45,7 +45,7 @@ const smallBtnGhost: React.CSSProperties = {
 export default function DesktopFollowUpsView({ workspace }: { workspace: FollowUpsWorkspaceState }) {
   const {
     rows, sort, setSort, filter, setFilter, visibleRows,
-    openUpdate, openHistory, handleExport, handlePrint,
+    openUpdate, openHistory, handleExport, handlePrint, canUpdate,
   } = workspace;
 
   return (
@@ -155,7 +155,7 @@ export default function DesktopFollowUpsView({ workspace }: { workspace: FollowU
                     </td>
                     <td style={td}>
                       <div style={{ display: "flex", gap: ".4rem" }}>
-                        <button onClick={() => openUpdate(r)} style={smallBtn}>Update</button>
+                        {canUpdate && <button onClick={() => openUpdate(r)} style={smallBtn}>Update</button>}
                         <button onClick={() => openHistory(r)} style={smallBtnGhost}>History</button>
                       </div>
                     </td>

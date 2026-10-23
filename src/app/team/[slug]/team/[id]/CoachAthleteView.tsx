@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import { Phone, Mail } from "lucide-react";
 import Modal from "../../_components/Modal";
+import { useSeasonReadOnly } from "../../_components/SeasonStatus";
 import { buildAthleteShareUrl } from "@/lib/shareCopy";
 import AthleteTaskCompletion from "./AthleteTaskCompletion";
 
@@ -281,6 +282,9 @@ function ContactsSection({
   athleteId: string;
   primaryColor: string;
 }) {
+  // Complete Season Phase 4B: contacts stay listed on a completed season;
+  // adding, editing and deleting are not offered.
+  const seasonReadOnly = useSeasonReadOnly();
   const [contacts, setContacts] = useState<FundraisingContact[]>([]);
   const [goal, setGoal] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -375,7 +379,7 @@ function ContactsSection({
                   Added by {c.added_by_type} · {fmtDate(c.created_at)}
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: ".15rem", flexShrink: 0 }}>
+              {!seasonReadOnly && <div style={{ display: "flex", flexDirection: "column", gap: ".15rem", flexShrink: 0 }}>
                 <button
                   onClick={() => { setEditing(c); setShowModal(true); }}
                   style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".65rem", fontWeight: 600, color: "#b0b7c3", padding: ".1rem .3rem", borderRadius: 5 }}
@@ -388,18 +392,18 @@ function ContactsSection({
                 >
                   Delete
                 </button>
-              </div>
+              </div>}
             </div>
           ))}
         </div>
       )}
 
-      <button
+      {!seasonReadOnly && <button
         onClick={() => { setEditing(null); setShowModal(true); }}
         style={{ width: "100%", padding: ".5rem", background: "#f0f4ff", color: "#1d4ed8", border: "1.5px dashed #93c5fd", borderRadius: 9, fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
       >
         + Add Contact
-      </button>
+      </button>}
 
       {showModal && (
         <ContactModal
@@ -417,6 +421,8 @@ function ContactsSection({
 // ── Outreach section ──────────────────────────────────────────────────────────
 
 function OutreachSection({ slug, athleteId }: { slug: string; athleteId: string }) {
+  // Complete Season Phase 4B: outreach history stays; no new entries.
+  const seasonReadOnly = useSeasonReadOnly();
   const [history, setHistory] = useState<OutreachRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
@@ -455,7 +461,7 @@ function OutreachSection({ slug, athleteId }: { slug: string; athleteId: string 
       <div style={sectionTitle}>Outreach History</div>
 
       {/* Add note */}
-      <div style={{ marginBottom: ".75rem", display: "flex", flexDirection: "column", gap: ".45rem" }}>
+      {!seasonReadOnly && <div style={{ marginBottom: ".75rem", display: "flex", flexDirection: "column", gap: ".45rem" }}>
         <select
           value={status}
           onChange={e => setStatus(e.target.value as "contacted" | "needs_follow_up" | "resolved")}
@@ -478,7 +484,7 @@ function OutreachSection({ slug, athleteId }: { slug: string; athleteId: string 
         >
           {posting ? "Saving…" : "Log Outreach"}
         </button>
-      </div>
+      </div>}
 
       {/* History */}
       {loading ? (

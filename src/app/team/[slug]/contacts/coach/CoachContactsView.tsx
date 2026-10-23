@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { AthleteSummary, CoachSummaryResponse } from "@/app/api/team/[slug]/contacts/coach/summary/route";
 import Modal from "../../_components/Modal";
 import { downloadViaFetch } from "../../_components/fileDownload";
+import { useSeasonReadOnly } from "../../_components/SeasonStatus";
 import { Phone, Mail, Users } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -162,6 +163,8 @@ function AthleteContactList({
   athleteId: string;
   primaryColor: string;
 }) {
+  // Complete Season Phase 4B: contacts stay listed; no deleting on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading]   = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -208,7 +211,7 @@ function AthleteContactList({
                 Added by {c.added_by_type} · {fmtDate(c.created_at)}
               </div>
             </div>
-            <button
+            {!seasonReadOnly && <button
               onClick={() => handleDelete(c.id)}
               disabled={deleting === c.id}
               style={{
@@ -219,7 +222,7 @@ function AthleteContactList({
               }}
             >
               Delete
-            </button>
+            </button>}
           </div>
         );
       })}
@@ -339,12 +342,16 @@ function AthleteRow({
 export default function CoachContactsView({
   slug,
   primaryColor,
-  canSetGoals,
+  canSetGoals: canSetGoalsForRole,
 }: {
   slug: string;
   primaryColor: string;
   canSetGoals: boolean;
 }) {
+  // Complete Season Phase 4B: goals are a season setting — not changeable
+  // once the season is completed (totals and goals stay visible; CSV export stays).
+  const seasonReadOnly = useSeasonReadOnly();
+  const canSetGoals = canSetGoalsForRole && !seasonReadOnly;
   const [data, setData]           = useState<CoachSummaryResponse | null>(null);
   const [loading, setLoading]     = useState(true);
   const [expanded, setExpanded]   = useState<string | null>(null);

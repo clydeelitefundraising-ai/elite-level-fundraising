@@ -7,6 +7,7 @@ import AthleteRequestsPanel from "./AthleteRequestsPanel";
 import CommentApprovalsPanel from "./CommentApprovalsPanel";
 import ParentAccessRequestsPanel from "./ParentAccessRequestsPanel";
 import ReportsPanel from "./ReportsPanel";
+import { ReadOnlyFieldset } from "../_components/SeasonStatus";
 import styles from "./Requests.module.css";
 
 // ── Section wrapper (Phase 3B-1, retokenized Phase 8B) ──────────────────────
@@ -119,6 +120,9 @@ export default function RequestsView({
           </RequestSection>
 
           <RequestSection title="Athlete Requests" icon={<UserPlus size={13} strokeWidth={2} />} count={athleteRequestCount ?? 0}>
+            {/* Complete Season Phase 4B: approvals are season changes — listed,
+                but disabled on a completed season. Reports (safety) stay live. */}
+            <ReadOnlyFieldset label="Requests can't be approved or declined because this season is completed.">
             <AthleteRequestsPanel
               slug={slug}
               rosterAthletes={rosterAthletes}
@@ -126,24 +130,29 @@ export default function RequestsView({
               emptyState={<EmptyRow message="No pending athlete requests." />}
               hideHeader
             />
+            </ReadOnlyFieldset>
           </RequestSection>
 
           <RequestSection title="Comment Approvals" icon={<MessageSquare size={13} strokeWidth={2} />} count={commentApprovalCount ?? 0}>
+            <ReadOnlyFieldset label="Requests can't be approved or declined because this season is completed.">
             <CommentApprovalsPanel
               slug={slug}
               onCountChange={setCommentApprovalCount}
               emptyState={<EmptyRow message="No pending comment approvals." />}
               hideHeader
             />
+            </ReadOnlyFieldset>
           </RequestSection>
 
           <RequestSection title="Parent Access Requests" icon={<Users size={13} strokeWidth={2} />} count={parentAccessRequestCount ?? 0}>
+            <ReadOnlyFieldset label="Requests can't be approved or declined because this season is completed.">
             <ParentAccessRequestsPanel
               slug={slug}
               onCountChange={setParentAccessRequestCount}
               emptyState={<EmptyRow message="No pending parent access requests." />}
               hideHeader
             />
+            </ReadOnlyFieldset>
           </RequestSection>
         </>
       )}

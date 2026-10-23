@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, UserPlus } from "lucide-react";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Role = "head_coach" | "assistant_coach" | "booster";
 type AssignableRole = "assistant_coach" | "booster";
@@ -111,9 +112,11 @@ function StaffCard({
 }
 
 function PendingCard({
-  inv, onResend, onRevoke, busy,
+  inv, onResend, onRevoke, busy, canManage,
 }: {
   inv: PendingInvitation;
+  /** Resend/Revoke — off on a completed season (the list stays visible). */
+  canManage: boolean;
   onResend: (inv: PendingInvitation) => void;
   onRevoke: (inv: PendingInvitation) => void;
   busy: boolean;
@@ -131,7 +134,7 @@ function PendingCard({
           {inv.email} &middot; {roleLabel(inv.role)} &middot; expires {timeUntil(inv.expires_at)}
         </div>
       </div>
-      <div style={{ display: "flex", gap: ".3rem", flexShrink: 0 }}>
+      {canManage && <div style={{ display: "flex", gap: ".3rem", flexShrink: 0 }}>
         <button
           disabled={busy}
           onClick={() => onResend(inv)}
@@ -146,7 +149,7 @@ function PendingCard({
         >
           Revoke
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -156,6 +159,9 @@ export default function StaffView({
 }: {
   slug: string;
 }) {
+  // Complete Season Phase 4B: a completed season's staff list is history —
+  // no adding, removing or invitation changes (the API refuses them too).
+  const seasonReadOnly = useSeasonReadOnly();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [pending, setPending] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -331,15 +337,15 @@ export default function StaffView({
             Team Staff
           </h2>
           <div style={{ flex: 1 }} />
-          <button
+          {!seasonReadOnly && <button
             onClick={openAdd}
             style={{ display: "flex", alignItems: "center", gap: ".35rem", padding: ".45rem .85rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".8rem", fontWeight: 700, cursor: "pointer" }}
           >
             <UserPlus size={15} /> Add Staff
-          </button>
+          </button>}
         </div>
         <p style={{ margin: ".3rem 0 0", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
-          Manage the assistant coaches and boosters who help run your team.
+          {seasonReadOnly ? "The assistant coaches and boosters who helped run this season." : "Manage the assistant coaches and boosters who help run your team."}
         </p>
       </div>
 
@@ -376,7 +382,7 @@ export default function StaffView({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {assistantCoaches.map(s => (
-                  <StaffCard key={s.id} s={s} canRemove={rowBusy !== s.id} onRemove={handleRemove} />
+                  <StaffCard key={s.id} s={s} canRemove={!seasonReadOnly && rowBusy !== s.id} onRemove={handleRemove} />
                 ))}
               </div>
             )}
@@ -392,7 +398,7 @@ export default function StaffView({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {boosters.map(s => (
-                  <StaffCard key={s.id} s={s} canRemove={rowBusy !== s.id} onRemove={handleRemove} />
+                  <StaffCard key={s.id} s={s} canRemove={!seasonReadOnly && rowBusy !== s.id} onRemove={handleRemove} />
                 ))}
               </div>
             )}
@@ -408,7 +414,7 @@ export default function StaffView({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
                 {pending.map(inv => (
-                  <PendingCard key={inv.id} inv={inv} onResend={handleResend} onRevoke={handleRevoke} busy={rowBusy === inv.id} />
+                  <PendingCard key={inv.id} inv={inv} onResend={handleResend} onRevoke={handleRevoke} busy={rowBusy === inv.id} canManage={!seasonReadOnly} />
                 ))}
               </div>
             )}

@@ -17,6 +17,7 @@ import {
   type EditOp,
 } from "./attendanceEditor";
 import { useUnsavedChangesGuard, type GuardRequest } from "./unsavedChangesGuard";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import type { GradeTabKey } from "../team/rosterHelpers";
 
 /** History shown under the editor: the last year of saved sessions. */
@@ -45,6 +46,11 @@ export function useAttendanceEditor(slug: string, initialDate: string | null, ap
   useEffect(() => { void loadList(); }, [loadList]);
 
   // ── One date ────────────────────────────────────────────────────────────
+  // Complete Season Phase 4B: a completed season's attendance is history —
+  // every date loads read-only, like a finalized session (saved marks stay
+  // visible; the API refuses writes too). AttendanceScreen shows the
+  // completed-season reason instead of "finalized".
+  const seasonReadOnly = useSeasonReadOnly();
   const load = state.load;
   useEffect(() => {
     if (load.kind !== "loading") return;
@@ -52,11 +58,11 @@ export function useAttendanceEditor(slug: string, initialDate: string | null, ap
     void api.loadDate(load.date).then(res => {
       if (cancelled) return;
       dispatch(res.ok
-        ? { type: "date_loaded", seq: load.seq, view: res.value }
+        ? { type: "date_loaded", seq: load.seq, view: seasonReadOnly && res.value.editability === "editable" ? { ...res.value, editability: "session_not_draft" as const } : res.value }
         : { type: "date_failed", seq: load.seq, failure: res.failure });
     });
     return () => { cancelled = true; };
-  }, [api, load]);
+  }, [api, load, seasonReadOnly]);
 
   // ── Save Draft ──────────────────────────────────────────────────────────
   const save = useCallback(async () => {
