@@ -23,7 +23,12 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-export default function SeasonPreviewReport({ preview, openCheckouts }: { preview: SeasonPreview; openCheckouts: OpenCheckouts }) {
+export default function SeasonPreviewReport({ preview, openCheckouts, completionEnabled = false }: {
+  preview: SeasonPreview;
+  openCheckouts: OpenCheckouts;
+  /** Phase 5A: completion is switched on (the confirm step follows below). */
+  completionEnabled?: boolean;
+}) {
   const p = preview;
   const blocked = p.blockers.length > 0;
   const mustRejoin = [...p.members.must_rejoin.map(m => ({ key: m.member_id, name: m.name, role: m.role })),
@@ -189,7 +194,9 @@ export default function SeasonPreviewReport({ preview, openCheckouts }: { previe
       )}
 
       <div className={styles.footerNote} role="note">
-        <strong>Preview only.</strong> Completing a season isn&apos;t available yet. When it is, it will take effect immediately and can&apos;t be undone from the app.
+        {completionEnabled
+          ? <><strong>Before you confirm:</strong> completing takes effect immediately and can&apos;t be undone from the app.</>
+          : <><strong>Preview only.</strong> Completing a season isn&apos;t available yet. When it is, it will take effect immediately and can&apos;t be undone from the app.</>}
       </div>
     </div>
   );

@@ -27,13 +27,15 @@ GRANT EXECUTE ON FUNCTION pg_temp.u(text) TO service_role;
 
 SELECT pg_temp.ok('marker: this database is the expected QA project (never production)',
   (SELECT project_ref <> 'nggabucgcoaffpppchsp' FROM elf_qa.marker));
-SELECT pg_temp.ok('install: baseline, 27 migrations, Complete Season 1-3 and buckets all recorded',
-  (SELECT count(*) FROM elf_qa.applied WHERE step <> 'seed' AND step NOT LIKE 'season_transition%') = 32);
-SELECT pg_temp.ok('install: Complete Season schema present (lineage, audit log, guards, preview grant)',
+SELECT pg_temp.ok('install: baseline, 27 migrations, Complete Season 1-4 and buckets all recorded',
+  (SELECT count(*) FROM elf_qa.applied WHERE step <> 'seed' AND step NOT LIKE 'season_transition%') = 33);
+SELECT pg_temp.ok('install: Complete Season schema present (lineage, audit log, guards, preview and completion grants)',
   to_regclass('public.team_season_transitions') IS NOT NULL
   AND (SELECT count(*) FROM pg_trigger WHERE tgname = 'season_write_guard') = 34
   AND has_function_privilege('service_role', 'public.team_season_preview(text,jsonb,text,text)', 'EXECUTE')
-  AND NOT has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE'));
+  AND has_function_privilege('service_role', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE')
+  AND NOT has_function_privilege('authenticated', 'public.team_season_complete(text,jsonb,text,text,text,uuid,text)', 'EXECUTE'));
 SELECT pg_temp.ok('storage: 9 buckets; message-attachments and team-files private, the rest public',
   (SELECT count(*) FROM storage.buckets WHERE id IN ('message-attachments', 'team-files', 'athlete-photos', 'community-partner-logos',
      'profile-photos', 'shop-images', 'sponsor-logos', 'team-branding-logos', 'team-logos')) = 9

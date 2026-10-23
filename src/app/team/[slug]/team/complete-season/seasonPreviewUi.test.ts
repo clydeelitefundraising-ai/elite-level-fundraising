@@ -121,7 +121,10 @@ test("open Stripe checkouts: counted, 'at least' when more, and an honest 'could
   assert.ok(!report(lions(), { state: "checked", count: 0, more: false }).includes("still open"));
 });
 
-test("no way to complete: the report has no buttons or forms; the screen's only action refreshes the preview", () => {
+// Phase 5A: completion lives only in CompleteSeasonPanel.tsx, rendered when
+// the server page passes completionEnabled (COMPLETE_SEASON_EXECUTE) — see
+// seasonCompleteUi.test.ts. By default (flag off) this still holds.
+test("completion off (default): the report has no buttons or forms; the screen's only action refreshes the preview", () => {
   const html = report(lions());
   assert.ok(!html.includes("<button") && !html.includes("<form"));
   assert.ok(html.includes("Preview only.") && html.includes("isn't available yet"));

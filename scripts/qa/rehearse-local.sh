@@ -12,7 +12,7 @@
 #   guard tests and refusals, schema install, idempotent re-run, marker and
 #   changed-file refusals, catalog equality with the test runners' schema,
 #   QA secrets + synthetic seed + the Hawks season transition, the smoke
-#   test, login-hash verification — and finally the Phase 1–3 SQL suites.
+#   test, login-hash verification — and finally the Phase 1–4 SQL suites.
 # The cluster and every generated secret are deleted at the end.
 set -u
 export PGCLIENTENCODING=UTF8
@@ -66,8 +66,8 @@ if ELF_QA_ENV_FILE="$QA_ENV" bash "$HERE/apply-schema.sh" > "$WORK/apply1.out" 2
   pass "schema installed: $(grep -c '^applied ' "$WORK/apply1.out") steps applied in $(( $(date +%s) - start ))s ($(grep -E '^connected' "$WORK/apply1.out"))"
 else fail "schema install"; tail -25 "$WORK/apply1.out"; fi
 grep -q "prepared baseline: removed 33 lines" "$WORK/apply1.out" && pass "baseline prepared for Supabase (platform-owned rls_auto_enable left untouched)" || fail "baseline preparation"
-ELF_QA_ENV_FILE="$QA_ENV" bash "$HERE/apply-schema.sh" > "$WORK/apply2.out" 2>&1 && grep -q "== done: 0 applied, 32 already applied" "$WORK/apply2.out" \
-  && pass "re-running the installer applies nothing (32 steps already applied)" || { fail "idempotent re-run"; tail -5 "$WORK/apply2.out"; }
+ELF_QA_ENV_FILE="$QA_ENV" bash "$HERE/apply-schema.sh" > "$WORK/apply2.out" 2>&1 && grep -q "== done: 0 applied, 33 already applied" "$WORK/apply2.out" \
+  && pass "re-running the installer applies nothing (33 steps already applied)" || { fail "idempotent re-run"; tail -5 "$WORK/apply2.out"; }
 Q() { node "$HERE/guard.mjs" psql --env "$QA_ENV" -- -q -t -A -v ON_ERROR_STOP=1 "$@" 2>/dev/null | tr -d '\r'; }
 [ "$(Q -c "SELECT environment || ':' || project_ref FROM elf_qa.marker")" = "local-rehearsal:local-rehearsal" ] && pass "QA marker recorded" || fail "QA marker"
 [ "$(Q -c "SELECT has_schema_privilege('service_role', 'elf_qa', 'USAGE') OR has_schema_privilege('anon', 'elf_qa', 'USAGE')")" = "f" ] \
@@ -90,7 +90,7 @@ $SU -d elfqa -c "UPDATE elf_qa.applied SET sha256 = '$(sha256sum "$ROOT/supabase
 # The reference is built INDEPENDENTLY of install-order.txt, from the test
 # runners' own migration list, so a wrong install order can't hide itself.
 RUNNER_LIST=$(sed -n '/^AFTER_BASELINE="/,/"$/p' "$ROOT/supabase/tests/phase_s1_complete_season/run.sh" | tr -d '"\r' | sed 's/^AFTER_BASELINE=//' | grep -v '^$')
-REF_LIST="$RUNNER_LIST phase_s1_complete_season phase_s2_completed_season_read_only phase_s3_season_preview_access"
+REF_LIST="$RUNNER_LIST phase_s1_complete_season phase_s2_completed_season_read_only phase_s3_season_preview_access phase_s4_season_complete_access"
 ORDER_LIST=$(tr -d '\r' < "$HERE/install-order.txt" | grep -vE '^(#|baseline |storage_buckets |$)' | cut -d' ' -f1)
 if [ "$(echo $ORDER_LIST)" = "$(echo $REF_LIST)" ]; then pass "install order = the test runners' order ($(echo $REF_LIST | wc -w) migrations after the baseline)"
 else fail "install order differs from the test runners' list"; fi
@@ -133,10 +133,10 @@ console.log(ok+" "+bad);' "$WORK/secrets" "$WORK/hashes.tsv" "$WORK/legacy.tsv" 
 read -r okn badn < "$WORK/hashcheck.out"
 [ "${badn:-1}" = 0 ] && [ "${okn:-0}" = 20 ] && pass "all 20 synthetic logins hash correctly with the QA secrets (18 ELF accounts + legacy coach on 2 teams)" || fail "login hashes: $okn ok, $badn bad"
 
-# ── 6. Phase 1–3 SQL suites ────────────────────────────────────────────
+# ── 6. Phase 1–4 SQL suites ────────────────────────────────────────────
 # (REHEARSE_SKIP_SUITES=1 skips them while iterating; a full rehearsal runs them.)
-[ "${REHEARSE_SKIP_SUITES:-0}" = 1 ] && { echo "SKIP  Phase 1-3 SQL suites (REHEARSE_SKIP_SUITES=1)"; failed=1; }
-[ "${REHEARSE_SKIP_SUITES:-0}" = 1 ] || for s in phase_s1_complete_season phase_s2_completed_season_read_only phase_s3_season_preview_access; do
+[ "${REHEARSE_SKIP_SUITES:-0}" = 1 ] && { echo "SKIP  Phase 1-4 SQL suites (REHEARSE_SKIP_SUITES=1)"; failed=1; }
+[ "${REHEARSE_SKIP_SUITES:-0}" = 1 ] || for s in phase_s1_complete_season phase_s2_completed_season_read_only phase_s3_season_preview_access phase_s4_season_complete_access; do
   if bash "$ROOT/supabase/tests/$s/run.sh" > "$WORK/$s.out" 2>&1; then
     pass "$s suite: $(grep -E '^(BEHAVIOR|PHASE 2 BEHAVIOR|CONCURRENCY)' "$WORK/$s.out" | tr '\n' ' ')"
   else fail "$s suite"; grep -E '^(FAIL|BEHAVIOR|PHASE)' "$WORK/$s.out"; fi

@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { OpenCheckouts, SeasonPreview } from "@/lib/seasonPreview";
 import { arizonaTodayISO } from "@/lib/calendarShared";
 import SeasonPreviewReport from "./SeasonPreviewReport";
+import CompleteSeasonPanel, { CompletionReceiptView, type CompletionReceipt } from "./CompleteSeasonPanel";
 import { nextSeasonLabelPlaceholder, nextSlugPlaceholder } from "./seasonPreviewText";
 import styles from "./SeasonPreview.module.css";
 
@@ -41,15 +42,24 @@ export async function fetchPreviewState(url: string): Promise<State> {
   }
 }
 
-export default function SeasonPreviewScreen({ slug }: { slug: string }) {
+export default function SeasonPreviewScreen({ slug, completionEnabled = false }: {
+  slug: string;
+  /** Phase 5A: COMPLETE_SEASON_EXECUTE is on (decided by the server page). */
+  completionEnabled?: boolean;
+}) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [nextSlug, setNextSlug] = useState("");
   const [nextLabel, setNextLabel] = useState("");
+  // The next-season address/name the shown preview was loaded with — the
+  // completion sends exactly these, so it matches what the coach reviewed.
+  const [applied, setApplied] = useState({ toSlug: "", toSeasonLabel: "" });
+  const [receipt, setReceipt] = useState<CompletionReceipt | null>(null);
   // Example year for the placeholders (Arizona date, like the rest of the app).
   const nextYear = Number(arizonaTodayISO().slice(0, 4)) + 1;
 
   const load = useCallback(async (s: string, l: string) => {
     setState({ kind: "loading" });
+    setApplied({ toSlug: s.trim(), toSeasonLabel: l.trim() });
     setState(await fetchPreviewState(previewUrl(slug, s, l)));
   }, [slug]);
 
@@ -59,13 +69,25 @@ export default function SeasonPreviewScreen({ slug }: { slug: string }) {
     return () => { active = false; };
   }, [slug]);
 
+  if (receipt) {
+    return (
+      <div className={styles.page}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Complete Season</h1>
+        </header>
+        <CompletionReceiptView receipt={receipt} />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Complete Season — Preview</h1>
         <p className={styles.lede}>
           Completing a season archives this season as read-only history and immediately makes the next season this
-          team&apos;s active season. Review what would happen below. This is a preview — nothing changes.
+          team&apos;s active season. Review what would happen below.{" "}
+          {completionEnabled ? "Nothing changes until you confirm at the bottom." : "This is a preview — nothing changes."}
         </p>
       </header>
 
@@ -93,7 +115,18 @@ export default function SeasonPreviewScreen({ slug }: { slug: string }) {
         <div className={styles.state} role="status"><strong>Not available yet.</strong> {state.message}</div>
       )}
       {state.kind === "error" && <div className={styles.state} role="alert">{state.message}</div>}
-      {state.kind === "ready" && <SeasonPreviewReport preview={state.preview} openCheckouts={state.openCheckouts} />}
+      {state.kind === "ready" && (
+        <SeasonPreviewReport preview={state.preview} openCheckouts={state.openCheckouts} completionEnabled={completionEnabled} />
+      )}
+      {completionEnabled && state.kind === "ready" && (
+        <CompleteSeasonPanel
+          slug={slug}
+          preview={state.preview}
+          applied={applied}
+          onReload={() => void load(applied.toSlug, applied.toSeasonLabel)}
+          onCompleted={setReceipt}
+        />
+      )}
     </div>
   );
 }

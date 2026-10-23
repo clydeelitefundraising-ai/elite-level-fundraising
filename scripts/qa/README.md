@@ -35,7 +35,7 @@ Nothing here runs against Supabase until you approve it. Rehearse locally first:
 |---|---|
 | `qa.env.example` | the config file's keys (copy to `%USERPROFILE%\.elf-qa\qa.env`) |
 | `guard.mjs`, `guard.test.mjs` | connection guard and its tests |
-| `install-order.txt` | baseline → 27 later migrations → Complete Season 1–3 → buckets |
+| `install-order.txt` | baseline → 27 later migrations → Complete Season 1–4 → buckets |
 | `prepare-baseline.mjs` | leaves Supabase's own `rls_auto_enable` function alone |
 | `preflight.mjs`, `sql/preflight.sql` | READ-ONLY checks: guard, API keys (status codes only), database facts in a server-enforced read-only session |
 | `apply-schema.sh` | marker + ordered, recorded install |

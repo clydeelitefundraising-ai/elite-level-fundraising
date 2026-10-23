@@ -25,6 +25,7 @@ const EXEMPT: Record<string, string> = {
   "team/[slug]/messages/attachments/[attachmentId]/moderate-remove POST": "moderation removal (moderation purpose header)",
   "team/[slug]/push/subscribe POST": "device registration, not season content",
   "team/[slug]/push/unsubscribe DELETE": "device unregistration",
+  "team/[slug]/season/complete POST": "the transition itself: team_season_complete() refuses a completed season under its own row lock, and must still replay a just-completed transition's receipt",
   // Outside /team/[slug].
   "account/profile PATCH": "account-level profile",
   "account/profile/photo POST": "account-level profile photo",

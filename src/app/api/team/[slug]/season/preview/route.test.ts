@@ -219,9 +219,12 @@ test("open Stripe checkouts: counted for this team only (read-only list call); u
   }
 });
 
-test("no execution path: the route only reads, and nothing in the app calls team_season_complete", async () => {
+// Phase 5A: the transition has exactly ONE caller, src/lib/seasonComplete.ts
+// (used only by the flag-gated POST /season/complete — see its tests). The
+// preview route itself still only reads and never reaches it.
+test("no execution path here: the preview route only reads; only src/lib/seasonComplete.ts calls team_season_complete", async () => {
   assert.deepEqual(Object.keys(route).filter(k => /^(GET|POST|PUT|PATCH|DELETE)$/.test(k)), ["GET"]);
-  assert.deepEqual(readdirSync(join(process.cwd(), "src/app/api/team/[slug]/season")), ["preview"]);
+  assert.deepEqual(readdirSync(join(process.cwd(), "src/app/api/team/[slug]/season")).sort(), ["complete", "preview"]);
   const offenders: string[] = [];
   (function walk(dir: string) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -231,7 +234,7 @@ test("no execution path: the route only reads, and nothing in the app calls team
       if (/team_season_complete/.test(readFileSync(p, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""))) offenders.push(p);
     }
   })(join(process.cwd(), "src"));
-  assert.deepEqual(offenders, []);
+  assert.deepEqual(offenders.map(p => p.replace(/\\/g, "/").replace(/^.*\/src\//, "src/")), ["src/lib/seasonComplete.ts"]);
   await withPreviewWorld({ flag: "true" }, async calls => {
     ROLES.head();
     await get();
