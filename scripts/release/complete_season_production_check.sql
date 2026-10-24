@@ -1,23 +1,24 @@
--- Complete Season — production release check. READ-ONLY: run it in the
--- Supabase SQL editor of the PRODUCTION project before and after applying the
--- Complete Season migrations. It changes nothing (the transaction is
--- read-only and rolled back).
+-- Complete Season — production release check. READ-ONLY.
 --
--- Result rows (empty sections mean "nothing wrong"):
+-- One SELECT statement: it reads the catalog and counts rows, and cannot
+-- change anything. Paste the whole file into the Supabase SQL editor of the
+-- PRODUCTION project and press Run; the editor shows one result table.
+--
+-- Columns: section | item | status
+--   summary               one line per area; read these first
 --   prerequisite_missing  something phase_s1..s4 need that production lacks
---                         (a table, a column, or a phase_t5 function) — fix
+--                         (a column, or a phase_t5 function) — must be fixed
 --                         before applying phase_s1
---   complete_season       status of each Complete Season step:
---                         'not applied' before the release, 'applied' after
---   safety                completed seasons, transitions and API grants —
---                         right after the release: 0 completed, 0 transitions,
---                         only service_role on the two RPCs
+--   complete_season       each Complete Season migration: 'applied' or
+--                         'not applied'
+--   safety                completed seasons, transitions, and which roles
+--                         may call the season functions (after the release:
+--                         0, 0, and YES only for service_role on the preview
+--                         and team_season_complete_checked)
 --
 -- The expected columns are the QA schema (mzsvbxosoidwhntpjdkf) on
--- 2026-10-24, minus what phase_s1 adds; QA was built from the same
--- migrations as main.
-BEGIN READ ONLY;
-
+-- 2026-10-24 minus what phase_s1 adds; QA was built from the same migrations
+-- as main.
 WITH expected(table_name, column_name) AS (VALUES
     ('account_reset_tokens','id'),
     ('account_reset_tokens','account_id'),
@@ -769,44 +770,66 @@ WITH expected(table_name, column_name) AS (VALUES
     ('user_blocks','blocked_kind'),
     ('user_blocks','blocked_id'),
     ('user_blocks','created_at')
+),
+missing_columns AS (
+  SELECT e.table_name || '.' || e.column_name AS item
+  FROM expected e
+  WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns c
+                    WHERE c.table_schema = 'public' AND c.table_name = e.table_name AND c.column_name = e.column_name)
+),
+missing_functions AS (
+  SELECT f AS item
+  FROM unnest(ARRAY['public.team_attendance_today(text)', 'public.team_attendance_local_date(timestamptz,text)',
+                    'public.team_attendance_try_uuid(jsonb)']) f
+  WHERE to_regprocedure(f) IS NULL
+),
+steps AS (
+  SELECT * FROM (VALUES
+    (1, 'phase_s1_complete_season',            to_regclass('public.team_season_transitions') IS NOT NULL
+                                               AND to_regprocedure('public.team_season_complete(text,jsonb,text,text,text,uuid,text)') IS NOT NULL),
+    (2, 'phase_s2_completed_season_read_only', to_regprocedure('public.season_write_guard()') IS NOT NULL),
+    (3, 'phase_s3_season_preview_access',      to_regprocedure('public.team_season_preview(text,jsonb,text,text)') IS NOT NULL
+                                               AND has_function_privilege('service_role', 'public.team_season_preview(text,jsonb,text,text)', 'EXECUTE')),
+    (4, 'phase_s4_season_complete_access',     to_regprocedure('public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)') IS NOT NULL)
+  ) s(n, step, ok)
+),
+grants AS (
+  SELECT fn, r,
+         CASE WHEN to_regprocedure(fn) IS NULL THEN 'n/a'
+              WHEN has_function_privilege(r, fn, 'EXECUTE') THEN 'YES' ELSE 'no' END AS can_execute
+  FROM unnest(ARRAY['public.team_season_preview(text,jsonb,text,text)',
+                    'public.team_season_complete(text,jsonb,text,text,text,uuid,text)',
+                    'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)']) fn,
+       unnest(ARRAY['anon', 'authenticated', 'service_role']) r
+),
+rows AS (
+  SELECT 1 AS ord, 'summary' AS section, 'database' AS item,
+         current_database() || ' / ' || (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public')::text || ' public tables' AS status
+  UNION ALL
+  SELECT 1, 'summary', 'prerequisites',
+         CASE WHEN (SELECT count(*) FROM missing_columns) + (SELECT count(*) FROM missing_functions) = 0 THEN 'OK — nothing missing'
+              ELSE (SELECT count(*) FROM missing_columns)::text || ' column(s) and ' || (SELECT count(*) FROM missing_functions)::text
+                   || ' function(s) missing — see prerequisite_missing rows' END
+  UNION ALL
+  SELECT 1, 'summary', 'complete season migrations',
+         (SELECT count(*) FILTER (WHERE ok) FROM steps)::text || ' of 4 applied'
+  UNION ALL
+  SELECT 2, 'prerequisite_missing', item, 'column missing in production' FROM missing_columns
+  UNION ALL
+  SELECT 2, 'prerequisite_missing', item, 'function missing (phase_t5_attendance_drafts.sql)' FROM missing_functions
+  UNION ALL
+  SELECT 3, 'complete_season', n || '. ' || step, CASE WHEN ok THEN 'applied' ELSE 'not applied' END FROM steps
+  UNION ALL
+  SELECT 4, 'safety', 'completed seasons',
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'campaign_settings' AND column_name = 'season_completed_at')
+              THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.campaign_settings WHERE season_completed_at IS NOT NULL OR successor_campaign_slug IS NOT NULL', false, true, '')))[1]::text
+              ELSE 'n/a (phase_s1 not applied)' END
+  UNION ALL
+  SELECT 4, 'safety', 'season transitions',
+         CASE WHEN to_regclass('public.team_season_transitions') IS NOT NULL
+              THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.team_season_transitions', false, true, '')))[1]::text
+              ELSE 'n/a (phase_s1 not applied)' END
+  UNION ALL
+  SELECT 4, 'safety', split_part(fn, '(', 1) || ' executable by ' || r, can_execute FROM grants
 )
-SELECT 'prerequisite_missing' AS section, e.table_name || '.' || e.column_name AS item, 'column missing in production' AS status
-FROM expected e
-WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns c
-                  WHERE c.table_schema = 'public' AND c.table_name = e.table_name AND c.column_name = e.column_name)
-UNION ALL
-SELECT 'prerequisite_missing', f, 'function missing (phase_t5_attendance_drafts.sql)'
-FROM unnest(ARRAY['public.team_attendance_today(text)', 'public.team_attendance_local_date(timestamptz,text)',
-                  'public.team_attendance_try_uuid(jsonb)']) f
-WHERE to_regprocedure(f) IS NULL
-ORDER BY 1, 2;
-
-SELECT 'complete_season' AS section, step, CASE WHEN ok THEN 'applied' ELSE 'not applied' END AS status FROM (VALUES
-  ('phase_s1_complete_season',            to_regclass('public.team_season_transitions') IS NOT NULL
-                                          AND to_regprocedure('public.team_season_complete(text,jsonb,text,text,text,uuid,text)') IS NOT NULL),
-  ('phase_s2_completed_season_read_only', to_regprocedure('public.season_write_guard()') IS NOT NULL),
-  ('phase_s3_season_preview_access',      to_regprocedure('public.team_season_preview(text,jsonb,text,text)') IS NOT NULL
-                                          AND has_function_privilege('service_role', 'public.team_season_preview(text,jsonb,text,text)', 'EXECUTE')),
-  ('phase_s4_season_complete_access',     to_regprocedure('public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)') IS NOT NULL)
-) s(step, ok);
-
-SELECT 'safety' AS section, 'completed seasons' AS item,
-       CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'campaign_settings' AND column_name = 'season_completed_at')
-            THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.campaign_settings WHERE season_completed_at IS NOT NULL OR successor_campaign_slug IS NOT NULL', false, true, '')))[1]::text
-            ELSE 'n/a (phase_s1 not applied)' END AS status
-UNION ALL
-SELECT 'safety', 'season transitions',
-       CASE WHEN to_regclass('public.team_season_transitions') IS NOT NULL
-            THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.team_season_transitions', false, true, '')))[1]::text
-            ELSE 'n/a (phase_s1 not applied)' END
-UNION ALL
-SELECT 'safety', fn || ' executable by ' || r,
-       CASE WHEN to_regprocedure(fn) IS NULL THEN 'n/a'
-            WHEN has_function_privilege(r, fn, 'EXECUTE') THEN 'YES' ELSE 'no' END
-FROM unnest(ARRAY['public.team_season_preview(text,jsonb,text,text)',
-                  'public.team_season_complete(text,jsonb,text,text,text,uuid,text)',
-                  'public.team_season_complete_checked(text,jsonb,text,text,text,uuid,text)']) fn,
-     unnest(ARRAY['anon', 'authenticated', 'service_role']) r
-ORDER BY 1, 2;
-
-ROLLBACK;
+SELECT section, item, status FROM rows ORDER BY ord, section, item;

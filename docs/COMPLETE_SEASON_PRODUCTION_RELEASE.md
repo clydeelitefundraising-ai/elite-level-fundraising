@@ -43,7 +43,7 @@ The app is safe to run before the migrations: with the flags off nothing
 calls the new functions, and the season checks fail open when the columns
 are missing. Applying the migrations first is still the recommended order.
 
-**Check (read-only):** `scripts/release/complete_season_production_check.sql`
+**Check (read-only, one SELECT — paste the whole file into the SQL editor):** `scripts/release/complete_season_production_check.sql`
 — run it in the production SQL editor before the migrations (expect no
 `prerequisite_missing` rows and every step `not applied`) and after (every
 step `applied`, 0 completed seasons, 0 transitions, `YES` only for
