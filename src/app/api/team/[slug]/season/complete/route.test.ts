@@ -454,3 +454,30 @@ test("double submit (two simultaneous requests, same confirmation id): both forw
     assert.deepEqual(calls.complete.map(c => c.p_idempotency_key), [KEY, KEY]);
   });
 });
+
+// ── Rollout matrix (PREVIEW and EXECUTE are independent flags) ────────
+
+test("rollout matrix: completion runs only with BOTH flags on; EXECUTE alone exposes nothing (404, no database or Stripe call, for any role)", async () => {
+  const MATRIX: { flags: { preview?: string; execute?: string }; status: number }[] = [
+    { flags: {}, status: 404 },                                   // both off: hidden
+    { flags: { preview: "true" }, status: 404 },                  // preview only: read-only preview, no completion
+    { flags: { execute: "true" }, status: 404 },                  // execute without preview: still nothing
+    { flags: { preview: "true", execute: "true" }, status: 200 },  // both on: completes (all safeguards still apply)
+  ];
+  for (const { flags, status } of MATRIX) {
+    for (const role of ["head", "admin", "assistant"] as const) {
+      if (status === 200 && role === "assistant") continue; // role refusals are covered above
+      await withWorld({ flags }, async calls => {
+        ROLES[role]();
+        const res = await post(GOOD);
+        assert.equal(res.status, status, `${JSON.stringify(flags)} as ${role}`);
+        if (status === 404) {
+          assert.equal(calls.preview.length + calls.complete.length + calls.stripe.length, 0, `${JSON.stringify(flags)}: nothing is asked`);
+        } else {
+          assert.equal(calls.complete.length, 1);
+          assert.equal(calls.stripe.length, 1, "payments still verified");
+        }
+      });
+    }
+  }
+});

@@ -165,3 +165,27 @@ test("Phase 5D: the preview describes payments failing closed, never 'they'll co
   assert.match(open, /The season can't be completed while a checkout is\s+open/);
   for (const html of [unknown, open]) assert.doesNotMatch(html, /count toward this season|Any that finish/);
 });
+
+test("rollout matrix: both off → hidden; PREVIEW only → read-only preview; both on → preview + completion; EXECUTE alone → hidden", async () => {
+  const { isSeasonPreviewEnabled } = await import("../../../../../lib/seasonPreview.ts");
+  const { isSeasonCompletionEnabled } = await import("../../../../../lib/seasonComplete.ts");
+  const cases = [
+    { env: {},                                                              entryAndPage: false, completion: false },
+    { env: { COMPLETE_SEASON_PREVIEW: "true" },                             entryAndPage: true,  completion: false },
+    { env: { COMPLETE_SEASON_EXECUTE: "true" },                             entryAndPage: false, completion: false },
+    { env: { COMPLETE_SEASON_PREVIEW: "true", COMPLETE_SEASON_EXECUTE: "true" }, entryAndPage: true, completion: true },
+  ];
+  for (const c of cases) {
+    assert.equal(isSeasonPreviewEnabled(c.env), c.entryAndPage, `preview gate ${JSON.stringify(c.env)}`);
+    assert.equal(isSeasonCompletionEnabled(c.env), c.completion, `completion gate ${JSON.stringify(c.env)}`);
+  }
+  // The entry card and the page are behind the preview gate; the page 404s
+  // before it decides anything else, and only then asks the completion gate.
+  const page = read(`${DIR}/page.tsx`);
+  const pageGate = page.indexOf("if (!isSeasonPreviewEnabled()) notFound();");
+  assert.ok(pageGate > 0 && pageGate < page.indexOf("completionEnabled={isSeasonCompletionEnabled()}"));
+  assert.match(read("src/app/team/[slug]/team/page.tsx"), /\{isSeasonPreviewEnabled\(\) && canPreviewSeason\(actor\) && \(\s*<ActiveSeasonOnly><CompleteSeasonEntry/);
+  // With completion off the screen offers no inputs and no button.
+  const screen = read(`${DIR}/SeasonPreviewScreen.tsx`);
+  assert.match(screen, /\{completionEnabled && state\.kind === "ready" && \(\s*<CompleteSeasonPanel/);
+});

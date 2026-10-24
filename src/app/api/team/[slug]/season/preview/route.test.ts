@@ -242,3 +242,23 @@ test("no execution path here: the preview route only reads; only src/lib/seasonC
     assert.ok(calls.all.filter(u => u.includes("/rest/v1/rpc/")).every(u => u.endsWith("rpc/team_season_preview")));
   });
 });
+
+test("rollout matrix: the read-only preview follows COMPLETE_SEASON_PREVIEW alone; EXECUTE never opens or closes it", async () => {
+  const prevExec = process.env.COMPLETE_SEASON_EXECUTE;
+  try {
+    for (const [preview, execute, status] of [
+      [undefined, undefined, 404], ["true", undefined, 200], [undefined, "true", 404], ["true", "true", 200],
+    ] as const) {
+      if (execute === undefined) delete process.env.COMPLETE_SEASON_EXECUTE; else process.env.COMPLETE_SEASON_EXECUTE = execute;
+      await withPreviewWorld({ flag: preview }, async calls => {
+        ROLES.head();
+        const res = await get();
+        assert.equal(res.status, status, `preview=${preview} execute=${execute}`);
+        assert.equal(calls.rpc.length, status === 200 ? 1 : 0);
+        assert.ok(!calls.all.some(u => u.includes("team_season_complete")), "the preview never completes anything");
+      });
+    }
+  } finally {
+    if (prevExec === undefined) delete process.env.COMPLETE_SEASON_EXECUTE; else process.env.COMPLETE_SEASON_EXECUTE = prevExec;
+  }
+});
