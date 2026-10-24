@@ -820,6 +820,19 @@ rows AS (
   UNION ALL
   SELECT 3, 'complete_season', n || '. ' || step, CASE WHEN ok THEN 'applied' ELSE 'not applied' END FROM steps
   UNION ALL
+  SELECT 3, 'complete_season', 'objects: season functions',
+         (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'public' AND (p.proname LIKE 'season\_%' OR p.proname LIKE 'team\_season\_%'
+                                          OR p.proname = 'team_attendance_season_start_guard'))::text
+  UNION ALL
+  SELECT 3, 'complete_season', 'objects: read-only triggers', (SELECT count(*) FROM pg_trigger WHERE tgname = 'season_write_guard')::text
+  UNION ALL
+  SELECT 3, 'complete_season', 'objects: teams / teams without program_id',
+         (SELECT count(*) FROM public.campaign_settings)::text || ' / ' ||
+         CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'campaign_settings' AND column_name = 'program_id')
+              THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.campaign_settings WHERE program_id IS NULL', false, true, '')))[1]::text
+              ELSE 'n/a' END
+  UNION ALL
   SELECT 4, 'safety', 'completed seasons',
          CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'campaign_settings' AND column_name = 'season_completed_at')
               THEN (xpath('/row/n/text()', query_to_xml('SELECT count(*) AS n FROM public.campaign_settings WHERE season_completed_at IS NOT NULL OR successor_campaign_slug IS NOT NULL', false, true, '')))[1]::text

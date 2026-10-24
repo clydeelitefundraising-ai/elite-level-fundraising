@@ -1,8 +1,12 @@
-# Complete Season — production release
+# Complete Season — production release runbook
 
-Branch `feature/complete-season-preprod-hardening` (Complete Season Phases 1–5D
-on top of `main` at `ce85b8e`). Nothing here is applied, merged or deployed
-until the release owner approves each step.
+Branch `feature/complete-season-preprod-hardening` (Complete Season Phases
+1–5D on top of `main` at `ce85b8e`). Every production step below is run by
+the release owner, one stage at a time, after explicit approval.
+
+Production: Supabase `nggabucgcoaffpppchsp`, Vercel `elf-team-app`.
+Never QA (`mzsvbxosoidwhntpjdkf` / `elf-team-qa`) by mistake — check the
+project ref in the dashboard URL before every SQL step.
 
 ## 1. Feature flags (independent, both off by default)
 
@@ -17,90 +21,176 @@ Only the exact value `true` turns a flag on. Covered by the "rollout matrix"
 tests in `season/complete/route.test.ts`, `season/preview/route.test.ts` and
 `complete-season/seasonCompleteUi.test.ts`.
 
-## 2. Database
+## 2. Release scripts (`scripts/release/`)
 
-Four new migrations, applied in this order, each in its own transaction and
-safe to re-run:
+| File | What it does |
+|---|---|
+| `complete_season_production_check.sql` | One read-only SELECT: missing prerequisites, which of the four migrations are applied, object counts, completed seasons, transitions, function grants. |
+| `complete_season_uninstall.sql` | Emergency removal of exactly what phase_s1–s4 add. One transaction. Refuses once any season has been completed or linked. |
+| `test-local.sh` | Tests both on a disposable local PostgreSQL (install → uninstall → schema, privileges and data identical to before → reinstall → refusals). Never contacts Supabase. |
 
-1. `supabase/migrations/phase_s1_complete_season.sql`
-2. `supabase/migrations/phase_s2_completed_season_read_only.sql`
-3. `supabase/migrations/phase_s3_season_preview_access.sql`
-4. `supabase/migrations/phase_s4_season_complete_access.sql`
+Pre-release production check (2026-10-24): 69 public tables, prerequisites
+OK, 0 of 4 Complete Season migrations applied.
 
-They need everything already on `main`, in particular
-`phase_t5_attendance_drafts.sql` (phase_s1 refuses to run without it). Each
-later step refuses to run before the one it depends on.
+## 3. Stage A — backup (before any production change)
 
-What they change on existing data: phase_s1 adds lineage columns to
-`campaign_settings` and `athletes`, backfills `program_id = team_id`, and
-creates the `team_season_transitions` audit table. phase_s2 adds read-only
-triggers that refuse writes only for a *completed* season (none exist until
-the first completion). phase_s3/s4 grant `service_role` EXECUTE on the
-preview and on `team_season_complete_checked` only. No API role can call the
-raw transition.
+1. Supabase dashboard → production project → **Database → Backups**: note
+   the newest backup's time (and whether point-in-time recovery is on).
+2. Logical backup on your machine (asks for the database password; nothing
+   is printed). Use the **Session pooler** connection string from
+   Dashboard → Connect (port 5432):
 
-The app is safe to run before the migrations: with the flags off nothing
-calls the new functions, and the season checks fail open when the columns
-are missing. Applying the migrations first is still the recommended order.
+   ```bash
+   mkdir -p ~/elf-backups && cd ~/elf-backups
+   pg_dump "postgresql://postgres.nggabucgcoaffpppchsp@<session-pooler-host>:5432/postgres" \
+     -Fc --no-owner -f elf-prod-before-complete-season-$(date +%Y%m%d-%H%M).dump
+   pg_dump "postgresql://postgres.nggabucgcoaffpppchsp@<session-pooler-host>:5432/postgres" \
+     --schema-only --schema=public --no-owner -f elf-prod-public-schema-before-complete-season.sql
+   pg_restore --list elf-prod-before-complete-season-*.dump | head -5   # readable?
+   ls -lh                                                              # non-empty?
+   ```
 
-**Check (read-only, one SELECT — paste the whole file into the SQL editor):** `scripts/release/complete_season_production_check.sql`
-— run it in the production SQL editor before the migrations (expect no
-`prerequisite_missing` rows and every step `not applied`) and after (every
-step `applied`, 0 completed seasons, 0 transitions, `YES` only for
-service_role on the preview and `team_season_complete_checked`).
+   The dump holds all production data (personal data, password hashes):
+   keep it outside every repository, on an encrypted disk, and delete it
+   once the release is settled.
 
-No new npm dependencies.
+## 4. Stage B — database migrations (dashboard SQL editor, in this order)
 
-## 3. Production environment (Vercel project `elf-team-app`)
+Do this at a quiet time. Each migration is one transaction and takes
+seconds; phase_s1 and phase_s2 briefly lock `campaign_settings`,
+`athletes` and the 34 team tables while they add columns and triggers.
 
-| Variable | Release | Preview rollout | Completion rollout |
-|---|---|---|---|
-| `COMPLETE_SEASON_PREVIEW` | unset | `true` | `true` |
-| `COMPLETE_SEASON_EXECUTE` | unset | unset | `true` |
-| `STRIPE_SECRET_KEY` | live key (as today) | same | same — must be able to list Checkout Sessions, or completion is refused (503 `payments_unverified`) |
-| `ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS` | never set | never set | never set (the build refuses it outside QA) |
-| `ELF_DEPLOYMENT`, `ELF_QA_SUPABASE_REF`, `ELF_QA_ALLOW_OUTBOUND` | never set | never set | never set |
+For each step: open the file from the branch, copy all of it, Supabase →
+SQL Editor → New query, paste, Run. The editor may warn about "destructive
+operations" for the migrations: they contain `DROP … IF EXISTS` lines that
+only replace their own objects — confirm. If the editor reports an error,
+the whole step rolled back: stop and report it.
 
-A Vercel environment change takes effect on the next deployment.
+After each step, run `complete_season_production_check.sql` again. N = the
+number of teams the check reported before Stage B.
 
-## 4. Release order
+| Step | File | Expected check result afterwards |
+|---|---|---|
+| B0 | (check only) | `0 of 4 applied`; functions 0; triggers 0; `teams / without program_id` = `N / n/a` |
+| B1 | `supabase/migrations/phase_s1_complete_season.sql` | `1 of 4`; season functions **15**; triggers 0; `N / 0`; completed seasons 0; transitions 0; preview executable by service_role **no**; `team_season_complete` executable by nobody |
+| B2 | `supabase/migrations/phase_s2_completed_season_read_only.sql` | `2 of 4`; functions **23**; read-only triggers **34**; `N / 0` |
+| B3 | `supabase/migrations/phase_s3_season_preview_access.sql` | `3 of 4`; functions 23; triggers 34; preview executable by service_role **YES** (anon/authenticated **no**) |
+| B4 | `supabase/migrations/phase_s4_season_complete_access.sql` | `4 of 4`; functions **24**; triggers 34; `team_season_complete_checked` executable by service_role **YES** only; `team_season_complete` by nobody; completed seasons 0; transitions 0 |
 
-1. Run the check script on production (read-only).
-2. Apply phase_s1 → s4 in the production SQL editor; re-run the check.
-3. Merge to `main`; production deploys with both flags unset. Smoke: a team's
-   To-Do shows no Complete Season card; `/team/<slug>/team/complete-season`
-   is 404; `POST /api/team/<slug>/season/complete` is 404.
-4. Later, preview rollout: `COMPLETE_SEASON_PREVIEW=true`, redeploy.
-5. Later, completion rollout: `COMPLETE_SEASON_EXECUTE=true`, redeploy.
+Each step refuses to run before the one it needs, and re-running a step is
+harmless. No other production migration is needed: the check found every
+prerequisite (including `phase_t5_attendance_drafts`).
 
-## 5. Rollback
+The current production app is unaffected by these migrations: nothing calls
+the new functions, and the read-only triggers act only on a completed
+season (there are none).
 
-- **Stop completions now:** remove `COMPLETE_SEASON_EXECUTE` (and
-  `COMPLETE_SEASON_PREVIEW` to hide the preview) and redeploy, or use
-  Vercel Instant Rollback to the last deployment before the merge (no build).
-- **Remove the code:** `git revert -m 1 <merge commit>` on `main`, push,
-  deploy. The previous app runs unchanged with the new schema present.
-- **Database:** leave the migrations in place. They are additive and dormant
-  until a season is completed. There is no down-migration; dropping the
-  read-only triggers or the audit table needs its own reviewed migration.
-- **A season completed in production cannot be undone from the app.** See
-  `docs/COMPLETE_SEASON_REVERSAL.md` (manual, reviewed migration; the audit
-  row is permanent and a reversed season can't be completed again without a
-  schema change).
+## 5. Stage C — merge and deploy with both flags OFF
 
-## 6. Known minor risks
+Pre-checks:
+- Vercel → `elf-team-app` → Settings → Environment Variables:
+  `COMPLETE_SEASON_PREVIEW`, `COMPLETE_SEASON_EXECUTE`,
+  `ELF_QA_ALLOW_UNVERIFIED_CHECKOUTS`, `ELF_DEPLOYMENT`, `ELF_QA_*` must
+  **not** exist. `STRIPE_SECRET_KEY` stays as it is.
+- Vercel → Settings → Git: production branch is `main` (a push deploys).
+- Note the current production deployment (Deployments → Production) — the
+  Instant Rollback target.
 
-- Some layout and permission checks are tested by reading the source, not by
-  rendering the real page (entry card, page gate, panel gate).
+Merge (Git Bash), in a fresh detached worktree as for earlier releases:
+
+```bash
+cd /c/Projects/elf-complete-season
+git fetch origin
+git rev-parse --short origin/main            # expect ce85b8e; if not, stop
+git worktree add --detach /c/Projects/elf-merge-complete-season origin/main
+cd /c/Projects/elf-merge-complete-season
+git merge --no-ff feature/complete-season-preprod-hardening \
+  -m "Merge Complete Season (Phases 1-5D); flags off"
+git diff --stat origin/main HEAD | tail -1    # ~240 files
+git push origin HEAD:main
+```
+
+Then wait for the Vercel production build (Deployments → newest →
+Ready). The deployment guard prints nothing for production; a build that
+mentions `deployment-guard` refusing something must not be promoted.
+
+## 6. Stage D — post-deployment smoke tests (both flags off)
+
+- [ ] Site loads; sign in as yourself; Teams list and a team Home load.
+- [ ] Team → To-Do: **no** "Complete Season" card.
+- [ ] `/team/<your-team>/team/complete-season` → "page isn't available" (404).
+- [ ] Browser console on a team page:
+      `await fetch('/api/team/<slug>/season/preview').then(r => r.status)` → **404**;
+      `await fetch('/api/team/<slug>/season/complete', {method:'POST'}).then(r => r.status)` → **404**.
+- [ ] Normal writes still work on an active team you own: post and delete a
+      test announcement, save attendance, edit a calendar event.
+- [ ] Join flow: `/join/<your team's current code>` shows the team.
+- [ ] Re-run the check script: still `4 of 4`, completed seasons 0, transitions 0.
+- [ ] Vercel → Runtime logs for 15 minutes: no new errors mentioning
+      `season`, `campaign_settings` or `season_completed_read_only`.
+
+## 7. Stage E — preview-only mode (separate approval)
+
+1. Vercel → `elf-team-app` → Environment Variables → add
+   `COMPLETE_SEASON_PREVIEW` = `true` (Production). Leave
+   `COMPLETE_SEASON_EXECUTE` unset.
+2. Redeploy the current production deployment (Deployments → ⋯ → Redeploy).
+3. Smoke tests:
+   - [ ] As a Head Coach of a team you own: To-Do shows the Complete Season
+         card; the preview loads, says **"Preview only"**, has **no** typed
+         confirmation fields and **no** Complete button.
+   - [ ] The preview's numbers look right for that team (grades, carry-over,
+         blockers). It changes nothing.
+   - [ ] As an Assistant Coach / parent / athlete: no card; the page says it
+         isn't available; `/season/preview` → 403.
+   - [ ] `POST /api/team/<slug>/season/complete` → **404** for everyone.
+   - [ ] Check script: completed seasons 0, transitions 0.
+
+Enabling completion (`COMPLETE_SEASON_EXECUTE=true`) is a later, separate
+release with its own approval.
+
+## 8. Rollback
+
+Use the lightest level that solves the problem.
+
+1. **Hide the feature** (minutes): delete `COMPLETE_SEASON_PREVIEW` (and
+   `COMPLETE_SEASON_EXECUTE`), redeploy. Everything returns to "both off".
+2. **Previous app** (seconds): Vercel → Deployments → the pre-merge
+   production deployment → Instant Rollback. (Vercel then stops promoting
+   new pushes automatically until you undo the rollback.)
+3. **Remove the code from `main`**:
+   ```bash
+   cd /c/Projects/elf-merge-complete-season
+   git fetch origin && git checkout --detach origin/main
+   git revert -m 1 <merge commit> --no-edit
+   git push origin HEAD:main
+   ```
+   The old app runs fine with the new schema present.
+4. **Remove the database objects** — only if the schema itself is the
+   problem, only after level 1, 2 or 3, and only while no season has ever
+   been completed: run `scripts/release/complete_season_uninstall.sql` in
+   the SQL editor (expect `0 0 0 0`; it refuses otherwise), then the check
+   script (`0 of 4`). Tested locally: schema, privileges and data end up
+   identical to before Stage B.
+5. **Restore the backup** — last resort for data damage; it discards every
+   change made since the backup. Prefer the Supabase dashboard restore;
+   otherwise restore single tables from the Stage A dump with `pg_restore`.
+
+A season completed in production cannot be undone from the app or by the
+uninstall script: see `docs/COMPLETE_SEASON_REVERSAL.md`.
+
+## 9. Known minor risks
+
+- Some page-level gates (entry card, page gate, panel gate) are tested by
+  reading the source, not by rendering the real page.
 - JSX whitespace: the production build dropped a space the test renderer
   kept (fixed in 568c4fc). Similar build-only spacing slips are possible
   elsewhere.
-- The phase_s2 triggers add a small lookup to writes on team tables
-  (measured fine on realistically large QA teams in `large.sh`).
-- Payment verification depends on the Stripe API. A Stripe outage refuses
-  completion (fail closed) rather than risking a donation landing on an
-  archived season.
+- The phase_s2 triggers add a small lookup to writes on 34 team tables
+  (measured fine on large QA teams in `large.sh`).
+- The preview asks Stripe for open checkouts (read-only). If the live key
+  can't list Checkout Sessions the preview says so; completion, once
+  enabled, would then be refused (fail closed).
 - An open checkout blocks completion for up to 24 hours.
-- Production schema drift: the check script compares production with the QA
-  schema. Columns added only in production by hand are not a problem; a
-  missing one must be fixed before phase_s1.
+- The check script compares production with the QA schema; columns that
+  exist only in production are not a problem.
