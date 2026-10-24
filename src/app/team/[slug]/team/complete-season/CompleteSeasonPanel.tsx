@@ -110,7 +110,7 @@ export default function CompleteSeasonPanel({
           <p>
             You are completing <strong>{teamName}</strong> — <strong>{preview.from.season_label}</strong> (/{slug}).
             It becomes read-only history immediately, and <strong>{preview.proposed.season_label ?? "the next season"}</strong>
-            {preview.proposed.slug ? <> (/{preview.proposed.slug})</> : null} becomes the team&apos;s active season.
+            {preview.proposed.slug ? <> (/{preview.proposed.slug})</> : null}{" "}becomes the team&apos;s active season.
             The new fundraiser stays off until ELF turns it on. This can&apos;t be undone from the app.
           </p>
           <div className={styles.confirmForm} data-testid="complete-season-confirm">

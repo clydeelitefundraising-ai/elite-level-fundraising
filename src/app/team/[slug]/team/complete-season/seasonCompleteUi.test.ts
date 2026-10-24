@@ -46,7 +46,7 @@ test("the panel names the team and both seasons, asks for the team address and t
   assert.match(html, /Lions High School · Track and Field/);
   assert.match(html, /2027 Season/);
   assert.match(html, /2028 Season/);
-  assert.match(html, /\(\/lions-track-2028\)/);
+  assert.match(html, /\(\/lions-track-2028\) becomes the team's active season/, "space kept after the new address");
   assert.match(html, /Type the team address <code>lions-track-2027<\/code>/);
   assert.match(html, /Type <code>COMPLETE 2027 SEASON<\/code>/);
   assert.match(html, /<button type="button"[^>]*disabled=""[^>]*>Complete 2027 Season<\/button>/, "disabled until both match");
