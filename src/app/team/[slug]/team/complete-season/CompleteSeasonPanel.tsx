@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SeasonPreview } from "@/lib/seasonPreview";
 import { confirmationMatches } from "@/lib/seasonConfirmation";
+import { plural } from "./seasonPreviewText";
 import styles from "./SeasonPreview.module.css";
 
 export type CompletionReceipt = {
@@ -112,7 +113,7 @@ export default function CompleteSeasonPanel({
             {preview.proposed.slug ? <> (/{preview.proposed.slug})</> : null} becomes the team&apos;s active season.
             The new fundraiser stays off until ELF turns it on. This can&apos;t be undone from the app.
           </p>
-          <div className={styles.overrides} style={{ display: "grid", gap: ".6rem" }}>
+          <div className={styles.confirmForm} data-testid="complete-season-confirm">
             <label className={styles.field}>
               Type the team address <code>{slug}</code>
               <input value={typedSlug} onChange={e => setTypedSlug(e.target.value)} autoCapitalize="none" autoCorrect="off"
@@ -123,7 +124,7 @@ export default function CompleteSeasonPanel({
               <input value={typedPhrase} onChange={e => setTypedPhrase(e.target.value)} autoComplete="off" maxLength={100}
                 aria-describedby="complete-season-help" />
             </label>
-            <p id="complete-season-help" style={{ margin: 0, fontSize: ".8rem" }}>
+            <p id="complete-season-help" className={styles.confirmHelp}>
               The button turns on when both match. Capitals and extra spaces in the phrase don&apos;t matter.
             </p>
             <button type="button" className={styles.btn} onClick={() => void submit()} disabled={!canSubmit} aria-disabled={!canSubmit}>
@@ -149,6 +150,8 @@ export function CompletionReceiptView({ receipt }: { receipt: CompletionReceipt 
   const s = receipt.summary;
   const n = (k: string) => (typeof s[k] === "number" ? (s[k] as number) : 0);
   const when = new Date(receipt.completedAt);
+  const graduated = n("athletes_graduated");
+  const rejoin = n("members_must_rejoin") + n("coaches_must_rejoin");
   return (
     <section className={styles.section} aria-labelledby="season-completed" data-testid="completion-receipt">
       <h2 id="season-completed" className={styles.sectionTitle}>Season completed</h2>
@@ -158,10 +161,10 @@ export function CompletionReceiptView({ receipt }: { receipt: CompletionReceipt 
         team&apos;s active season{Number.isNaN(when.getTime()) ? "" : ` (completed ${when.toLocaleString("en-US", { timeZone: "America/Phoenix" })})`}.
       </p>
       <ul>
-        <li>{n("athletes_carried")} athletes moved to the new season; {n("athletes_graduated")} graduated and stay in this season.</li>
-        <li>{n("members_carried")} family members and {n("coaches_carried")} staff carried over.</li>
-        <li>{n("members_must_rejoin") + n("coaches_must_rejoin")} people need to rejoin or be invited to the new season.</li>
-        <li>{n("calendar_events_copied")} upcoming calendar events copied. The new fundraiser is off until ELF turns it on.</li>
+        <li>{plural(n("athletes_carried"), "athlete")} moved to the new season; {graduated} graduated and {graduated === 1 ? "stays" : "stay"} in this season.</li>
+        <li>{plural(n("members_carried"), "family member")} and {plural(n("coaches_carried"), "staff member")} carried over.</li>
+        <li>{plural(rejoin, "person", "people")} {rejoin === 1 ? "needs" : "need"} to rejoin or be invited to the new season.</li>
+        <li>{plural(n("calendar_events_copied"), "upcoming calendar event")} {n("calendar_events_copied") === 1 ? "was" : "were"} copied. The new fundraiser is off until ELF turns it on.</li>
       </ul>
       {receipt.paymentsUnverified && (
         <p role="note" data-testid="payments-unverified">QA test environment: open donation checkouts were not verified (Stripe isn&apos;t configured here).</p>

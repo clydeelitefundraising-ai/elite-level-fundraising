@@ -183,11 +183,16 @@ export default function SeasonPreviewReport({ preview, openCheckouts, completion
             {openCheckouts.state === "checked" && openCheckouts.count > 0 && (
               <li>
                 {openCheckouts.more ? "At least " : ""}{plural(openCheckouts.count, "donation checkout")} started in the last 24 hours
-                {openCheckouts.count === 1 ? " is" : " are"} still open. If completed, they&apos;ll count toward this season.
+                {openCheckouts.count === 1 ? " is" : " are"} still open. The season can&apos;t be completed while a checkout is
+                open — wait for it to finish (up to 24 hours), then reload this preview.
               </li>
             )}
+            {/* Payments fail closed (Phase 5B): completion is refused until Stripe can be asked. */}
             {openCheckouts.state === "unknown" && (
-              <li>Open donation checkouts couldn&apos;t be checked right now. Any that finish will count toward this season.</li>
+              <li>
+                Open donation checkouts couldn&apos;t be checked right now, so the season can&apos;t be completed yet —
+                ELF won&apos;t complete it until every open checkout can be verified. Try again later.
+              </li>
             )}
           </ul>
         </Section>

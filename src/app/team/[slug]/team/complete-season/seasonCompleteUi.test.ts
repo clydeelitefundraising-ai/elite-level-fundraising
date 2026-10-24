@@ -120,3 +120,48 @@ test("with the execute flag off nothing completes: no panel, and the report stil
   assert.match(page, /completionEnabled=\{isSeasonCompletionEnabled\(\)\}/);
   assert.match(read("src/lib/seasonComplete.ts"), /env\.COMPLETE_SEASON_PREVIEW === "true" && env\.COMPLETE_SEASON_EXECUTE === "true"/);
 });
+
+// Phase 5D — pre-production polish.
+const receiptHtml = (summary: Record<string, number>) => decode(renderToStaticMarkup(h(CompletionReceiptView as never, { receipt: {
+  transitionId: "t-1", fromSlug: "lions-track-2027", toSlug: "lions-track-2028", toSeasonLabel: "2028 Season",
+  completedAt: "2026-10-23T17:00:00Z", replayed: false, summary,
+  newSeasonUrl: "/team/lions-track-2028/home", archivedSeasonUrl: "/team/lions-track-2027/home",
+} } as never)));
+
+test("Phase 5D: the receipt uses singular wording for counts of one", () => {
+  const one = receiptHtml({ athletes_carried: 1, athletes_graduated: 1, members_carried: 1, coaches_carried: 1,
+    members_must_rejoin: 1, coaches_must_rejoin: 0, calendar_events_copied: 1 });
+  assert.match(one, /1 athlete moved to the new season; 1 graduated and stays in this season\./);
+  assert.match(one, /1 family member and 1 staff member carried over\./);
+  assert.match(one, /1 person needs to rejoin or be invited/);
+  assert.match(one, /1 upcoming calendar event was copied\./);
+  assert.doesNotMatch(one, /1 people|1 athletes|1 upcoming calendar events|1 family members/);
+});
+
+test("Phase 5D: the receipt uses plural wording for zero and many", () => {
+  const many = receiptHtml({ athletes_carried: 4, athletes_graduated: 2, members_carried: 3, coaches_carried: 2,
+    members_must_rejoin: 2, coaches_must_rejoin: 1, calendar_events_copied: 0 });
+  assert.match(many, /4 athletes moved to the new season; 2 graduated and stay in this season\./);
+  assert.match(many, /3 family members and 2 staff members carried over\./);
+  assert.match(many, /3 people need to rejoin/);
+  assert.match(many, /0 upcoming calendar events were copied\./);
+});
+
+test("Phase 5D: the confirmation fields stack one per row and fill the form's width", () => {
+  const html = panel();
+  assert.match(html, /data-testid="complete-season-confirm"/);
+  assert.doesNotMatch(read(`${DIR}/CompleteSeasonPanel.tsx`), /styles\.overrides/, "not the 3-column overrides grid");
+  const css = read(`${DIR}/SeasonPreview.module.css`);
+  assert.match(css, /\.confirmForm \{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(css, /\.confirmForm \.field input \{\s*width: 100%;/);
+  // No media query switches the confirmation form to columns.
+  assert.doesNotMatch(css.slice(css.indexOf("@media")), /confirmForm/);
+});
+
+test("Phase 5D: the preview describes payments failing closed, never 'they'll count toward this season'", () => {
+  const unknown = decode(renderToStaticMarkup(h(SeasonPreviewReport as never, { preview: PREVIEW, openCheckouts: { state: "unknown" }, completionEnabled: true } as never)));
+  assert.match(unknown, /Open donation checkouts couldn't be checked right now, so the season can't be completed yet/);
+  const open = decode(renderToStaticMarkup(h(SeasonPreviewReport as never, { preview: PREVIEW, openCheckouts: { state: "checked", count: 2, more: false }, completionEnabled: true } as never)));
+  assert.match(open, /The season can't be completed while a checkout is\s+open/);
+  for (const html of [unknown, open]) assert.doesNotMatch(html, /count toward this season|Any that finish/);
+});

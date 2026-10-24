@@ -117,7 +117,7 @@ test("every blocker and warning the database can return has plain-language text"
 test("open Stripe checkouts: counted, 'at least' when more, and an honest 'couldn't check'", () => {
   assert.ok(report(lions(), { state: "checked", count: 2, more: false }).includes("2 donation checkouts started in the last 24 hours are still open"));
   assert.ok(report(lions(), { state: "checked", count: 1, more: true }).includes("At least 1 donation checkout started in the last 24 hours is still open"));
-  assert.ok(report(lions(), { state: "unknown" }).includes("Open donation checkouts couldn't be checked right now"));
+  assert.ok(report(lions(), { state: "unknown" }).includes("Open donation checkouts couldn't be checked right now, so the season can't be completed yet"));
   assert.ok(!report(lions(), { state: "checked", count: 0, more: false }).includes("still open"));
 });
 
