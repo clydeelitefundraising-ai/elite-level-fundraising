@@ -77,8 +77,9 @@ number of teams the check reported before Stage B.
 | B3 | `supabase/migrations/phase_s3_season_preview_access.sql` | `3 of 4`; functions 23; triggers 34; preview executable by service_role **YES** (anon/authenticated **no**) |
 | B4 | `supabase/migrations/phase_s4_season_complete_access.sql` | `4 of 4`; functions **24**; triggers 34; `team_season_complete_checked` executable by service_role **YES** only; `team_season_complete` by nobody; completed seasons 0; transitions 0 |
 
-Each step refuses to run before the one it needs, and re-running a step is
-harmless. No other production migration is needed: the check found every
+Each step refuses to run before the one it needs. If you re-run a step, also
+re-run every later step, in order (re-running phase_s1 alone removes the
+preview grant that phase_s3 adds). No other production migration is needed: the check found every
 prerequisite (including `phase_t5_attendance_drafts`).
 
 The current production app is unaffected by these migrations: nothing calls
