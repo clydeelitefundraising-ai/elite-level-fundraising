@@ -6,6 +6,7 @@ import type { SponsorRow } from "@/lib/teamData";
 import { isStaff, isCoachOnly, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // ── Tier config ───────────────────────────────────────────────────────────────
 
@@ -309,7 +310,9 @@ export default function SponsorsView({
   // permissions.ts), so deriving canManage from it would have hidden this
   // UI from platform admins despite isCoachOnly(actor) being true for them.
   const staff = isStaff(actor);
-  const canManage = isCoachOnly(actor);
+  // Complete Season Phase 4: a completed season's sponsors are history.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManage = isCoachOnly(actor) && !seasonReadOnly;
   const [sponsors,       setSponsors]       = useState<SponsorRow[]>(initialSponsors);
   const [form,           setForm]           = useState<SponForm>(BLANK);
   const [editing,        setEditing]        = useState<SponsorRow | null>(null);

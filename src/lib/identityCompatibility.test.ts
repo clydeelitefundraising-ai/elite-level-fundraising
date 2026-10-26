@@ -162,10 +162,15 @@ test("resolveAccountActorKind: coach-only roles (head_coach/assistant_coach) win
   assert.equal(resolveAccountActorKind("head_coach", false), "coach");
 });
 
-test("/coach-login route file is unchanged in its credential-check logic (legacy login must keep working)", () => {
+test("/coach-login keeps its credential check (legacy login must keep working)", () => {
+  // Complete Season Phase 2 changed only WHICH row is checked: every row for
+  // the email, instead of an arbitrary first one (coachLoginMatch.ts). The
+  // check itself is the same hashPassword(password, salt) === password_hash.
   const src = read("src/app/api/team/auth/login/route.ts");
   assert.match(src, /team_coaches\?email=eq\./);
-  assert.match(src, /hashPassword\(password, coach\.salt\)/);
+  assert.match(src, /decideCoachLogin\(.*, password, hashPassword\)/);
+  const match = read("src/lib/coachLoginMatch.ts");
+  assert.match(match, /hash\(password, r\.salt\) === r\.password_hash/);
 });
 
 test("role-check functions were not touched by this phase — isHeadCoach/isStaff semantics unchanged", () => {

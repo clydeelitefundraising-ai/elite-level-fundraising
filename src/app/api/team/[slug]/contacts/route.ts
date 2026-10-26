@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 import { isCoachOnly } from "@/lib/permissions";
@@ -180,6 +181,8 @@ function validateBody(body: Record<string, unknown>): string | null {
 // to their own session id — never a client-supplied coach id.
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
 
   if (actor.kind === "public") {

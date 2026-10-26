@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -23,6 +24,8 @@ export async function POST(
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
+  if (seasonBlocked) return seasonBlocked;
 
   // Fetch the coach
   const coachRes = await fetch(

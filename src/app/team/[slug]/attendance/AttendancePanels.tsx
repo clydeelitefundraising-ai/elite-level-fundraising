@@ -16,6 +16,7 @@ import {
 } from "./attendanceFormat";
 import { entryStateText } from "./AttendanceRow";
 import styles from "./Attendance.module.css";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // Team Management Phase 5-4 — the attendance screen's panels: date
 // selection, summary, history, merge notice, conflicts and the
@@ -39,6 +40,8 @@ export function DatePanel({
   onSelect: (date: string) => void;
 }) {
   const inputId = useId();
+  // Complete Season Phase 4B: no edit window on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
   return (
     <section className={styles.card} aria-labelledby={`${inputId}-title`}>
       <h2 id={`${inputId}-title`} className={styles.cardTitle}>Date</h2>
@@ -89,7 +92,7 @@ export function DatePanel({
           {dateError === "future" ? "Attendance can't be taken for a future date." : "That isn't a valid date."}
         </p>
       )}
-      <p id={`${inputId}-help`} className={styles.muted}>{today ? editableWindowText(today) : "Loading the team's date…"}</p>
+      <p id={`${inputId}-help`} className={styles.muted}>{seasonReadOnly ? "This season is completed — attendance can be viewed but not taken or changed." : today ? editableWindowText(today) : "Loading the team's date…"}</p>
     </section>
   );
 }

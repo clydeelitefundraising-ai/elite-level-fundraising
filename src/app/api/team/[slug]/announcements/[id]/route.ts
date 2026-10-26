@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 
@@ -22,6 +23,8 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (actor.kind === "public" || !isStaff(actor)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,6 +54,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only head coaches can delete announcements." }, { status: 403 });

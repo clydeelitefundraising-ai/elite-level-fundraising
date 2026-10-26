@@ -2,6 +2,8 @@
 
 import { Plus } from "lucide-react";
 
+import { useSeasonReadOnly } from "./SeasonStatus";
+
 // Phase 5: tokenized (was hardcoded navy #0b1e3d) + Lucide Plus icon
 // (was a literal "+" text glyph). Shared across Home, Sponsors, Shop,
 // Files/Updates (mobile+desktop), Calendar (mobile+desktop), and Team —
@@ -16,7 +18,10 @@ export default function CoachBar({
   label: string;
   onAdd: () => void;
 }) {
-  if (!show) return null;
+  // Every CoachBar adds season content (announcement, event, file, product,
+  // sponsor, athlete) — none of it is allowed on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
+  if (!show || seasonReadOnly) return null;
 
   return (
     <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: ".75rem" }}>

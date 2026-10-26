@@ -6,6 +6,7 @@ import type { TeamFileRow } from "@/lib/teamData";
 import { isStaff, isHeadCoach, type TeamActor } from "@/lib/permissions";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import { downloadViaFetch, fetchFileBlob } from "../_components/fileDownload";
 
 // Only these can be shown inline (img/iframe) in the VIEW modal. DOC/DOCX
@@ -81,8 +82,10 @@ export default function FilesView({
   initialFiles: TeamFileRow[];
   actor: TeamActor;
 }) {
-  const canUpload = isStaff(actor);
-  const canDelete = isHeadCoach(actor);
+  // Complete Season Phase 4: a completed season's files are read-only.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canUpload = isStaff(actor) && !seasonReadOnly;
+  const canDelete = isHeadCoach(actor) && !seasonReadOnly;
   const [files,        setFiles]        = useState<TeamFileRow[]>(initialFiles);
   const [uploading,    setUploading]    = useState(false);
   const [uploadFile,   setUploadFile]   = useState("");

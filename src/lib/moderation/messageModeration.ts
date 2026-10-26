@@ -15,6 +15,11 @@
 // session isn't team-locked); a real coach's campaignSlug always comes
 // from getTeamActor(slug), which is itself locked to their own team.
 import { restList, restUpdate } from "../platform/_client.ts";
+import { writePurposeHeaders } from "../writePurpose.ts";
+
+// Moderation removals also apply to completed (read-only) seasons; the
+// purpose header tells the database guard this is a moderation removal.
+const moderationUpdate = <T>(path: string, body: unknown) => restUpdate<T>(path, body, writePurposeHeaders("moderation"));
 import { MESSAGE_ATTACHMENTS_BUCKET } from "../messages.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -83,7 +88,7 @@ export async function removeMessage(messageId: string, campaignSlug: string): Pr
   try {
     // Conditional UPDATE (WHERE deleted_at IS NULL) — same claim-before-
     // mutate race-safety pattern already used by comments.ts's decide().
-    await restUpdate(
+    await moderationUpdate(
       `messages?id=eq.${encodeURIComponent(messageId)}&deleted_at=is.null`,
       { body: "", deleted_at: new Date().toISOString() },
     );
@@ -92,7 +97,7 @@ export async function removeMessage(messageId: string, campaignSlug: string): Pr
       `message_attachments?message_id=eq.${encodeURIComponent(messageId)}&removed_at=is.null&select=id,storage_path`,
     );
     if (attachments.length > 0) {
-      await restUpdate(
+      await moderationUpdate(
         `message_attachments?message_id=eq.${encodeURIComponent(messageId)}&removed_at=is.null`,
         { removed_at: new Date().toISOString() },
       );
@@ -126,7 +131,7 @@ export async function removeAttachment(attachmentId: string, campaignSlug: strin
   if (attachment.removed_at) return { ok: true };
 
   try {
-    await restUpdate(
+    await moderationUpdate(
       `message_attachments?id=eq.${encodeURIComponent(attachmentId)}&removed_at=is.null`,
       { removed_at: new Date().toISOString() },
     );

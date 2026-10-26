@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { parseMemberId, verifyMemberCookie } from "@/lib/memberAuth";
@@ -35,6 +36,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const key = rateLimitKey("member-activate", req);
   const rl  = await checkRateLimit(key, LIMIT);

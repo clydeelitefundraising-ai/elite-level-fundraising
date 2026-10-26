@@ -16,7 +16,8 @@ test("Completion button: coaches only (Head, Assistant, platform admin); Create 
   assert.match(todo, /\{isCoachView && data\.available && \(\s*<div style=\{\{ display: "flex", gap: "\.4rem", flexShrink: 0 \}\}>\s*<button type="button" onClick=\{\(\) => openCompletion\(null, "list"\)\} className=\{`\$\{styles\.btnOutline\} elf-focus-ring`\} style=\{\{ flexShrink: 0 \}\}>Completion<\/button>/);
   // Create Task sits in the same group and still needs canManage (Head Coach / platform admin).
   assert.match(todo, /\{isCoachView && data\.available && \([\s\S]*?\{canManage && data\.available && \(\s*<button type="button" onClick=\{\(\) => setEditTarget\("new"\)\}[^>]*>\+ Create Task/);
-  has(todo, `const canManage = !!data?.canManage;`);
+  // Complete Season Phase 4: and never on a completed (read-only) season.
+  has(todo, `const canManage = !!data?.canManage && !seasonReadOnly;`);
   // Order in the header: heading, Completion, Create Task.
   assert.ok(todo.indexOf(">Completion</button>") < todo.indexOf(">+ Create Task</button>"));
 });

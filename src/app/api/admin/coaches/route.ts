@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -70,6 +71,9 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  const seasonBlocked = await seasonWriteBlocked(campaign_slug.trim());
+  if (seasonBlocked) return seasonBlocked;
 
   const salt = generateSalt();
   const password_hash = hashPassword(password.trim(), salt);

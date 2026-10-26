@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
@@ -66,6 +67,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 // ── Rename — any staff (coach or booster)
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isStaff(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -83,6 +86,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 // ── Delete — head coach only
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only head coaches can delete files." }, { status: 403 });

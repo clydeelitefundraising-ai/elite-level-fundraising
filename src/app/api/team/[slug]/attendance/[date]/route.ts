@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isIsoDate } from "@/lib/teamAttendance";
@@ -54,6 +55,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // coach, the date window, and the roster.
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { slug, date } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   const denied = denyUnlessAttendanceEditor(actor);
   if (denied) return denied;

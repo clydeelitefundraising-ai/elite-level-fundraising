@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import {
@@ -38,6 +39,8 @@ async function loadManageableGroup(slug: string, threadId: string) {
 // loadManageableGroup's role check above.
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   const { slug, threadId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const loaded = await loadManageableGroup(slug, threadId);
   if (!loaded.ok) {
     return NextResponse.json({ error: loaded.error }, { status: loaded.status });
@@ -58,6 +61,8 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
 // the participants route) but may NOT archive, even a group they created.
 export async function DELETE(_req: NextRequest, { params }: RouteCtx) {
   const { slug, threadId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (actor.kind !== "coach" || actor.session.role !== "head_coach") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

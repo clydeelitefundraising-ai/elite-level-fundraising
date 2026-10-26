@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { searchAthletes } from "@/app/enter-code/athleteSearch";
 import type { FamilyAthlete } from "./familyStatus";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 function StatusRow({
   athlete, label, color, background,
@@ -58,6 +59,9 @@ export default function FamilyView({
   pending:    FamilyAthlete[];
   searchable: FamilyAthlete[];
 }) {
+  // Complete Season Phase 4B: linked/pending athletes stay listed on a
+  // completed season; new link requests go to the current season.
+  const seasonReadOnly = useSeasonReadOnly();
   const [linkedList, setLinkedList]     = useState(linked);
   const [pendingList, setPendingList]   = useState(pending);
   const [searchableList, setSearchableList] = useState(searchable);
@@ -142,7 +146,11 @@ export default function FamilyView({
         </div>
       )}
 
-      {!showSearch ? (
+      {seasonReadOnly ? (
+        <p role="note" style={{ margin: 0, fontSize: ".85rem", color: "var(--text-muted-app, #6b7280)" }}>
+          This season is completed — to link an athlete, open the team&apos;s current season.
+        </p>
+      ) : !showSearch ? (
         <button
           type="button"
           onClick={() => setShowSearch(true)}

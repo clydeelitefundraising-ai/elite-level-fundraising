@@ -9,6 +9,7 @@ import {
   canManageGroupThread,
   type ActorKey,
 } from "@/lib/messages";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import ThreadView from "./ThreadView";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,16 @@ export default async function ThreadPage({
   // cannot be imported into ThreadView.tsx itself ("use client"), hence
   // passing the already-resolved boolean down instead of the raw thread
   // metadata needed to recompute it client-side.
+  // A completed season's threads stay readable but read-only (the server
+  // and database refuse sends and group changes regardless).
+  const seasonReadOnly = isSeasonCompleted(settings);
   const canManageGroup =
+    !seasonReadOnly &&
     thread.thread_type === "group" &&
     actor.kind === "coach" &&
     (actor.session.role === "head_coach" || actor.session.role === "assistant_coach") &&
     canManageGroupThread(actor.session.role, actor.session.id, thread);
-  const canArchiveGroup = thread.thread_type === "group" && actor.kind === "coach" && actor.session.role === "head_coach";
+  const canArchiveGroup = !seasonReadOnly && thread.thread_type === "group" && actor.kind === "coach" && actor.session.role === "head_coach";
 
   return (
     <ThreadView
@@ -70,6 +75,7 @@ export default async function ThreadPage({
       primaryColor={settings.primary_color}
       canManageGroup={canManageGroup}
       canArchiveGroup={canArchiveGroup}
+      seasonReadOnly={seasonReadOnly}
     />
   );
 }

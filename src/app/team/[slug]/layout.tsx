@@ -15,6 +15,8 @@ import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
 import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
 import NativePushRegistrar from "./_components/NativePushRegistrar";
+import { SeasonStatusProvider, CompletedSeasonBanner } from "./_components/SeasonStatus";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import styles from "./_components/TeamShell.module.css";
 
 export const dynamic = "force-dynamic";
@@ -105,8 +107,17 @@ export default async function TeamLayout({
     settings.branding_customized ?? false
   );
 
+  // Complete Season Phase 4: a completed season is archived history. Every
+  // page under this layout gets the banner, and client controls that would
+  // edit season data read the status from SeasonStatusProvider and hide
+  // themselves. The API and database guards still refuse those writes.
+  const seasonStatus = {
+    readOnly: isSeasonCompleted(settings),
+    completedAt: settings.season_completed_at ?? null,
+  };
+
   return (
-    <>
+    <SeasonStatusProvider status={seasonStatus}>
     <style>{`
       @media(min-width:431px){.elf-shell{padding:2rem 0}}
       @keyframes elf-fadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
@@ -185,6 +196,7 @@ export default async function TeamLayout({
           {isPlatformAdmin(actor) && (
             <PlatformAdminBanner teamLabel={`${settings.school_name} ${settings.sport_name}`.trim()} />
           )}
+          {seasonStatus.readOnly && <CompletedSeasonBanner completedAt={seasonStatus.completedAt} />}
           <ServiceWorkerRegistrar />
           <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
           <TeamPullRefresh />
@@ -195,6 +207,6 @@ export default async function TeamLayout({
         </div>
       </div>
     </div>
-    </>
+    </SeasonStatusProvider>
   );
 }

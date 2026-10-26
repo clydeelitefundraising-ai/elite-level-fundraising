@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -101,6 +102,8 @@ const MIGRATION_FIELDS = new Set(["contact_requirement", "status"]);
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid body" }, { status: 400 });
@@ -195,6 +198,8 @@ const CAMPAIGN_SLUG_TABLES = [
 export async function DELETE(req: NextRequest, { params }: RouteCtx) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const body = await req.json().catch(() => null);
   if (!body || body.confirmText !== "DELETE") {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Props = {
   slug:          string;
@@ -61,6 +62,9 @@ export default function ActivateAccountView({ slug, name, email: initialEmail, a
   const [error, setError] = useState<string | null>(null);
   const [busy,  setBusy]  = useState(false);
   const [done,  setDone]  = useState<{ existingAccount: boolean } | null>(null);
+  // Complete Season Phase 4B: activation links a membership in THIS season,
+  // which a completed season no longer allows (the API returns 409).
+  const seasonReadOnly = useSeasonReadOnly();
 
   if (alreadyLinked) {
     return (
@@ -123,6 +127,19 @@ export default function ActivateAccountView({ slug, name, email: initialEmail, a
     }
     router.push(`/team/${slug}/home`);
     return null;
+  }
+
+  if (seasonReadOnly) {
+    return (
+      <Shell>
+        <div style={CARD_STYLE}>
+          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800, color: "#0b1e3d" }}>Season Completed</h1>
+          <p style={{ margin: 0, fontSize: ".95rem", color: "#6b7280", lineHeight: 1.6 }}>
+            This season is completed, so accounts can&apos;t be activated here. Activate your ELF account from the team&apos;s current season.
+          </p>
+        </div>
+      </Shell>
+    );
   }
 
   return (

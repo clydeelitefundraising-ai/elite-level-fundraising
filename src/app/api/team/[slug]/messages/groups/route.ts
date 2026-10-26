@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import {
@@ -29,6 +30,8 @@ type RouteCtx = { params: Promise<{ slug: string }> };
 // here. See the G1 report for the full rationale.
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (actor.kind !== "coach" || (actor.session.role !== "head_coach" && actor.session.role !== "assistant_coach")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

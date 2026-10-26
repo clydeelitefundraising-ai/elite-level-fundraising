@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { StaffDisplayEntry, StaffDisplayRole } from "@/lib/staffAggregation";
 import Avatar from "../messages/_shared/Avatar";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 function roleLabel(role: StaffDisplayRole): string {
   if (role === "head_coach") return "Head Coach";
@@ -47,7 +48,11 @@ function StaffRow({ entry }: { entry: StaffDisplayEntry }) {
 // view links to it for the Head Coach instead of duplicating that UI.
 export default function TeamStaffRosterView({ slug }: { slug: string }) {
   const [staff, setStaff] = useState<StaffDisplayEntry[]>([]);
-  const [canManageBoosterVisibility, setCanManageBoosterVisibility] = useState(false);
+  const [canManageBoosterSetting, setCanManageBoosterVisibility] = useState(false);
+  // Complete Season Phase 4: the booster-visibility setting is a team
+  // setting change — not offered on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManageBoosterVisibility = canManageBoosterSetting && !seasonReadOnly;
   const [showBooster, setShowBooster] = useState(true);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);

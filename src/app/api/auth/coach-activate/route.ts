@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { hashInviteToken } from "@/lib/coachInvite";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
   if (new Date(tokenRow.expires_at) < new Date()) {
     return NextResponse.json({ error: "This invite link has expired. Ask your administrator for a new one." }, { status: 400 });
   }
+  // A completed season is read-only: refuse before the token is used up.
+  const seasonBlocked = await seasonWriteBlockedFor("team_coaches", tokenRow.coach_id);
+  if (seasonBlocked) return seasonBlocked;
 
   // Atomically claim the token BEFORE doing any account work: PATCH with
   // `used_at=is.null` in the WHERE clause means only one concurrent

@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "campaign_slug is required." }, { status: 400 });
   }
   const slug = campaign_slug.trim();
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   if (!await campaignExists(slug)) {
     return NextResponse.json({ error: "Campaign not found." }, { status: 404 });
   }

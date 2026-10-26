@@ -8,6 +8,7 @@ import { TASK_AUDIENCE_LABELS, type TaskAudience, type TaskViewer } from "@/lib/
 import ClearanceView from "./ClearanceView";
 import TaskFormModal, { type EditableTask } from "./TaskFormModal";
 import TaskAcknowledgment from "./TaskAcknowledgment";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import { CompletionSummaryView, TaskCompletionDetailView } from "./TaskCompletionView";
 import { completionParentSearch, completionSearch } from "./completionView";
 import styles from "./Team.module.css";
@@ -487,7 +488,10 @@ export default function TodoListView({ slug }: { slug: string }) {
     }
   };
 
-  const canManage = !!data?.canManage;
+  // Complete Season Phase 4: no creating, editing, archiving or reordering
+  // tasks on a completed season (the API refuses anyway).
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManage = !!data?.canManage && !seasonReadOnly;
   const viewer = data?.viewer;
   // Boosters keep Resources only. Before the task tables exist, only the
   // Head Coach sees a short "not set up yet" note; everyone else just sees

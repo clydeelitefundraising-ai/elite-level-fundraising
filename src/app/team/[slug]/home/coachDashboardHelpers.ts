@@ -61,8 +61,15 @@ export type QuickAction = {
  *  function's correctness doesn't silently depend on that subset
  *  relationship never changing. Send Message and Manage Team have no
  *  staff gate — any authenticated actor can already reach both today. */
-export function buildQuickActions(slug: string, actor: TeamActor): QuickAction[] {
+export function buildQuickActions(
+  slug: string,
+  actor: TeamActor,
+  options: { seasonReadOnly?: boolean } = {},
+): QuickAction[] {
   const actions: QuickAction[] = [];
+  // Complete Season Phase 4: every quick action starts a change (post, add
+  // an event, message, manage the roster) — a completed season offers none.
+  if (options.seasonReadOnly) return actions;
 
   if (isStaff(actor)) {
     actions.push({

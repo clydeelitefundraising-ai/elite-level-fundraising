@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse, after } from "next/server";
 import { checkRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
 import { createPendingRequest } from "@/lib/platform/athleteRequests";
@@ -67,6 +68,8 @@ export async function POST(req: NextRequest) {
   }
 
   const campaign_slug = joinCode.campaign_slug as string;
+  const seasonBlocked = await seasonWriteBlocked(campaign_slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const accountResult = await resolveOrCreateAccount(req, { name, email, password });
   if (!accountResult.ok) {

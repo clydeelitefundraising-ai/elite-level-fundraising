@@ -54,6 +54,11 @@ export async function donationExists(sessionId: string): Promise<boolean> {
 
 export type CampaignSettings = {
   campaign_slug: string;
+  // Complete Season: set once the season is completed (read-only history).
+  // Absent before the Phase 1 migration is applied.
+  season_completed_at?: string | null;
+  successor_campaign_slug?: string | null;
+  season_started_at?: string | null;
   team_id?: string;
   // Which CRM contact's Launch Campaign action produced this campaign, if any.
   crm_contact_id?: string | null;

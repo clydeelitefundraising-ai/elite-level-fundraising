@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import Avatar from "../messages/_shared/Avatar";
 import ReportModal from "../_components/ReportModal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Comment = {
   id:               string;
@@ -57,6 +58,9 @@ export default function CommentsSection({
   // `canDelete` (= isHeadCoach(actor)), threaded through unchanged.
   canModerate?: boolean;
 }) {
+  // Complete Season Phase 4: comments stay readable (and reportable) on a
+  // completed season; posting and deleting are not offered.
+  const seasonReadOnly = useSeasonReadOnly();
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [body,      setBody]    = useState("");
   const [sending,   setSending] = useState(false);
@@ -156,7 +160,7 @@ export default function CommentsSection({
                   {c.body}
                 </p>
                 <div style={{ display: "flex", gap: ".7rem", marginTop: ".15rem" }}>
-                  {(c.is_own || canModerate) && (
+                  {(c.is_own || canModerate) && !seasonReadOnly && (
                     <button
                       onClick={() => handleDelete(c.id)}
                       className="elf-focus-ring"
@@ -185,7 +189,7 @@ export default function CommentsSection({
         <div style={{ fontSize: ".72rem", color: "#dc2626", marginBottom: ".4rem" }}>{error}</div>
       )}
 
-      <div style={{ display: "flex", gap: ".4rem", alignItems: "flex-end" }}>
+      {!seasonReadOnly && <div style={{ display: "flex", gap: ".4rem", alignItems: "flex-end" }}>
         <textarea
           value={body}
           onChange={e => setBody(e.target.value)}
@@ -216,7 +220,7 @@ export default function CommentsSection({
         >
           {sending ? "…" : "Post"}
         </button>
-      </div>
+      </div>}
 
       {reportingId && (
         <ReportModal slug={slug} targetType="comment" targetId={reportingId} onClose={() => setReportingId(null)} />

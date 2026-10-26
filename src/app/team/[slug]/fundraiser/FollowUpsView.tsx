@@ -16,7 +16,7 @@ import type { FollowUpsWorkspaceState } from "./useFollowUpsWorkspace";
 export default function FollowUpsView({ workspace }: { workspace: FollowUpsWorkspaceState }) {
   const {
     rows, sort, setSort, filter, setFilter, visibleRows,
-    openUpdate, openHistory, handleExport, handlePrint,
+    openUpdate, openHistory, handleExport, handlePrint, canUpdate,
   } = workspace;
 
   return (
@@ -113,7 +113,7 @@ export default function FollowUpsView({ workspace }: { workspace: FollowUpsWorks
                 </div>
 
                 <div style={{ display: "flex", gap: ".5rem" }}>
-                  <button onClick={() => openUpdate(r)} style={smallBtn}>Update</button>
+                  {canUpdate && <button onClick={() => openUpdate(r)} style={smallBtn}>Update</button>}
                   <button onClick={() => openHistory(r)} style={smallBtnGhost}>View History</button>
                 </div>
               </div>

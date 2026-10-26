@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { HandCoins } from "lucide-react";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 type Phase = "checking" | "idle" | "submitting" | "sent" | "already-requested" | "error";
 
@@ -16,6 +17,8 @@ type Phase = "checking" | "idle" | "submitting" | "sent" | "already-requested" |
  *  sessions on the same team. */
 export default function FundraisingInquiryState({ slug }: { slug: string }) {
   const [phase, setPhase] = useState<Phase>("checking");
+  // Complete Season Phase 4B: no fundraising inquiries for a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +39,14 @@ export default function FundraisingInquiryState({ slug }: { slug: string }) {
     } catch {
       setPhase("error");
     }
+  }
+
+  if (seasonReadOnly) {
+    return (
+      <p role="note" style={{ margin: "1.5rem auto", maxWidth: 420, textAlign: "center", fontSize: ".85rem", color: "var(--text-muted-app)" }}>
+        This season is completed. To ask about fundraising, open the team&apos;s current season.
+      </p>
+    );
   }
 
   return (

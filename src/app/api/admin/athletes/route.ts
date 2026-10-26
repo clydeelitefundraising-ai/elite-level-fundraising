@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { campaign_slug, name, event, class_year, overrideCollision } = await req.json();
   const slug = campaign_slug ?? DEFAULT_SLUG;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   if (!name?.trim() || !class_year?.trim()) {
     return NextResponse.json({ error: "name and class are required" }, { status: 400 });
   }

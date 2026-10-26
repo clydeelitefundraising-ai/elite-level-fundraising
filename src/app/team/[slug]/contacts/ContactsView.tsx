@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import { Phone, Mail, PartyPopper, ClipboardList } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -92,11 +93,14 @@ function ContactCard({
   contact,
   onEdit,
   onDelete,
+  canEdit = true,
   primaryColor,
 }: {
   contact: Contact;
   onEdit: (c: Contact) => void;
   onDelete: (id: string) => void;
+  /** Edit/Delete — off on a completed season (contacts stay listed). */
+  canEdit?: boolean;
   primaryColor: string;
 }) {
   const rel = displayRelationship(contact);
@@ -139,7 +143,7 @@ function ContactCard({
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: ".2rem", flexShrink: 0 }}>
+      {canEdit && <div style={{ display: "flex", flexDirection: "column", gap: ".2rem", flexShrink: 0 }}>
         <button
           onClick={() => onEdit(contact)}
           style={{
@@ -160,7 +164,7 @@ function ContactCard({
         >
           Delete
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -195,6 +199,8 @@ export default function ContactsView({
   // every athlete, so their view renders exactly as before this follow-up.
   linkedAthletes?: { id: string; name: string }[];
 }) {
+  // Complete Season Phase 4B: a completed season's contacts are history.
+  const seasonReadOnly = useSeasonReadOnly();
   const [contacts, setContacts]     = useState<Contact[]>([]);
   const [goal, setGoal]             = useState(10);
   const [loading, setLoading]       = useState(true);
@@ -390,7 +396,7 @@ export default function ContactsView({
       </div>
 
       {/* Add button */}
-      <button
+      {!seasonReadOnly && <button
         onClick={openAdd}
         style={{
           width: "100%",
@@ -407,7 +413,7 @@ export default function ContactsView({
         }}
       >
         + Add Contact
-      </button>
+      </button>}
 
       {/* Contact list */}
       {loading ? (
@@ -424,7 +430,7 @@ export default function ContactsView({
             No contacts yet
           </div>
           <div style={{ fontSize: ".8rem", color: "#9ca3af" }}>
-            Add family, friends, neighbors — anyone who might support your fundraiser.
+            {seasonReadOnly ? "No contacts were added during this season." : "Add family, friends, neighbors — anyone who might support your fundraiser."}
           </div>
         </div>
       ) : (
@@ -438,6 +444,7 @@ export default function ContactsView({
               contact={c}
               onEdit={openEdit}
               onDelete={handleDelete}
+              canEdit={!seasonReadOnly}
               primaryColor={primaryColor}
             />
           ))}

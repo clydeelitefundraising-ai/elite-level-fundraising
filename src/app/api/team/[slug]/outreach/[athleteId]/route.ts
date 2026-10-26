@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff } from "@/lib/permissions.server";
 
@@ -21,6 +22,8 @@ type RouteContext = { params: Promise<{ slug: string; athleteId: string }> };
 // Insert a new outreach action row (append-only — no updates, no overwrites).
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug, athleteId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   // Separate public check so TypeScript narrows actor to coach | member before .session access
   if (actor.kind === "public" || !isStaff(actor)) {

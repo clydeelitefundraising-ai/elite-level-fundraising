@@ -226,6 +226,12 @@ function SortableTeamRow({
             {teamRoleLabel(team.role, team.role_kind)}
           </div>
         )}
+        {/* Complete Season Phase 4: archived seasons are marked here too. */}
+        {team.season_completed && (
+          <div style={{ fontSize: ".7rem", color: "#4b5563", marginTop: ".2rem", textTransform: "uppercase", letterSpacing: ".03em", fontWeight: 700 }}>
+            Completed
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: ".2rem", flexShrink: 0 }}>

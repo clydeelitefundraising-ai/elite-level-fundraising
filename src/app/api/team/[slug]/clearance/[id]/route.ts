@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { updateClearanceResource, deleteClearanceResource } from "@/lib/clearance";
@@ -8,6 +9,8 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 // PATCH: Head Coach only — edit (including repointing/clearing attachment_id).
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can edit Clearance resources." }, { status: 403 });
@@ -43,6 +46,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
 // src/lib/clearance.ts's module header for the full lifecycle rationale.
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can delete Clearance resources." }, { status: 403 });

@@ -457,6 +457,19 @@ export default function TeamsView({
                           {teamRoleLabel(team.role, team.role_kind)}
                         </span>
                       )}
+                      {/* Complete Season Phase 4: archived seasons are badged
+                          (and listed after active ones — see getAccountTeams). */}
+                      {team.season_completed && (
+                        <span data-testid="season-completed-badge" style={{
+                          display: "inline-flex", alignItems: "center",
+                          marginTop: ".55rem", marginLeft: team.role ? ".35rem" : 0,
+                          background: "#f3f4f6", color: "#4b5563", border: "1px solid #d1d5db",
+                          borderRadius: 100, fontSize: ".65rem", fontWeight: 700,
+                          padding: ".2rem .55rem", textTransform: "uppercase", letterSpacing: ".03em",
+                        }}>
+                          Completed
+                        </span>
+                      )}
                     </div>
 
                     {/* Chevron — the entire card is the tap target */}

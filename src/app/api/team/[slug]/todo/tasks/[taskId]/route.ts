@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import {
@@ -36,6 +37,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // team_task_update()/team_tasks_guard() in phase_t2_team_tasks.sql.
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { slug, taskId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!canManageTasks(taskViewerFor(actor)) || (actor.kind !== "coach" && actor.kind !== "platform_admin")) {
     return NextResponse.json({ error: ONLY_HEAD_COACH }, { status: 403 });

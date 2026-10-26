@@ -173,6 +173,7 @@ export default function ThreadView({
   primaryColor,
   canManageGroup = false,
   canArchiveGroup = false,
+  seasonReadOnly = false,
 }: {
   slug: string;
   thread: MessageThread;
@@ -189,6 +190,10 @@ export default function ThreadView({
   // the exact same rule server-side regardless of what this prop says.
   canManageGroup?: boolean;
   canArchiveGroup?: boolean;
+  // Complete Season: a completed season's conversation is shown in full but
+  // can't be replied to (no composer, no attachments). The server and the
+  // database refuse sends regardless of this prop.
+  seasonReadOnly?: boolean;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ResolvedMessage[]>(initialMessages);
@@ -736,6 +741,14 @@ export default function ThreadView({
         <div ref={bottomRef} />
       </div>
 
+      {seasonReadOnly ? (
+        <p role="status" style={{
+          borderTop: "1px solid #e5e7eb", marginTop: ".75rem", paddingTop: ".75rem",
+          fontSize: ".8rem", color: "#6b7280", textAlign: "center",
+        }}>
+          This season has been completed. Its messages are read-only.
+        </p>
+      ) : (<>
       {/* Reply box — sticky at a fixed offset matching the team shell's own
           reserved bottom-nav space (layout.tsx's <main> uses the same
           5.5rem bottom padding), plus a genuine safe-area buffer on top of
@@ -814,6 +827,7 @@ export default function ThreadView({
           </button>
         </div>
       </div>
+      </>)}
     </div>
   );
 }

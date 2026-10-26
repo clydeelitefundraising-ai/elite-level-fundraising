@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { campaign_slug, name, url, tier } = await req.json();
   const slug = campaign_slug ?? DEFAULT_SLUG;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   if (!name?.trim() || !url?.trim() || !["gold", "silver", "bronze"].includes(tier)) {
     return NextResponse.json({ error: "name, url, and tier (gold/silver/bronze) are required" }, { status: 400 });
   }

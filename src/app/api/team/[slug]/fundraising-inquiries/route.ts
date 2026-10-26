@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { getCampaignSettings } from "@/lib/supabase";
@@ -36,6 +37,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 
 export async function POST(_req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   const coach = requireCoach(actor);
   if (!coach) {

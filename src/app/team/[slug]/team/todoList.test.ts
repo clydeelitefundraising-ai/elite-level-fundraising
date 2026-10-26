@@ -28,7 +28,9 @@ test("tab is labelled To-Do List; internal id stays 'clearance'; ?tab=todo is an
 });
 
 test("the tab renders the To-Do List, which embeds the existing Clearance resources", () => {
-  assert.match(page, /clearance=\{<TodoListView slug=\{slug\} \/>\}/);
+  // The To-Do tab is the To-Do List first; Complete Season Phase 3 adds a
+  // flag- and role-gated entry card beneath it (complete-season/).
+  assert.match(page, /clearance=\{\s*<>\s*<TodoListView slug=\{slug\} \/>/);
   assert.match(todo, /<ClearanceView slug=\{slug\} \/>/);
 });
 
@@ -81,7 +83,8 @@ test("status: green check / red X with text (never colour alone); completed stat
   assert.match(ackUi, /fill="#16a34a"/);
   assert.match(ackUi, /fill="#dc2626"/);
   assert.match(ackUi, /className=\{styles\.srOnly\}>\{e\.satisfied \? " — complete" : " — outstanding"\}/);
-  assert.match(ackUi, /\{outstanding\.length > 0 && \(\s*<form/);
+  // Complete Season Phase 4: no form on a completed season (status stays).
+  assert.match(ackUi, /\{outstanding\.length > 0 && !seasonReadOnly && \(\s*<form/);
   assert.match(ackUi, /complete for the current version of this task/);
   assert.match(css, /\.srOnly \{[^}]*clip: rect\(0, 0, 0, 0\);/);
 });

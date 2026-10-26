@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { reorderClearanceResource } from "@/lib/clearance";
@@ -8,6 +9,8 @@ type RouteContext = { params: Promise<{ slug: string; id: string }> };
 // adjacent resource. No drag-and-drop in Phase 7 (see migration comment).
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug, id } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can reorder Clearance resources." }, { status: 403 });

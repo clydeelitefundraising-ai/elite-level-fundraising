@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { uploadTeamFile } from "@/lib/teamFileUpload";
@@ -11,6 +12,8 @@ type RouteContext = { params: Promise<{ slug: string }> };
 // write access is Head-Coach-only end to end.
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can upload Clearance attachments." }, { status: 403 });

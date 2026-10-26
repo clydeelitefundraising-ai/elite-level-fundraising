@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ACK_NAME_MAX, allChildrenNamed, normalizeAckName, type AckEntry, type AckView } from "@/lib/teamTaskAcks";
 import styles from "./Team.module.css";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // Team Management Phase 3 — the acknowledgment section of a task's detail
 // view, for athletes, linked parents and coaches who are linked parents.
@@ -75,6 +76,9 @@ function entryText(e: AckEntry, childName: string, viewerIsChild: boolean): stri
 }
 
 export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }: Props) {
+  // Complete Season Phase 4: acknowledgment history stays visible on a
+  // completed season, but new acknowledgments can't be recorded.
+  const seasonReadOnly = useSeasonReadOnly();
   const [view, setView] = useState<AckView | null | undefined>(undefined);
   const [loadError, setLoadError] = useState("");
   const [name, setName] = useState("");
@@ -237,7 +241,13 @@ export default function TaskAcknowledgment({ slug, taskId, revision, onChanged }
         </p>
       )}
 
-      {outstanding.length > 0 && (
+      {outstanding.length > 0 && seasonReadOnly && (
+        <p role="status" style={{ margin: ".75rem 0 0", fontSize: ".85rem", color: "var(--text-muted-app)" }}>
+          This season is completed — acknowledgments can no longer be recorded.
+        </p>
+      )}
+
+      {outstanding.length > 0 && !seasonReadOnly && (
         <form onSubmit={submit} style={{ marginTop: ".9rem", display: "flex", flexDirection: "column", gap: ".75rem" }}>
           {!isAthlete && (
             <p style={{ margin: 0, fontSize: ".88rem", color: "#1f2937", lineHeight: 1.5 }}>

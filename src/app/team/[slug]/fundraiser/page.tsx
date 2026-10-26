@@ -7,6 +7,7 @@ import type { TeamAthleteRow } from "@/lib/teamData";
 import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff } from "@/lib/permissions";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import { resolveFundraiserRouteView } from "@/lib/fundraiserAccess";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
@@ -232,7 +233,10 @@ function TeamCampaignView({
   const pct        = displayGoalCents > 0
     ? Math.min(100, Math.round((raisedCents / displayGoalCents) * 100))
     : 0;
-  const remaining  = settings.deadline ? daysLeft(settings.deadline) : null;
+  // Complete Season Phase 4: a completed season has no countdown — its
+  // totals and donations stay, the deadline no longer applies.
+  const seasonCompleted = isSeasonCompleted(settings);
+  const remaining  = settings.deadline && !seasonCompleted ? daysLeft(settings.deadline) : null;
   const avgDonation = donorCount > 0 ? Math.round(raisedCents / donorCount) : null;
 
   return (
@@ -302,6 +306,12 @@ function TeamCampaignView({
               <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
                 <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(Math.max(0, displayGoalCents - raisedCents))}</div>
                 <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>still needed</div>
+              </div>
+            )}
+            {seasonCompleted && (
+              <div data-testid="season-completed-stat" style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
+                <div style={{ fontSize: ".95rem", fontWeight: 800, color: "var(--text-primary-app)", lineHeight: 1.6 }}>Season completed</div>
+                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>archived totals</div>
               </div>
             )}
             {remaining !== null && (
@@ -603,7 +613,7 @@ export default async function FundraiserPage({
     const pct           = teamGoalCents > 0
       ? Math.min(100, Math.round((raisedCents / teamGoalCents) * 100))
       : 0;
-    const daysRemaining = settings.deadline
+    const daysRemaining = settings.deadline && !isSeasonCompleted(settings)
       ? Math.max(0, Math.ceil((new Date(settings.deadline).getTime() - Date.now()) / 86_400_000))
       : null;
 

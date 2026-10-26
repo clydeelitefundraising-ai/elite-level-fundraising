@@ -1,0 +1,344 @@
+/*
+ * Complete Season Phase 3 — preview screen. Mobile first: one column at
+ * 360px with no horizontal scroll (every grid uses minmax(0, …) and long
+ * names/addresses wrap), two to three stat columns as the screen widens.
+ */
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 0 2rem;
+  box-sizing: border-box;
+}
+
+.header {
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin: 0 0 .35rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary-app, #0b1e3d);
+}
+
+.lede {
+  margin: 0;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--text-secondary-app, #4b5563);
+}
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+}
+
+.section {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: .9rem 1rem;
+  min-width: 0;
+}
+
+.sectionTitle {
+  margin: 0 0 .6rem;
+  font-size: .95rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.para {
+  margin: .6rem 0 0;
+  font-size: .85rem;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.seasonPair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .5rem;
+  align-items: center;
+}
+
+.arrow {
+  justify-self: center;
+  color: #9ca3af;
+  font-size: 1.1rem;
+  transform: rotate(90deg);
+}
+
+.seasonCard {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  min-width: 0;
+  padding: .7rem .8rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.seasonCardNext {
+  border-color: var(--team-primary, #0b1e3d);
+  background: #fff;
+}
+
+.kicker {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.seasonName {
+  font-size: 1.05rem;
+  color: #0b1e3d;
+  overflow-wrap: anywhere;
+}
+
+.slug {
+  font-size: .8rem;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-size: .75rem;
+  color: #6b7280;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-width: 0;
+  padding: .55rem .65rem;
+  border-radius: 10px;
+  background: #f9fafb;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.statLabel {
+  font-size: .75rem;
+  line-height: 1.3;
+  color: #4b5563;
+  overflow-wrap: anywhere;
+}
+
+.callout {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  margin-top: .7rem;
+  padding: .7rem .8rem;
+  border-radius: 10px;
+  font-size: .85rem;
+  color: #4b5563;
+}
+
+.callout[data-tone="warning"] {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.nameList {
+  list-style: none;
+  margin: .4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.nameList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .25rem .75rem;
+  min-width: 0;
+  font-size: .85rem;
+}
+
+.name {
+  font-weight: 600;
+  color: #0b1e3d;
+  overflow-wrap: anywhere;
+}
+
+.tag {
+  font-size: .75rem;
+  color: #6b7280;
+}
+
+.factList,
+.alertList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-size: .85rem;
+  line-height: 1.45;
+  color: #374151;
+}
+
+.alertList[data-tone="blocker"] {
+  color: #991b1b;
+}
+
+.alertList[data-tone="warning"] {
+  color: #92400e;
+}
+
+.footerNote {
+  padding: .8rem 1rem;
+  border-radius: 12px;
+  background: #f3f4f6;
+  font-size: .85rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.state {
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.overrides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .6rem;
+  margin-bottom: .9rem;
+  padding: .9rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+  font-size: .75rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.field input {
+  min-width: 0;
+  min-height: 40px;
+  padding: .45rem .6rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  color: #111827;
+}
+
+/* Phase 5D — the completion confirmation: one field per row at every width,
+   wide enough to show the whole team address and phrase. */
+.confirmForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .75rem;
+  max-width: 34rem;
+  margin-bottom: .9rem;
+  padding: .9rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.confirmForm .field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.confirmForm code {
+  overflow-wrap: anywhere;
+}
+
+.confirmHelp {
+  margin: 0;
+  font-size: .8rem;
+  color: #4b5563;
+}
+
+.confirmForm .btn {
+  justify-self: start;
+}
+
+.entry {
+  margin-top: 1.25rem;
+  padding: .9rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.entryTitle {
+  margin: 0 0 .3rem;
+  font-size: .95rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.entryText {
+  margin: 0 0 .7rem;
+  font-size: .85rem;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: .45rem .9rem;
+  border-radius: var(--radius-md, 8px);
+  border: 1.5px solid var(--team-primary, #0b1e3d);
+  background: #fff;
+  color: var(--team-primary, #0b1e3d);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--team-primary, #0b1e3d);
+  outline-offset: 2px;
+}
+
+@media (min-width: 560px) {
+  .seasonPair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .arrow { transform: none; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .overrides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; }
+}

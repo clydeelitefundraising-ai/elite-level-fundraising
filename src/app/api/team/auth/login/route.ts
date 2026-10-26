@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, makeCoachCookie } from "@/lib/teamAuth";
 import { checkRateLimit, clearRateLimit, recordFailure, rateLimitKey } from "@/lib/rateLimit";
+import { decideCoachLogin } from "@/lib/coachLoginMatch";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -34,13 +35,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
-  // If campaign_slug provided, scope the lookup — handles coaches on multiple campaigns
-  const slugFilter = campaign_slug
+  // If campaign_slug provided, scope the lookup to that team. Otherwise every
+  // row for the email is checked (see decideCoachLogin): the same email can
+  // be on several teams or seasons, and a coach is never signed into a team
+  // by accident.
+  const slugFilter = typeof campaign_slug === "string" && campaign_slug.trim()
     ? `&campaign_slug=eq.${encodeURIComponent(campaign_slug.trim())}`
     : "";
 
   const res = await fetch(
-    `${BASE}/rest/v1/team_coaches?email=eq.${encodeURIComponent(email.trim().toLowerCase())}${slugFilter}&limit=1`,
+    `${BASE}/rest/v1/team_coaches?email=eq.${encodeURIComponent(email.trim().toLowerCase())}${slugFilter}` +
+    `&select=id,name,role,campaign_slug,password_hash,salt&order=created_at.asc&limit=100`,
     { headers: supabaseHeaders(), cache: "no-store" },
   );
 
@@ -50,19 +55,22 @@ export async function POST(req: NextRequest) {
   }
 
   const rows = await res.json();
-  if (!Array.isArray(rows) || rows.length === 0) {
-    // Unknown email — credential failure
+  const decision = decideCoachLogin(Array.isArray(rows) ? rows : [], password, hashPassword);
+  if (decision.kind === "invalid") {
+    // Unknown email or wrong password — credential failure
     await recordFailure(key, LIMIT);
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+  }
+  if (decision.kind === "choose_team") {
+    // Correct password on more than one team: nothing is signed in until the
+    // coach picks one (the page resends with campaign_slug).
+    return NextResponse.json(
+      { error: "This sign-in is used on more than one team. Choose the team to open.", code: "team_selection_required", teams: decision.campaignSlugs },
+      { status: 409 },
+    );
   }
 
-  const coach = rows[0];
-  const expectedHash = hashPassword(password, coach.salt);
-  if (expectedHash !== coach.password_hash) {
-    // Wrong password — credential failure
-    await recordFailure(key, LIMIT);
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
-  }
+  const coach = decision.coach;
 
   await clearRateLimit(req, "coach-login");
   const cookieValue = makeCoachCookie(coach.id, coach.salt);

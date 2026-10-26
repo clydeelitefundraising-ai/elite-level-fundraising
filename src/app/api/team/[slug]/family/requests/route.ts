@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse, after } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import { getAccountSession } from "@/lib/accountSession";
@@ -28,6 +29,8 @@ type RouteCtx = { params: Promise<{ slug: string }> };
 // request — it never contributes the account_id used below.
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const [actor, account] = await Promise.all([getTeamActor(slug), getAccountSession()]);
   // A legacy team_coach/team_member-cookie-only session (no elf_session) has

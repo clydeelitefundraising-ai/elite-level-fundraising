@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
   const { campaign_slug, coach_id, active, goal_cents } = body as {
     campaign_slug: string; coach_id: string; active: boolean; goal_cents?: number | null;
   };
+  const seasonBlocked = await seasonWriteBlocked(campaign_slug);
+  if (seasonBlocked) return seasonBlocked;
+
   if (!campaign_slug || !coach_id) {
     return NextResponse.json({ error: "campaign_slug and coach_id are required." }, { status: 400 });
   }

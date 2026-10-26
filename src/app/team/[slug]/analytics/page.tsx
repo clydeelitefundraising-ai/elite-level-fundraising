@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
 import { getTeamAthletes } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import { Lock } from "lucide-react";
 import AnalyticsView from "./AnalyticsView";
 import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "./AnalyticsView";
@@ -57,7 +58,9 @@ export default async function AnalyticsPage({
   const pct           = teamGoalCents > 0
     ? Math.min(100, Math.round((raisedCents / teamGoalCents) * 100))
     : 0;
-  const daysRemaining = settings.deadline
+  // Complete Season Phase 4: no countdown or pace forecast once the season
+  // is completed (archived); its totals stay.
+  const daysRemaining = settings.deadline && !isSeasonCompleted(settings)
     ? Math.max(0, Math.ceil((new Date(settings.deadline).getTime() - Date.now()) / 86_400_000))
     : null;
 

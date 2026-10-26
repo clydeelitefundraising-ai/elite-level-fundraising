@@ -7,6 +7,7 @@ import { isStaff, type TeamActor } from "@/lib/permissions";
 import { Link as LinkIcon, ShoppingBag } from "lucide-react";
 import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -70,12 +71,15 @@ function catColor(cat: string): { bg: string; color: string } {
 function ProductCard({
   product,
   isCoach,
+  canEdit,
   primary,
   onEdit,
   onDelete,
 }: {
   product:  TeamProductRow;
   isCoach:  boolean;
+  /** Edit/Delete — off on a completed season even for staff. */
+  canEdit:  boolean;
   primary:  string;
   onEdit:   (p: TeamProductRow) => void;
   onDelete: (id: string) => void;
@@ -143,7 +147,7 @@ function ProductCard({
         )
         : body
       }
-      {isCoach && (
+      {canEdit && (
         <div style={{ display: "flex", gap: ".25rem", justifyContent: "flex-end", padding: "0 .75rem .6rem" }}>
           <button onClick={() => onEdit(product)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: ".7rem", fontWeight: 600, color: "#9ca3af", padding: ".1rem .4rem", borderRadius: 5 }}>
             Edit
@@ -334,6 +338,10 @@ export default function ShopView({
   // permission audit is staff-level (coaches AND boosters, whichever table
   // the booster row lives in) — kept the name to minimize the diff below.
   const isCoach = isStaff(actor);
+  // Complete Season Phase 4: staff still see hidden products and the store
+  // details, but a completed season's shop can't be changed.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canEditShop = isCoach && !seasonReadOnly;
   const primary = settings.primary_color;
 
   const [products,       setProducts]       = useState<TeamProductRow[]>(initialProducts);
@@ -508,7 +516,7 @@ export default function ShopView({
       </div>
 
       {/* ── Coach: Store Settings ── */}
-      {isCoach && (
+      {canEditShop && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "1rem", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
           <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
             Team Store Settings
@@ -619,6 +627,7 @@ export default function ShopView({
                       key={p.id}
                       product={p}
                       isCoach={isCoach}
+                      canEdit={canEditShop}
                       primary={primary}
                       onEdit={openEdit}
                       onDelete={handleDelete}

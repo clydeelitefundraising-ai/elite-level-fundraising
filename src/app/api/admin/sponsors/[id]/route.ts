@@ -1,3 +1,4 @@
+import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
@@ -12,6 +13,8 @@ async function authed(): Promise<boolean> {
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("sponsors", id);
+  if (seasonBlocked) return seasonBlocked;
   const { name, url, tier } = await req.json();
   await updateSponsor(id, { name, url, tier });
   logAuditEvent({
@@ -30,6 +33,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const seasonBlocked = await seasonWriteBlockedFor("sponsors", id);
+  if (seasonBlocked) return seasonBlocked;
   await deleteSponsor(id);
   logAuditEvent({
     actor: ADMIN_TOOL_ACTOR,

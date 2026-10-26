@@ -7,6 +7,7 @@
 import { randomBytes } from "crypto";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { generateInviteToken, hashInviteToken, inviteExpiresAt } from "@/lib/coachInvite";
+import { seasonWriteBlocked, SEASON_COMPLETED_MESSAGE } from "@/lib/seasonWritable";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -386,6 +387,10 @@ export async function acceptStaffInvitation(rawToken: string, password: string |
   if (invite.accepted_at) return { ok: false, status: 400, error: "This invitation has already been used." };
   if (new Date(invite.expires_at) < new Date()) {
     return { ok: false, status: 400, error: "This invitation has expired. Ask your Head Coach to resend it." };
+  }
+  // A completed season is read-only: nobody joins it, not even by invitation.
+  if (await seasonWriteBlocked(invite.campaign_slug)) {
+    return { ok: false, status: 409, error: SEASON_COMPLETED_MESSAGE };
   }
 
   const normalized = normalizeEmail(invite.email);

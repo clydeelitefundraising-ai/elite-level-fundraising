@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getMemberSession } from "@/lib/memberSession";
 import { linkMemberToAthlete } from "@/lib/platform/athletes";
@@ -18,6 +19,8 @@ export async function PATCH(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
 
   const member = await getMemberSession(slug);
   if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

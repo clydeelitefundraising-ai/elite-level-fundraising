@@ -407,7 +407,9 @@ function withRate(t: Omit<AttendanceTotals, "presentRate" | "presentPercent" | "
 
 // ── Database error codes ──────────────────────────────────────────────────
 
-/** Every fixed code team_attendance_save_draft() and the read functions raise. */
+/** Every fixed code team_attendance_save_draft() and the read functions raise,
+ *  plus the two Complete Season guards (phase_s2_completed_season_read_only.sql)
+ *  that refuse a save: a completed season, or a date before the season began. */
 export const ATTENDANCE_DB_ERRORS = [
   "attendance_team_not_found", "attendance_actor_invalid", "attendance_actor_not_authorized",
   "attendance_date_invalid", "attendance_date_in_future", "attendance_date_not_editable",
@@ -416,6 +418,7 @@ export const ATTENDANCE_DB_ERRORS = [
   "attendance_record_invalid", "attendance_athlete_duplicate", "attendance_athlete_cross_team",
   "attendance_athlete_removed", "attendance_roster_incomplete", "attendance_late_athlete_unconfirmed",
   "attendance_roster_empty", "attendance_range_invalid",
+  "attendance_before_season_start", "season_completed_read_only",
 ] as const;
 export type AttendanceDbError = typeof ATTENDANCE_DB_ERRORS[number];
 
@@ -450,6 +453,8 @@ const OUTCOMES: Record<AttendanceDbError, AttendanceSaveOutcome> = {
   attendance_late_athlete_unconfirmed: "roster_changed",
   attendance_roster_empty: "roster_changed",
   attendance_range_invalid: "invalid",
+  attendance_before_season_start: "read_only",
+  season_completed_read_only: "read_only",
 };
 
 /** Finds the fixed code in a database error message ("unknown" otherwise).

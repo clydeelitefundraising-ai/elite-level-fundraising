@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { teamAppLoginUrl } from "@/lib/teamAppLogin";
 
 export interface NavLink {
   href: string;
@@ -39,8 +40,9 @@ const NAV_LINKS: NavLink[] = [
 // marketing site's own build of that route instead. Hardcoded (not an env
 // var) since this is the one fixed production destination for every
 // marketing-site visitor, regardless of which environment the marketing
-// site itself is deployed from.
-const TEAM_APP_LOGIN_URL = "https://app.elitelevelfundraising.com/login";
+// site itself is deployed from — except the isolated QA deployment, which
+// stays on its own /login (src/lib/teamAppLogin.ts).
+const TEAM_APP_LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE);
 
 export const MARKETING_NAV_LINKS: NavLink[] = [
   { href: "/product", label: "How It Works" },

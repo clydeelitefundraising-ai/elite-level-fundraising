@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isHeadCoach } from "@/lib/permissions.server";
 import { getAccountSession } from "@/lib/accountSession";
@@ -20,6 +21,8 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // button on the client.
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) {
     return NextResponse.json({ error: "Only this team's Head Coach can add Clearance resources." }, { status: 403 });

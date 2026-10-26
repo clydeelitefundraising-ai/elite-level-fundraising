@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
 import {
@@ -41,6 +42,8 @@ async function loadManageableGroup(slug: string, threadId: string) {
 // reactivated too. Every id is validated against THIS campaign before use.
 export async function POST(req: NextRequest, { params }: RouteCtx) {
   const { slug, threadId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const loaded = await loadManageableGroup(slug, threadId);
   if (!loaded.ok) {
     return NextResponse.json({ error: loaded.error }, { status: loaded.status });
@@ -92,6 +95,8 @@ export async function POST(req: NextRequest, { params }: RouteCtx) {
 // place. staffId is unchanged.
 export async function DELETE(req: NextRequest, { params }: RouteCtx) {
   const { slug, threadId } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const loaded = await loadManageableGroup(slug, threadId);
   if (!loaded.ok) {
     return NextResponse.json({ error: loaded.error }, { status: loaded.status });

@@ -1,3 +1,4 @@
+import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
@@ -61,6 +62,8 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
+  const seasonBlocked = await seasonWriteBlocked(slug);
+  if (seasonBlocked) return seasonBlocked;
   const actor = await getTeamActor(slug);
   if (!isHeadCoach(actor)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // isHeadCoach is true only for "coach" (role=head_coach) or
