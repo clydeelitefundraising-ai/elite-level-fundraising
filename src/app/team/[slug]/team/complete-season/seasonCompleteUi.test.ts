@@ -117,8 +117,9 @@ test("with the execute flag off nothing completes: no panel, and the report stil
   const screen = read(`${DIR}/SeasonPreviewScreen.tsx`);
   assert.match(screen, /\{completionEnabled && state\.kind === "ready" && \(\s*<CompleteSeasonPanel/);
   const page = read(`${DIR}/page.tsx`);
-  assert.match(page, /completionEnabled=\{isSeasonCompletionEnabled\(\)\}/);
+  assert.match(page, /completionEnabled=\{isSeasonCompletionEnabledForTeam\(slug\)\}/);
   assert.match(read("src/lib/seasonComplete.ts"), /env\.COMPLETE_SEASON_PREVIEW === "true" && env\.COMPLETE_SEASON_EXECUTE === "true"/);
+  assert.match(read("src/lib/seasonComplete.ts"), /isSeasonCompletionEnabled\(env\) && seasonCompletionTeams\(env\)\.has\(slug\)/);
 });
 
 // Phase 5D — pre-production polish.
@@ -166,24 +167,28 @@ test("Phase 5D: the preview describes payments failing closed, never 'they'll co
   for (const html of [unknown, open]) assert.doesNotMatch(html, /count toward this season|Any that finish/);
 });
 
-test("rollout matrix: both off → hidden; PREVIEW only → read-only preview; both on → preview + completion; EXECUTE alone → hidden", async () => {
+test("rollout matrix: both off → hidden; PREVIEW only → read-only preview; both on → preview + completion for listed teams only; EXECUTE alone → hidden", async () => {
   const { isSeasonPreviewEnabled } = await import("../../../../../lib/seasonPreview.ts");
-  const { isSeasonCompletionEnabled } = await import("../../../../../lib/seasonComplete.ts");
+  const { isSeasonCompletionEnabledForTeam } = await import("../../../../../lib/seasonComplete.ts");
+  const BOTH = { COMPLETE_SEASON_PREVIEW: "true", COMPLETE_SEASON_EXECUTE: "true" };
   const cases = [
     { env: {},                                                              entryAndPage: false, completion: false },
     { env: { COMPLETE_SEASON_PREVIEW: "true" },                             entryAndPage: true,  completion: false },
-    { env: { COMPLETE_SEASON_EXECUTE: "true" },                             entryAndPage: false, completion: false },
-    { env: { COMPLETE_SEASON_PREVIEW: "true", COMPLETE_SEASON_EXECUTE: "true" }, entryAndPage: true, completion: true },
+    { env: { COMPLETE_SEASON_EXECUTE: "true", COMPLETE_SEASON_EXECUTE_TEAMS: "lions-track-2027" }, entryAndPage: false, completion: false },
+    { env: BOTH,                                                            entryAndPage: true,  completion: false },
+    { env: { ...BOTH, COMPLETE_SEASON_EXECUTE_TEAMS: "hawks-track-2027" },  entryAndPage: true,  completion: false },
+    { env: { ...BOTH, COMPLETE_SEASON_EXECUTE_TEAMS: "lions-track-2027" },  entryAndPage: true,  completion: true },
   ];
   for (const c of cases) {
     assert.equal(isSeasonPreviewEnabled(c.env), c.entryAndPage, `preview gate ${JSON.stringify(c.env)}`);
-    assert.equal(isSeasonCompletionEnabled(c.env), c.completion, `completion gate ${JSON.stringify(c.env)}`);
+    assert.equal(isSeasonCompletionEnabledForTeam("lions-track-2027", c.env), c.completion, `completion gate ${JSON.stringify(c.env)}`);
   }
   // The entry card and the page are behind the preview gate; the page 404s
-  // before it decides anything else, and only then asks the completion gate.
+  // before it decides anything else, and only then asks the completion gate
+  // for THIS team.
   const page = read(`${DIR}/page.tsx`);
   const pageGate = page.indexOf("if (!isSeasonPreviewEnabled()) notFound();");
-  assert.ok(pageGate > 0 && pageGate < page.indexOf("completionEnabled={isSeasonCompletionEnabled()}"));
+  assert.ok(pageGate > 0 && pageGate < page.indexOf("completionEnabled={isSeasonCompletionEnabledForTeam(slug)}"));
   assert.match(read("src/app/team/[slug]/team/page.tsx"), /\{isSeasonPreviewEnabled\(\) && canPreviewSeason\(actor\) && \(\s*<ActiveSeasonOnly><CompleteSeasonEntry/);
   // With completion off the screen offers no inputs and no button.
   const screen = read(`${DIR}/SeasonPreviewScreen.tsx`);

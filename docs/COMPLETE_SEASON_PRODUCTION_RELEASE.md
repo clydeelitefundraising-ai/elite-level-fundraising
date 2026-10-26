@@ -14,11 +14,19 @@ project ref in the dashboard URL before every SQL step.
 |---|---|---|
 | off | off | Nothing. No To-Do card; preview page, preview API and completion API all 404. |
 | `true` | off | To-Do card + read-only preview ("Preview only"). No confirmation form; completion API 404. |
-| `true` | `true` | Preview + typed confirmation + completion, subject to role checks, a fresh preview fingerprint, blockers, the typed address and phrase, payment verification (fails closed) and the database's own checks. |
+| `true` | `true` | Preview for every team. Typed confirmation + completion **only for the teams listed in `COMPLETE_SEASON_EXECUTE_TEAMS`**, subject to role checks, a fresh preview fingerprint, blockers, the typed address and phrase, payment verification (fails closed) and the database's own checks. Every other team sees exactly the preview-only screen, and its completion API returns 404. |
 | off | `true` | Same as both off: EXECUTE alone exposes nothing (404 before any database or Stripe call). |
 
-Only the exact value `true` turns a flag on. Covered by the "rollout matrix"
-tests in `season/complete/route.test.ts`, `season/preview/route.test.ts` and
+Only the exact value `true` turns a flag on.
+
+`COMPLETE_SEASON_EXECUTE_TEAMS` (Stage F) is a comma-separated list of team
+addresses (campaign slugs), matched exactly, with spaces around commas
+ignored. Unset or empty means **no team**: turning EXECUTE on by itself
+completes nothing. There is no wildcard. A listed team that has already been
+completed can still replay its receipt.
+
+Covered by the "rollout matrix" and "allowlist" tests in
+`season/complete/route.test.ts`, `season/preview/route.test.ts` and
 `complete-season/seasonCompleteUi.test.ts`.
 
 ## 2. Release scripts (`scripts/release/`)
@@ -148,12 +156,101 @@ mentions `deployment-guard` refusing something must not be promoted.
    - [ ] Check script: completed seasons 0, transitions 0.
 
 Enabling completion (`COMPLETE_SEASON_EXECUTE=true`) is a later, separate
-release with its own approval.
+release with its own approval: Stage F.
 
-## 8. Rollback
+## 8. Stage F — completion for one listed test team (separate approval for each step)
+
+Completion can't be undone (§9 and `docs/COMPLETE_SEASON_REVERSAL.md`).
+After the first completion in production, `complete_season_uninstall.sql`
+refuses for good, so rollback level 4 no longer exists.
+
+**F0. Prerequisites** (no production change except the release itself)
+1. The team-allowlist release is merged and deployed with
+   `COMPLETE_SEASON_EXECUTE` and `COMPLETE_SEASON_EXECUTE_TEAMS` **unset**.
+   The Stage E smoke tests still pass: the preview works, and
+   `POST …/season/complete` returns 404.
+2. Take a fresh backup: `bash ~/elf-backups/stage-a-cli-backup.sh` must end
+   with `BACKUP OK`. Then verify it offline as in Stage A: checksums, dump
+   footers, a restore into a disposable local cluster, and row counts.
+3. Run `complete_season_production_check.sql`: `4 of 4 applied`, completed
+   seasons 0, transitions 0.
+4. Stripe: signed in as a Head Coach (or platform admin), in the browser
+   console on that team's page:
+   ```js
+   await fetch('/api/team/<slug>/season/preview').then(r => r.json()).then(j => j.openCheckouts)
+   ```
+   This must return `{ state: "checked", count: 0, more: false }`.
+   - `{ state: "unknown" }` means the production key can't list Checkout
+     Sessions: **stop**. A restricted key needs **Checkout Sessions: Read**.
+   - `more: true` means more than 100 checkouts opened in the last 24 hours
+     are still open account-wide. Completion is refused until that clears.
+
+**F1. A dedicated test team** (production write)
+1. Create a **new** demo team in the Demo Center, with a new address used for
+   nothing else. Never use Monroe Valley or any sales demo: after completion
+   its old season is read-only and Demo Center reset refuses it.
+2. Its only Head Coach is the release owner's ELF account. It has no other
+   people, donations, open checkouts, or pending invitations or requests.
+3. Open its preview. It must show **0 blockers** and no "couldn't be
+   checked" notice. Record the summary numbers, the proposed new address and
+   the phrase.
+
+**F2. Turn completion on for that team only**
+1. Vercel → `elf-team-app` → Environment Variables → add, both for
+   **Production only**:
+   - `COMPLETE_SEASON_EXECUTE_TEAMS` = `<test team address>`
+   - `COMPLETE_SEASON_EXECUTE` = `true`
+2. Redeploy the current production deployment with **"Use existing Build
+   Cache"** ticked. If the build fails with
+   `next/font/google queries have exactly one entry`, retry once (§10). A
+   failed build is never promoted.
+3. Check:
+   - the new deployment is Ready, built from the same commit, on
+     `app.elitelevelfundraising.com`;
+   - on a **real** team you coach, the Complete Season screen still says
+     "Preview only", and
+     `await fetch('/api/team/<real slug>/season/complete', {method:'POST'}).then(r => r.status)`
+     returns **404**;
+   - on the **test** team, the confirmation form is shown.
+
+**F3. Complete the test team's season (once)**
+1. Signed in as the test team's Head Coach, open the preview, type the
+   address and the phrase exactly, and press Complete.
+2. Keep the receipt: transition id, old and new address, and summary.
+
+**F4. Verify**
+1. Check script: completed seasons **1**, transitions **1**.
+2. Read-only SQL (prepared at the time). It must show:
+   - the test team is archived and completed, with its successor recorded;
+   - the successor exists with fundraising off;
+   - the counts match the preview;
+   - the old join code is revoked;
+   - **no other team is completed, archived or linked**.
+3. In the app:
+   - the old season is read-only (a test announcement is refused);
+   - the new season is active, with its roster and copied events.
+4. Sending the same request again returns the receipt marked `replayed`. A
+   new confirmation on the old season returns 409 "already completed".
+5. Runtime logs since F2 show no errors or 5xx responses.
+
+**F5. Afterwards**
+- You can keep the test team listed, so its receipt can still be replayed,
+  or delete `COMPLETE_SEASON_EXECUTE` and redeploy (§9 level 1).
+- Opening completion to a real team means adding its address to
+  `COMPLETE_SEASON_EXECUTE_TEAMS` and redeploying, each time with approval.
+  There is no "all teams" value.
+
+## 9. Rollback
 
 Use the lightest level that solves the problem.
 
+0. **Stop completion, keep the preview** (Stage F):
+   - Seconds: Instant Rollback to the last production deployment built
+     without `COMPLETE_SEASON_EXECUTE`.
+   - Minutes: delete `COMPLETE_SEASON_EXECUTE` (or remove a team from
+     `COMPLETE_SEASON_EXECUTE_TEAMS`) and redeploy.
+
+   Seasons already completed stay completed.
 1. **Hide the feature** (minutes): delete `COMPLETE_SEASON_PREVIEW` (and
    `COMPLETE_SEASON_EXECUTE`), redeploy. Everything returns to "both off".
 2. **Previous app** (seconds): Vercel → Deployments → the pre-merge
@@ -174,13 +271,16 @@ Use the lightest level that solves the problem.
    script (`0 of 4`). Tested locally: schema, privileges and data end up
    identical to before Stage B.
 5. **Restore the backup** — last resort for data damage; it discards every
-   change made since the backup. Prefer the Supabase dashboard restore;
-   otherwise restore single tables from the Stage A dump with `pg_restore`.
+   change made since the backup. Production is on the Free plan, with no
+   dashboard backups. Restore single tables from the newest
+   `~/elf-backups/complete-season-2026-10-24/cli-*/` set (`schema.sql`,
+   `data.sql`; plain SQL, via `psql`), rehearsed on a disposable local copy
+   first.
 
 A season completed in production cannot be undone from the app or by the
 uninstall script: see `docs/COMPLETE_SEASON_REVERSAL.md`.
 
-## 9. Known minor risks
+## 10. Known minor risks
 
 - Some page-level gates (entry card, page gate, panel gate) are tested by
   reading the source, not by rendering the real page.
@@ -195,3 +295,11 @@ uninstall script: see `docs/COMPLETE_SEASON_REVERSAL.md`.
 - An open checkout blocks completion for up to 24 hours.
 - The check script compares production with the QA schema; columns that
   exist only in production are not a problem.
+- Builds download Google Fonts. Google occasionally returns a font address
+  that Turbopack can't parse, and the build fails with `next/font/google
+  queries have exactly one entry` (upstream vercel/next.js#99114; seen on
+  2026-10-26). A failed build is never promoted; retry it. The permanent fix
+  is to host the fonts in the repo with `next/font/local`.
+- If more than 100 checkouts opened in the last 24 hours are still open
+  account-wide, Stripe's answer is incomplete and completion is refused for
+  every team (fail closed). The preview doesn't show a notice for that case.

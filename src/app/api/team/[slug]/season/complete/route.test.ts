@@ -16,10 +16,11 @@ process.env.ELF_ACCOUNT_PEPPER        = "fake-account-pepper";
 
 register(new URL("../../../../../../lib/testSupport/nextStubLoader.mjs", import.meta.url).href, import.meta.url);
 
-const { SLUG, ROLES, makeWorld, clearCookies } = await import("../../attendance/testSupport/attendanceWorld.mjs");
+const { SLUG, OTHER, ROLES, makeWorld, clearCookies } = await import("../../attendance/testSupport/attendanceWorld.mjs");
 const { NextRequest } = await import("../../../../../../lib/testSupport/nextServerStub.mjs");
 const route = await import("./route.ts");
-const { confirmationMatches, normalizeConfirmation, parseCompletionRequest, classifyCompletionError, isSeasonCompletionEnabled, allowUnverifiedCheckouts } =
+const { confirmationMatches, normalizeConfirmation, parseCompletionRequest, classifyCompletionError, isSeasonCompletionEnabled, allowUnverifiedCheckouts,
+        isSeasonCompletionEnabledForTeam, seasonCompletionTeams } =
   await import("../../../../../../lib/seasonComplete.ts");
 
 const FP = "0123456789abcdef0123456789abcdef";
@@ -50,19 +51,22 @@ const RESULT = {
 type Rpc = { status: number; body: unknown } | "throw";
 // stripeKey: by default a test-mode key is set and Stripe reports no open
 // checkouts (payments verified); null = Stripe unconfigured.
+// teams: COMPLETE_SEASON_EXECUTE_TEAMS — by default exactly this team (null = unset).
 type Opts = { preview?: Rpc; complete?: Rpc | Rpc[]; stripe?: Rpc; flags?: { preview?: string; execute?: string }; stripeKey?: string | null;
-              env?: Record<string, string | undefined> };
+              teams?: string | null; env?: Record<string, string | undefined> };
 type Calls = { preview: Record<string, unknown>[]; complete: Record<string, unknown>[]; stripe: string[] };
 
 async function withWorld(opts: Opts, run: (calls: Calls) => Promise<void>) {
   const w = makeWorld();
   const calls: Calls = { preview: [], complete: [], stripe: [] };
   const realFetch = globalThis.fetch;
-  const saved = { p: process.env.COMPLETE_SEASON_PREVIEW, e: process.env.COMPLETE_SEASON_EXECUTE, s: process.env.STRIPE_SECRET_KEY };
+  const saved = { p: process.env.COMPLETE_SEASON_PREVIEW, e: process.env.COMPLETE_SEASON_EXECUTE, t: process.env.COMPLETE_SEASON_EXECUTE_TEAMS,
+                  s: process.env.STRIPE_SECRET_KEY };
   const set = (k: string, v: string | undefined) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };
   const flags = opts.flags ?? { preview: "true", execute: "true" };
   set("COMPLETE_SEASON_PREVIEW", flags.preview);
   set("COMPLETE_SEASON_EXECUTE", flags.execute);
+  set("COMPLETE_SEASON_EXECUTE_TEAMS", opts.teams === undefined ? SLUG : (opts.teams ?? undefined));
   set("STRIPE_SECRET_KEY", opts.stripeKey === undefined ? "sk_test_default" : (opts.stripeKey ?? undefined));
   const savedExtra = Object.fromEntries(Object.keys(opts.env ?? {}).map(k => [k, process.env[k]]));
   for (const [k, v] of Object.entries(opts.env ?? {})) set(k, v);
@@ -82,7 +86,8 @@ async function withWorld(opts: Opts, run: (calls: Calls) => Promise<void>) {
   }) as typeof fetch;
   try { await run(calls); } finally {
     globalThis.fetch = realFetch;
-    set("COMPLETE_SEASON_PREVIEW", saved.p); set("COMPLETE_SEASON_EXECUTE", saved.e); set("STRIPE_SECRET_KEY", saved.s);
+    set("COMPLETE_SEASON_PREVIEW", saved.p); set("COMPLETE_SEASON_EXECUTE", saved.e); set("COMPLETE_SEASON_EXECUTE_TEAMS", saved.t);
+    set("STRIPE_SECRET_KEY", saved.s);
     for (const [k, v] of Object.entries(savedExtra)) set(k, v);
     clearCookies();
   }
@@ -146,6 +151,84 @@ test("flags: 404 unless BOTH the preview and execute flags are exactly \"true\";
       assert.equal(calls.preview.length + calls.complete.length, 0);
     });
   }
+});
+
+// ── Stage F: team allowlist (COMPLETE_SEASON_EXECUTE_TEAMS) ────────────
+
+test("allowlist helper: only exact, listed team addresses; unset or empty means no team; no wildcard; both flags still required", () => {
+  const ON = { COMPLETE_SEASON_PREVIEW: "true", COMPLETE_SEASON_EXECUTE: "true" };
+  for (const teams of [undefined, "", " ", ",", " , ,", "*", "all", "true"]) {
+    assert.equal(isSeasonCompletionEnabledForTeam("wolves", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: teams }), false, JSON.stringify(teams));
+  }
+  assert.equal(isSeasonCompletionEnabledForTeam("wolves", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: "wolves" }), true);
+  assert.equal(isSeasonCompletionEnabledForTeam("wolves", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: " hawks , wolves ," }), true, "comma-separated, trimmed");
+  assert.equal(isSeasonCompletionEnabledForTeam("hawks", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: "wolves" }), false, "another team");
+  for (const near of ["Wolves", "wolves-2027", "wolve", "wolves hawks", "wolves;hawks"]) {
+    assert.equal(isSeasonCompletionEnabledForTeam("wolves", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: near }), false, `no partial or case-insensitive match: ${near}`);
+  }
+  assert.equal(isSeasonCompletionEnabledForTeam("", { ...ON, COMPLETE_SEASON_EXECUTE_TEAMS: "wolves" }), false);
+  for (const flags of [{}, { COMPLETE_SEASON_PREVIEW: "true" }, { COMPLETE_SEASON_EXECUTE: "true" }, { ...ON, COMPLETE_SEASON_EXECUTE: "TRUE" }]) {
+    assert.equal(isSeasonCompletionEnabledForTeam("wolves", { ...flags, COMPLETE_SEASON_EXECUTE_TEAMS: "wolves" }), false, `flags ${JSON.stringify(flags)}`);
+  }
+  assert.deepEqual([...seasonCompletionTeams({ COMPLETE_SEASON_EXECUTE_TEAMS: " a ,b,,a " })], ["a", "b"]);
+});
+
+test("allowlist: a team that isn't listed gets 404 for every role — no session, preview, Stripe or transition call", async () => {
+  for (const teams of [null, "", "hawks", "wolves-2028", "Wolves"]) {
+    for (const role of ["head", "admin", "assistant", "nobody"] as const) {
+      await withWorld({ teams }, async calls => {
+        ROLES[role]();
+        const res = await post(GOOD);
+        assert.equal(res.status, 404, `teams=${JSON.stringify(teams)} as ${role}`);
+        assert.equal((await body(res)).error, "Not found.", "the same answer as EXECUTE off");
+        assert.equal(calls.preview.length + calls.complete.length + calls.stripe.length, 0, `teams=${JSON.stringify(teams)} as ${role}`);
+      });
+    }
+  }
+});
+
+test("allowlist: another team's own Head Coach can't complete their (unlisted) team while the test team is listed", async () => {
+  await withWorld({ teams: SLUG }, async calls => {
+    ROLES.otherTeamHead();
+    const res = await post({ ...GOOD, confirmTeamSlug: OTHER }, OTHER);
+    assert.equal(res.status, 404);
+    assert.equal(calls.preview.length + calls.complete.length + calls.stripe.length, 0);
+  });
+});
+
+test("allowlist: a listed team still goes through every other check (role, confirmation, payments)", async () => {
+  await withWorld({ teams: `hawks, ${SLUG}` }, async calls => {
+    ROLES.head();
+    assert.equal((await post(GOOD)).status, 200);
+    assert.equal(calls.complete.length, 1);
+    assert.equal(calls.stripe.length, 1, "payments still verified");
+  });
+  await withWorld({ teams: SLUG }, async calls => {
+    ROLES.assistant();
+    assert.equal((await post(GOOD)).status, 403);
+    assert.equal(calls.complete.length, 0);
+  });
+  await withWorld({ teams: SLUG }, async calls => {
+    ROLES.head();
+    assert.equal((await post({ ...GOOD, confirmation: "" })).status, 400);
+    assert.equal(calls.complete.length, 0);
+  });
+  await withWorld({ teams: SLUG, stripeKey: null }, async calls => {
+    ROLES.head();
+    assert.equal((await post(GOOD)).status, 503);
+    assert.equal(calls.complete.length, 0);
+  });
+});
+
+test("allowlist: a listed but already-completed team can still replay its receipt (retry after a lost response)", async () => {
+  const completed = { ...PREVIEW, from: { ...PREVIEW.from, completed: true, archived: true, successor_slug: "wolves-2028" },
+                      blockers: ["season_already_completed"], fingerprint: "e".repeat(32) };
+  await withWorld({ teams: SLUG, preview: { status: 200, body: completed }, complete: { status: 200, body: { ...RESULT, replayed: true } } }, async () => {
+    ROLES.head();
+    const res = await post(GOOD);
+    assert.equal(res.status, 200);
+    assert.equal((await body(res)).receipt.replayed, true);
+  });
 });
 
 test("Assistant Coach, boosters, athlete, parent: 403 before anything is asked", async () => {
@@ -457,20 +540,22 @@ test("double submit (two simultaneous requests, same confirmation id): both forw
 
 // ── Rollout matrix (PREVIEW and EXECUTE are independent flags) ────────
 
-test("rollout matrix: completion runs only with BOTH flags on; EXECUTE alone exposes nothing (404, no database or Stripe call, for any role)", async () => {
-  const MATRIX: { flags: { preview?: string; execute?: string }; status: number }[] = [
+test("rollout matrix: completion runs only with BOTH flags on AND the team listed; anything less exposes nothing (404, no database or Stripe call, for any role)", async () => {
+  const MATRIX: { flags: { preview?: string; execute?: string }; teams?: string | null; status: number }[] = [
     { flags: {}, status: 404 },                                   // both off: hidden
     { flags: { preview: "true" }, status: 404 },                  // preview only: read-only preview, no completion
     { flags: { execute: "true" }, status: 404 },                  // execute without preview: still nothing
-    { flags: { preview: "true", execute: "true" }, status: 200 },  // both on: completes (all safeguards still apply)
+    { flags: { preview: "true", execute: "true" }, teams: null, status: 404 },     // both on, no team listed: nothing
+    { flags: { preview: "true", execute: "true" }, teams: "hawks", status: 404 },  // both on, another team listed: nothing here
+    { flags: { preview: "true", execute: "true" }, status: 200 },  // both on, this team listed: completes (all safeguards still apply)
   ];
-  for (const { flags, status } of MATRIX) {
+  for (const { flags, teams, status } of MATRIX) {
     for (const role of ["head", "admin", "assistant"] as const) {
       if (status === 200 && role === "assistant") continue; // role refusals are covered above
-      await withWorld({ flags }, async calls => {
+      await withWorld({ flags, teams }, async calls => {
         ROLES[role]();
         const res = await post(GOOD);
-        assert.equal(res.status, status, `${JSON.stringify(flags)} as ${role}`);
+        assert.equal(res.status, status, `${JSON.stringify(flags)} teams=${JSON.stringify(teams)} as ${role}`);
         if (status === 404) {
           assert.equal(calls.preview.length + calls.complete.length + calls.stripe.length, 0, `${JSON.stringify(flags)}: nothing is asked`);
         } else {

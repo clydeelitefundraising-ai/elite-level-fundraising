@@ -1,9 +1,10 @@
 "use client";
 
 // Complete Season Phase 5A — the deliberate completion step under the
-// preview. Shown only when COMPLETE_SEASON_EXECUTE is on (decided by the
-// server page). The coach types the team's address AND the season's phrase;
-// the button stays disabled until both match. One confirmation id
+// preview. Shown only when COMPLETE_SEASON_EXECUTE is on for this team
+// (COMPLETE_SEASON_EXECUTE_TEAMS; decided by the server page). The coach
+// types the team's address AND the season's phrase; the button stays
+// disabled until both match. One confirmation id
 // (idempotency key) is made per preview, so a retry after a lost response
 // returns the original receipt instead of completing twice. The server and
 // the database re-check everything; this screen never decides on its own.
