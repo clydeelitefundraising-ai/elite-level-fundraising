@@ -10,7 +10,8 @@
 // a wrong confirmation phrase, an already-completed season and every
 // blocker before it writes anything.
 // Nothing here re-implements any of that; this file only
-//   * decides whether completion is switched on (COMPLETE_SEASON_EXECUTE),
+//   * decides whether completion is switched on (COMPLETE_SEASON_EXECUTE)
+//     and for which teams (COMPLETE_SEASON_EXECUTE_TEAMS),
 //   * validates the request shape,
 //   * builds p_actor from the verified session (never the client), and
 //   * maps the database's fixed error codes to plain answers.
@@ -30,6 +31,23 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
  *  default; server-side only. */
 export function isSeasonCompletionEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env.COMPLETE_SEASON_PREVIEW === "true" && env.COMPLETE_SEASON_EXECUTE === "true";
+}
+
+/** Stage F — the teams completion is switched on for:
+ *  COMPLETE_SEASON_EXECUTE_TEAMS, a comma-separated list of team addresses
+ *  (campaign slugs), matched exactly. Unset or empty means NO team, so
+ *  turning COMPLETE_SEASON_EXECUTE on by itself completes nothing. There is
+ *  no wildcard. Server-side only. */
+export function seasonCompletionTeams(env: Record<string, string | undefined> = process.env): Set<string> {
+  return new Set((env.COMPLETE_SEASON_EXECUTE_TEAMS ?? "").split(",").map(s => s.trim()).filter(Boolean));
+}
+
+/** Completion exists for THIS team only when both flags are on AND the team
+ *  is in COMPLETE_SEASON_EXECUTE_TEAMS. Every other check (role, typed
+ *  confirmation, fresh preview, payments, the database's own checks) still
+ *  applies on top. */
+export function isSeasonCompletionEnabledForTeam(slug: string, env: Record<string, string | undefined> = process.env): boolean {
+  return isSeasonCompletionEnabled(env) && seasonCompletionTeams(env).has(slug);
 }
 
 /** Phase 5B — payments fail closed: when open Stripe checkouts can't be

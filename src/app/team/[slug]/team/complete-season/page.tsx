@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { canPreviewSeason, isSeasonPreviewEnabled } from "@/lib/seasonPreview";
 import SeasonPreviewScreen from "./SeasonPreviewScreen";
-import { isSeasonCompletionEnabled } from "@/lib/seasonComplete";
+import { isSeasonCompletionEnabledForTeam } from "@/lib/seasonComplete";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,7 @@ export default async function CompleteSeasonPage({ params }: { params: Promise<{
   const { slug } = await params;
   const actor = await requireTeamMembership(slug);
   if (!canPreviewSeason(actor)) notFound();
-  // Phase 5A: the confirm step exists only when COMPLETE_SEASON_EXECUTE is on.
-  return <SeasonPreviewScreen slug={slug} completionEnabled={isSeasonCompletionEnabled()} />;
+  // Phase 5A: the confirm step exists only when COMPLETE_SEASON_EXECUTE is on
+  // — and, since Stage F, only for a team in COMPLETE_SEASON_EXECUTE_TEAMS.
+  return <SeasonPreviewScreen slug={slug} completionEnabled={isSeasonCompletionEnabledForTeam(slug)} />;
 }

@@ -44,7 +44,7 @@ export async function fetchPreviewState(url: string): Promise<State> {
 
 export default function SeasonPreviewScreen({ slug, completionEnabled = false }: {
   slug: string;
-  /** Phase 5A: COMPLETE_SEASON_EXECUTE is on (decided by the server page). */
+  /** Phase 5A: COMPLETE_SEASON_EXECUTE is on for this team (decided by the server page). */
   completionEnabled?: boolean;
 }) {
   const [state, setState] = useState<State>({ kind: "loading" });

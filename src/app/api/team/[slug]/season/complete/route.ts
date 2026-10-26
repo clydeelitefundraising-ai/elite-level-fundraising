@@ -3,7 +3,8 @@
 // Completes this team's season: archives it as read-only history and makes
 // the next season active, in one database transaction
 // (team_season_complete). Behind TWO flags (COMPLETE_SEASON_PREVIEW and
-// COMPLETE_SEASON_EXECUTE, both off by default); otherwise 404.
+// COMPLETE_SEASON_EXECUTE, both off by default) and, since Stage F, only for
+// the teams named in COMPLETE_SEASON_EXECUTE_TEAMS; otherwise 404.
 //
 // Head Coach or platform admin only; the actor comes from the verified
 // session (getTeamActor), never from the request, and the database checks
@@ -31,6 +32,7 @@ import {
   confirmationMatches,
   executeSeasonCompletion,
   isSeasonCompletionEnabled,
+  isSeasonCompletionEnabledForTeam,
   parseCompletionRequest,
   type CompletionFailure,
 } from "@/lib/seasonComplete";
@@ -73,6 +75,9 @@ export async function POST(
 ) {
   if (!isSeasonCompletionEnabled()) return json({ error: "Not found." }, 404);
   const { slug } = await params;
+  // Stage F: a team not in COMPLETE_SEASON_EXECUTE_TEAMS sees exactly what
+  // it saw with EXECUTE off — before any session, database or Stripe call.
+  if (!isSeasonCompletionEnabledForTeam(slug)) return json({ error: "Not found." }, 404);
   const actor = await getTeamActor(slug);
   if (actor.kind === "public") return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
   if (!canPreviewSeason(actor)) return fail("forbidden");
