@@ -282,13 +282,23 @@ test("card: collapsed by default; header has calendar icon, Attendance, count an
   assert.match(cardSrc, /\{expanded && \(/);
 });
 
-test("card: Total Absences, Excused and Unexcused always visible; Other only when above zero", () => {
-  assert.match(cardSrc, /<Metric label="Total Absences" value=\{summary\.total\} \/>/);
+test("card: Total, Excused and Unexcused always visible; Other only when above zero", () => {
+  assert.match(cardSrc, /<Metric label="Total" value=\{summary\.total\} \/>/);
   assert.match(cardSrc, /<Metric label="Excused" value=\{summary\.excused\} \/>/);
   assert.match(cardSrc, /<Metric label="Unexcused" value=\{summary\.unexcused\} \/>/);
   assert.match(cardSrc, /\{summary\.other > 0 && <Metric label="Other" value=\{summary\.other\} \/>\}/);
-  const metricsAt = cardSrc.indexOf('<Metric label="Total Absences"');
+  assert.ok(!cardSrc.includes('label="Total Absences"'), "'Total Absences' was clipped with four counts on a phone");
+  const metricsAt = cardSrc.indexOf('<Metric label="Total"');
   assert.ok(metricsAt > 0 && metricsAt < cardSrc.indexOf("{expanded && ("), "metrics are outside the expanded part");
+});
+
+test("card: four counts fit one row on a 320px iPhone — no side padding in a count box, tight gap", () => {
+  // At 320px each count box is ~56px wide; "Unexcused" needs ~52px at
+  // .66rem, so the box's horizontal padding (was .5rem) must stay 0.
+  const metric = cardSrc.slice(cardSrc.indexOf("function Metric"), cardSrc.indexOf("export default function"));
+  assert.match(metric, /flex: "1 1 0", minWidth: 0, [^}]*padding: "\.45rem 0", textAlign: "center"/);
+  assert.match(metric, /fontSize: "\.66rem"/);
+  assert.match(cardSrc, /<div style=\{\{ display: "flex", gap: "\.3rem", marginTop: "\.1rem" \}\}>\s*<Metric label="Total"/);
 });
 
 test("card: expanded list shows each date with Excused / Unexcused / Other; no notes anywhere", () => {

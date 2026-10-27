@@ -14,7 +14,7 @@ import type { AbsenceReason } from "@/lib/teamAttendance";
 // (CoachAthleteView.tsx for staff, AthleteProfileView.tsx for the athlete
 // and linked parents). Read-only and compact: collapsed by default, the
 // header row shows the calendar icon, "Attendance", the total and a
-// chevron; the counts (Total Absences, Excused, Unexcused, and Other when
+// chevron; the counts (Total, Excused, Unexcused, and Other when
 // any) stay visible; tapping the header lists every absence date, newest
 // first, with its category. The page decides who sees this
 // (canViewAthleteAttendance) and loads it on the server
@@ -39,7 +39,7 @@ const REASON_COLORS: Record<AbsenceReason, { bg: string; fg: string }> = {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div style={{ flex: "1 1 0", minWidth: 0, background: "#f9fafb", borderRadius: 10, padding: ".45rem .5rem", textAlign: "center" }}>
+    <div style={{ flex: "1 1 0", minWidth: 0, background: "#f9fafb", borderRadius: 10, padding: ".45rem 0", textAlign: "center" }}>
       <div style={{ fontSize: "1rem", fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>{value}</div>
       <div style={{ fontSize: ".66rem", fontWeight: 600, color: "#6b7280", marginTop: ".1rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
     </div>
@@ -91,8 +91,8 @@ export default function AthleteAttendanceCard({ attendance }: { attendance: Athl
         />
       </button>
 
-      <div style={{ display: "flex", gap: ".4rem", marginTop: ".1rem" }}>
-        <Metric label="Total Absences" value={summary.total} />
+      <div style={{ display: "flex", gap: ".3rem", marginTop: ".1rem" }}>
+        <Metric label="Total" value={summary.total} />
         <Metric label="Excused" value={summary.excused} />
         <Metric label="Unexcused" value={summary.unexcused} />
         {summary.other > 0 && <Metric label="Other" value={summary.other} />}
