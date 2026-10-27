@@ -129,6 +129,14 @@ test("grid: the section stays pinned whatever the search or grade tab", () => {
   assert.match(mobileGrid, /myRosterSection\(actor, linkedAthleteIds, athletes\)/, "built from the whole roster, not the filtered list");
 });
 
+test("grid: the section resets the global <section> padding and keeps a 20px gap to the Team heading", () => {
+  // globals.css: `section { padding: 6rem 5%; }` (marketing site) — without
+  // the reset the section gets 96px above and below and a 5% side inset.
+  assert.match(mobileGrid, /<section aria-label=\{mySection\.title\} style=\{\{ padding: 0, marginBottom: "var\(--space-5\)" \}\}>/);
+  const block = mobileGrid.slice(mobileGrid.indexOf("{mySection && ("), mobileGrid.indexOf("{/* Section header */}"));
+  assert.doesNotMatch(block, /minHeight|height:|justifyContent|<div style=\{\{ height/, "no fixed heights or spacers");
+});
+
 test("grid: the main list leaves out athletes already in the section", () => {
   assert.match(mobileGrid, /!mine\.has\(a\.id\) && matchesRosterSearch\(a\.name, search\) && matchesGradeTab\(a\.class_year, activeTab\)/);
 });

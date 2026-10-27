@@ -244,7 +244,9 @@ export default function AthleteRosterGrid({
       )}
 
       {mySection && (
-        <section aria-label={mySection.title} style={{ marginBottom: "var(--space-5)" }}>
+        // padding: 0 — globals.css gives every <section> the marketing
+        // site's 6rem 5% padding.
+        <section aria-label={mySection.title} style={{ padding: 0, marginBottom: "var(--space-5)" }}>
           <h2 style={{ margin: "0 0 var(--space-2)", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
             {mySection.title}
           </h2>
