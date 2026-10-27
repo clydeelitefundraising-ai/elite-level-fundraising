@@ -36,6 +36,12 @@ Covered by the "rollout matrix" and "allowlist" tests in
 | `complete_season_production_check.sql` | One read-only SELECT: missing prerequisites, which of the four migrations are applied, object counts, completed seasons, transitions, function grants. |
 | `complete_season_uninstall.sql` | Emergency removal of exactly what phase_s1–s4 add. One transaction. Refuses once any season has been completed or linked. |
 | `test-local.sh` | Tests both on a disposable local PostgreSQL (install → uninstall → schema, privileges and data identical to before → reinstall → refusals). Never contacts Supabase. |
+| `stage_f1_team_check.sql` | Stage F1: one read-only SELECT on the test team — flags, coaches, join codes, fund uses, counts, successor address free. |
+| `stage_f1_people_check.sql` | Stage F1: athletes and stored grades, coaches, invitations, members and parent requests on the test team, with the preview's own decisions. Accounts appear only as `acct-n` labels. |
+| `stage_f1_baseline.sql` | Before/after baseline: per team, season flags, row count and md5 fingerprints of its settings row and of all its rows; per-table row counts; global counts. No personal data. Run once before F3 and once after, and compare. |
+| `stage_f4_verify.sql` | Stage F4: 29 PASS/FAIL checks for the `elf-season-test-2026` → `elf-season-test-2027` completion, plus "ALL CHECKS". Hard-coded to that test team; copy and adjust expectations for any other team. |
+
+All four Stage F scripts are single read-only SELECTs, safe in the SQL editor.
 
 Pre-release production check (2026-10-24): 69 public tables, prerequisites
 OK, 0 of 4 Complete Season migrations applied.
@@ -189,9 +195,14 @@ refuses for good, so rollback level 4 no longer exists.
 1. Create a **new** demo team in the Demo Center, with a new address used for
    nothing else. Never use Monroe Valley or any sales demo: after completion
    its old season is read-only and Demo Center reset refuses it.
-2. Its only Head Coach is the release owner's ELF account. It has no other
-   people, donations, open checkouts, or pending invitations or requests.
-3. Open its preview. It must show **0 blockers** and no "couldn't be
+2. Its Head Coach is the release owner's ELF account. Synthetic test people
+   (a second Head Coach, parents) are allowed when they use dummy addresses
+   with no real inbox; nothing in the completion path sends email, push or
+   in-app notifications. No real people, donations, open checkouts, or
+   pending invitations or requests.
+3. Run `stage_f1_team_check.sql` and `stage_f1_people_check.sql`, then
+   `stage_f1_baseline.sql` (save the result as CSV — it is the before-state).
+4. Open its preview. It must show **0 blockers** and no "couldn't be
    checked" notice. Record the summary numbers, the proposed new address and
    the phrase.
 
@@ -220,7 +231,8 @@ refuses for good, so rollback level 4 no longer exists.
 
 **F4. Verify**
 1. Check script: completed seasons **1**, transitions **1**.
-2. Read-only SQL (prepared at the time). It must show:
+2. `stage_f4_verify.sql` (every row PASS) and `stage_f1_baseline.sql` again,
+   compared with the before-state. Together they must show:
    - the test team is archived and completed, with its successor recorded;
    - the successor exists with fundraising off;
    - the counts match the preview;
@@ -303,3 +315,48 @@ uninstall script: see `docs/COMPLETE_SEASON_REVERSAL.md`.
 - If more than 100 checkouts opened in the last 24 hours are still open
   account-wide, Stripe's answer is incomplete and completion is refused for
   every team (fail closed). The preview doesn't show a notice for that case.
+
+## 11. Release record — Stage F (2026-10-26)
+
+| Stage | Result |
+|---|---|
+| F0 | Allowlist release (`c14fabc`) deployed with EXECUTE unset; preview works, completion API 404. |
+| F1 | Demo test team `elf-season-test-2026`: 7 athletes (incl. one "Other" grade, flagged), 2 Head Coaches, 2 synthetic parents; preview 0 blockers; Stripe `checked`, 0 open. Baseline at 22:03 UTC: `45 / 0 / 0 / 109` (teams / completed / transitions / accounts). |
+| F2 | Backup `cli-20261026T221120Z` (`BACKUP OK`, verified by local restore: 69 tables, 4,167 rows, 0 orphan rows). EXECUTE and `COMPLETE_SEASON_EXECUTE_TEAMS=elf-season-test-2026` set, redeployed. A non-listed real team returned 404; the test team showed the form. |
+| F3 | One completion at 23:12:14 UTC → 200: `elf-season-test-2026` → `elf-season-test-2027`. |
+| F4 | `stage_f4_verify.sql` 29/29 PASS; check script PASS (1 completed, 1 transition). Baseline at 23:28:52 UTC: `46 / 1 / 1 / 109`; all 44 other teams identical in every fingerprint; +21 rows, all from the completion. Logs: one POST, 0 5xx, 0 errors, no duplicates. |
+| F5 | Completion turned off and production redeployed: preview-only again, no confirmation form, 2026 test season shows its read-only archive banner, audit still 29/29, 44 other teams unchanged, no runtime errors. |
+
+The test team and its successor stay in production as the record of this
+run. Do not complete or modify them again, and do not attempt to reverse
+the completion.
+
+## 12. Lessons for the next completion
+
+- **Parent approval reuses the member row.** Approving a second child for
+  the same parent adds a `team_member_athletes` link to the existing row; it
+  does not create a second member. A parent linked only to Seniors graduates
+  with them and is not carried — expect that in the preview.
+- **Grades.** A blank grade can't be saved; to test the flagged path use
+  "Other".
+- **Coach roles can't be changed** in the app, and deleting a coach cascades
+  widely. Set up test coaches with the intended role from the start.
+- **Sensitive variables can't be read back** in Vercel. Verify the allowlist
+  by behavior: a listed team shows the form, a non-listed team's completion
+  API returns 404.
+- **Fingerprints depend on the session time zone.** When comparing a local
+  restore with Supabase, run psql with `PGTZ=UTC`, or timestamps render
+  differently and every md5 changes.
+- **No `audit_logs` entry for completion.** The `team_season_transitions`
+  row is the audit trail.
+- **Attendance drafts** freeze with the old season (preview warning
+  `season_attendance_drafts_frozen`); finish or discard them first on real
+  teams.
+- **`vercel logs` returns at most 50 entries per query.** Split the window
+  (and pass `--project` / `--scope`) to see every request.
+- **Replays must come from the same Head Coach**: the idempotency hash
+  includes the actor.
+- **Before-state**: if the pre-F3 baseline CSV is lost, a local restore of
+  the pre-F3 backup gives the same fingerprints (with `PGTZ=UTC`).
+- `stage_f4_verify.sql` is specific to the test team. For a real team,
+  prepare a copy with that team's preview numbers before F3.
