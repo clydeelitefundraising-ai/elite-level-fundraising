@@ -14,6 +14,7 @@
 // opens the native "Save to Files / Share" sheet on iOS/Android and falls
 // back to a normal <a download> blob click on desktop/browser.
 import { shareFileOrFallback } from "./nativeFileShare";
+import { withTeamFileExtension } from "@/lib/teamFileName";
 
 function filenameFromContentDisposition(header: string | null): string | null {
   if (!header) return null;
@@ -52,7 +53,11 @@ function fallbackAnchorDownload(blob: Blob, filename: string) {
 // failure — callers should catch and surface `err.message`.
 export async function downloadViaFetch(url: string, filenameHint?: string): Promise<void> {
   const { blob, filename } = await fetchFileBlob(url);
-  const finalName = filenameHint ?? filename ?? "download";
+  // A team document's name always ends in the extension of its real type
+  // (the response's Content-Type, one of the validated upload types) — a
+  // renamed "All Around Schedule" PDF becomes "All Around Schedule.pdf", or
+  // iOS can only show it as "data". Other types (CSV exports) are unchanged.
+  const finalName = withTeamFileExtension(filenameHint ?? filename ?? "download", blob.type);
   const file = new File([blob], finalName, { type: blob.type || "application/octet-stream" });
   await shareFileOrFallback(file, () => fallbackAnchorDownload(blob, finalName));
 }

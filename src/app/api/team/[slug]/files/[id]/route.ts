@@ -2,6 +2,12 @@ import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor, isStaff, isHeadCoach } from "@/lib/permissions.server";
 import { logAuditEvent, toAuditActor, ipOf } from "@/lib/auditLog";
+import {
+  teamFileContentDisposition,
+  teamFileExtensionForMime,
+  teamFileMimeFromRow,
+  withTeamFileExtension,
+} from "@/lib/teamFileName";
 
 const BASE   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET = "team-files";
@@ -28,14 +34,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   // 1. Look up the file record — scoped to slug for isolation
   const rowRes = await fetch(
-    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,name&limit=1`,
+    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,name,file_type&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!rowRes.ok) return NextResponse.json({ error: "File not found." }, { status: 404 });
-  const rows: { storage_path: string; name: string }[] = await rowRes.json();
+  const rows: { storage_path: string; name: string; file_type: string }[] = await rowRes.json();
   if (!rows.length) return NextResponse.json({ error: "File not found." }, { status: 404 });
 
-  const { storage_path, name } = rows[0];
+  const { storage_path, name, file_type } = rows[0];
 
   // 2. Fetch the file from private storage using the service role key
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -52,14 +58,20 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   // 3. Stream the file to the browser with download headers
   const contentType = fileRes.headers.get("Content-Type") ?? "application/octet-stream";
-  const safeFilename = encodeURIComponent(name).replace(/%20/g, "+");
+  // The filename always carries the extension of the file's validated type
+  // (the type stored with the object at upload, else the row's file_type),
+  // even when a rename removed it — teamFileName.ts. The stored name is not
+  // changed.
+  const fileMime = teamFileExtensionForMime(contentType) ? contentType : teamFileMimeFromRow(file_type, storage_path);
+  const filename = withTeamFileExtension(name, fileMime);
 
   const disposition = inline ? "inline" : "attachment";
   return new NextResponse(fileRes.body, {
     headers: {
-      "Content-Type":        contentType,
-      "Content-Disposition": `${disposition}; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`,
-      "Cache-Control":       "private, max-age=1800",
+      "Content-Type":           contentType,
+      "Content-Disposition":    teamFileContentDisposition(filename, disposition),
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control":          "private, max-age=1800",
     },
   });
 }
@@ -75,12 +87,24 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   const { name } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required." }, { status: 400 });
 
+  // The new name keeps the file's own extension: a missing or different
+  // document extension is corrected from the file's validated type
+  // (file_type + its storage_path), never taken from what was typed.
+  const rowRes = await fetch(
+    `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=storage_path,file_type&limit=1`,
+    { headers: h(), cache: "no-store" },
+  );
+  if (!rowRes.ok) return NextResponse.json({ error: "File not found." }, { status: 404 });
+  const rows: { storage_path: string; file_type: string }[] = await rowRes.json();
+  if (!rows.length) return NextResponse.json({ error: "File not found." }, { status: 404 });
+  const finalName = withTeamFileExtension(name.trim(), teamFileMimeFromRow(rows[0].file_type, rows[0].storage_path));
+
   const res = await fetch(
     `${BASE}/rest/v1/team_files?id=eq.${encodeURIComponent(id)}&campaign_slug=eq.${encodeURIComponent(slug)}`,
-    { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ name: name.trim() }) },
+    { method: "PATCH", headers: h({ Prefer: "return=minimal" }), body: JSON.stringify({ name: finalName }) },
   );
   if (!res.ok) return NextResponse.json({ error: "Failed to rename file." }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, name: finalName });
 }
 
 // ── Delete — head coach only
