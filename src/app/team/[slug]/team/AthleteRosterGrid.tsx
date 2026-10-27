@@ -10,6 +10,7 @@ import {
   groupAthletesByClass,
   matchesGradeTab,
   matchesRosterSearch,
+  myRosterSection,
   resolveGradeTab,
   type GradeTabKey,
 } from "./rosterHelpers";
@@ -186,9 +187,21 @@ export default function AthleteRosterGrid({
   const gradeTabs = useMemo(() => buildGradeTabs(athletes), [athletes]);
   const activeTab = resolveGradeTab(gradeTab, gradeTabs);
 
+  // My Profile / My Athletes: the signed-in athlete's or parent's own
+  // athlete(s) from this roster, pinned above it and left out of the list
+  // below so no card appears twice. Null for every other actor, or when no
+  // linked athlete is on this roster — then the roster is unchanged.
+  const mySection = useMemo(
+    () => myRosterSection(actor, linkedAthleteIds, athletes),
+    [actor, linkedAthleteIds, athletes],
+  );
+
   const filtered = useMemo(
-    () => athletes.filter(a => matchesRosterSearch(a.name, search) && matchesGradeTab(a.class_year, activeTab)),
-    [athletes, search, activeTab],
+    () => {
+      const mine = new Set(mySection?.athletes.map(a => a.id));
+      return athletes.filter(a => !mine.has(a.id) && matchesRosterSearch(a.name, search) && matchesGradeTab(a.class_year, activeTab));
+    },
+    [athletes, search, activeTab, mySection],
   );
 
   // Shared grade order; empty class_year → "No grade set", distinct from a
@@ -228,6 +241,29 @@ export default function AthleteRosterGrid({
           </span>
           <ChevronRight size={16} style={{ color: "var(--text-muted-app)" }} aria-hidden="true" />
         </a>
+      )}
+
+      {mySection && (
+        <section aria-label={mySection.title} style={{ marginBottom: "var(--space-5)" }}>
+          <h2 style={{ margin: "0 0 var(--space-2)", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+            {mySection.title}
+          </h2>
+          <div className="elf-section-flat" style={{ padding: 0 }}>
+            {mySection.athletes.map(a => (
+              <AthleteRow
+                key={a.id}
+                a={a}
+                slug={slug}
+                staffMode={staffMode}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canOpen={canOpenAthlete(a.id)}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Section header */}
@@ -289,7 +325,9 @@ export default function AthleteRosterGrid({
         <div className="elf-section-flat" style={{ textAlign: "center", padding: "var(--space-6) var(--space-4)" }}>
           <Search size={24} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: "var(--space-2)" }} aria-hidden="true" />
           <div style={{ fontWeight: 700, fontSize: ".86rem", color: "var(--text-primary-app)" }}>
-            No athletes match your search.
+            {!mySection ? "No athletes match your search."
+              : search.trim() || activeTab !== ALL_ATHLETES_TAB ? "No other athletes match your search."
+              : "No other athletes yet."}
           </div>
         </div>
       ) : (

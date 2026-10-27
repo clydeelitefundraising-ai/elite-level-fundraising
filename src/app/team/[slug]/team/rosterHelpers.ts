@@ -209,6 +209,38 @@ export function gradeTabIndexForKey(key: string, current: number, count: number)
   return null;
 }
 
+// ─── My Profile / My Athletes ────────────────────────────────────────────────
+
+export type MyRosterSection = {
+  title: "My Profile" | "My Athletes";
+  athletes: TeamAthleteRow[];
+};
+
+/** The signed-in athlete's or parent's own athlete(s), shown above the full
+ *  roster. Uses only the existing relationships: an athlete member's own
+ *  `athlete_id`; a parent's server-computed linkedAthleteIds
+ *  (getLinkedAthleteIdsForMember — the join table plus the legacy column).
+ *  Never matched by name or email. Coaches, boosters, platform admins and
+ *  the public get null (the normal roster). Only athletes on THIS roster
+ *  are returned, in roster order — an id from anywhere else is ignored —
+ *  and null when none are found, so no empty section is ever shown. */
+export function myRosterSection(
+  actor: TeamActor,
+  linkedAthleteIds: readonly string[],
+  athletes: readonly TeamAthleteRow[],
+): MyRosterSection | null {
+  if (actor.kind !== "member") return null;
+  const { role, athlete_id } = actor.session;
+  let ids: readonly string[];
+  if (role === "athlete") ids = athlete_id ? [athlete_id] : [];
+  else if (role === "parent") ids = linkedAthleteIds;
+  else return null;
+  const wanted = new Set(ids);
+  const mine = athletes.filter(a => wanted.has(a.id));
+  if (mine.length === 0) return null;
+  return { title: role === "athlete" ? "My Profile" : "My Athletes", athletes: mine };
+}
+
 // ─── Mobile roster grouping ──────────────────────────────────────────────────
 
 /** Groups athletes by class_year in the same order as the grade tabs
