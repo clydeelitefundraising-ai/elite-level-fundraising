@@ -226,7 +226,8 @@ export default function FilesView({
     const data = await res.json();
     setEditSaving(false);
     if (!res.ok) { setEditError(data.error ?? "Failed to rename."); return; }
-    setFiles(prev => prev.map(f => f.id === editing.id ? { ...f, name: editName.trim() } : f));
+    // The server keeps the file's extension (teamFileName.ts) — show the name it saved.
+    setFiles(prev => prev.map(f => f.id === editing.id ? { ...f, name: data.name ?? editName.trim() } : f));
     closeEdit();
   };
 
