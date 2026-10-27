@@ -1,18 +1,39 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, User, Users, Settings as SettingsIcon, LogOut, Plus } from "lucide-react";
+import { Bell, User, Users, Settings as SettingsIcon, LogOut, Plus, X } from "lucide-react";
 import type { TeamSummary } from "@/lib/accountSession";
 import PushOptIn from "./PushOptIn";
+import { useBodyScrollLock } from "./Modal";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
-import { computeClampedMenuPosition, MENU_VIEWPORT_PADDING, type MenuPosition } from "@/lib/menuPositioning";
+import {
+  DRAWER_FOCUSABLE,
+  DRAWER_WIDTH,
+  drawerCloseDelayMs,
+  drawerKeyAction,
+  drawerTransition,
+} from "./accountDrawer";
 
 declare global {
   interface Window {
     __elfHasOpenOverlay?: () => boolean;
   }
+}
+
+// Mounted only while the drawer is, so Modal's iOS-safe body scroll lock
+// (the page behind can't scroll through the overlay) applies exactly while
+// it's open — the same lock every Modal uses.
+function DrawerScrollLock() {
+  useBodyScrollLock();
+  return null;
+}
+
+function initialsOf(name?: string): string | null {
+  return name
+    ? name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")
+    : null;
 }
 
 export default function AccountMenu({
@@ -32,9 +53,8 @@ export default function AccountMenu({
    *  TeamHeader (now white/warm-white after the Phase 3 redesign) and
    *  DesktopSidebar (near-black --shell-backdrop). The toggle button's
    *  own colors need to invert between those two contexts to stay legible
-   *  — everything else (the dropdown panel itself) is always white
-   *  regardless of onDark, since it's an overlay, not part of either
-   *  shell surface. */
+   *  — everything else (the drawer itself) is always white regardless of
+   *  onDark, since it's an overlay, not part of either shell surface. */
   onDark?: boolean;
   /** Identity Compatibility follow-up: true only when an elf_session
    *  (accountSession) exists — false for a legacy team_coach/team_member
@@ -52,91 +72,105 @@ export default function AccountMenu({
    *  generic self-serve route exists, so no link is offered for coaches). */
   isMember?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
+  // Account drawer: the menu slides in from the RIGHT edge over a dimmed
+  // overlay (it used to be a floating pop-up anchored to this button).
+  // `mounted` keeps it in the DOM while it slides out; `shown` drives the
+  // slide/fade itself. Portaled to document.body for the same reason the
+  // old pop-up was: DesktopSidebar's `position: sticky` creates its own
+  // stacking context, which would trap the overlay beneath <main>'s
+  // content (see settingsAccess.test.ts).
+  const [mounted, setMounted] = useState(false);
+  const [shown, setShown] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
-  // QA fix: the dropdown (backdrop + panel) used to render inline here,
-  // nested under TeamHeader/DesktopSidebar — DesktopSidebar's
-  // `position: sticky` unconditionally creates its own stacking context
-  // regardless of z-index, which trapped the backdrop's zIndex:99 inside
-  // it. Since <main>'s page content is a LATER sibling of DesktopSidebar
-  // at the ROOT stacking level (both at the implicit z-index:auto="0"
-  // level), it painted ON TOP of DesktopSidebar's entire subtree —
-  // including the backdrop — which is exactly why comment inputs/Post
-  // buttons/cards "punched through" the dimming instead of being
-  // covered by it. Portaling straight to document.body (same fix as the
-  // four modals) puts the backdrop at the true root stacking level,
-  // where its zIndex:99 is compared against the whole page, not just
-  // DesktopSidebar's local context.
-  //
-  // The panel itself used `position: absolute` anchored to this
-  // wrapper — portaling breaks that anchor (its new closest positioned
-  // ancestor becomes document.body), so its position is now computed
-  // from the toggle button's own screen position instead, captured once
-  // when the menu opens.
-  const openMenu = () => {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) {
-      // Panel size isn't known yet (nothing's rendered), so this first
-      // pass just gets the panel roughly in place — the layout effect
-      // below immediately re-clamps it against its real measured size
-      // before the browser paints, so there's no visible jump.
-      setMenuPos(computeClampedMenuPosition(
-        rect,
-        { width: 0, height: 0 },
-        { width: window.innerWidth, height: window.innerHeight },
-      ));
-    }
-    setOpen(true);
+  const openDrawer = () => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+    setReducedMotion(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false);
+    setMounted(true);
   };
 
-  // Re-clamps the panel against its OWN real rendered size (not the
-  // width:0 guess above) — runs before paint, so any correction is
-  // invisible. Converges after at most one extra pass: the second run
-  // measures the same panel size at the now-correct position and finds
-  // nothing left to clamp.
-  useLayoutEffect(() => {
-    if (!open || !menuPos || !panelRef.current || !buttonRef.current) return;
-    const triggerRect = buttonRef.current.getBoundingClientRect();
-    const panelRect = panelRef.current.getBoundingClientRect();
-    const clamped = computeClampedMenuPosition(
-      triggerRect,
-      { width: panelRect.width, height: panelRect.height },
-      { width: window.innerWidth, height: window.innerHeight },
-    );
-    if (clamped.top !== menuPos.top || clamped.left !== menuPos.left) {
-      setMenuPos(clamped);
-    }
-  }, [open, menuPos]);
+  // Every close path (overlay tap, X, Escape, Android back, choosing an
+  // item) goes through here: slide out, then unmount, and hand focus back
+  // to the button that opened the drawer.
+  const closeDrawer = useCallback(() => {
+    setShown(false);
+    buttonRef.current?.focus();
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setMounted(false);
+      closeTimer.current = null;
+    }, drawerCloseDelayMs(reducedMotion));
+  }, [reducedMotion]);
 
-  // Lets the Android shell's hardware back button close this dropdown instead of
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
+
+  // Slide in on the frame after mounting (so the off-screen start position
+  // is painted first), then move focus to the drawer's close button.
+  useEffect(() => {
+    if (!mounted) return;
+    const frame = requestAnimationFrame(() => {
+      setShown(true);
+      closeButtonRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [mounted]);
+
+  // Escape closes; Tab / Shift+Tab wrap inside the drawer (accountDrawer.ts).
+  useEffect(() => {
+    if (!mounted) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const focusables = panelRef.current
+        ? Array.from(panelRef.current.querySelectorAll<HTMLElement>(DRAWER_FOCUSABLE))
+        : [];
+      const action = drawerKeyAction(e.key, e.shiftKey, focusables.indexOf(document.activeElement as HTMLElement), focusables.length);
+      if (!action) return;
+      e.preventDefault();
+      if (action.type === "close") closeDrawer();
+      else focusables[action.index]?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mounted, closeDrawer]);
+
+  // Lets the Android shell's hardware back button close this drawer instead of
   // exiting the app (MainActivity.java checks window.__elfHasOpenOverlay before
   // deciding what back should do). No-op outside the Capacitor Android WebView.
   useEffect(() => {
-    if (!open) return;
+    if (!mounted) return;
     window.__elfHasOpenOverlay = () => true;
-    const handleAndroidBack = () => setOpen(false);
+    const handleAndroidBack = () => closeDrawer();
     window.addEventListener("elfAndroidBackButton", handleAndroidBack);
     return () => {
       window.__elfHasOpenOverlay = undefined;
       window.removeEventListener("elfAndroidBackButton", handleAndroidBack);
     };
-  }, [open]);
+  }, [mounted, closeDrawer]);
 
-  const initial = accountName
-    ? accountName.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("")
-    : null;
+  const initial = initialsOf(accountName);
+
+  const avatar = (size: number) => (
+    profilePhotoUrl ? (
+      <img src={profilePhotoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    ) : initial ? (
+      initial
+    ) : (
+      <User size={size} aria-hidden="true" />
+    )
+  );
 
   return (
     <div style={{ position: "relative" }}>
       <button
         ref={buttonRef}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        onClick={() => (mounted ? closeDrawer() : openDrawer())}
         aria-label="Account menu"
-        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-expanded={mounted}
         className="elf-focus-ring"
         style={{
           width: 34,
@@ -160,57 +194,92 @@ export default function AccountMenu({
           padding: 0,
         }}
       >
-        {profilePhotoUrl ? (
-          <img src={profilePhotoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : initial ? (
-          initial
-        ) : (
-          <User size={16} aria-hidden="true" />
-        )}
+        {avatar(16)}
       </button>
 
-      {open && menuPos && createPortal(
+      {mounted && createPortal(
         <>
+          <DrawerScrollLock />
+          {/* Dimmed overlay — tapping anywhere outside the drawer closes it. */}
           <div
-            onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)", pointerEvents: "auto" }}
+            onClick={closeDrawer}
+            aria-hidden="true"
+            style={{ position: "fixed", inset: 0, zIndex: 99, background: "rgba(0,0,0,.4)", pointerEvents: "auto",
+              opacity: shown ? 1 : 0, transition: drawerTransition("opacity", reducedMotion) }}
           />
           <div
             ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Account menu"
             style={{
               position: "fixed",
-              top: menuPos.top,
-              left: menuPos.left,
+              top: 0,
+              right: 0,
+              bottom: 0,
               zIndex: 100,
+              width: DRAWER_WIDTH,
               background: "#fff",
-              borderRadius: ".85rem",
-              boxShadow: "0 8px 32px rgba(0,0,0,.22)",
-              minWidth: 230,
-              maxWidth: `calc(100vw - ${MENU_VIEWPORT_PADDING * 2}px)`,
-              overflow: "hidden",
+              boxShadow: "-8px 0 32px rgba(0,0,0,.22)",
+              display: "flex",
+              flexDirection: "column",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              paddingRight: "env(safe-area-inset-right, 0px)",
+              transform: shown ? "translateX(0)" : "translateX(100%)",
+              transition: drawerTransition("transform", reducedMotion),
               pointerEvents: "auto",
             }}
           >
 
-            {/* Account identity */}
-            {accountName && (
-              <div style={{ padding: ".85rem 1rem .7rem", borderBottom: "1px solid #f0f0f0" }}>
-                <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{accountName}</div>
-                <a
-                  href="/teams"
-                  onClick={() => setOpen(false)}
-                  className="elf-focus-ring"
-                  style={{ fontSize: ".72rem", color: "var(--text-muted-app)", textDecoration: "none" }}
-                >
-                  My Account →
-                </a>
+            {/* Account identity — the signed-in user's photo and name, with
+                the drawer's close button. Stays put while the list scrolls. */}
+            <div style={{ display: "flex", alignItems: "center", gap: ".75rem", padding: "1rem 1rem .9rem", borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+                background: profilePhotoUrl ? "transparent" : "var(--surface-light-elevated)",
+                border: "1.5px solid var(--border-app)", color: "var(--text-primary-app)",
+                display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".85rem",
+              }}>
+                {avatar(20)}
               </div>
-            )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {accountName && (
+                  <>
+                    <div style={{ fontWeight: 700, fontSize: ".95rem", color: "var(--text-primary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{accountName}</div>
+                    <a
+                      href="/teams"
+                      onClick={closeDrawer}
+                      className="elf-focus-ring"
+                      style={{ fontSize: ".75rem", color: "var(--text-muted-app)", textDecoration: "none" }}
+                    >
+                      My Account →
+                    </a>
+                  </>
+                )}
+              </div>
+              <button
+                ref={closeButtonRef}
+                onClick={closeDrawer}
+                aria-label="Close account menu"
+                className="elf-focus-ring"
+                style={{
+                  width: 36, height: 36, borderRadius: "50%", background: "#f3f4f6", border: "none",
+                  cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center",
+                  justifyContent: "center", flexShrink: 0, padding: 0,
+                }}
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            {/* Everything between the identity header and Sign Out scrolls,
+                so a long team list never pushes Sign Out off-screen. */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
 
             {/* Team list */}
             {teams.length > 0 && (
               <div style={{ borderBottom: "1px solid #f0f0f0" }}>
-                <div style={{ padding: ".55rem 1rem .3rem", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>
+                <div style={{ padding: ".7rem 1rem .3rem", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>
                   {teams.length > 1 ? "Switch Team" : "Team"}
                 </div>
                 {teams.map(team => {
@@ -228,8 +297,9 @@ export default function AccountMenu({
                   return (
                     <button
                       key={team.campaign_slug}
+                      aria-current={isCurrent ? "true" : undefined}
                       onClick={() => {
-                        setOpen(false);
+                        closeDrawer();
                         if (!isCurrent) router.push(`/team/${team.campaign_slug}/home`);
                       }}
                       className="elf-focus-ring"
@@ -238,7 +308,7 @@ export default function AccountMenu({
                         display: "flex",
                         alignItems: "center",
                         gap: ".7rem",
-                        padding: ".65rem 1rem",
+                        padding: ".7rem 1rem",
                         border: "none",
                         borderLeft: isCurrent ? "3px solid var(--elf-orange)" : "3px solid transparent",
                         borderBottom: "1px solid #f8f8f8",
@@ -300,9 +370,9 @@ export default function AccountMenu({
                 own zero-team entry point). */}
             <a
               href="/team-onboarding"
-              onClick={() => setOpen(false)}
+              onClick={closeDrawer}
               className="elf-focus-ring"
-              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".8rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
             >
               <Plus size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
               <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Create Team</span>
@@ -316,10 +386,10 @@ export default function AccountMenu({
                 already renders its own <button> and must keep handling
                 its own click (toggle subscribe/unsubscribe) without also
                 triggering navigation. */}
-            <div style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".65rem 1rem", borderBottom: "1px solid #f0f0f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", borderBottom: "1px solid #f0f0f0" }}>
               <a
                 href={`/team/${currentSlug}/notifications`}
-                onClick={() => setOpen(false)}
+                onClick={closeDrawer}
                 className="elf-focus-ring"
                 style={{ display: "flex", alignItems: "center", gap: ".65rem", flex: 1, minWidth: 0, textDecoration: "none" }}
               >
@@ -338,9 +408,9 @@ export default function AccountMenu({
             {hasAccountSession && (
               <a
                 href={`/team/${currentSlug}/profile`}
-                onClick={() => setOpen(false)}
+                onClick={closeDrawer}
                 className="elf-focus-ring"
-                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".8rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
               >
                 <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Profile</span>
@@ -358,9 +428,9 @@ export default function AccountMenu({
             {hasAccountSession && (
               <a
                 href={`/team/${currentSlug}/family`}
-                onClick={() => setOpen(false)}
+                onClick={closeDrawer}
                 className="elf-focus-ring"
-                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".8rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
               >
                 <Users size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>My Athletes</span>
@@ -373,9 +443,9 @@ export default function AccountMenu({
               // members/activate/route.ts).
               <a
                 href={`/team/${currentSlug}/activate-account`}
-                onClick={() => setOpen(false)}
+                onClick={closeDrawer}
                 className="elf-focus-ring"
-                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+                style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".8rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
               >
                 <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Activate ELF Account</span>
@@ -387,7 +457,7 @@ export default function AccountMenu({
               // showing a fake/broken link here would be worse than no link.
               // Informational only, not clickable, so it can't dead-end.
               <div
-                style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", padding: ".7rem 1rem", borderBottom: "1px solid #f0f0f0" }}
+                style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", padding: ".8rem 1rem", borderBottom: "1px solid #f0f0f0" }}
               >
                 <User size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
                 <span style={{ fontSize: ".78rem", color: "#9ca3af", lineHeight: 1.45 }}>
@@ -399,9 +469,9 @@ export default function AccountMenu({
             {/* Settings */}
             <a
               href={`/team/${currentSlug}/settings`}
-              onClick={() => setOpen(false)}
+              onClick={closeDrawer}
               className="elf-focus-ring"
-              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
+              style={{ display: "flex", alignItems: "center", gap: ".65rem", padding: ".8rem 1rem", textDecoration: "none", borderBottom: "1px solid #f0f0f0" }}
             >
               <SettingsIcon size={16} aria-hidden="true" style={{ color: "#374151", flexShrink: 0 }} />
               <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#374151" }}>Settings</span>
@@ -412,10 +482,10 @@ export default function AccountMenu({
                 public marketing site. Links point at the existing canonical
                 marketing-site pages rather than duplicating their content
                 in-app. */}
-            <div style={{ padding: ".5rem 1rem .15rem", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em", borderBottom: "1px solid #f0f0f0", paddingBottom: ".15rem" }}>
+            <div style={{ padding: ".7rem 1rem .15rem", fontSize: ".6rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".07em" }}>
               Support &amp; Legal
             </div>
-            <div style={{ borderBottom: "1px solid #f0f0f0" }}>
+            <div style={{ paddingBottom: ".4rem" }}>
               {[
                 { href: "/contact",            label: "Support / Contact" },
                 { href: "/trust/privacy",       label: "Privacy Policy" },
@@ -427,20 +497,22 @@ export default function AccountMenu({
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={() => setOpen(false)}
+                  onClick={closeDrawer}
                   className="elf-focus-ring"
-                  style={{ display: "block", padding: ".5rem 1rem", fontSize: ".78rem", color: "#6b7280", textDecoration: "none" }}
+                  style={{ display: "block", padding: ".55rem 1rem", fontSize: ".78rem", color: "#6b7280", textDecoration: "none" }}
                 >
                   {link.label}
                 </a>
               ))}
             </div>
+            </div>
 
-            {/* Sign Out — plain browser/PWA form POST is left completely
-                unchanged; in the installed iOS/Android apps only, this is
-                intercepted to route through the native-aware logout
-                helper so this device's own APNs token gets deactivated
-                too (see nativePushDevice.ts). */}
+            {/* Sign Out — pinned to the bottom of the drawer (outside the
+                scrolling list, above the home indicator). Plain browser/PWA
+                form POST is left completely unchanged; in the installed
+                iOS/Android apps only, this is intercepted to route through
+                the native-aware logout helper so this device's own APNs
+                token gets deactivated too (see nativePushDevice.ts). */}
             <form
               method="POST"
               action="/api/auth/logout"
@@ -449,11 +521,12 @@ export default function AccountMenu({
                 e.preventDefault();
                 void performNativeAwareLogout(router);
               }}
+              style={{ flexShrink: 0, borderTop: "1px solid #f0f0f0", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
               <button
                 type="submit"
                 className="elf-focus-ring"
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".7rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: ".65rem", padding: ".9rem 1rem", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
               >
                 <LogOut size={16} aria-hidden="true" style={{ color: "#9ca3af", flexShrink: 0 }} />
                 <span style={{ fontSize: ".84rem", fontWeight: 600, color: "#9ca3af" }}>Sign Out</span>

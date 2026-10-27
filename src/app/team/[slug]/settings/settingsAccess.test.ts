@@ -111,16 +111,22 @@ for (const { file, name } of HEADER_DROPDOWNS) {
     assert.ok(/position: "fixed", inset: 0, zIndex: 99, background: "rgba\(0,0,0,\.4\)", pointerEvents: "auto"/.test(source), `${name}'s backdrop must be a full-viewport, explicitly-interactive dimming layer`);
   });
 
-  test(`${name}.tsx's dropdown panel no longer uses position: absolute anchored to the button (that anchor breaks once portaled) — it computes fixed screen coordinates instead`, () => {
-    const source = read(file);
-    assert.ok(source.includes("getBoundingClientRect"), `${name} must compute the panel's position from the toggle button's real screen position`);
-    assert.ok(!/position: "absolute",\s*\n\s*top: "calc\(100% \+ \.5rem\)"/.test(source), `${name} must no longer rely on position:absolute + calc(100% + .5rem) anchoring, which only worked while non-portaled`);
-  });
-
   test(`${name}.tsx's panel is explicitly pointer-events: auto too (so its own buttons/links are always clickable once portaled)`, () => {
     const source = read(file);
     const autoCount = (source.match(/pointerEvents:\s*"auto"/g) ?? []).length;
     assert.ok(autoCount >= 2, `${name} must set pointerEvents: "auto" on both the backdrop and the panel`);
+  });
+}
+
+// The positioning guards below apply only to the pop-up that is still
+// anchored to its trigger (TeamSwitcher). AccountMenu became a full-height
+// drawer docked to the right edge (accountDrawer.test.ts), so it has no
+// trigger-relative position to compute or clamp.
+for (const { file, name } of HEADER_DROPDOWNS.filter(d => d.name === "TeamSwitcher")) {
+  test(`${name}.tsx's dropdown panel no longer uses position: absolute anchored to the button (that anchor breaks once portaled) — it computes fixed screen coordinates instead`, () => {
+    const source = read(file);
+    assert.ok(source.includes("getBoundingClientRect"), `${name} must compute the panel's position from the toggle button's real screen position`);
+    assert.ok(!/position: "absolute",\s*\n\s*top: "calc\(100% \+ \.5rem\)"/.test(source), `${name} must no longer rely on position:absolute + calc(100% + .5rem) anchoring, which only worked while non-portaled`);
   });
 
   // QA fix: the panel used to position itself with a fixed `right` distance

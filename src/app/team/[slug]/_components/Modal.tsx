@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 // below covers every close path (Cancel, backdrop tap, Escape, and a
 // successful submit, since every call site closes via the same state
 // update that unmounts this component).
-function useBodyScrollLock() {
+export function useBodyScrollLock() {
   useEffect(() => {
     const scrollY = window.scrollY;
     const body = document.body;
