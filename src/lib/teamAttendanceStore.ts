@@ -26,6 +26,7 @@ import { attendanceDbActor } from "./teamAttendanceActor.ts";
 import { attendanceDbErrorCode, isIsoDate, type AttendanceDbError } from "./teamAttendance.ts";
 import { parseRosterRows, type AttendanceRosterRow, type AttendanceSaveRecord } from "./teamAttendanceDraft.ts";
 import type { AttendanceSaveResult } from "./teamAttendanceAudit.ts";
+import { summarizeAthleteAbsences, type AthleteAbsenceSummary } from "./athleteAttendance.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -179,6 +180,25 @@ async function readSummaries(slug: string, from: string, to: string): Promise<At
 /** The team's sessions between two dates (inclusive), newest first. */
 export async function listAttendanceSessions(slug: string, from: string, to: string): Promise<AttendanceReadResult<AttendanceSummaryRow[]>> {
   return guarded("list", () => readSummaries(slug, from, to));
+}
+
+// ── One athlete's absences (athlete profile) ──────────────────────────────
+
+/** Every saved absence of one athlete on this team season (drafts
+ *  included), counted by category, newest first — for the athlete
+ *  profile's Attendance section (athleteAttendance.ts). Filtered by BOTH
+ *  campaign_slug and athlete_id, so another team or season never appears.
+ *  Selects only the date and category: notes are never read. Callers
+ *  check who may see it (canViewAthleteAttendance) before calling. */
+export async function getAthleteAbsences(slug: string, athleteId: string): Promise<AttendanceReadResult<AthleteAbsenceSummary>> {
+  return guarded("athlete absences", async () => {
+    const path = `team_attendance_records?campaign_slug=eq.${encodeURIComponent(slug)}&athlete_id=eq.${encodeURIComponent(athleteId)}`
+      + `&status=eq.absent&select=id,session_date,absence_reason&order=session_date.desc,id.asc`;
+    const rows = await readAll<{ id: string; session_date: unknown; absence_reason: unknown }>(path, r => String(r.id));
+    const summary = summarizeAthleteAbsences(rows);
+    if (!summary) throw new ReadError("error", "malformed absence row");
+    return summary;
+  });
 }
 
 // ── One date ──────────────────────────────────────────────────────────────
