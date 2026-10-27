@@ -8,22 +8,17 @@ import CoachBar from "../_components/CoachBar";
 import Modal from "../_components/Modal";
 import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
-// ── Tier config ───────────────────────────────────────────────────────────────
+// ── Sponsorship levels (retired) ──────────────────────────────────────────────
+// Sponsors are no longer ranked by level (Title / Platinum / Gold / Silver /
+// Bronze / Community Partner): no level badges, colours, headings or picker,
+// and every list follows the coach's own order (display_order). The legacy
+// `tier` column is left untouched — an edit sends the stored value back
+// unchanged, and a new sponsor gets LEGACY_DEFAULT_TIER only because the
+// sponsors API still requires a valid value. Nothing displays it.
 
-const TIER_ORDER = [
-  "title", "platinum", "gold", "silver", "bronze", "community_partner",
-] as const;
+type Tier = SponsorRow["tier"];
 
-type Tier = typeof TIER_ORDER[number];
-
-const TIER_META: Record<Tier, { label: string; color: string; bg: string }> = {
-  title:             { label: "Title Sponsor",     color: "#4c1d95", bg: "#ede9fe" },
-  platinum:          { label: "Platinum",          color: "#0c4a6e", bg: "#e0f2fe" },
-  gold:              { label: "Gold",              color: "#92400e", bg: "#fef3c7" },
-  silver:            { label: "Silver",            color: "#374151", bg: "#f3f4f6" },
-  bronze:            { label: "Bronze",            color: "#7c2d12", bg: "#ffedd5" },
-  community_partner: { label: "Community Partner", color: "#065f46", bg: "#d1fae5" },
-};
+const LEGACY_DEFAULT_TIER: Tier = "gold";
 
 // ── Style tokens ──────────────────────────────────────────────────────────────
 
@@ -67,7 +62,7 @@ type SponForm = {
 };
 
 const BLANK: SponForm = {
-  name: "", url: "", tier: "gold", description: "", logo_url: "",
+  name: "", url: "", tier: LEGACY_DEFAULT_TIER, description: "", logo_url: "",
   visible: true, sponsorship_amount: "",
   contact_name: "", contact_email: "", contact_phone: "",
 };
@@ -87,28 +82,6 @@ function fromRow(s: SponsorRow): SponForm {
     contact_email: s.contact_email ?? "",
     contact_phone: s.contact_phone ?? "",
   };
-}
-
-// ── Tier badge ────────────────────────────────────────────────────────────────
-
-function TierBadge({ tier }: { tier: Tier }) {
-  const { label, color, bg } = TIER_META[tier];
-  return (
-    <span style={{
-      display: "inline-block",
-      padding: ".1rem .45rem",
-      borderRadius: 100,
-      fontSize: ".58rem",
-      fontWeight: 700,
-      textTransform: "uppercase",
-      letterSpacing: ".04em",
-      color,
-      background: bg,
-      flexShrink: 0,
-    }}>
-      {label}
-    </span>
-  );
 }
 
 // ── Logo placeholder ──────────────────────────────────────────────────────────
@@ -160,7 +133,6 @@ function CoachCard({
       borderRadius: "var(--radius-lg)",
       padding: ".85rem",
       border: "1px solid var(--border-app)",
-      borderLeft: `3px solid ${TIER_META[s.tier].color}`,
       opacity: s.visible ? 1 : 0.6,
     }}>
       {/* Main row */}
@@ -178,7 +150,6 @@ function CoachCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".2rem" }}>
             <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)" }}>{s.name}</span>
-            <TierBadge tier={s.tier} />
             {!s.visible && (
               <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", background: "var(--surface-light-elevated)", padding: ".1rem .35rem", borderRadius: 100, textTransform: "uppercase", letterSpacing: ".04em" }}>
                 Hidden
@@ -259,7 +230,6 @@ function PublicCard({ s }: { s: SponsorRow }) {
         padding: ".85rem",
         border: "1px solid var(--border-app)",
         textDecoration: "none",
-        borderLeft: `3px solid ${TIER_META[s.tier].color}`,
       }}
     >
       {s.logo_url ? (
@@ -275,7 +245,6 @@ function PublicCard({ s }: { s: SponsorRow }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap", marginBottom: ".15rem" }}>
           <span style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)" }}>{s.name}</span>
-          <TierBadge tier={s.tier} />
         </div>
         {s.description && (
           <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -461,16 +430,10 @@ export default function SponsorsView({
   const isEditing = editing !== null;
   const modalOpen = showAdd || isEditing;
 
-  // Public view: only visible sponsors grouped by tier
+  // Public view: only visible sponsors, in the coach's order
   const visibleSponsors = staff
     ? sponsors
     : sponsors.filter(s => s.visible);
-
-  const grouped = TIER_ORDER.reduce<Record<string, SponsorRow[]>>((acc, t) => {
-    const items = visibleSponsors.filter(s => s.tier === t);
-    if (items.length) acc[t] = items;
-    return acc;
-  }, {});
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
@@ -525,22 +488,9 @@ export default function SponsorsView({
           ))}
         </div>
       ) : (
-        /* ── Public grouped view ── */
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {(Object.entries(grouped) as [Tier, SponsorRow[]][]).map(([tier, items]) => (
-            <div key={tier}>
-              <div style={{
-                fontSize: ".65rem", fontWeight: 700, color: TIER_META[tier].color,
-                textTransform: "uppercase", letterSpacing: ".08em",
-                marginBottom: ".45rem",
-              }}>
-                {TIER_META[tier].label}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
-                {items.map(s => <PublicCard key={s.id} s={s} />)}
-              </div>
-            </div>
-          ))}
+        /* ── Public list ── */
+        <div style={{ display: "flex", flexDirection: "column", gap: ".45rem" }}>
+          {visibleSponsors.map(s => <PublicCard key={s.id} s={s} />)}
         </div>
       )}
 
@@ -571,39 +521,6 @@ export default function SponsorsView({
                 placeholder="https://example.com"
               />
             </label>
-
-            {/* Tier */}
-            <div style={lbl}>
-              Tier *
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: ".35rem" }}>
-                {TIER_ORDER.map(t => {
-                  const active = form.tier === t;
-                  const { label, color, bg } = TIER_META[t];
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, tier: t }))}
-                      style={{
-                        padding: ".4rem .25rem",
-                        borderRadius: 8,
-                        border: active ? `2px solid ${color}` : "2px solid #e5e7eb",
-                        background: active ? bg : "#fff",
-                        color: active ? color : "#6b7280",
-                        fontSize: ".65rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        textTransform: "uppercase",
-                        letterSpacing: ".03em",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             {/* Description */}
             <label style={lbl}>
