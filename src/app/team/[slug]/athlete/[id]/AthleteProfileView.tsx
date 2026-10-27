@@ -7,6 +7,8 @@ import Modal from "../../_components/Modal";
 import { buildShareText, buildAthleteShareUrl } from "@/lib/shareCopy";
 import { Star } from "lucide-react";
 import AthleteTaskCompletion, { type TaskCompletionSource } from "../../team/[id]/AthleteTaskCompletion";
+import AthleteAttendanceCard from "../../team/[id]/AthleteAttendanceCard";
+import type { AthleteAttendanceState } from "@/lib/athleteAttendance";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -88,6 +90,7 @@ export default function AthleteProfileView({
   donorCount,
   topSupporter,
   taskCompletion = null,
+  attendance = null,
 }: {
   slug: string;
   athlete: TeamAthleteRow;
@@ -110,6 +113,9 @@ export default function AthleteProfileView({
    *  "family" for the athlete / a linked parent, "coach" for coaches,
    *  null (boosters) for none. */
   taskCompletion?: TaskCompletionSource | null;
+  /** Attendance section (decided and loaded on the server): the athlete,
+   *  a linked parent, or a coach; null = not shown (boosters). */
+  attendance?: AthleteAttendanceState | null;
 }) {
   const [showDonate, setShowDonate] = useState(false);
   const [preset,    setPreset]    = useState<number | null>(50);
@@ -285,6 +291,9 @@ export default function AthleteProfileView({
 
       {/* ── To-Do Tasks (Phase 3C) — shown whether or not fundraising is active ── */}
       {taskCompletion && <AthleteTaskCompletion slug={slug} athleteId={athleteId} source={taskCompletion} />}
+
+      {/* ── Attendance — read-only, collapsed by default ── */}
+      {attendance && <AthleteAttendanceCard attendance={attendance} />}
 
       {/* Phase 1.2 — everything below (stats/donate/share/team-total) is
           fundraising-specific; hidden entirely when this team has no

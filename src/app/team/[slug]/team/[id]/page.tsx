@@ -6,6 +6,8 @@ import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
 import { getAthleteLinkedMembers } from "@/lib/athleteLinkedMembers";
 import { taskViewerFor } from "@/lib/teamTasks";
 import { canViewCompletion } from "@/lib/teamTaskCompletion";
+import { canViewAthleteAttendance, type AthleteAttendanceState } from "@/lib/athleteAttendance";
+import { getAthleteAbsences } from "@/lib/teamAttendanceStore";
 import CoachAthleteView from "./CoachAthleteView";
 
 export const dynamic = "force-dynamic";
@@ -28,13 +30,20 @@ export default async function CoachAthletePage({
   if (!isStaff(actor)) redirect(`/team/${slug}/athlete/${id}`);
   if (!athlete || athlete.campaign_slug !== slug) notFound();
 
-  const [athletes, donations, members] = await Promise.all([
+  // Attendance section: Head/Assistant Coaches and platform admins only on
+  // this staff page — boosters keep the rest of the profile but not this.
+  const showAttendance = canViewAthleteAttendance(actor, athlete.id, []);
+
+  const [athletes, donations, members, absences] = await Promise.all([
     getTeamAthletes(slug),
     getDonations(slug),
     // Legacy athlete_id links AND team_member_athletes (second/later
     // children), merged; a failed read is shown as such, not as "none".
     getAthleteLinkedMembers(slug, athlete.id),
+    showAttendance ? getAthleteAbsences(slug, athlete.id) : Promise.resolve(null),
   ]);
+  const attendance: AthleteAttendanceState | null = absences === null ? null
+    : absences.ok ? { ok: true, summary: absences.value } : { ok: false };
 
   // Fundraising stats (same logic as athlete/[id]/page.tsx)
   const nameToId: Record<string, string> = {};
@@ -84,6 +93,7 @@ export default async function CoachAthletePage({
       // platform admins only — never boosters, who can open this page.
       // The completion API enforces the same rule on the server.
       showTaskCompletion={canViewCompletion(taskViewerFor(actor))}
+      attendance={attendance}
     />
   );
 }

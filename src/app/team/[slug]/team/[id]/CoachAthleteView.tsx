@@ -8,6 +8,8 @@ import Modal from "../../_components/Modal";
 import { useSeasonReadOnly } from "../../_components/SeasonStatus";
 import { buildAthleteShareUrl } from "@/lib/shareCopy";
 import AthleteTaskCompletion from "./AthleteTaskCompletion";
+import AthleteAttendanceCard from "./AthleteAttendanceCard";
+import type { AthleteAttendanceState } from "@/lib/athleteAttendance";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -531,6 +533,7 @@ export default function CoachAthleteView({
   canDelete,
   membersUnavailable = false,
   showTaskCompletion = false,
+  attendance = null,
 }: {
   slug: string;
   athlete: TeamAthleteRow;
@@ -554,6 +557,9 @@ export default function CoachAthleteView({
   membersUnavailable?: boolean;
   /** Head/Assistant Coach or platform admin (never a booster). */
   showTaskCompletion?: boolean;
+  /** Attendance section (decided and loaded on the server): null = not
+   *  shown (boosters). */
+  attendance?: AthleteAttendanceState | null;
 }) {
   const router = useRouter();
   const pct = goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0;
@@ -688,6 +694,9 @@ export default function CoachAthleteView({
       {/* ── To-Do Tasks (Phase 3C-2): coaches only; shown whether or not
           fundraising is active ── */}
       {showTaskCompletion && <AthleteTaskCompletion slug={slug} athleteId={athlete.id} />}
+
+      {/* ── Attendance — read-only, collapsed by default ── */}
+      {attendance && <AthleteAttendanceCard attendance={attendance} />}
 
       {/* Phase 1.2 — Fundraising Progress / Contacts / Outreach are all
           fundraising-specific; hidden entirely when this team has no

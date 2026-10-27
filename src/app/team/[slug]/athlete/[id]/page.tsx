@@ -5,6 +5,9 @@ import { requireTeamMembership, canAccessAthleteProfile } from "@/lib/permission
 import { isAthleteFundraisingVisible } from "@/lib/fundraiserAccess";
 import { taskViewerFor } from "@/lib/teamTasks";
 import { profileCompletionSource } from "@/lib/teamTaskCompletion";
+import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
+import { canViewAthleteAttendance, type AthleteAttendanceState } from "@/lib/athleteAttendance";
+import { getAthleteAbsences } from "@/lib/teamAttendanceStore";
 import AthleteProfileView from "./AthleteProfileView";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +92,19 @@ export default async function AthleteProfilePage({
   // card's API re-checks its own rule on the server.
   const taskCompletion = profileCompletionSource(actor.kind, taskViewerFor(actor));
 
+  // Attendance section: the athlete themself, a parent linked to this
+  // athlete, and Head/Assistant Coaches and platform admins — never
+  // boosters (canViewAthleteAttendance). Read on the server for this team
+  // season and athlete only; a failed read is shown as unavailable.
+  const linkedAthleteIds = actor.kind === "member" && actor.session.role === "parent"
+    ? await getLinkedAthleteIdsForMember(actor.session.id, actor.session.athlete_id)
+    : [];
+  let attendance: AthleteAttendanceState | null = null;
+  if (canViewAthleteAttendance(actor, id, linkedAthleteIds)) {
+    const absences = await getAthleteAbsences(slug, id);
+    attendance = absences.ok ? { ok: true, summary: absences.value } : { ok: false };
+  }
+
   return (
     <AthleteProfileView
       slug={slug}
@@ -104,6 +120,7 @@ export default async function AthleteProfilePage({
       donorCount={donorCount}
       topSupporter={topSupporter}
       taskCompletion={taskCompletion}
+      attendance={attendance}
     />
   );
 }
