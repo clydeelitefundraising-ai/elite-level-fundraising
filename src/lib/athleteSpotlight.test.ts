@@ -13,7 +13,10 @@ const roster = [
 
 test("grade: the real grades are shown; Other, blank and non-standard values are omitted", () => {
   for (const g of ["6th Grade", "7th Grade", "8th Grade", "Freshman", "Sophomore", "Junior", "Senior"]) assert.equal(spotlightGrade(g), g);
-  for (const g of ["Other", "", null, undefined, "RS Sophomore", "junior", "2027"]) assert.equal(spotlightGrade(g), null, String(g));
+  for (const [raw, shown] of [[" junior ", "Junior"], ["FRESHMAN", "Freshman"], ["senior", "Senior"], ["8th  grade", "8th Grade"]]) {
+    assert.equal(spotlightGrade(raw), shown, `case/spacing variant ${JSON.stringify(raw)}`);
+  }
+  for (const g of ["Other", " other ", "", "   ", null, undefined, "RS Sophomore", "Jr", "2027"]) assert.equal(spotlightGrade(g), null, String(g));
 });
 
 test("spotlight athlete: exact id match on this campaign's roster only", () => {

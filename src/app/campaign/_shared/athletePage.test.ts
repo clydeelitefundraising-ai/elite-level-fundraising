@@ -154,3 +154,11 @@ test("responsive CSS: two columns on desktop, stacked under 900px, compact phone
   assert.match(css, /\.pc-ath-name \{[^}]*overflow-wrap: anywhere;/, "long names wrap");
   assert.ok(!/url\(/.test(css.slice(css.indexOf("PERSONALIZED ATHLETE PAGE"))), "no background imagery");
 });
+
+test("spotlight adapts to its own width (container query), so it never cramps beside the form", () => {
+  const css = read("./campaign.css");
+  assert.match(css, /\.pc-ath-spotlight \{[^}]*container: pc-ath \/ inline-size;/);
+  assert.match(css, /@container pc-ath \(max-width: 560px\) \{[^@]*\.pc-ath-msg--wide \{ display: none; \}[^@]*\.pc-ath-msg--narrow \{ display: block; \}/);
+  // phone rules come after the container rule so they win on phones
+  assert.ok(css.indexOf("@container pc-ath") < css.indexOf("@media (max-width: 600px) {\n  .pc-ath {"));
+});

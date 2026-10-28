@@ -839,6 +839,9 @@ html { scroll-behavior: smooth; }
   border-radius: 1.25rem;
   padding: 2rem;
   min-width: 0;
+  /* Sized by its own width (container query below), not the window: beside
+     the donation form on a small laptop it is as narrow as on a tablet. */
+  container: pc-ath / inline-size;
 }
 .pc-ath-top {
   display: grid;
@@ -985,6 +988,16 @@ html { scroll-behavior: smooth; }
   gap: 3rem;
   padding-top: 1.25rem;
   border-top: 1px solid #eceef1;
+}
+
+/* Narrow spotlight (small laptops beside the form, tablets, phones): smaller
+   photo column, message moves under the photo row. */
+@container pc-ath (max-width: 560px) {
+  .pc-ath-top { grid-template-columns: 150px minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+  .pc-ath-text { padding-top: 0; }
+  .pc-ath-name { font-size: clamp(1.7rem, 8cqi, 2.4rem); }
+  .pc-ath-msg--wide { display: none; }
+  .pc-ath-msg--narrow { display: block; }
 }
 
 @media (max-width: 900px) {

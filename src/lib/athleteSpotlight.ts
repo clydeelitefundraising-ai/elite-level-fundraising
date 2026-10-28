@@ -5,13 +5,17 @@ import { ATHLETE_CLASS_OPTIONS } from "./athleteClass.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** athletes.class_year values that are a real grade to show a donor.
- *  "Other", blank and non-standard values ("RS Sophomore") are omitted
- *  rather than shown — never a guessed or computed grade. */
-const SPOTLIGHT_GRADES = new Set<string>(ATHLETE_CLASS_OPTIONS.filter(g => g !== "Other"));
+/** athletes.class_year values that are a real grade to show a donor, by
+ *  lower-cased label. Case/spacing variants of a real grade (" junior ",
+ *  "FRESHMAN" — free-text column) show as the canonical label; "Other",
+ *  blank and non-standard values ("RS Sophomore") are omitted rather than
+ *  shown — never a guessed or computed grade. */
+const SPOTLIGHT_GRADES = new Map<string, string>(
+  ATHLETE_CLASS_OPTIONS.filter(g => g !== "Other").map(g => [g.toLowerCase(), g]),
+);
 
 export function spotlightGrade(classYear: string | null | undefined): string | null {
-  return classYear && SPOTLIGHT_GRADES.has(classYear) ? classYear : null;
+  return SPOTLIGHT_GRADES.get((classYear ?? "").trim().replace(/\s+/g, " ").toLowerCase()) ?? null;
 }
 
 export type SpotlightCandidate = { id: string; name: string; class_year: string | null };
