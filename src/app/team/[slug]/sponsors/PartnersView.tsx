@@ -53,12 +53,16 @@ export default function PartnersView({
 
   return (
     <div style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 820, margin: "0 auto" }}>
+      {/* Centred segmented control: spans the content width up to 440px.
+          Each tab sizes to its label, then shares the spare room, and the
+          font steps down on narrow phones, so "ELF Community Partners" and
+          "Team Sponsors" stay on one line, unclipped, from 320px up. */}
       <div
         role="tablist"
         aria-label="Partners section"
         style={{
-          display: "inline-flex", background: "#f3f4f6", borderRadius: 10, padding: 3,
-          marginBottom: ".85rem", gap: 2,
+          display: "flex", width: "100%", maxWidth: 440, boxSizing: "border-box",
+          margin: "0 auto .85rem", background: "#f3f4f6", borderRadius: 10, padding: 3, gap: 3,
         }}
       >
         {tabs.map(({ key, label }) => (
@@ -71,13 +75,19 @@ export default function PartnersView({
             onClick={() => setTab(key)}
             className="elf-focus-ring"
             style={{
-              padding: ".4rem .75rem",
+              flex: "1 1 auto",
+              minWidth: 0,
+              minHeight: 38,
+              padding: ".45rem .35rem",
               borderRadius: 8,
               border: "none",
               cursor: "pointer",
-              fontSize: ".8rem",
+              fontSize: "clamp(.7rem, 3.5vw, .875rem)",
               fontWeight: 700,
+              textAlign: "center",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
               background: tab === key ? "#fff" : "transparent",
               color: tab === key ? "#111827" : "#6b7280",
               boxShadow: tab === key ? "0 1px 3px rgba(0,0,0,.1)" : "none",
