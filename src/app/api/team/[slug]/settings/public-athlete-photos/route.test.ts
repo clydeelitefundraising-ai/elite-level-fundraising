@@ -52,10 +52,10 @@ function makeWorld(opts: { completed?: boolean; preMigration?: boolean } = {}) {
     platform_admins: [{ id: "pa1", account_id: ACCOUNTS.admin.id, role: "admin" }],
     campaign_settings: [lions, { campaign_slug: "hawks", school_name: "QA Hawks", archived: false, fundraising_enabled: true, public_athlete_photos: true, season_completed_at: null }],
     athletes: [
-      { id: JO, campaign_slug: "lions", name: "Jo Junior", profile_photo: `${PUB}/profile-photos/${ACCOUNTS.ath.id}/own.jpg`, public_photo_excluded: false },
-      { id: KID, campaign_slug: "lions", name: "Kid Parentphoto", profile_photo: `${PUB}/profile-photos/${ACCOUNTS.parent.id}/p.jpg`, public_photo_excluded: false },
-      { id: ROSTER, campaign_slug: "lions", name: "Ray Roster", profile_photo: `${PUB}/athlete-photos/lions/r.jpg`, public_photo_excluded: false },
-      { id: HAWK, campaign_slug: "hawks", name: "Hawk Kid", profile_photo: `${PUB}/athlete-photos/hawks/h.jpg`, public_photo_excluded: false },
+      { id: JO, campaign_slug: "lions", name: "Jo Junior", profile_photo: `${PUB}/profile-photos/${ACCOUNTS.ath.id}/own.jpg`, public_photo_excluded: false, previous_season_athlete_id: null },
+      { id: KID, campaign_slug: "lions", name: "Kid Parentphoto", profile_photo: `${PUB}/profile-photos/${ACCOUNTS.parent.id}/p.jpg`, public_photo_excluded: false, previous_season_athlete_id: null },
+      { id: ROSTER, campaign_slug: "lions", name: "Ray Roster", profile_photo: `${PUB}/athlete-photos/lions/r.jpg`, public_photo_excluded: false, previous_season_athlete_id: null },
+      { id: HAWK, campaign_slug: "hawks", name: "Hawk Kid", profile_photo: `${PUB}/athlete-photos/hawks/h.jpg`, public_photo_excluded: false, previous_season_athlete_id: null },
     ],
     audit_logs: [],
   };

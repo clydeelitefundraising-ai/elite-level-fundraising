@@ -27,7 +27,8 @@ test("turning on: confirmation checkbox gates the button; confirm + wording vers
 test("per-athlete hide list: checkbox = shown publicly; status says Hidden / Photo shown / No photo yet", () => {
   assert.match(section, /checked=\{!a\.excluded\}/);
   assert.match(section, /onChange=\{e => void setExcluded\(a, !e\.target\.checked\)\}/);
-  assert.match(section, /a\.excluded \? "Hidden" : a\.has_photo \? "Photo shown" : "No photo yet"/);
+  assert.match(section, /a\.excluded \? \(a\.inherited \? "Hidden · carried over from last season" : "Hidden"\) : a\.has_photo \? "Photo shown" : "No photo yet"/);
+  assert.match(section, /carried\.has\(a\.id\) \? \{ \.\.\.a, excluded: true, inherited: true \}/, "carried-over athletes shown hidden right after turning on");
 });
 
 test("the one permission rule: only an explicit true team setting, and the athlete not hidden", () => {

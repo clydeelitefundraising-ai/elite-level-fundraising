@@ -99,19 +99,77 @@ export function publishablePhoto(url: string | null | undefined, slug: string, o
   return ownAccountIds.includes(photo.path.split("/")[0]) ? photo : null;
 }
 
-export type PublicPhotoRosterRow = { id: string; name: string; has_photo: boolean; excluded: boolean };
+// ── Season rollover: carried-over exclusions ────────────────────────────
+//
+// Complete Season copies returning athletes (with their photo and a
+// previous_season_athlete_id link) but not public_photo_excluded, and the
+// team setting itself restarts OFF. So an athlete whose family objected last
+// season must start hidden again the first time the Head Coach turns the
+// setting on this season — written BEFORE the setting is turned on (see the
+// settings route), so there is never a moment their photo is public.
+
+type ChainRow = { id: string; campaign_slug: string; previous_season_athlete_id: string | null; public_photo_excluded: boolean | null };
+const MAX_SEASONS_BACK = 20;
+
+/** Current-season athletes of `slug` that must start hidden because an
+ *  earlier season's record of the same athlete was hidden. Walks the
+ *  previous_season_athlete_id chain back through seasons that never
+ *  configured the setting (no decision was made there); stops at the first
+ *  season whose Head Coach did configure it (that season's choice — hidden
+ *  or shown — is the latest decision). A link to a record that no longer
+ *  exists carries nothing. Returns null if anything can't be read, so the
+ *  caller can refuse to turn photos on (fail closed). */
+export async function inheritedPhotoExclusions(slug: string): Promise<Set<string> | null> {
+  const current = await getRows<ChainRow>(
+    `athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=id,campaign_slug,previous_season_athlete_id,public_photo_excluded`,
+  );
+  if (!current) return null;
+  let pending = new Map<string, string>();
+  for (const a of current) {
+    if (isAthleteId(a.previous_season_athlete_id)) pending.set(a.id, a.previous_season_athlete_id);
+  }
+  const inherited = new Set<string>();
+  for (let depth = 0; depth < MAX_SEASONS_BACK && pending.size > 0; depth++) {
+    const ids = [...new Set(pending.values())];
+    const rows = await getRows<ChainRow>(
+      `athletes?id=in.(${ids.join(",")})&select=id,campaign_slug,previous_season_athlete_id,public_photo_excluded`,
+    );
+    if (!rows) return null;
+    const slugs = [...new Set(rows.map(r => r.campaign_slug))].filter(s => /^[a-z0-9-]+$/.test(s));
+    const camps = slugs.length === 0 ? [] : await getRows<{ campaign_slug: string; public_athlete_photos_changed_at: string | null }>(
+      `campaign_settings?campaign_slug=in.(${slugs.join(",")})&select=campaign_slug,public_athlete_photos_changed_at`,
+    );
+    if (!camps) return null;
+    const configured = new Set(camps.filter(c => c.public_athlete_photos_changed_at).map(c => c.campaign_slug));
+    const byId = new Map(rows.map(r => [r.id, r]));
+    const next = new Map<string, string>();
+    for (const [currentId, ancestorId] of pending) {
+      const r = byId.get(ancestorId);
+      if (!r) continue;                                    // broken link: nothing known to carry
+      if (r.public_photo_excluded === true) { inherited.add(currentId); continue; }
+      if (configured.has(r.campaign_slug)) continue;       // that season decided "shown"
+      if (isAthleteId(r.previous_season_athlete_id)) next.set(currentId, r.previous_season_athlete_id);
+    }
+    pending = next;
+  }
+  return inherited;
+}
+
+export type PublicPhotoRosterRow = { id: string; name: string; has_photo: boolean; excluded: boolean; inherited?: boolean };
 
 /** The Head Coach's view of the roster for the Public Athlete Photos
  *  setting: whether each athlete has a photo the public page could show,
  *  and whether they are hidden. Null when the roster can't be read. */
 export async function getPublicPhotoRoster(slug: string): Promise<PublicPhotoRosterRow[] | null> {
-  const [athletes, members] = await Promise.all([
+  const [athletes, members, carried] = await Promise.all([
     getRows<{ id: string; name: string; profile_photo: string | null; public_photo_excluded?: boolean | null }>(
       `athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=*&order=name.asc`,
     ),
     getRows<{ athlete_id: string; account_id: string | null }>(
       `team_members?campaign_slug=eq.${encodeURIComponent(slug)}&role=eq.athlete&athlete_id=not.is.null&select=athlete_id,account_id`,
     ),
+    // Display only ("carried over from last season") — never decides access.
+    inheritedPhotoExclusions(slug).catch(() => null),
   ]);
   if (!athletes || !members) return null;
   return athletes.map(a => ({
@@ -122,5 +180,6 @@ export async function getPublicPhotoRoster(slug: string): Promise<PublicPhotoRos
       members.filter(m => m.athlete_id === a.id && m.account_id).map(m => m.account_id as string),
     ) !== null,
     excluded: a.public_photo_excluded === true,
+    inherited: a.public_photo_excluded === true && (carried?.has(a.id) ?? false),
   }));
 }

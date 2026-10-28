@@ -5,7 +5,7 @@ import {
   PUBLIC_PHOTO_CONFIRMATION_TEXT, PUBLIC_PHOTO_SETTING_DESCRIPTION, PUBLIC_PHOTO_SETTING_TITLE,
 } from "@/lib/publicAthletePhotos";
 
-type RosterRow = { id: string; name: string; has_photo: boolean; excluded: boolean };
+type RosterRow = { id: string; name: string; has_photo: boolean; excluded: boolean; inherited?: boolean };
 type State = {
   enabled: boolean;
   available: boolean;
@@ -63,7 +63,13 @@ export default function PublicAthletePhotosSection({ slug }: { slug: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "Failed to save this setting."); return; }
-      setState({ ...state, enabled: data.enabled, changed_at: data.changed_at, changed_by: data.changed_by });
+      // Athletes hidden in an earlier season start hidden again (server-side,
+      // before photos turned on) — reflect that in the list.
+      const carried = new Set<string>(Array.isArray(data.carried_over) ? data.carried_over : []);
+      setState({
+        ...state, enabled: data.enabled, changed_at: data.changed_at, changed_by: data.changed_by,
+        athletes: state.athletes.map(a => (carried.has(a.id) ? { ...a, excluded: true, inherited: true } : a)),
+      });
       setConfirming(false);
       setAgreed(false);
     } catch {
@@ -170,7 +176,7 @@ export default function PublicAthletePhotosSection({ slug }: { slug: string }) {
                       aria-label={`Show ${a.name}'s photo publicly`} style={{ width: 16, height: 16, flexShrink: 0, accentColor: "var(--team-primary)" }} />
                     <span style={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: ".85rem", color: "var(--text-primary-app)", overflowWrap: "anywhere" }}>{a.name}</span>
                     <span style={{ flexShrink: 0, fontSize: ".72rem", color: "var(--text-muted-app)" }}>
-                      {a.excluded ? "Hidden" : a.has_photo ? "Photo shown" : "No photo yet"}
+                      {a.excluded ? (a.inherited ? "Hidden · carried over from last season" : "Hidden") : a.has_photo ? "Photo shown" : "No photo yet"}
                     </span>
                   </label>
                 </li>
