@@ -63,3 +63,11 @@ test("existing tabs untouched: Roster and To-Do List are still rendered by TeamT
   assert.match(page, /roster=\{\s+<RosterTabs/);
   assert.match(page, /<TodoListView slug=\{slug\} \/>/);
 });
+
+test("edit forms keep the focused field clear of the sticky header and bottom nav (Android keyboard)", () => {
+  // Both editors re-centre a focused input/textarea that lands under the
+  // fixed chrome — on focus and when the keyboard resizes the viewport.
+  assert.equal((view.match(/onFocus=\{keepFieldClear\}/g) ?? []).length, 2);
+  assert.match(view, /vv\?\.addEventListener\("resize", check\)/);
+  assert.match(view, /addEventListener\("blur", \(\) => vv\?\.removeEventListener\("resize", check\), \{ once: true \}\)/);
+});

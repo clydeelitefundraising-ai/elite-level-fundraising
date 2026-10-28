@@ -10,7 +10,7 @@
 // render only for `canEdit` (Head Coach / platform admin on an active
 // season) — the /api/team/[slug]/overview routes enforce the same rule
 // server-side. About text is rendered as React text (never HTML).
-import { useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEvent, type ReactNode } from "react";
 import { Camera, FileText, ImagePlus, MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   MAX_ABOUT_CHARS, MAX_BANNER_BYTES, MAX_CITY_STATE_CHARS, MAX_STREET_CHARS, MAX_ZIP_CHARS,
@@ -58,6 +58,35 @@ const cardTitle: CSSProperties = {
 async function errorFrom(res: Response, fallback: string): Promise<string> {
   const data = await res.json().catch(() => ({})) as { error?: string };
   return data.error || fallback;
+}
+
+// Android's WebView shrinks the page when the on-screen keyboard opens, so the
+// team app's fixed bottom nav rides up on top of the keyboard — and Chrome only
+// scrolls a focused field into the viewport, not clear of fixed bars, so the
+// next field (e.g. "City, state" after the street) can end up under the nav.
+// Re-centre the focused field when it sits under the sticky header or the
+// bottom nav: on focus, and again when the keyboard resizes the viewport.
+const CHROME_TOP = 80;
+const CHROME_BOTTOM = 80;
+function keepFieldClear(e: FocusEvent<HTMLElement>) {
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+  const vv = window.visualViewport;
+  const check = () => {
+    if (document.activeElement !== el) return;
+    const offset = vv?.offsetTop ?? 0;
+    const top = offset + CHROME_TOP;
+    const bottom = offset + (vv?.height ?? window.innerHeight) - CHROME_BOTTOM;
+    const r = el.getBoundingClientRect();
+    if (r.top >= top && r.bottom <= bottom) return;
+    // Fits: centre it in the clear band. Taller than the band (the About
+    // textarea on a small screen): line its top up under the header.
+    const target = r.height > bottom - top ? top : (top + bottom - r.height) / 2;
+    window.scrollBy({ top: r.top - target, behavior: "instant" });
+  };
+  requestAnimationFrame(check);
+  vv?.addEventListener("resize", check);
+  el.addEventListener("blur", () => vv?.removeEventListener("resize", check), { once: true });
 }
 
 export default function OverviewView({
@@ -339,7 +368,7 @@ function LocationCard({ slug, canEdit, schoolName, loc, orgAddress, onSaved }: {
       action={canEdit && !editing && display.source !== "none" ? <EditButton onClick={startEdit} label="Edit location" /> : undefined}
     >
       {editing ? (
-        <div style={{ marginTop: ".55rem" }}>
+        <div style={{ marginTop: ".55rem" }} onFocus={keepFieldClear}>
           <div className={styles.editGrid}>
             {field("street", "Street address or venue", MAX_STREET_CHARS, { placeholder: "e.g. 123 Main Street", full: true, autoComplete: "street-address" })}
             {field("city_state", "City, state", MAX_CITY_STATE_CHARS, { placeholder: "e.g. Phoenix, AZ" })}
@@ -447,7 +476,7 @@ function AboutCard({ slug, canEdit, about, onSaved }: {
       action={canEdit && !editing && paragraphs.length > 0 ? <EditButton onClick={startEdit} label="Edit About Our Team" /> : undefined}
     >
       {editing ? (
-        <div style={{ marginTop: ".55rem" }}>
+        <div style={{ marginTop: ".55rem" }} onFocus={keepFieldClear}>
           <label htmlFor="team-about" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>About Our Team</label>
           <textarea
             id="team-about"
