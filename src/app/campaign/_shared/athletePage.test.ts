@@ -162,3 +162,11 @@ test("spotlight adapts to its own width (container query), so it never cramps be
   // phone rules come after the container rule so they win on phones
   assert.ok(css.indexOf("@container pc-ath") < css.indexOf("@media (max-width: 600px) {\n  .pc-ath {"));
 });
+
+test("desktop: spotlight and donation cards are top-aligned, each its own height (no stretched empty panel)", () => {
+  const css = read("./campaign.css");
+  const grid = css.match(/\.pc-ath-grid \{([^}]*)\}/)![1];
+  assert.match(grid, /align-items: start;/);
+  assert.ok(!/stretch/.test(grid));
+  assert.ok(!/\.pc-ath-spotlight \{[^}]*(height|min-height):/.test(css), "spotlight has no forced height");
+});

@@ -831,7 +831,7 @@ html { scroll-behavior: smooth; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
   gap: 1.75rem;
-  align-items: stretch; /* spotlight panel runs the form's full height */
+  align-items: start; /* each card its own height, tops aligned */
 }
 .pc-ath-grid--solo { grid-template-columns: minmax(0, 1fr); }
 .pc-ath-spotlight {
@@ -1003,7 +1003,7 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 900px) {
-  .pc-ath-grid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  .pc-ath-grid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
 }
 @media (max-width: 600px) {
   .pc-ath { padding: 1rem 0 .5rem; }
