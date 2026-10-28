@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CampaignSettings } from "@/lib/supabase";
+import type { ShopSettings } from "@/lib/teamShellSettings";
 import type { TeamProductRow } from "@/lib/teamData";
 import { isStaff, type TeamActor } from "@/lib/permissions";
 import { Link as LinkIcon, ShoppingBag } from "lucide-react";
@@ -330,7 +330,7 @@ export default function ShopView({
   actor,
 }: {
   slug:            string;
-  settings:        CampaignSettings;
+  settings:        ShopSettings;
   initialProducts: TeamProductRow[];
   actor:           TeamActor;
 }) {

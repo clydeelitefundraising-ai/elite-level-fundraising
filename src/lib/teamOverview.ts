@@ -171,19 +171,3 @@ export function seasonLabel(season: string | null | undefined): string {
 export function initials(name: string | null | undefined): string {
   return s(name).split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]!.toUpperCase()).join("");
 }
-
-// ── Shell data ───────────────────────────────────────────────────────────
-
-/** The team layout renders before the page's own membership check and hands
- *  `settings` to client components (TeamChrome, TeamHeader), so whatever is
- *  in it reaches the browser of anyone who opens the team URL. The Overview
- *  fields are only for the team's own members — the Overview page reads them
- *  itself — so the layout strips them first. */
-export function withoutOverviewFields<T extends object>(settings: T): Omit<T, "team_banner_url" | "team_about" | "location_street" | "location_zip"> {
-  const rest = { ...settings } as Record<string, unknown>;
-  delete rest.team_banner_url;
-  delete rest.team_about;
-  delete rest.location_street;
-  delete rest.location_zip;
-  return rest as Omit<T, "team_banner_url" | "team_about" | "location_street" | "location_zip">;
-}

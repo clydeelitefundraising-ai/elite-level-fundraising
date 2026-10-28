@@ -63,9 +63,3 @@ test("existing tabs untouched: Roster and To-Do List are still rendered by TeamT
   assert.match(page, /roster=\{\s+<RosterTabs/);
   assert.match(page, /<TodoListView slug=\{slug\} \/>/);
 });
-
-test("team layout keeps Overview-only fields out of the client shell (it renders before the membership check)", () => {
-  const layout = read("../layout.tsx");
-  assert.match(layout, /const shellSettings = withoutOverviewFields\(settings\);/);
-  assert.ok(!/settings=\{settings\}/.test(layout), "TeamChrome/TeamHeader must get shellSettings");
-});

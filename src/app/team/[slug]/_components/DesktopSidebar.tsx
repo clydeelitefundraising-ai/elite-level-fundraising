@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CampaignSettings } from "@/lib/supabase";
+import type { TeamShellSettings } from "@/lib/teamShellSettings";
 import type { TeamSummary } from "@/lib/accountSession";
 import AccountMenu from "./AccountMenu";
 import { buildDesktopNavItems, isDesktopNavItemActive } from "./desktopNavItems";
@@ -39,7 +39,7 @@ export default function DesktopSidebar({
   isMember,
 }: {
   slug: string;
-  settings: CampaignSettings;
+  settings: TeamShellSettings;
   showSponsors: boolean;
   showRequests: boolean;
   // Phase F1b — computed once in layout.tsx via permissions.ts's

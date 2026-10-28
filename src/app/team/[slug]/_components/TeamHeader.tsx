@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Settings } from "lucide-react";
-import type { CampaignSettings } from "@/lib/supabase";
+import type { TeamShellSettings } from "@/lib/teamShellSettings";
 import type { TeamSummary } from "@/lib/accountSession";
 import NotificationBell from "./NotificationBell";
 import PushOptIn from "./PushOptIn";
@@ -22,7 +22,7 @@ export default function TeamHeader({
   hasAccountSession = false,
   isMember = false,
 }: {
-  settings:         CampaignSettings;
+  settings:         TeamShellSettings;
   unreadNotifCount?: number;
   showBell?:         boolean;
   accountTeams?:     TeamSummary[];

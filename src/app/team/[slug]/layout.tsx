@@ -17,7 +17,7 @@ import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
 import NativePushRegistrar from "./_components/NativePushRegistrar";
 import { SeasonStatusProvider, CompletedSeasonBanner } from "./_components/SeasonStatus";
 import { isSeasonCompleted } from "@/lib/seasonState";
-import { withoutOverviewFields } from "@/lib/teamOverview";
+import { toTeamShellSettings } from "@/lib/teamShellSettings";
 import styles from "./_components/TeamShell.module.css";
 
 export const dynamic = "force-dynamic";
@@ -51,8 +51,9 @@ export default async function TeamLayout({
 
   if (!settings) notFound();
 
-  // Overview-only fields stay out of the client shell (see withoutOverviewFields).
-  const shellSettings = withoutOverviewFields(settings);
+  // The shell renders for every visitor, before any page checks membership,
+  // so it only gets the public display fields (see lib/teamShellSettings.ts).
+  const shellSettings = toTeamShellSettings(settings);
 
   const isMember          = actor.kind === "member";
   const isAuthenticated   = actor.kind !== "public";
