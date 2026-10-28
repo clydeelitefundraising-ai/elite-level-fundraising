@@ -138,7 +138,8 @@ function TeamBanner({ slug, canEdit, team, bannerUrl, onChange }: {
   };
 
   return (
-    <section aria-label="Team banner">
+    // padding: 0 — globals.css gives bare <section> elements marketing-page padding.
+    <section aria-label="Team banner" style={{ padding: 0 }}>
       <div className={`${styles.banner}${canEdit ? ` ${styles.bannerEditable}` : ""}`}>
         <div
           className={styles.bannerArt}
