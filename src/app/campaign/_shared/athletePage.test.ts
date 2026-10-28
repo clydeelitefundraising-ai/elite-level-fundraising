@@ -150,7 +150,7 @@ test("responsive CSS: two columns on desktop, stacked under 900px, compact phone
   assert.match(css, /\.pc-ath-grid \{\n  display: grid;\n  grid-template-columns: minmax\(0, 1fr\) minmax\(320px, 400px\);/);
   assert.match(css, /@media \(max-width: 900px\) \{\n  \.pc-ath-grid \{ grid-template-columns: minmax\(0, 1fr\);/);
   assert.match(css, /@media \(max-width: 600px\) \{[\s\S]*\.pc-ath-top \{ grid-template-columns: 112px minmax\(0, 1fr\);/);
-  assert.match(css, /\.pc-ath-photo \{[^}]*aspect-ratio: 3 \/ 4;[^}]*object-fit: cover;/, "portrait, proportions kept");
+  assert.match(css, /\.pc-ath-photo \{[^}]*aspect-ratio: 4 \/ 5;[^}]*object-fit: cover;/, "portrait, proportions kept");
   assert.match(css, /\.pc-ath-name \{[^}]*overflow-wrap: anywhere;/, "long names wrap");
   assert.ok(!/url\(/.test(css.slice(css.indexOf("PERSONALIZED ATHLETE PAGE"))), "no background imagery");
 });

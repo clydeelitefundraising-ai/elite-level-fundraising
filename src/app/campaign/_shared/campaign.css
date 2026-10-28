@@ -852,7 +852,9 @@ html { scroll-behavior: smooth; }
 .pc-ath-photo {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 4;
+  /* Portrait frame; account photos are stored 400x400, so cover crops only
+     a little from each side. Never stretched. */
+  aspect-ratio: 4 / 5;
   object-fit: cover;
   object-position: center 30%;
   border-radius: 1rem;
