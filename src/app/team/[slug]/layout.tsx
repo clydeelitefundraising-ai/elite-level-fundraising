@@ -17,6 +17,7 @@ import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
 import NativePushRegistrar from "./_components/NativePushRegistrar";
 import { SeasonStatusProvider, CompletedSeasonBanner } from "./_components/SeasonStatus";
 import { isSeasonCompleted } from "@/lib/seasonState";
+import { withoutOverviewFields } from "@/lib/teamOverview";
 import styles from "./_components/TeamShell.module.css";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,9 @@ export default async function TeamLayout({
   ]);
 
   if (!settings) notFound();
+
+  // Overview-only fields stay out of the client shell (see withoutOverviewFields).
+  const shellSettings = withoutOverviewFields(settings);
 
   const isMember          = actor.kind === "member";
   const isAuthenticated   = actor.kind !== "public";
@@ -157,7 +161,7 @@ export default async function TeamLayout({
             it lands on the left at desktop width. */}
         <TeamChrome
           slug={slug}
-          settings={settings}
+          settings={shellSettings}
           showSponsors={isAuthenticated}
           showRequests={showRequests}
           showFundraiser={showFundraiser}
@@ -182,7 +186,7 @@ export default async function TeamLayout({
               its own independently-sticky equivalent. */}
           <div className={`${styles.mobileOnly} ${styles.stickyTeamHeader}`}>
             <TeamHeader
-              settings={settings}
+              settings={shellSettings}
               unreadNotifCount={unreadNotifCount}
               showBell={isMember}
               accountTeams={accountTeams}

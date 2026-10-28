@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MAX_ABOUT_CHARS, aboutParagraphs, bannerPathPrefix, initials, isAllowedBannerMimeType, mapsHref,
-  normalizeAbout, ownedBannerPath, resolveDisplayLocation, seasonLabel, validateLocation,
+  normalizeAbout, ownedBannerPath, resolveDisplayLocation, seasonLabel, validateLocation, withoutOverviewFields,
 } from "./teamOverview.ts";
 
 const SB = "https://abc.supabase.co";
@@ -106,4 +106,17 @@ test("season label and initials", () => {
   assert.equal(seasonLabel(""), "");
   assert.equal(initials("QA Lions High School"), "QL");
   assert.equal(initials(""), "");
+});
+
+// ── Shell data ───────────────────────────────────────────────────────────
+
+test("withoutOverviewFields drops only the Overview columns", () => {
+  const settings = {
+    campaign_slug: "lions", school_name: "Lions HS", location: "Phoenix, AZ", logo_url: "x",
+    team_banner_url: "b", team_about: "a", location_street: "1 Main", location_zip: "85001",
+  };
+  assert.deepEqual(withoutOverviewFields(settings), {
+    campaign_slug: "lions", school_name: "Lions HS", location: "Phoenix, AZ", logo_url: "x",
+  });
+  assert.equal(settings.team_about, "a", "input is not mutated");
 });
