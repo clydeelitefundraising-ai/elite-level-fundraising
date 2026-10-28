@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import type { CampaignSettings } from "@/lib/supabase";
+import type { TeamShellSettings } from "@/lib/teamShellSettings";
 import type { TeamSummary } from "@/lib/accountSession";
 import TeamNav from "./TeamNav";
 import DesktopSidebar from "./DesktopSidebar";
@@ -36,7 +36,7 @@ export default function TeamChrome({
   isMember,
 }: {
   slug: string;
-  settings: CampaignSettings;
+  settings: TeamShellSettings;
   showSponsors: boolean;
   showRequests: boolean;
   // Phase F1b — computed once in layout.tsx via permissions.ts's

@@ -1,4 +1,5 @@
 import { getCampaignSettings } from "@/lib/supabase";
+import { toShopSettings } from "@/lib/teamShellSettings";
 import { getAllTeamProducts } from "@/lib/teamData";
 import { getTeamActor } from "@/lib/permissions.server";
 import { notFound } from "next/navigation";
@@ -19,5 +20,5 @@ export default async function ShopPage({
 
   if (!settings) notFound();
 
-  return <ShopView slug={slug} settings={settings} initialProducts={products} actor={actor} />;
+  return <ShopView slug={slug} settings={toShopSettings(settings)} initialProducts={products} actor={actor} />;
 }

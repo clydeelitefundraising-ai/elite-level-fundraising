@@ -1,6 +1,9 @@
 import { getTeamAthletes, getContactCountsByAthlete, getOutreachMap } from "@/lib/teamData";
 import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
-import { getDonations } from "@/lib/supabase";
+import { getDonations, getCampaignSettings } from "@/lib/supabase";
+import { resolveTeamLogoUrl } from "@/lib/shareCopy";
+import { getOrganizationAddress } from "@/lib/teamOverview.server";
+import { isSeasonCompleted } from "@/lib/seasonState";
 import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { requireTeamMembership } from "@/lib/permissions.server";
 import { isHeadCoach } from "@/lib/permissions";
@@ -45,12 +48,37 @@ export default async function TeamPage({
   // table's own eligibility check (shouldShowDesktopRoster) already
   // decides whether any of this is ever rendered — this just avoids a
   // client-side waterfall for the actors who ARE eligible.
-  const [donations, contactCounts, outreachMap] = await Promise.all([
+  const [donations, contactCounts, outreachMap, settings] = await Promise.all([
     getDonations(slug),
     getContactCountsByAthlete(slug),
     getOutreachMap(slug),
+    getCampaignSettings(slug),
   ]);
   const attribution = attributeDonationsToAthletes(athletes, donations);
+
+  // Phase T6: Overview reads the team's existing identity (same logo
+  // precedence as TeamHeader via resolveTeamLogoUrl) plus the new optional
+  // banner/about/location columns; the school's address is a read-only
+  // fallback for the Location card.
+  const orgAddress = await getOrganizationAddress(settings?.organization_id);
+  const overview = settings ? (
+    <OverviewView
+      slug={slug}
+      canEdit={isHeadCoach(actor) && !isSeasonCompleted(settings)}
+      team={{
+        school_name:     settings.school_name ?? "",
+        sport_name:      settings.sport_name ?? "",
+        season:          settings.season ?? "",
+        logo_url:        resolveTeamLogoUrl(settings),
+        team_banner_url: settings.team_banner_url ?? null,
+        team_about:      settings.team_about ?? null,
+        location:        settings.location ?? "",
+        location_street: settings.location_street ?? null,
+        location_zip:    settings.location_zip ?? null,
+      }}
+      orgAddress={orgAddress}
+    />
+  ) : null;
 
   // Phase 7: Team Hub — Overview | Roster | Clearance, with Roster split
   // into Athletes | Staff. Phase D3 added a desktop-only roster table
@@ -61,7 +89,7 @@ export default async function TeamPage({
   return (
     <TeamTabs
       actor={actor}
-      overview={<OverviewView />}
+      overview={overview}
       roster={
         <RosterTabs
           actor={actor}
