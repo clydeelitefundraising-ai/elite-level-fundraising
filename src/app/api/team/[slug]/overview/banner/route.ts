@@ -20,7 +20,7 @@ function storageHeaders(contentType?: string) {
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
-    ...(contentType ? { "Content-Type": contentType, "Cache-Control": "max-age=31536000" } : {}),
+    ...(contentType ? { "Content-Type": contentType, "Cache-Control": "max-age=3600" } : {}),
   };
 }
 
