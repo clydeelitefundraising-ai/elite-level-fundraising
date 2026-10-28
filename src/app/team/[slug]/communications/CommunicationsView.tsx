@@ -58,17 +58,21 @@ export default function CommunicationsView({
     initialThreads.reduce((sum, t) => sum + t.unread_count, 0),
   );
 
-  // Phase 6: flat underline tabs, replacing the old boxed/pill segmented
-  // control — same pattern as team/RosterTabs.tsx's secondaryDesktopNav,
-  // used here at every width (not just desktop) since Communications never
-  // had a "pill on mobile, underline on desktop" split to begin with; this
-  // one tab treatment now serves both. Section state/switching logic is
-  // completely unchanged.
+  // Centred segmented control, same treatment as the Partners selector
+  // (sponsors/PartnersView.tsx): spans the content width up to 440px, the
+  // two tabs split it evenly, and the font steps down on narrow phones
+  // (never below 12px) so icon + label + unread badge stay on one line
+  // from 320px up. The active tab is the white pill, with its icon in the
+  // team accent colour.
+  // Section state/switching logic is unchanged.
   const tabNav = (
     <div
       role="tablist"
       aria-label="Communications section"
-      style={{ display: "flex", gap: "1.4rem", borderBottom: "1px solid var(--border-app)", marginBottom: "1.1rem" }}
+      style={{
+        display: "flex", width: "100%", maxWidth: 440, boxSizing: "border-box",
+        margin: "0 auto .85rem", background: "#f3f4f6", borderRadius: 10, padding: 3, gap: 3,
+      }}
     >
       {SEG.map(({ id, label, icon: Icon }) => {
         const active = section === id;
@@ -81,21 +85,27 @@ export default function CommunicationsView({
             onClick={() => setSection(id)}
             className="elf-focus-ring"
             style={{
-              background: "none",
+              flex: "1 1 0",
+              minWidth: 0,
+              minHeight: 40,
+              padding: ".45rem .35rem",
+              borderRadius: 8,
               border: "none",
-              borderBottom: active ? "2px solid var(--team-primary)" : "2px solid transparent",
               cursor: "pointer",
-              padding: "0 0 .6rem",
-              fontSize: ".8rem",
-              fontWeight: active ? 700 : 500,
-              color: active ? "var(--text-primary-app)" : "var(--text-muted-app)",
-              display: "flex", alignItems: "center", gap: ".4rem",
+              fontSize: "clamp(.75rem, 3.5vw, .875rem)",
+              fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
+              whiteSpace: "nowrap",
+              background: active ? "#fff" : "transparent",
+              color: active ? "#111827" : "#6b7280",
+              boxShadow: active ? "0 1px 3px rgba(0,0,0,.1)" : "none",
             }}
           >
-            <Icon size={15} aria-hidden="true" />
-            {label}
+            <Icon size={15} aria-hidden="true" style={{ flexShrink: 0, color: active ? "var(--team-primary)" : "currentColor" }} />
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
             {unread > 0 && (
               <span style={{
+                flexShrink: 0,
                 background: "var(--color-error)",
                 color: "#fff",
                 borderRadius: "var(--radius-full)",
@@ -119,7 +129,7 @@ export default function CommunicationsView({
     <div style={{ animation: "elf-fadeUp .22s ease both" }}>
 
       {/* ── Page header ── */}
-      <div style={{ marginBottom: ".85rem" }}>
+      <div style={{ marginBottom: ".7rem" }}>
         <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
           Team Hub
         </span>
@@ -128,7 +138,7 @@ export default function CommunicationsView({
         </h2>
       </div>
 
-      {/* ── Section nav — same flat tab treatment at every width now.
+      {/* ── Section nav — same segmented control at every width.
           The coach-desktop/member-desktop Updates presentation split is
           entirely UpdatesWorkspaceView's responsibility (via
           shouldShowDesktopCommunications there), not this component's. ── */}
