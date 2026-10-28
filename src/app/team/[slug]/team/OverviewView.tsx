@@ -76,7 +76,7 @@ export default function OverviewView({
   const [loc, setLoc] = useState({ street: team.location_street ?? "", city_state: team.location, zip: team.location_zip ?? "" });
 
   return (
-    <div className={styles.page}>
+    <div className={styles.page} style={{ animation: "elf-fadeUp .22s ease both" }}>
       <TeamBanner slug={slug} canEdit={canEdit} team={team} bannerUrl={bannerUrl} onChange={setBannerUrl} />
       <LocationCard slug={slug} canEdit={canEdit} schoolName={team.school_name} loc={loc} orgAddress={orgAddress} onSaved={setLoc} />
       <AboutCard slug={slug} canEdit={canEdit} about={about} onSaved={setAbout} />
@@ -203,27 +203,16 @@ function TeamBanner({ slug, canEdit, team, bannerUrl, onChange }: {
           // eslint-disable-next-line @next/next/no-img-element -- same team logo URL the header renders as a plain <img>
           <img src={team.logo_url} alt={`${team.school_name} logo`} className={styles.bannerLogo} />
         ) : (
-          <div aria-hidden="true" style={{
-            width: "clamp(52px, 15vw, 84px)", height: "clamp(52px, 15vw, 84px)", borderRadius: "50%",
-            background: "rgba(255,255,255,.14)", border: "2px solid rgba(255,255,255,.4)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontWeight: 800, fontSize: "clamp(1.1rem, 5vw, 1.8rem)", letterSpacing: ".02em",
-          }}>
+          <div aria-hidden="true" className={styles.bannerInitials}>
             {initials(team.school_name)}
           </div>
         )}
 
         <h2 className={styles.bannerName}>{team.school_name}</h2>
-        {team.sport_name && (
-          <div style={{ fontSize: "clamp(.95rem, 4.3vw, 1.5rem)", fontWeight: 500, opacity: .92, marginTop: ".2rem", lineHeight: 1.2 }}>
-            {team.sport_name}
-          </div>
-        )}
+        {team.sport_name && <div className={styles.bannerSport}>{team.sport_name}</div>}
         {season && (
-          <div style={{ marginTop: "clamp(.45rem, 2.5vw, .9rem)" }}>
-            <div style={{ fontSize: "clamp(.66rem, 2.9vw, .85rem)", fontWeight: 600, letterSpacing: ".2em", textTransform: "uppercase", opacity: .95 }}>
-              {season}
-            </div>
+          <div className={styles.bannerSeason}>
+            <div>{season}</div>
             <div aria-hidden="true" style={{ width: 34, height: 3, borderRadius: 2, background: "var(--team-secondary, #FFC107)", marginTop: ".35rem" }} />
           </div>
         )}

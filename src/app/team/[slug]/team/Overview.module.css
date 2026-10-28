@@ -1,13 +1,19 @@
 /*
  * Phase T6 — Team -> Overview. Only the responsive bits live here; the
  * rest is inline styles like the surrounding Team Hub components.
+ *
+ * Sizes follow the Overview column's own width (container query units,
+ * `cqi`), not the browser window: the team app shows its phone-width
+ * column inside wide desktop windows below 1024px, where `vw` would blow
+ * the banner text up. Each `cqi` value is preceded by a `vw` fallback for
+ * browsers without container queries.
  */
 
 .page {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   gap: .85rem;
-  animation: elf-fadeUp .22s ease both;
 }
 
 /* Banner: 16:9, but grows if a long school name needs more room
@@ -26,6 +32,7 @@
   justify-content: flex-end;
   box-sizing: border-box;
   padding: clamp(.9rem, 4.5vw, 2rem);
+  padding: clamp(.9rem, 4.6cqi, 2rem);
   color: #fff;
   isolation: isolate;
   box-shadow: 0 6px 18px rgba(11, 30, 61, .18);
@@ -44,10 +51,37 @@
   padding-top: 3.1rem;
 }
 
+.bannerLogo {
+  height: clamp(52px, 17vw, 108px);
+  height: clamp(52px, 18cqi, 108px);
+  max-width: 45%;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .35));
+}
+
+.bannerInitials {
+  width: clamp(52px, 15vw, 84px);
+  width: clamp(52px, 16cqi, 84px);
+  height: clamp(52px, 15vw, 84px);
+  height: clamp(52px, 16cqi, 84px);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .14);
+  border: 2px solid rgba(255, 255, 255, .4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: clamp(1.1rem, 5vw, 1.8rem);
+  font-size: clamp(1.1rem, 5.4cqi, 1.8rem);
+  letter-spacing: .02em;
+}
+
 .bannerName {
   margin: .45rem 0 0;
   font-weight: 800;
   font-size: clamp(1.3rem, 6.4vw, 2.5rem);
+  font-size: clamp(1.25rem, 7.2cqi, 2.4rem);
   line-height: 1.08;
   letter-spacing: -.015em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, .35);
@@ -58,12 +92,24 @@
   overflow: hidden;
 }
 
-.bannerLogo {
-  height: clamp(52px, 17vw, 108px);
-  max-width: 45%;
-  object-fit: contain;
-  object-position: left bottom;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .35));
+.bannerSport {
+  margin-top: .2rem;
+  font-weight: 500;
+  opacity: .92;
+  line-height: 1.2;
+  font-size: clamp(.95rem, 4.3vw, 1.5rem);
+  font-size: clamp(.95rem, 4.7cqi, 1.45rem);
+}
+
+.bannerSeason {
+  margin-top: clamp(.45rem, 2.5vw, .9rem);
+  margin-top: clamp(.45rem, 2.6cqi, .9rem);
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  opacity: .95;
+  font-size: clamp(.66rem, 2.9vw, .85rem);
+  font-size: clamp(.66rem, 3.1cqi, .85rem);
 }
 
 .card {
@@ -72,9 +118,11 @@
   border: 1px solid rgba(15, 23, 42, .06);
   box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
   padding: clamp(.9rem, 4vw, 1.35rem);
+  padding: clamp(.9rem, 4.3cqi, 1.35rem);
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: clamp(.65rem, 3.5vw, 1.1rem);
+  column-gap: clamp(.65rem, 3.8cqi, 1.1rem);
   align-items: start;
 }
 
@@ -117,7 +165,9 @@
   gap: .6rem;
 }
 
-@media (min-width: 560px) {
+/* Column widths below: the Overview column is ~28px narrower than the
+   phone screen (≈362px on a 390px iPhone, ≈292px at 320px). */
+@container (min-width: 520px) {
   .editGrid {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
@@ -127,23 +177,21 @@
 }
 
 /* Too narrow for address + map side by side: map goes full width below. */
-@media (max-width: 369px) {
+@container (max-width: 340px) {
   .mapPanel {
     max-width: none;
     flex-basis: 100%;
   }
 }
 
-/* Smallest phones: Edit buttons drop their label (icon + aria-label). */
-@media (max-width: 359px) {
-  .editLabel {
-    display: none;
-  }
-}
-
-@media (max-width: 359px) {
+/* Smallest phones: smaller icon bubbles; Edit buttons drop their label
+   (icon + aria-label remain). */
+@container (max-width: 330px) {
   .iconBubble {
     width: 36px;
     height: 36px;
+  }
+  .editLabel {
+    display: none;
   }
 }
