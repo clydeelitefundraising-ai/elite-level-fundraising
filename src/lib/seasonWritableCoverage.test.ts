@@ -116,12 +116,12 @@ test("every write handler either refuses completed seasons or is exempt with a r
   assert.deepEqual(unaccounted, [], "add seasonWriteBlocked(slug) or an EXEMPT entry with a reason");
 });
 
-test("every /team/[slug] write handler not exempted is guarded (78 handlers)", () => {
+test("every /team/[slug] write handler not exempted is guarded (81 handlers)", () => {
   const team = all.filter(h => h.route.startsWith("team/[slug]"));
   const guarded = team.filter(h => GUARD.test(h.body));
   const exempt = team.filter(h => EXEMPT[`${h.route} ${h.method}`]);
   assert.equal(guarded.length + exempt.length, team.length);
-  assert.equal(guarded.length, 78);
+  assert.equal(guarded.length, 81); // +3: Team Overview (overview PATCH, overview/banner POST + DELETE)
   for (const h of exempt) assert.ok(!GUARD.test(h.body), `${h.route} ${h.method} is exempt but guarded`);
 });
 

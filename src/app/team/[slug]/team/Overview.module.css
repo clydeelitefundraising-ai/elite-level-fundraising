@@ -1,0 +1,149 @@
+/*
+ * Phase T6 — Team -> Overview. Only the responsive bits live here; the
+ * rest is inline styles like the surrounding Team Hub components.
+ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  animation: elf-fadeUp .22s ease both;
+}
+
+/* Banner: 16:9, but grows if a long school name needs more room
+   (content is in normal flow, so aspect-ratio is only a minimum — which
+   only works with overflow visible, hence the separate clipped .bannerArt
+   layer for the image and gradient). Capped on wide screens so it never
+   dominates a desktop window. */
+.banner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 420px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  padding: clamp(.9rem, 4.5vw, 2rem);
+  color: #fff;
+  isolation: isolate;
+  box-shadow: 0 6px 18px rgba(11, 30, 61, .18);
+}
+
+.bannerArt {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: -1;
+}
+
+/* Coach controls sit top-right; keep the logo clear of them. */
+.bannerEditable {
+  padding-top: 3.1rem;
+}
+
+.bannerName {
+  margin: .45rem 0 0;
+  font-weight: 800;
+  font-size: clamp(1.3rem, 6.4vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -.015em;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .35);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bannerLogo {
+  height: clamp(52px, 17vw, 108px);
+  max-width: 45%;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .35));
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, .06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+  padding: clamp(.9rem, 4vw, 1.35rem);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: clamp(.65rem, 3.5vw, 1.1rem);
+  align-items: start;
+}
+
+.iconBubble {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #eef1f6;
+  color: #3b4a6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Location: address beside a map-style "Open in Maps" panel; the panel
+   drops below the address on the narrowest phones. */
+.locationBody {
+  display: flex;
+  gap: .75rem;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.locationText {
+  flex: 1 1 112px;
+  min-width: 0;
+}
+
+.mapPanel {
+  flex: 0 1 36%;
+  min-width: 96px;
+  max-width: 280px;
+  min-height: 92px;
+}
+
+.editGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .6rem;
+}
+
+@media (min-width: 560px) {
+  .editGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+  .editGrid .full {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Too narrow for address + map side by side: map goes full width below. */
+@media (max-width: 369px) {
+  .mapPanel {
+    max-width: none;
+    flex-basis: 100%;
+  }
+}
+
+/* Smallest phones: Edit buttons drop their label (icon + aria-label). */
+@media (max-width: 359px) {
+  .editLabel {
+    display: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .iconBubble {
+    width: 36px;
+    height: 36px;
+  }
+}

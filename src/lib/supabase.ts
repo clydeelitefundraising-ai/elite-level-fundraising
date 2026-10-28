@@ -136,6 +136,14 @@ export type CampaignSettings = {
   // all). F1a wires up storage/admin-editing only — no read path branches
   // on this value yet.
   fundraising_enabled?: boolean;
+  // Phase T6: Team -> Overview page (supabase/migrations/
+  // phase_t6_team_overview.sql). All optional — absent before the migration
+  // is applied and null until a Head Coach sets them. location_street/
+  // location_zip complete the existing `location` (city, state) above.
+  team_banner_url?: string | null;
+  team_about?:      string | null;
+  location_street?: string | null;
+  location_zip?:    string | null;
 };
 
 // Class levels shown as the primary athlete attribute in the UI. `event`
