@@ -24,15 +24,21 @@ const ACC_ATH = U(901), ACC_PARENT = U(902), ACC_HAWK = U(903);
 const A = {
   own: U(1), parentPhoto: U(2), roster: U(3), rosterOtherTeam: U(4), none: U(5),
   foreign: U(6), traversal: U(7), hawk: U(8), ended: U(9), off: U(10), htmlObject: U(11),
+  hidden: U(12), noSetting: U(13), settingFalse: U(14), legacyNoColumn: U(15),
 };
 
 function makeWorld() {
   const db: Record<string, Row[]> = {
     campaign_settings: [
-      { campaign_slug: "lions", archived: false, fundraising_enabled: true },
-      { campaign_slug: "hawks", archived: false, fundraising_enabled: true },
-      { campaign_slug: "ended", archived: true, fundraising_enabled: true },
-      { campaign_slug: "off", archived: false, fundraising_enabled: false },
+      { campaign_slug: "lions", archived: false, fundraising_enabled: true, public_athlete_photos: true },
+      { campaign_slug: "hawks", archived: false, fundraising_enabled: true, public_athlete_photos: true },
+      { campaign_slug: "ended", archived: true, fundraising_enabled: true, public_athlete_photos: true },
+      { campaign_slug: "off", archived: false, fundraising_enabled: false, public_athlete_photos: true },
+      // Public Athlete Photos never turned on (the default), explicitly off,
+      // and a row read before the Phase T7 migration (no column at all).
+      { campaign_slug: "default-off", archived: false, fundraising_enabled: true, public_athlete_photos: false },
+      { campaign_slug: "turned-off", archived: false, fundraising_enabled: true, public_athlete_photos: false },
+      { campaign_slug: "pre-migration", archived: false, fundraising_enabled: true },
     ],
     athletes: [
       { id: A.own, campaign_slug: "lions", profile_photo: `${PUB}/profile-photos/${ACC_ATH}/1-own.jpg` },
@@ -46,6 +52,10 @@ function makeWorld() {
       { id: A.ended, campaign_slug: "ended", profile_photo: `${PUB}/athlete-photos/ended/9.jpg` },
       { id: A.off, campaign_slug: "off", profile_photo: `${PUB}/athlete-photos/off/10.jpg` },
       { id: A.htmlObject, campaign_slug: "lions", profile_photo: `${PUB}/athlete-photos/lions/11-not-an-image.jpg` },
+      { id: A.hidden, campaign_slug: "lions", profile_photo: `${PUB}/athlete-photos/lions/12-hidden.jpg`, public_photo_excluded: true },
+      { id: A.noSetting, campaign_slug: "default-off", profile_photo: `${PUB}/athlete-photos/default-off/13.jpg` },
+      { id: A.settingFalse, campaign_slug: "turned-off", profile_photo: `${PUB}/athlete-photos/turned-off/14.jpg` },
+      { id: A.legacyNoColumn, campaign_slug: "pre-migration", profile_photo: `${PUB}/athlete-photos/pre-migration/15.jpg` },
     ],
     team_members: [
       { id: "m1", campaign_slug: "lions", role: "athlete", athlete_id: A.own, account_id: ACC_ATH },
@@ -89,7 +99,7 @@ test("athlete's own account photo → streamed image, no storage URL or account 
   const { res, bytes, storageGets } = await get("lions", A.own);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "image/jpeg");
-  assert.equal(res.headers.get("cache-control"), "public, max-age=3600");
+  assert.equal(res.headers.get("cache-control"), "no-store, max-age=0", "never cached — revocation is immediate");
   assert.equal(res.headers.get("x-content-type-options"), "nosniff");
   assert.deepEqual([...bytes!], [0xff, 0xd8, 0xff, 0xd9]);
   assert.deepEqual(storageGets, [`profile-photos/${ACC_ATH}/1-own.jpg`]);
@@ -116,12 +126,17 @@ for (const [why, slug, id] of [
   ["a storage object that isn't an image", "lions", A.htmlObject],
   ["an unknown athlete id", "lions", U(999)],
   ["a malformed athlete id", "lions", "not-a-uuid"],
+  ["a team that never turned on Public Athlete Photos (default off)", "default-off", A.noSetting],
+  ["a team that turned Public Athlete Photos off", "turned-off", A.settingFalse],
+  ["a team read before the migration (setting absent) — fails closed", "pre-migration", A.legacyNoColumn],
+  ["an athlete the Head Coach hid, while the team setting is on", "lions", A.hidden],
   ["an unknown campaign", "nope", A.own],
 ] as const) {
   test(`404 (team logo shown instead) for ${why}`, async () => {
     const { res, storageGets } = await get(slug, id);
     assert.equal(res.status, 404);
     assert.equal(await res.text(), "", "a bare 404 — nothing to tell ids apart");
+    assert.equal(res.headers.get("cache-control"), "no-store, max-age=0");
     if (why !== "a storage object that isn't an image") assert.deepEqual(storageGets, [], "storage is never touched");
   });
 }

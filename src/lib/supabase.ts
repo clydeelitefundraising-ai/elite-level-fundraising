@@ -118,6 +118,11 @@ export type CampaignSettings = {
   // fundraising_enabled below — this is about an individual COACH's
   // personal participation, not whether the team's fundraiser exists.
   allow_coach_fundraising?: boolean;
+  // Phase T7 — athlete profile photos on the public fundraising pages:
+  // off until the Head Coach turns it on (lib/publicAthletePhotos.ts).
+  public_athlete_photos?:            boolean;
+  public_athlete_photos_changed_at?: string | null;
+  public_athlete_photos_changed_by?: string | null;
   external_store_url?:          string | null;
   store_provider?:              string | null;
   default_athlete_goal_cents?:  number | null;

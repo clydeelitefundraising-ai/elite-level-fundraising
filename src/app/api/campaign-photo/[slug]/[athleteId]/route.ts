@@ -5,7 +5,11 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 type RouteContext = { params: Promise<{ slug: string; athleteId: string }> };
 
-const NOT_FOUND = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+// Never cached (browser or CDN): turning Public Athlete Photos off, hiding
+// an athlete or changing a photo takes effect on the very next request —
+// a donor's browser can't keep showing a photo that is no longer allowed.
+const NO_STORE = "no-store, max-age=0";
+const NOT_FOUND = () => new NextResponse(null, { status: 404, headers: { "Cache-Control": NO_STORE } });
 
 // Personalized athlete fundraising page — the athlete's photo for the PUBLIC
 // campaign page (/campaign/<slug>?athlete=<id>). Public on purpose (donors
@@ -15,8 +19,8 @@ const NOT_FOUND = () => new NextResponse(null, { status: 404, headers: { "Cache-
 // The image is streamed through, so the storage path (which contains the
 // uploader's account id) never reaches the browser. Every refusal is the
 // same bare 404, so the route can't be used to probe which ids exist; the
-// page then shows the team logo. One-hour cache: a changed profile photo
-// shows up within the hour.
+// page then shows the team logo. Shown only when the team's Head Coach has
+// turned on Public Athlete Photos and not hidden this athlete (Phase T7).
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const { slug, athleteId } = await params;
   const photo = await resolvePublicAthletePhoto(slug, athleteId);
@@ -30,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": type,
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": NO_STORE,
       "X-Content-Type-Options": "nosniff",
       "Content-Disposition": "inline",
     },

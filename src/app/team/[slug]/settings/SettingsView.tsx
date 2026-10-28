@@ -12,6 +12,7 @@ import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJo
 import { performNativeAwareLogout } from "@/lib/nativePushDevice";
 import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
 import CoachFundraisingSection from "./CoachFundraisingSection";
+import PublicAthletePhotosSection from "./PublicAthletePhotosSection";
 import AccountPrivacySection from "./AccountPrivacySection";
 import NotificationPreferencesSection from "./NotificationPreferencesSection";
 import IdentityAvatar from "./IdentityAvatar";
@@ -368,6 +369,18 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
             </span>
           </div>
           <ReadOnlyFieldset><CoachFundraisingSection slug={slug} initialAllowCoachFundraising={allowCoachFundraising} /></ReadOnlyFieldset>
+        </>
+      )}
+
+      {/* ── Public Athlete Photos (Head Coach only) — Phase T7 ── */}
+      {coach.role === "head_coach" && (
+        <>
+          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+              Public Athlete Photos
+            </span>
+          </div>
+          <ReadOnlyFieldset><PublicAthletePhotosSection slug={slug} /></ReadOnlyFieldset>
         </>
       )}
 

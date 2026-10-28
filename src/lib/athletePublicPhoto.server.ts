@@ -17,6 +17,7 @@
 //                                the athlete.
 import { getCampaignSettings } from "@/lib/supabase";
 import { isAthleteId } from "@/lib/athleteSpotlight";
+import { publicAthletePhotoAllowed } from "@/lib/publicAthletePhotos";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -53,33 +54,73 @@ async function getRows<T>(query: string): Promise<T[] | null> {
 }
 
 /** The storage object to serve for this athlete on this campaign's public
- *  page, or null. Same visibility as the page itself: the campaign must
- *  exist, be live (not archived) and have fundraising on. */
+ *  page, or null. Same visibility as the page itself (the campaign must
+ *  exist, be live and have fundraising on) AND the team's Head Coach must
+ *  have turned on Public Athlete Photos, and not hidden this athlete
+ *  (Phase T7). Every check fails closed: a missing column (migration not
+ *  yet applied), a failed read or anything but an explicit true → null. */
 export async function resolvePublicAthletePhoto(slug: string, athleteId: string): Promise<StoragePhoto | null> {
   if (!isAthleteId(athleteId)) return null;
 
   const settings = await getCampaignSettings(slug);
   if (!settings || settings.archived || settings.fundraising_enabled === false) return null;
+  if (!publicAthletePhotoAllowed(settings.public_athlete_photos, false)) return null;
 
-  const athletes = await getRows<{ id: string; campaign_slug: string; profile_photo: string | null }>(
-    `athletes?id=eq.${encodeURIComponent(athleteId)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=id,campaign_slug,profile_photo&limit=1`,
+  const athletes = await getRows<{ id: string; campaign_slug: string; profile_photo: string | null; public_photo_excluded: boolean | null }>(
+    `athletes?id=eq.${encodeURIComponent(athleteId)}&campaign_slug=eq.${encodeURIComponent(slug)}` +
+    `&select=id,campaign_slug,profile_photo,public_photo_excluded&limit=1`,
   );
   const athlete = athletes?.[0];
   if (!athlete || athlete.campaign_slug !== slug) return null;
+  if (!publicAthletePhotoAllowed(settings.public_athlete_photos, athlete.public_photo_excluded)) return null;
 
   const photo = parseOwnStoragePhoto(athlete.profile_photo, BASE);
   if (!photo) return null;
-
-  if (photo.bucket === "athlete-photos") {
-    // Roster uploads are stored under the team's own slug.
-    return photo.path.startsWith(`${slug}/`) ? photo : null;
-  }
+  if (photo.bucket === "athlete-photos") return publishablePhoto(athlete.profile_photo, slug, []);
 
   const uploader = photo.path.split("/")[0];
   if (!isAthleteId(uploader)) return null;
-  const own = await getRows<{ id: string }>(
+  const own = await getRows<{ account_id: string }>(
     `team_members?athlete_id=eq.${encodeURIComponent(athleteId)}&account_id=eq.${encodeURIComponent(uploader)}` +
-    `&role=eq.athlete&campaign_slug=eq.${encodeURIComponent(slug)}&select=id&limit=1`,
+    `&role=eq.athlete&campaign_slug=eq.${encodeURIComponent(slug)}&select=account_id&limit=1`,
   );
-  return own && own.length > 0 ? photo : null;
+  return publishablePhoto(athlete.profile_photo, slug, (own ?? []).map(r => r.account_id));
+}
+
+/** Whether a stored athlete photo URL is a source the public page may use:
+ *  the coach's roster photo stored under this team, or a profile photo
+ *  stored under one of `ownAccountIds` — the accounts linked to this
+ *  athlete AS the athlete (never a parent's). Pure; the public route and
+ *  the Head Coach's athlete list both use it. */
+export function publishablePhoto(url: string | null | undefined, slug: string, ownAccountIds: readonly string[]): StoragePhoto | null {
+  const photo = parseOwnStoragePhoto(url, BASE);
+  if (!photo) return null;
+  if (photo.bucket === "athlete-photos") return photo.path.startsWith(`${slug}/`) ? photo : null;
+  return ownAccountIds.includes(photo.path.split("/")[0]) ? photo : null;
+}
+
+export type PublicPhotoRosterRow = { id: string; name: string; has_photo: boolean; excluded: boolean };
+
+/** The Head Coach's view of the roster for the Public Athlete Photos
+ *  setting: whether each athlete has a photo the public page could show,
+ *  and whether they are hidden. Null when the roster can't be read. */
+export async function getPublicPhotoRoster(slug: string): Promise<PublicPhotoRosterRow[] | null> {
+  const [athletes, members] = await Promise.all([
+    getRows<{ id: string; name: string; profile_photo: string | null; public_photo_excluded?: boolean | null }>(
+      `athletes?campaign_slug=eq.${encodeURIComponent(slug)}&select=*&order=name.asc`,
+    ),
+    getRows<{ athlete_id: string; account_id: string | null }>(
+      `team_members?campaign_slug=eq.${encodeURIComponent(slug)}&role=eq.athlete&athlete_id=not.is.null&select=athlete_id,account_id`,
+    ),
+  ]);
+  if (!athletes || !members) return null;
+  return athletes.map(a => ({
+    id: a.id,
+    name: a.name,
+    has_photo: publishablePhoto(
+      a.profile_photo, slug,
+      members.filter(m => m.athlete_id === a.id && m.account_id).map(m => m.account_id as string),
+    ) !== null,
+    excluded: a.public_photo_excluded === true,
+  }));
 }
