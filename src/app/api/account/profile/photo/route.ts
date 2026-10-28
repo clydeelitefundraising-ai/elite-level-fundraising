@@ -19,7 +19,11 @@ function serviceHeaders(extra?: Record<string, string>) {
 
 async function propagateToAthletes(accountId: string, url: string | null) {
   const res = await fetch(
-    `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&athlete_id=not.is.null&select=athlete_id`,
+    // role=athlete: only the athlete row this account IS. A parent's
+    // team_members row also carries athlete_id (their child) — without this
+    // filter a parent's own photo replaced the child's, which the public
+    // athlete fundraising page would then show as the athlete.
+    `${BASE}/rest/v1/team_members?account_id=eq.${encodeURIComponent(accountId)}&athlete_id=not.is.null&role=eq.athlete&select=athlete_id`,
     { headers: serviceHeaders(), cache: "no-store" },
   );
   if (!res.ok) return;

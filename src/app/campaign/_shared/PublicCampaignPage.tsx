@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X } from "lucide-react";
+import { Heart, Calendar, Search, Lock, ArrowRight, Menu, X, Trophy, GraduationCap, School } from "lucide-react";
 import { currentCopyrightYear } from "@/lib/copyrightYear";
 import CommunityPartnerSlots from "@/components/communityPartners/CommunityPartnerSlots";
 import { resolveFundUseIcon } from "@/lib/fundUseIcons";
+import { athletePhotoSrc, athleteSupportMessage, spotlightGrade } from "@/lib/athleteSpotlight";
 
 // Fund-uses column count follows the actual item count (1-6) so 1/2/4
 // items never leave an awkward near-empty trailing row on desktop — see
@@ -98,9 +99,39 @@ export type PublicCampaignPageProps = {
   donationsExpanded: boolean;
   setDonationsExpanded: (v: boolean) => void;
   hasMoreDonations: boolean;
+  // Personalized athlete page (?athlete=<id> matched this campaign's
+  // roster): Athlete Spotlight + the one donation form, team card below.
+  // null/absent = the general team page, unchanged.
+  spotlight?: SpotlightAthlete | null;
+  // An athlete link whose roster hasn't loaded yet — reserve the spotlight
+  // layout instead of flashing the team hero first.
+  spotlightPending?: boolean;
 };
 
+export type SpotlightAthlete = { id: string; name: string; classYear: string | null };
+
 const LEADERBOARD_PREVIEW_COUNT = 5;
+
+// The athlete's photo via the public photo route; when there is none (404)
+// or it fails to load, the team's own logo — then the team initials. Never
+// the ELF mark standing in for the team.
+function AthletePhoto({ slug, athlete, logoUrl, schoolName }: { slug: string; athlete: SpotlightAthlete; logoUrl: string; schoolName: string }) {
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  if (failedFor !== athlete.id) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- streamed by our own route; next/image adds nothing here
+      <img src={athletePhotoSrc(slug, athlete.id)} alt={athlete.name} className="pc-ath-photo" onError={() => setFailedFor(athlete.id)} />
+    );
+  }
+  return logoUrl ? (
+    <div className="pc-ath-photo pc-ath-photo--logo">
+      {/* eslint-disable-next-line @next/next/no-img-element -- team logo, same as the hero */}
+      <img src={logoUrl} alt={schoolName} />
+    </div>
+  ) : (
+    <div className="pc-ath-photo pc-ath-photo--initials" aria-label={schoolName}>{initials(schoolName)}</div>
+  );
+}
 
 export default function PublicCampaignPage(props: PublicCampaignPageProps) {
   const {
@@ -119,7 +150,9 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
     donationsExpanded, setDonationsExpanded, hasMoreDonations,
+    slug, spotlight = null, spotlightPending = false,
   } = props;
+  const athletePage = !!spotlight || spotlightPending;
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -130,6 +163,143 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
   const visibleDonations = donationsExpanded ? recentDonations : recentDonations.slice(0, 5);
 
   const hasCommunityPartners = communityPartners !== null;
+
+  // The ONE donation form on the page — rendered in the team hero (general
+  // link) or beside the Athlete Spotlight (athlete link), never both.
+  const donateCard = (
+    <div className="pc-donate-card">
+      <div className="pc-donate-header">
+        <h2>{spotlight ? `Support ${spotlight.name}` : `Support the ${mascot || sportName}`}</h2>
+        <p>Make a difference for {schoolName} {sportName}</p>
+      </div>
+      <div className="pc-donate-body">
+        <p className="pc-field-label">Choose an amount</p>
+        <div className="pc-amounts">
+          {(["$25", "$50", "$100"] as const).map((amt) => (
+            <button key={amt} className={`pc-amount-btn${selectedAmount === amt ? " active" : ""}`} onClick={() => setSelectedAmount(amt)}>
+              {amt}
+            </button>
+          ))}
+          <button
+            className={`pc-amount-btn${selectedAmount === "$250" ? " active" : ""}`}
+            onClick={() => setSelectedAmount("$250")}
+          >
+            $250
+          </button>
+          <button
+            className={`pc-amount-btn pc-amount-custom${selectedAmount === "Custom" ? " active" : ""}`}
+            onClick={() => setSelectedAmount("Custom")}
+          >
+            Custom
+          </button>
+        </div>
+
+        {selectedAmount === "Custom" && (
+          <div className="pc-form-field">
+            <label>Enter amount ($)</label>
+            <input type="number" min="1" placeholder="Enter amount" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} />
+          </div>
+        )}
+
+        <div className="pc-form-field">
+          <label>Your Name</label>
+          <input type="text" placeholder="Jane Smith" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
+        </div>
+
+        <div className="pc-form-field">
+          <label>Credit Your Donation To <span className="pc-optional">(optional)</span></label>
+          <select
+            value={selectedAthleteId ? `athlete:${selectedAthleteId}` : selectedCoachId ? `coach:${selectedCoachId}` : ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (!value) { selectAthleteParticipant(""); return; }
+              const [kind, id] = value.split(":");
+              if (kind === "coach") selectCoachParticipant(id);
+              else selectAthleteParticipant(id);
+            }}
+          >
+            <option value="">— Team General Fund —</option>
+            {athletes.length > 0 && (
+              <optgroup label="Athletes">
+                {athletes.map((a) => (
+                  <option key={a.id} value={`athlete:${a.id}`}>{a.name}</option>
+                ))}
+              </optgroup>
+            )}
+            {allowCoachFundraising && coaches.length > 0 && (
+              <optgroup label="Coaches">
+                {coaches.map((c) => (
+                  <option key={c.id} value={`coach:${c.id}`}>{c.name}</option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </div>
+
+        <div className="pc-form-field">
+          <label>Leave a Message <span className="pc-optional">(optional)</span></label>
+          <textarea rows={3} placeholder={`Go ${mascot || sportName}! We're rooting for you this season.`} value={donationMessage} onChange={(e) => setDonationMessage(e.target.value)} />
+        </div>
+
+        <button className="pc-donate-btn" onClick={handleDonate} disabled={donating}>
+          {donating ? "Redirecting to Stripe…" : donateLabel}
+        </button>
+        {donateError && <p className="pc-donate-error">{donateError}</p>}
+        <p className="pc-stripe-note"><Lock size={13} /> Secure checkout powered by Stripe</p>
+      </div>
+    </div>
+  );
+
+  // Team campaign blocks — the general hero shows them around the donation
+  // form; the athlete page shows them in the team card under the spotlight
+  // (where the athlete's name is the page heading, so the team title is h2).
+  const TitleTag = athletePage ? "h2" : "h1";
+  const teamIdentity = (
+    <>
+      <div className="pc-hero-identity">
+        {logoUrl
+          ? <img src={logoUrl} alt={schoolName} className="pc-hero-logo" />
+          : <div className="pc-hero-logo-fallback">{initials(schoolName)}</div>}
+        <div>
+          <p className="pc-hero-school">{schoolName}</p>
+        </div>
+      </div>
+      <TitleTag className="pc-hero-title">
+        {sportName} <em>{mascot}</em>
+      </TitleTag>
+      <p className="pc-hero-label">{season} Fundraiser</p>
+      <p className="pc-hero-desc">
+        {description || `Support the ${schoolName} ${sportName} program as they prepare for another competitive season. Your support makes a direct impact on our student-athletes.`}
+      </p>
+    </>
+  );
+  const teamProgress = (
+    <>
+      <div className="pc-hero-amount-row">
+        <span className="pc-hero-amount">${raised.toLocaleString()}</span>
+        <span className="pc-hero-goal">of ${goal.toLocaleString()} goal</span>
+      </div>
+      <div className="pc-progress-row">
+        <div className="pc-progress-track">
+          <div className="pc-progress-fill" style={{ width: `${Math.min(100, percent)}%` }} />
+        </div>
+        <span className="pc-progress-pct">{percent}%</span>
+      </div>
+    </>
+  );
+  const teamStats = (
+    <div className="pc-hero-stats">
+      <div className="pc-hero-stat">
+        <Heart className="pc-hero-stat-icon" size={22} fill="currentColor" />
+        <div><strong>{donors}</strong><span>Donations</span></div>
+      </div>
+      <div className="pc-hero-stat-divider" />
+      <div className="pc-hero-stat">
+        <Calendar className="pc-hero-stat-icon" size={22} />
+        <div><strong>{daysLeft}</strong><span>Days Left</span></div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="pc-page">
@@ -169,140 +339,72 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
       </nav>
 
       {/* HERO */}
-      <header className="pc-hero" id="pc-about">
-        <div className="pc-section-inner pc-hero-grid">
-          <div className="pc-hero-area-identity">
-            <div className="pc-hero-identity">
-              {logoUrl
-                ? <img src={logoUrl} alt={schoolName} className="pc-hero-logo" />
-                : <div className="pc-hero-logo-fallback">{initials(schoolName)}</div>}
-              <div>
-                <p className="pc-hero-school">{schoolName}</p>
-              </div>
-            </div>
-            <h1 className="pc-hero-title">
-              {sportName} <em>{mascot}</em>
-            </h1>
-            <p className="pc-hero-label">{season} Fundraiser</p>
-            <p className="pc-hero-desc">
-              {description || `Support the ${schoolName} ${sportName} program as they prepare for another competitive season. Your support makes a direct impact on our student-athletes.`}
-            </p>
-          </div>
-
-          <div className="pc-hero-area-progress">
-            <div className="pc-hero-amount-row">
-              <span className="pc-hero-amount">${raised.toLocaleString()}</span>
-              <span className="pc-hero-goal">of ${goal.toLocaleString()} goal</span>
-            </div>
-            <div className="pc-progress-row">
-              <div className="pc-progress-track">
-                <div className="pc-progress-fill" style={{ width: `${Math.min(100, percent)}%` }} />
-              </div>
-              <span className="pc-progress-pct">{percent}%</span>
-            </div>
-          </div>
-
-          {showDonationCard && (
-            <div className="pc-hero-area-donate" id="pc-donate">
-              <div className="pc-donate-card">
-                <div className="pc-donate-header">
-                  <h2>Support the {mascot || sportName}</h2>
-                  <p>Make a difference for {schoolName} {sportName}</p>
-                </div>
-                <div className="pc-donate-body">
-                  <p className="pc-field-label">Choose an amount</p>
-                  <div className="pc-amounts">
-                    {(["$25", "$50", "$100"] as const).map((amt) => (
-                      <button key={amt} className={`pc-amount-btn${selectedAmount === amt ? " active" : ""}`} onClick={() => setSelectedAmount(amt)}>
-                        {amt}
-                      </button>
-                    ))}
-                    <button
-                      className={`pc-amount-btn${selectedAmount === "$250" ? " active" : ""}`}
-                      onClick={() => setSelectedAmount("$250")}
-                    >
-                      $250
-                    </button>
-                    <button
-                      className={`pc-amount-btn pc-amount-custom${selectedAmount === "Custom" ? " active" : ""}`}
-                      onClick={() => setSelectedAmount("Custom")}
-                    >
-                      Custom
-                    </button>
-                  </div>
-
-                  {selectedAmount === "Custom" && (
-                    <div className="pc-form-field">
-                      <label>Enter amount ($)</label>
-                      <input type="number" min="1" placeholder="Enter amount" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} />
+      {athletePage ? (
+        <>
+          {/* SECTION 1 — Athlete Spotlight + the one donation form */}
+          <header className="pc-ath" id="pc-athlete">
+            <div className={`pc-section-inner pc-ath-grid${showDonationCard ? "" : " pc-ath-grid--solo"}`}>
+              <section className="pc-ath-spotlight" aria-label={spotlight ? `Support ${spotlight.name}` : "Athlete"} aria-busy={!spotlight}>
+                {spotlight ? (
+                  <>
+                    <div className="pc-ath-top">
+                      <AthletePhoto slug={slug} athlete={spotlight} logoUrl={logoUrl} schoolName={schoolName} />
+                      <div className="pc-ath-text">
+                        <p className="pc-ath-eyebrow">Support our athlete</p>
+                        <h1 className="pc-ath-name">{spotlight.name}</h1>
+                        <p className="pc-ath-sub">
+                          {[spotlightGrade(spotlight.classYear), sportName].filter(Boolean).join(" • ")}
+                        </p>
+                        <p className="pc-ath-msg pc-ath-msg--wide">{athleteSupportMessage(spotlight.name, mascot || sportName)}</p>
+                      </div>
                     </div>
-                  )}
-
-                  <div className="pc-form-field">
-                    <label>Your Name</label>
-                    <input type="text" placeholder="Jane Smith" value={donorName} onChange={(e) => setDonorName(e.target.value)} />
-                  </div>
-
-                  <div className="pc-form-field">
-                    <label>Credit Your Donation To <span className="pc-optional">(optional)</span></label>
-                    <select
-                      value={selectedAthleteId ? `athlete:${selectedAthleteId}` : selectedCoachId ? `coach:${selectedCoachId}` : ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (!value) { selectAthleteParticipant(""); return; }
-                        const [kind, id] = value.split(":");
-                        if (kind === "coach") selectCoachParticipant(id);
-                        else selectAthleteParticipant(id);
-                      }}
-                    >
-                      <option value="">— Team General Fund —</option>
-                      {athletes.length > 0 && (
-                        <optgroup label="Athletes">
-                          {athletes.map((a) => (
-                            <option key={a.id} value={`athlete:${a.id}`}>{a.name}</option>
-                          ))}
-                        </optgroup>
+                    <p className="pc-ath-msg pc-ath-msg--narrow">{athleteSupportMessage(spotlight.name, mascot || sportName)}</p>
+                    <ul className="pc-ath-facts">
+                      <li><Trophy size={26} aria-hidden="true" /><strong>{sportName}</strong><span>Sport</span></li>
+                      {spotlightGrade(spotlight.classYear) && (
+                        <li><GraduationCap size={26} aria-hidden="true" /><strong>{spotlightGrade(spotlight.classYear)}</strong><span>Grade Level</span></li>
                       )}
-                      {allowCoachFundraising && coaches.length > 0 && (
-                        <optgroup label="Coaches">
-                          {coaches.map((c) => (
-                            <option key={c.id} value={`coach:${c.id}`}>{c.name}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                  </div>
+                      <li><School size={26} aria-hidden="true" /><strong>{schoolName}</strong><span>School</span></li>
+                    </ul>
+                  </>
+                ) : (
+                  <div className="pc-ath-skeleton" />
+                )}
+              </section>
+              {showDonationCard && <div className="pc-ath-donate" id="pc-donate">{donateCard}</div>}
+            </div>
+          </header>
 
-                  <div className="pc-form-field">
-                    <label>Leave a Message <span className="pc-optional">(optional)</span></label>
-                    <textarea rows={3} placeholder={`Go ${mascot || sportName}! We're rooting for you this season.`} value={donationMessage} onChange={(e) => setDonationMessage(e.target.value)} />
-                  </div>
-
-                  <button className="pc-donate-btn" onClick={handleDonate} disabled={donating}>
-                    {donating ? "Redirecting to Stripe…" : donateLabel}
-                  </button>
-                  {donateError && <p className="pc-donate-error">{donateError}</p>}
-                  <p className="pc-stripe-note"><Lock size={13} /> Secure checkout powered by Stripe</p>
-                </div>
+          {/* SECTION 2 — the team campaign (no donation form here) */}
+          <section className="pc-ath-team" id="pc-about" aria-label={`${schoolName} ${sportName} fundraiser`}>
+            <div className="pc-section-inner">
+              <div className="pc-ath-team-card">
+                {teamIdentity}
+                {teamProgress}
+                {teamStats}
               </div>
             </div>
-          )}
+          </section>
+        </>
+      ) : (
+        <header className="pc-hero" id="pc-about">
+          <div className="pc-section-inner pc-hero-grid">
+            <div className="pc-hero-area-identity">
+              {teamIdentity}
+            </div>
 
-          <div className="pc-hero-area-stats">
-            <div className="pc-hero-stats">
-              <div className="pc-hero-stat">
-                <Heart className="pc-hero-stat-icon" size={22} fill="currentColor" />
-                <div><strong>{donors}</strong><span>Donations</span></div>
-              </div>
-              <div className="pc-hero-stat-divider" />
-              <div className="pc-hero-stat">
-                <Calendar className="pc-hero-stat-icon" size={22} />
-                <div><strong>{daysLeft}</strong><span>Days Left</span></div>
-              </div>
+            <div className="pc-hero-area-progress">
+              {teamProgress}
+            </div>
+
+            {showDonationCard && <div className="pc-hero-area-donate" id="pc-donate">{donateCard}</div>}
+
+            <div className="pc-hero-area-stats">
+              {teamStats}
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* TOP FUNDRAISERS */}
       {showLeaderboard && (
