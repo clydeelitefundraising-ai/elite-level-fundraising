@@ -405,5 +405,6 @@ test("goal algorithm, attribution and checkout are untouched by the redesign", (
 
 test("section cards reset the marketing `section { padding }` from globals.css", () => {
   const css = read(`${DIR}/Fundraiser.module.css`);
-  assert.match(css, /\.card \{[^}]*padding: 0;/);
+  const card = css.split(".card {")[1].split("\n}")[0];
+  assert.match(card, /\n  padding: 0;/);
 });
