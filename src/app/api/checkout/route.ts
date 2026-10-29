@@ -122,7 +122,10 @@ export async function POST(req: NextRequest) {
     "line_items[0][price_data][unit_amount]": String(amountCents),
     "line_items[0][quantity]": "1",
     success_url: `${campaignUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: campaignUrl,
+    // A donor who backs out returns to the page they came from: an athlete
+    // link keeps its athlete (the server-validated id only — never the
+    // client-supplied value), so the spotlight and attribution survive.
+    cancel_url: finalAthleteId ? `${campaignUrl}?athlete=${encodeURIComponent(finalAthleteId)}` : campaignUrl,
   });
 
   if (donorName)         params.set("metadata[donor_name]",        donorName);

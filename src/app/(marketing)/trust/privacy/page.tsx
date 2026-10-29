@@ -67,6 +67,18 @@ export default function PrivacyPage() {
         children under 13. A parent or coach can request removal of an athlete&rsquo;s account or
         profile information at any time by contacting us below.
       </p>
+      <h2>Public fundraising pages</h2>
+      <p>
+        A team&rsquo;s fundraising page is public so donors can reach it. It shows the team&rsquo;s
+        name, logo and fundraising progress, and athletes&rsquo; names and grades on the team&rsquo;s
+        leaderboard and personal fundraising links. An athlete&rsquo;s profile photo appears on
+        their personal fundraising link only if the team&rsquo;s Head Coach has turned on public
+        athlete photos and confirmed the program has the necessary school and parent or guardian
+        media permissions. The Head Coach can hide any individual athlete&rsquo;s photo, and turning
+        the setting off removes athlete photos from the team&rsquo;s public pages. Athletes without a
+        published photo are shown with the team logo. To ask for a photo to be removed, contact the
+        team&rsquo;s Head Coach or us below.
+      </p>
       <h2>Your rights</h2>
       <p>
         To request a copy of your data, or to request that we delete information you&rsquo;ve

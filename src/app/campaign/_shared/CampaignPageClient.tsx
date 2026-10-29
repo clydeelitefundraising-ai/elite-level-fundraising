@@ -11,6 +11,7 @@ import { currentCopyrightYear } from "@/lib/copyrightYear";
 import { ElfMark } from "@/components/BrandMark";
 // Client-safe shared grade ordering (lib/supabase.ts is server-only).
 import { publicLeaderboardFilters } from "@/lib/athleteClass";
+import { isAthleteId, resolveSpotlightAthlete } from "@/lib/athleteSpotlight";
 
 const FALLBACK_GOAL      = 25000;
 const FALLBACK_DAYS_LEFT = 23;
@@ -116,6 +117,9 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
   const [showFundUses,        setShowFundUses]        = useState(true);
   const [showRecentDonations, setShowRecentDonations] = useState(true);
   const [showDonationCard,    setShowDonationCard]    = useState(true);
+  // Set once the campaign-stats fetch has settled (success or not) — until
+  // then an athlete link can't yet be matched to this campaign's roster.
+  const [statsLoaded,         setStatsLoaded]         = useState(false);
 
   useEffect(() => {
     fetch(`/api/campaign-stats/${slug}`)
@@ -199,7 +203,8 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
             : null,
         );
       })
-      .catch(() => {/* keep fallback data */});
+      .catch(() => {/* keep fallback data */})
+      .finally(() => setStatsLoaded(true));
   }, [slug]);
 
   // Shared-athlete-link prefill (Phase 3A-1 share-path fix): ?athlete=<id>
@@ -344,6 +349,16 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
 
   const hasMoreDonations = recentDonations.length > 5;
 
+  // Personalized athlete page: the athlete the share link names, matched by
+  // exact id against THIS campaign's loaded roster only. No match (stale,
+  // deleted, other-team or malformed id) → the general team page, exactly as
+  // before; nothing about the unmatched id is shown. While the roster is
+  // still loading, a well-formed athlete link reserves the spotlight layout.
+  const athleteParam = searchParams.get("athlete");
+  const spotlightMatch = resolveSpotlightAthlete(athleteParam, athletes);
+  const spotlight = spotlightMatch ? { id: spotlightMatch.id, name: spotlightMatch.name, classYear: spotlightMatch.class_year } : null;
+  const spotlightPending = !statsLoaded && isAthleteId(athleteParam);
+
   const sharedProps = {
     slug,
     schoolName, sportName, mascot,
@@ -364,6 +379,7 @@ export default function CampaignPageClient({ slug }: { slug: string }) {
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
     donationsExpanded, setDonationsExpanded, hasMoreDonations,
+    spotlight, spotlightPending,
   };
 
 

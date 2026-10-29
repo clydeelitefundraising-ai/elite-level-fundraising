@@ -818,3 +818,213 @@ html { scroll-behavior: smooth; }
   .pc-section { padding: 2.2rem 0; }
   .pc-hero { padding: 2rem 0 1.6rem; }
 }
+
+/* ── PERSONALIZED ATHLETE PAGE (?athlete=<id>) ──
+   Section 1: Athlete Spotlight beside the page's one donation form.
+   Section 2: the team campaign card (same blocks as the general hero, no
+   donation form). The only images: the athlete's photo (or team logo). */
+.pc-ath {
+  padding: 2.25rem 0 1.25rem;
+  background: #f4f6fa;
+}
+.pc-ath-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  gap: 1.75rem;
+  align-items: start; /* each card its own height, tops aligned */
+}
+.pc-ath-grid--solo { grid-template-columns: minmax(0, 1fr); }
+.pc-ath-spotlight {
+  background: #eaeff6;
+  border-radius: 1.25rem;
+  padding: 2rem;
+  min-width: 0;
+  /* Sized by its own width (container query below), not the window: beside
+     the donation form on a small laptop it is as narrow as on a tablet. */
+  container: pc-ath / inline-size;
+}
+.pc-ath-top {
+  display: grid;
+  grid-template-columns: minmax(150px, 230px) minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+.pc-ath-photo {
+  display: block;
+  width: 100%;
+  /* Portrait frame; account photos are stored 400x400, so cover crops only
+     a little from each side. Never stretched. */
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: 1rem;
+  background: #dfe5ee;
+  box-shadow: 0 14px 30px -16px rgba(15, 23, 42, .45);
+}
+.pc-ath-photo--logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e3e8ef;
+}
+.pc-ath-photo--logo img {
+  width: 72%;
+  height: 72%;
+  object-fit: contain;
+}
+.pc-ath-photo--initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 2px solid var(--cl-primary);
+  color: var(--cl-primary);
+  font-weight: 900;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+}
+.pc-ath-text { min-width: 0; padding-top: .9rem; }
+.pc-ath-eyebrow {
+  margin: 0 0 .5rem;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+.pc-ath-name {
+  margin: 0;
+  font-size: clamp(2rem, 4.2vw, 3.2rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  color: #12151c;
+  overflow-wrap: anywhere;
+}
+.pc-ath-sub {
+  margin: .6rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+.pc-ath-msg {
+  margin: 1.1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.65;
+  color: #4b5563;
+  max-width: 46ch;
+}
+.pc-ath-msg--narrow { display: none; }
+.pc-ath-facts {
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 1.5rem 0 0;
+  border-top: 1px solid #d7dee8;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+.pc-ath-facts li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: .2rem;
+  padding: 0 .75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pc-ath-facts li + li { border-left: 1px solid #d7dee8; }
+.pc-ath-facts svg { color: var(--cl-primary); margin-bottom: .45rem; }
+.pc-ath-facts strong { font-size: .98rem; font-weight: 700; color: #12151c; line-height: 1.25; }
+.pc-ath-facts span { font-size: .82rem; color: #6b7280; }
+.pc-ath-donate { min-width: 0; }
+.pc-ath-skeleton {
+  min-height: 340px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #e3e8f0 0%, #eef2f7 50%, #e3e8f0 100%);
+  background-size: 200% 100%;
+  animation: pc-ath-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes pc-ath-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .pc-ath-skeleton { animation: none; } }
+
+.pc-ath-team {
+  padding: 1.25rem 0 3rem;
+  background: #f4f6fa;
+}
+.pc-ath-team-card {
+  background: #ffffff;
+  border: 1px solid #e6eaf0;
+  border-radius: 1.25rem;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 10px 28px -20px rgba(15, 23, 42, .35);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 1.5rem;
+  align-items: center;
+}
+/* The shared hero blocks re-flowed: logo left of school / title / season. */
+.pc-ath-team-card .pc-hero-identity { display: contents; }
+.pc-ath-team-card .pc-hero-logo,
+.pc-ath-team-card .pc-hero-logo-fallback {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  width: 124px;
+  height: 124px;
+  font-size: 2rem;
+}
+.pc-ath-team-card .pc-hero-identity > div,
+.pc-ath-team-card .pc-hero-title,
+.pc-ath-team-card .pc-hero-label { grid-column: 2; }
+.pc-ath-team-card .pc-hero-identity > div { align-self: end; }
+.pc-ath-team-card .pc-hero-label { align-self: start; margin-bottom: 0; }
+.pc-ath-team-card .pc-hero-desc,
+.pc-ath-team-card .pc-hero-amount-row,
+.pc-ath-team-card .pc-progress-row,
+.pc-ath-team-card .pc-hero-stats { grid-column: 1 / -1; }
+.pc-ath-team-card .pc-hero-desc { max-width: 70ch; font-size: 1.1rem; margin: 1.4rem 0; }
+.pc-ath-team-card .pc-progress-row { margin-bottom: 1.25rem; }
+.pc-ath-team-card .pc-hero-stats {
+  justify-content: center;
+  gap: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #eceef1;
+}
+
+/* Narrow spotlight (small laptops beside the form, tablets, phones): smaller
+   photo column, message moves under the photo row. */
+@container pc-ath (max-width: 560px) {
+  .pc-ath-top { grid-template-columns: 150px minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+  .pc-ath-text { padding-top: 0; }
+  .pc-ath-name { font-size: clamp(1.7rem, 8cqi, 2.4rem); }
+  .pc-ath-msg--wide { display: none; }
+  .pc-ath-msg--narrow { display: block; }
+}
+
+@media (max-width: 900px) {
+  .pc-ath-grid { grid-template-columns: minmax(0, 1fr); gap: 1.25rem; }
+}
+@media (max-width: 600px) {
+  .pc-ath { padding: 1rem 0 .5rem; }
+  .pc-ath-spotlight { padding: 1.1rem; border-radius: 1rem; }
+  .pc-ath-top { grid-template-columns: 112px minmax(0, 1fr); gap: 1rem; align-items: center; }
+  .pc-ath-text { padding-top: 0; }
+  .pc-ath-eyebrow { font-size: .7rem; margin-bottom: .3rem; }
+  .pc-ath-name { font-size: clamp(1.6rem, 8vw, 2.1rem); }
+  .pc-ath-sub { font-size: .98rem; margin-top: .35rem; }
+  .pc-ath-msg--wide { display: none; }
+  .pc-ath-msg--narrow { display: block; font-size: .95rem; margin-top: 1rem; }
+  .pc-ath-facts { margin-top: 1.1rem; padding-top: 1rem; }
+  .pc-ath-facts li { padding: 0 .4rem; }
+  .pc-ath-facts svg { width: 22px; height: 22px; margin-bottom: .25rem; }
+  .pc-ath-facts strong { font-size: .86rem; }
+  .pc-ath-facts span { font-size: .74rem; }
+  .pc-ath-skeleton { min-height: 220px; }
+  .pc-ath-team { padding: .5rem 0 2rem; }
+  .pc-ath-team-card { padding: 1.25rem; column-gap: 1rem; border-radius: 1rem; }
+  .pc-ath-team-card .pc-hero-logo,
+  .pc-ath-team-card .pc-hero-logo-fallback { width: 72px; height: 72px; font-size: 1.3rem; }
+  .pc-ath-team-card .pc-hero-desc { font-size: 1rem; margin: 1rem 0; }
+  .pc-ath-team-card .pc-hero-stats { gap: 1.5rem; }
+}

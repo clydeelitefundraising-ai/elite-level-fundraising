@@ -205,3 +205,49 @@ test("an amount below the minimum is still rejected the pre-existing way (400), 
     assert.equal(stripeCalls.length, 0);
   });
 });
+
+// ── Cancel URL keeps the (validated) athlete ────────────────────────────────
+
+const ATH = "00000000-0000-4000-8000-0000000000a1";
+function stripeParams(stripeCalls: { body: string }[]) {
+  assert.equal(stripeCalls.length, 1);
+  return new URLSearchParams(stripeCalls[0].body);
+}
+
+test("athlete link: a donor who cancels at Stripe returns to the same athlete's page", async () => {
+  await withFakeWorld(async ({ db, stripeCalls }) => {
+    seedCampaign(db);
+    db.athletes = [{ id: ATH, campaign_slug: SLUG, name: "Hannah Gray" }];
+    const { POST } = await loadRoute();
+    const res = await POST(checkoutRequest({ ...VALID_BODY, athleteId: ATH, athleteName: "Hannah Gray" }) as never);
+    assert.equal(res.status, 200);
+    const p = stripeParams(stripeCalls);
+    assert.equal(p.get("cancel_url"), `http://localhost:3000/campaign/${SLUG}?athlete=${ATH}`);
+    assert.equal(p.get("success_url"), `http://localhost:3000/campaign/${SLUG}/success?session_id={CHECKOUT_SESSION_ID}`, "success URL unchanged");
+    assert.equal(p.get("metadata[athlete_id]"), ATH, "attribution unchanged");
+  });
+});
+
+for (const [why, athleteId] of [["another team's athlete", ATH], ["an unknown athlete", "00000000-0000-4000-8000-0000000000ff"]] as const) {
+  test(`cancel URL never carries ${why} — only a server-validated id`, async () => {
+    await withFakeWorld(async ({ db, stripeCalls }) => {
+      seedCampaign(db);
+      db.athletes = [{ id: ATH, campaign_slug: "other-team", name: "Elsewhere" }];
+      const { POST } = await loadRoute();
+      const res = await POST(checkoutRequest({ ...VALID_BODY, athleteId }) as never);
+      assert.equal(res.status, 200);
+      const p = stripeParams(stripeCalls);
+      assert.equal(p.get("cancel_url"), `http://localhost:3000/campaign/${SLUG}`);
+      assert.equal(p.get("metadata[athlete_id]"), null);
+    });
+  });
+}
+
+test("general donation: cancel URL is the plain campaign page, as before", async () => {
+  await withFakeWorld(async ({ db, stripeCalls }) => {
+    seedCampaign(db);
+    const { POST } = await loadRoute();
+    assert.equal((await POST(checkoutRequest(VALID_BODY) as never)).status, 200);
+    assert.equal(stripeParams(stripeCalls).get("cancel_url"), `http://localhost:3000/campaign/${SLUG}`);
+  });
+});
