@@ -468,8 +468,20 @@
   min-width: 0;
 }
 
+/* A class group (and the "No longer on the roster" group) is a plain
+ * <section>: reset globals.css's marketing `section { padding: 6rem 5% }`,
+ * which otherwise put ~192px of blank space between grade groups and
+ * indented their cards 5% on each side. Groups stack in normal flow; the
+ * spacing between them is .classPanel's gap + the heading's top margin
+ * (~23px). */
+.classGroup {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
 .classHeading {
-  margin: .35rem 0 .45rem;
+  margin: .6rem 0 .5rem;
   font-size: .82rem;
   font-weight: 800;
   color: #0b1e3d;
@@ -490,7 +502,7 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: .5rem;
+  gap: .75rem;
 }
 
 .row {

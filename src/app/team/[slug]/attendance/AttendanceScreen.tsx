@@ -306,7 +306,7 @@ export default function AttendanceScreen({
               {list.groups ? (
                 // All Athletes: under class headings, in the roster's class order.
                 groupsWithin(list.groups, renderAll ? Infinity : ROW_RENDER_LIMIT).map((g, i) => (
-                  <section key={g.label} aria-labelledby={`att-class-${i}`}>
+                  <section key={g.label} className={styles.classGroup} aria-labelledby={`att-class-${i}`}>
                     <h3 id={`att-class-${i}`} className={styles.classHeading}>
                       {g.label} <span className={styles.classHeadingCount}>({g.total})</span>
                     </h3>
@@ -324,7 +324,7 @@ export default function AttendanceScreen({
               )}
 
               {list.removed.length > 0 && (
-                <section aria-labelledby="att-removed-title">
+                <section className={styles.classGroup} aria-labelledby="att-removed-title">
                   <h2 id="att-removed-title" className={styles.cardTitle} style={{ marginTop: ".5rem" }}>
                     No longer on the roster ({list.removed.length})
                   </h2>
