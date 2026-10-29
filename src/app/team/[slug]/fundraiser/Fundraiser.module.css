@@ -94,3 +94,408 @@
     align-items: start;
   }
 }
+
+/* Fundraiser Dashboard Redesign — shared compact cards, top-five lists,
+ * collapsible sections and full-list views (DashboardParts.tsx,
+ * CampaignOverviewCard.tsx). Theme tokens only, so team colors and the
+ * existing light Team App surfaces carry through. */
+.card {
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: .75rem;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .8rem 1rem .55rem;
+  border-bottom: 1px solid var(--border-app);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.countBadge {
+  background: var(--surface-light-elevated);
+  color: var(--text-secondary-app);
+  border-radius: 100px;
+  font-size: .6rem;
+  font-weight: 700;
+  padding: .1rem .45rem;
+  line-height: 1.4;
+}
+
+.headerAside {
+  margin-left: auto;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: .2rem 0;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  padding: .6rem 1rem;
+  border-bottom: 1px solid var(--border-app);
+  border-left: 3px solid transparent;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowCurrent {
+  border-left-color: var(--team-primary);
+  background: color-mix(in srgb, var(--team-primary) 6%, transparent);
+}
+
+.rank {
+  width: 26px;
+  flex-shrink: 0;
+  padding-top: .3rem;
+  text-align: center;
+  font-size: .7rem;
+  font-weight: 800;
+  color: var(--text-muted-app);
+}
+
+.rankTop {
+  color: var(--text-primary-app);
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: .65rem;
+  color: #fff;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  margin-bottom: .15rem;
+}
+
+.rowName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: .84rem;
+  color: var(--text-primary-app);
+}
+
+.rowCurrent .rowName {
+  font-weight: 800;
+  color: var(--team-primary);
+}
+
+.rowAmount {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: .92rem;
+  color: var(--text-primary-app);
+}
+
+.rowAmountPositive {
+  color: var(--color-success, #059669);
+}
+
+.rowMeta {
+  font-size: .7rem;
+  color: var(--text-muted-app);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMessage {
+  margin-top: .12rem;
+  font-size: .7rem;
+  font-style: italic;
+  color: var(--text-muted-app);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: 1rem;
+}
+
+.emptyTitle {
+  font-weight: 700;
+  font-size: .8rem;
+  color: var(--text-secondary-app);
+}
+
+.emptyText {
+  margin-top: .1rem;
+  font-size: .72rem;
+  color: var(--text-muted-app);
+}
+
+.viewAll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+  min-height: 44px;
+  padding: .55rem 1rem;
+  border-top: 1px solid var(--border-app);
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--team-primary);
+  text-decoration: none;
+}
+
+.viewAll:hover {
+  background: var(--surface-light-elevated);
+}
+
+.viewAll:focus-visible,
+.backLink:focus-visible,
+.summary:focus-visible {
+  outline: 2px solid var(--team-primary);
+  outline-offset: -2px;
+}
+
+/* Collapsible section (native <details>: keyboard and screen-reader
+ * support come from the platform; collapsed unless `open`). */
+.collapsible {
+  background: var(--surface-light);
+  border: 1px solid var(--border-app);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: .75rem;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 48px;
+  padding: .6rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--text-muted-app);
+  transition: transform .15s ease;
+}
+
+.collapsible[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible[open] .summary {
+  border-bottom: 1px solid var(--border-app);
+}
+
+.collapsibleBody {
+  padding: .25rem 0;
+}
+
+/* Full-list view header */
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  min-height: 40px;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--text-secondary-app);
+  text-decoration: none;
+}
+
+.eyebrow {
+  display: block;
+  font-size: .6rem;
+  font-weight: 700;
+  color: var(--text-muted-app);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  margin-bottom: .12rem;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary-app);
+  letter-spacing: -.01em;
+  line-height: 1.2;
+}
+
+.listNote {
+  margin: .3rem 0 .75rem;
+  font-size: .75rem;
+  color: var(--text-muted-app);
+}
+
+.fullListWrap {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
+/* Campaign Overview card */
+.overviewBand {
+  background: var(--team-primary);
+  color: var(--team-primary-foreground);
+  padding: 1rem 1.1rem .85rem;
+  border-bottom: 3px solid var(--team-secondary);
+}
+
+.overviewSeason {
+  font-size: .65rem;
+  opacity: .8;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: .2rem;
+}
+
+.overviewSchool {
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.overviewSub {
+  font-size: .8rem;
+  opacity: .85;
+  margin-top: .15rem;
+}
+
+.overviewBody {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+.raised {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary-app);
+}
+
+.raisedGoal {
+  font-size: .88rem;
+  color: var(--text-muted-app);
+  margin-left: .35rem;
+}
+
+.bar {
+  height: 10px;
+  background: var(--surface-light-elevated);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-top: .6rem;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--team-primary);
+  border-radius: 100px;
+}
+
+.funded {
+  margin-top: .35rem;
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--team-primary);
+}
+
+.baseGoalNote {
+  margin: .6rem 0 0;
+  padding: .5rem .65rem;
+  background: var(--surface-light-elevated);
+  border-radius: 8px;
+  font-size: .72rem;
+  line-height: 1.45;
+  color: var(--text-secondary-app);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+  margin-top: .85rem;
+}
+
+.stat {
+  background: var(--surface-light-elevated);
+  border-radius: 10px;
+  padding: .55rem .7rem;
+  min-width: 0;
+}
+
+.statValue {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary-app);
+}
+
+.statUrgent {
+  color: var(--color-error, #dc2626);
+}
+
+.statLabel {
+  margin-top: .1rem;
+  font-size: .66rem;
+  color: var(--text-muted-app);
+}
+
+.shareLink {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  min-height: 44px;
+  padding: .7rem .9rem;
+  margin: .75rem 1rem 1rem;
+  background: var(--surface-light-elevated);
+  border: 1px solid var(--border-app);
+  border-radius: 10px;
+  text-decoration: none;
+}
+
+@media screen and (min-width: 640px) {
+  .statsGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

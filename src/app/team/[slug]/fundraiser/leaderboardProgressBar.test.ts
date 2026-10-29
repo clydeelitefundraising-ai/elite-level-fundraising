@@ -34,6 +34,10 @@ const LEADERBOARD_FILES = [
   "src/app/team/[slug]/fundraiser/FundraiserView.tsx",
   "src/app/team/[slug]/fundraiser/page.tsx",
   "src/app/team/[slug]/analytics/AnalyticsView.tsx",
+  // Fundraiser Dashboard Redesign: the shared row renderer every
+  // leaderboard/athlete-progress list now uses, and its layouts.
+  "src/app/team/[slug]/fundraiser/DashboardParts.tsx",
+  "src/app/team/[slug]/fundraiser/TeamDashboards.tsx",
 ];
 
 for (const file of LEADERBOARD_FILES) {
@@ -67,8 +71,9 @@ test("LeaderboardEntry.goalCents and buildLeaderboard()'s goalCents assignment a
   const fundraiserView = read("src/app/team/[slug]/fundraiser/FundraiserView.tsx");
   assert.ok(/goalCents:\s*number \| null;/.test(fundraiserView), "LeaderboardEntry must still carry goalCents in its type");
 
-  const page = read("src/app/team/[slug]/fundraiser/page.tsx");
-  assert.ok(/goalCents:\s*a\.goal_cents\s*\?\?\s*null,/.test(page), "buildLeaderboard() must still populate goalCents from the athlete row, unchanged");
+  // buildLeaderboard() moved, unchanged, from page.tsx to fundraiserData.ts.
+  const data = read("src/app/team/[slug]/fundraiser/fundraiserData.ts");
+  assert.ok(/goalCents:\s*a\.goal_cents\s*\?\?\s*null,/.test(data), "buildLeaderboard() must still populate goalCents from the athlete row, unchanged");
 });
 
 test("the athlete's own dedicated fundraiser dashboard card (AthleteView, a different feature from the leaderboard list) still shows its own progress bar — out of scope for this fix", () => {
@@ -77,8 +82,9 @@ test("the athlete's own dedicated fundraiser dashboard card (AthleteView, a diff
 });
 
 test("the TEAM-level goal progress bar (a different feature from per-athlete rows) still shows \"% funded\" on both the fundraiser page and analytics view — out of scope for this fix", () => {
-  const page = read("src/app/team/[slug]/fundraiser/page.tsx");
-  assert.ok(page.includes("% funded"), "the team-level funded percentage must be unchanged");
+  // The team-level card now lives in CampaignOverviewCard.tsx (rendered by page.tsx).
+  const card = read("src/app/team/[slug]/fundraiser/CampaignOverviewCard.tsx");
+  assert.ok(card.includes("% funded"), "the team-level funded percentage must be unchanged");
 
   const analytics = read("src/app/team/[slug]/analytics/AnalyticsView.tsx");
   assert.ok(analytics.includes("% funded"), "the team-level funded percentage in Analytics must be unchanged");

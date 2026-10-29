@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Share2, Copy, QrCode, Check, Users, Trophy, HandCoins } from "lucide-react";
+import { Share2, Copy, QrCode, Check, Users } from "lucide-react";
 import type { TeamAthleteRow } from "@/lib/teamData";
 import type { CampaignSettings } from "@/lib/supabase";
 import Modal from "../_components/Modal";
 import { useSeasonReadOnly } from "../_components/SeasonStatus";
 import styles from "./Fundraiser.module.css";
 import { buildShareText } from "@/lib/shareCopy";
+import CampaignOverviewCard from "./CampaignOverviewCard";
+import { SectionCard, ViewAllLink, AthleteRows, DonationRows } from "./DashboardParts";
+import { fundraiserHref, DASHBOARD_PREVIEW_COUNT } from "./fundraiserData";
+import { fmt, initials, avatarColor, timeAgo, donationsLabel } from "./fundraiserFormat";
 
 // ── Exported types (consumed by page.tsx) ─────────────────────────────────────
 
@@ -52,8 +56,18 @@ type AthleteMode = {
   totalAthletes:       number;
   donorCount:          number;
   recentDonations:     RecentDonation[];
+  /** Top five only (already ranked); totalAthletes is the full count. */
   leaderboard:         LeaderboardEntry[];
+  /** Top five of the existing 15-most-recent team feed; teamFeedTotal is
+   *  that feed's length (never more than 15). */
   teamFeed:            FeedDonation[];
+  teamFeedTotal:       number;
+  teamRaisedCents:     number;
+  teamDonationCount:   number;
+  teamDisplayGoalCents: number;
+  /** Set only for a parent with several linked athletes, so full lists
+   *  and Back keep the selected athlete. */
+  selectedAthleteParam?: string;
   // Family Relationships Phase B: present only when this parent has an
   // approved relationship to 2+ athletes on this team — undefined (not an
   // empty array) for every single-child parent and every athlete, so their
@@ -70,31 +84,6 @@ type ClaimMode = {
 };
 
 type Props = AthleteMode | ClaimMode;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function initials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
-}
-
-function avatarColor(name: string): string {
-  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return palette[hash % palette.length];
-}
-
-function fmt(cents: number) {
-  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
-
-function timeAgo(iso: string): string {
-  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60)    return "just now";
-  if (sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
-}
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
 
@@ -184,231 +173,6 @@ function PeopleToContactCard({ slug, primary }: { slug: string; primary: string 
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-// ── Leaderboard section ───────────────────────────────────────────────────────
-
-// QA fix: this used to conditionally render an individual percent-funded
-// progress bar per row whenever entry.goalCents was a positive number —
-// which only happens for an athlete whose individual goal_cents was
-// explicitly set (the coach Add/Edit Athlete form's optional "Fundraising
-// Goal" field, reachable for both a manually-added athlete and one
-// created by approving an "I don't see my name" join request). Bulk
-// admin-imported rosters never populate that field, so those athletes'
-// rows never had the bar — making otherwise-identical rows look
-// inconsistent purely based on how the athlete record was created, not
-// any actual difference the leaderboard should surface. Removed entirely
-// so every row uses the same compact rank/avatar/name/grade/amount
-// treatment regardless of goalCents. Purely a display change — goalCents
-// itself is untouched on LeaderboardEntry/the underlying athlete row.
-function LeaderboardSection({
-  leaderboard,
-  currentAthleteId,
-  primary,
-}: {
-  leaderboard:       LeaderboardEntry[];
-  currentAthleteId:  string;
-  primary:           string;
-}) {
-  return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 16,
-      overflow: "hidden",
-      border: "1px solid var(--border-app)",
-      marginBottom: ".65rem",
-    }}>
-      <div style={{
-        padding: ".875rem 1.25rem .6rem",
-        borderBottom: "1px solid var(--border-app)",
-        display: "flex",
-        alignItems: "center",
-        gap: ".5rem",
-      }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
-          Team Leaderboard
-        </div>
-        {leaderboard.length > 0 && (
-          <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem", lineHeight: 1.4 }}>
-            {leaderboard.length}
-          </span>
-        )}
-      </div>
-
-      {leaderboard.length === 0 ? (
-        <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem 1.25rem" }}>
-          <Trophy size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No leaderboard yet</div>
-            <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Athlete totals will appear here after donations are attributed.</div>
-          </div>
-        </div>
-      ) : (
-      <div style={{ padding: ".2rem 0" }}>
-        {leaderboard.map((entry, i) => {
-          const isCurrent = entry.id === currentAthleteId;
-          const bg = avatarColor(entry.name);
-
-          return (
-            <div
-              key={entry.id}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: ".65rem",
-                padding: ".6rem 1.25rem",
-                background: isCurrent ? `${primary}08` : "transparent",
-                borderLeft: isCurrent ? `3px solid ${primary}` : "3px solid transparent",
-                borderBottom: i < leaderboard.length - 1 ? "1px solid var(--border-app)" : "none",
-              }}
-            >
-              {/* Rank */}
-              <div style={{
-                width: 20, fontWeight: 800, fontSize: ".7rem",
-                color: entry.rank <= 3 ? "var(--text-primary-app)" : "#c4c9d4",
-                flexShrink: 0, paddingTop: ".25rem", textAlign: "center",
-              }}>
-                #{entry.rank}
-              </div>
-
-              {/* Avatar */}
-              <div style={{ flexShrink: 0 }}>
-                {entry.profile_photo ? (
-                  <img
-                    src={entry.profile_photo}
-                    alt={entry.name}
-                    style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "50%", background: bg,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontWeight: 800, fontSize: ".65rem", color: "#fff",
-                  }}>
-                    {initials(entry.name)}
-                  </div>
-                )}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
-                  <span style={{
-                    fontWeight: isCurrent ? 800 : 700,
-                    fontSize: ".84rem",
-                    color: isCurrent ? primary : "var(--text-primary-app)",
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    maxWidth: "58%",
-                  }}>
-                    {entry.name}{isCurrent ? " (you)" : ""}
-                  </span>
-                  <span style={{ fontWeight: 800, fontSize: ".92rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
-                    {fmt(entry.raisedCents)}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)" }}>
-                  {entry.class_year ?? entry.event}
-                  {entry.donorCount > 0
-                    ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}`
-                    : ""}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      )}
-    </div>
-  );
-}
-
-// ── Team donation feed ─────────────────────────────────────────────────────────
-
-function TeamDonationFeed({
-  teamFeed,
-  secondary,
-}: {
-  teamFeed:  FeedDonation[];
-  secondary: string;
-}) {
-  return (
-    <div style={{
-      background: "#fff",
-      borderRadius: 16,
-      overflow: "hidden",
-      border: "1px solid var(--border-app)",
-      marginBottom: ".65rem",
-    }}>
-      <div style={{ padding: ".875rem 1.25rem .6rem", borderBottom: "1px solid var(--border-app)" }}>
-        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
-          Team Donations
-        </div>
-      </div>
-
-      {teamFeed.length === 0 ? (
-        <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem 1.25rem" }}>
-          <HandCoins size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No fundraising activity yet</div>
-            <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Donations will appear here once your fundraiser gets moving.</div>
-          </div>
-        </div>
-      ) : (
-      <div style={{ padding: ".2rem 0" }}>
-        {teamFeed.map((d, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              gap: ".65rem",
-              padding: ".65rem 1.25rem",
-              borderBottom: i < teamFeed.length - 1 ? "1px solid var(--border-app)" : "none",
-              alignItems: "flex-start",
-            }}
-          >
-            {/* Donor bubble */}
-            <div style={{
-              width: 34, height: 34, borderRadius: "50%",
-              background: secondary,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 700, fontSize: ".62rem", color: "#fff", flexShrink: 0,
-            }}>
-              {d.donor_name ? initials(d.donor_name) : "?"}
-            </div>
-
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Amount + time */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".18rem" }}>
-                <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--color-success)" }}>
-                  {fmt(d.amount_cents)}
-                </span>
-                <span style={{ fontSize: ".62rem", color: "var(--text-muted-app)", flexShrink: 0 }}>
-                  {timeAgo(d.created_at)}
-                </span>
-              </div>
-
-              {/* Donor → athlete */}
-              <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {d.donor_name ?? "Anonymous"}
-                {d.athlete_label && (
-                  <span style={{ color: "var(--text-muted-app)" }}> → {d.athlete_label}</span>
-                )}
-              </div>
-
-              {/* Message */}
-              {d.donation_message && (
-                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
-                  &ldquo;{d.donation_message}&rdquo;
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      )}
     </div>
   );
 }
@@ -561,6 +325,7 @@ function AthleteView({
   slug, athlete, settings,
   athleteRaisedCents, goalCents, rank, totalAthletes, donorCount,
   recentDonations, leaderboard, teamFeed, linkedAthletes,
+  teamFeedTotal, teamRaisedCents, teamDonationCount, teamDisplayGoalCents, selectedAthleteParam,
 }: AthleteMode) {
   const [copied,    setCopied]    = useState(false);
   const [showQr,    setShowQr]    = useState(false);
@@ -690,13 +455,12 @@ function AthleteView({
             </span>
           )}
         </div>
-      </div>
 
-      {/* ── Stats card ── */}
-      <div style={{
-        background: "#fff", borderRadius: 16, padding: "1.25rem",
-        border: "1px solid var(--border-app)",
-        marginBottom: ".65rem",
+      {/* ── Personal stats — same values as before, now inside the hero
+            card so the personal fundraiser reads as one compact card ── */}
+      <div data-testid="personal-stats" style={{
+        textAlign: "left", marginTop: "1rem", paddingTop: "1rem",
+        borderTop: "1px solid var(--border-app)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
           <div>
@@ -717,12 +481,13 @@ function AthleteView({
           marginTop: ".5rem", paddingTop: ".5rem", borderTop: "1px solid var(--border-app)",
         }}>
           <span style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
-            Rank <strong style={{ color: "var(--text-secondary-app)" }}>#{rank}</strong> of {totalAthletes} · {donorCount} {donorCount === 1 ? "donor" : "donors"}
+            Rank <strong style={{ color: "var(--text-secondary-app)" }}>#{rank}</strong> of {totalAthletes} · {donationsLabel(donorCount)}
           </span>
           <span style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", fontWeight: 600 }}>
             {Math.round(pct)}% complete
           </span>
         </div>
+      </div>
       </div>
 
       {/* ── Share — the strongest action on the page ── */}
@@ -764,6 +529,18 @@ function AthleteView({
 
       {/* ── People to contact ── */}
       <PeopleToContactCard slug={slug} primary={primary} />
+
+      {/* ── Team campaign: total raised, displayed goal, progress (the same
+            team totals the Team Home card already shows members) ── */}
+      {settings && (
+        <CampaignOverviewCard
+          settings={settings}
+          raisedCents={teamRaisedCents}
+          donationCount={teamDonationCount}
+          displayGoalCents={teamDisplayGoalCents}
+          variant="compact"
+        />
+      )}
 
       {/* ── My recent donations ── */}
       {recentDonations.length > 0 && (
@@ -812,16 +589,27 @@ function AthleteView({
         </div>
       )}
 
-      {/* ── Team leaderboard (context/motivation, secondary to the athlete's
-            own next actions above) ── */}
-      <LeaderboardSection
-        leaderboard={leaderboard}
-        currentAthleteId={athlete.id}
-        primary={primary}
-      />
+      {/* ── Team leaderboard: top five (context/motivation, secondary to
+            the athlete's own next actions above); the full ranked list is
+            one tap away. Rank order comes from page.tsx unchanged. ── */}
+      <SectionCard
+        title="Team Leaderboard"
+        count={totalAthletes}
+        testId="team-leaderboard"
+        footer={<ViewAllLink href={fundraiserHref(slug, "athletes", selectedAthleteParam)} label="View All Athletes" total={totalAthletes} shown={DASHBOARD_PREVIEW_COUNT} />}
+      >
+        <AthleteRows entries={leaderboard} currentAthleteId={athlete.id} />
+      </SectionCard>
 
-      {/* ── Team donation feed ── */}
-      <TeamDonationFeed teamFeed={teamFeed} secondary={secondary} />
+      {/* ── Team donations: five most recent; "View All" shows the same
+            existing 15-donation feed, never more. ── */}
+      <SectionCard
+        title="Team Donations"
+        testId="team-donations"
+        footer={<ViewAllLink href={fundraiserHref(slug, "donations", selectedAthleteParam)} label="View All Donations" total={teamFeedTotal} shown={DASHBOARD_PREVIEW_COUNT} />}
+      >
+        <DonationRows donations={teamFeed} />
+      </SectionCard>
 
       {/* ── QR Code modal ── */}
       {showQr && (
