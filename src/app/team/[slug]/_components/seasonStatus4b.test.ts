@@ -86,16 +86,21 @@ test("staff: remove and invitation controls are season-gated", () => {
 });
 
 test("settings: join code management hidden; branding and coach fundraising read-only", () => {
-  const src = read(`${TEAM}/settings/SettingsView.tsx`);
+  // Settings Redesign: each section now lives on its own Settings screen.
+  const src = read(`${TEAM}/settings/TeamAccessSection.tsx`);
   assert.match(src, /const canManageJoinCode = coach\.role === "head_coach" && !seasonReadOnly;/);
   assert.match(src, /\{canManageJoinCode && \(\s*<>\s*<button\s*onClick=\{handleGenerate\}/);
   assert.match(src, /\{!seasonReadOnly && <button\s*onClick=\{handleGenerate\}/);
   assert.match(src, /canManageJoinCode=\{canManageJoinCode\}/);
-  assert.match(src, /<ReadOnlyFieldset><TeamBrandingSection slug=\{slug\} branding=\{branding\} \/><\/ReadOnlyFieldset>/);
-  assert.match(src, /<ReadOnlyFieldset><CoachFundraisingSection slug=\{slug\} initialAllowCoachFundraising=\{allowCoachFundraising\} \/><\/ReadOnlyFieldset>/);
+  assert.match(read(`${TEAM}/settings/branding/page.tsx`), /<ReadOnlyFieldset><TeamBrandingSection slug=\{slug\} branding=\{branding\} \/><\/ReadOnlyFieldset>/);
+  assert.match(read(`${TEAM}/settings/coach-fundraising/page.tsx`), /<ReadOnlyFieldset><CoachFundraisingSection slug=\{slug\} initialAllowCoachFundraising=\{allowCoachFundraising\} \/><\/ReadOnlyFieldset>/);
+  assert.match(read(`${TEAM}/settings/athlete-photos/page.tsx`), /<ReadOnlyFieldset><PublicAthletePhotosSection slug=\{slug\} \/><\/ReadOnlyFieldset>/);
   // Account-level sections are deliberately not wrapped.
-  assert.match(src, /\n      <NotificationPreferencesSection \/>/);
-  assert.match(src, /\n      <AccountPrivacySection slug=\{slug\} \/>/);
+  assert.match(read(`${TEAM}/settings/notifications/page.tsx`), /\n        <NotificationPreferencesSection showHeading=\{false\} \/>/);
+  assert.match(read(`${TEAM}/settings/account/page.tsx`), /\n      <AccountPrivacySection slug=\{slug\} showHeading=\{false\} \/>/);
+  for (const f of ["notifications/page.tsx", "account/page.tsx"]) {
+    assert.ok(!read(`${TEAM}/settings/${f}`).includes("ReadOnlyFieldset"), `${f}: account-level, never season-locked`);
+  }
 });
 
 test("requests: approvals disabled on a completed season; reports (safety) stay live", () => {

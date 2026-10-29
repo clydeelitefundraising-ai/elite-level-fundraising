@@ -3,6 +3,7 @@ import { getTeamActor } from "@/lib/permissions.server";
 import { canManageStaff } from "@/lib/permissions";
 import { Lock } from "lucide-react";
 import StaffView from "./StaffView";
+import { BackToSettings } from "../settings/SettingsScreen";
 
 export default async function StaffPage({
   params,
@@ -15,7 +16,14 @@ export default async function StaffPage({
   if (actor.kind === "public") redirect("/coach-login");
   if (!canManageStaff(actor)) return <HeadCoachOnlyGate slug={slug} />;
 
-  return <StaffView slug={slug} />;
+  // Settings Redesign: Team Staff is opened from the Settings home, so it
+  // offers the same "Back to Settings" link as the dedicated screens.
+  return (
+    <>
+      <div style={{ maxWidth: 700, margin: "0 auto" }}><BackToSettings slug={slug} /></div>
+      <StaffView slug={slug} />
+    </>
+  );
 }
 
 function HeadCoachOnlyGate({ slug }: { slug: string }) {

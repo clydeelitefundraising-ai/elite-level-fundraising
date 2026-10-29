@@ -1,44 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Check, Link2, QrCode, LogOut, Users, ArrowLeftRight, Plus } from "lucide-react";
+import { Check, Link2, QrCode } from "lucide-react";
 import type { CoachSession } from "@/lib/teamSession";
 import type { ActiveJoinCode } from "@/lib/teamData";
-import { staffRoleLabel } from "@/lib/permissions";
 import TeamQrModal from "../_components/TeamQrModal";
 import PrintSignupSheet from "../_components/PrintSignupSheet";
 import { useTeamJoinCode, type JoinCodeSettings } from "../_components/useTeamJoinCode";
-import { performNativeAwareLogout } from "@/lib/nativePushDevice";
-import TeamBrandingSection, { type TeamBrandingSettings } from "./TeamBrandingSection";
-import CoachFundraisingSection from "./CoachFundraisingSection";
-import PublicAthletePhotosSection from "./PublicAthletePhotosSection";
-import AccountPrivacySection from "./AccountPrivacySection";
-import NotificationPreferencesSection from "./NotificationPreferencesSection";
-import IdentityAvatar from "./IdentityAvatar";
-import { ReadOnlyFieldset, useSeasonReadOnly } from "../_components/SeasonStatus";
+import { useSeasonReadOnly } from "../_components/SeasonStatus";
 
-type Props = {
+// Settings Redesign: the Team Access card (join link, New Code / Revoke,
+// Team QR & printable signup sheet) moved verbatim out of the old single
+// SettingsView into its own Settings screen. Join-code generation,
+// revocation, the QR modal and the same-page print architecture are
+// unchanged — only where the card lives changed.
+export default function TeamAccessSection({
+  slug, coach, initialCode, joinCodeSettings,
+}: {
   slug: string;
   coach: CoachSession;
   initialCode: ActiveJoinCode | null;
-  // Phase 5: team branding needed for the QR/join-code modal + printable
-  // signup sheet, relocated here from the Team page per product decision.
   joinCodeSettings: JoinCodeSettings;
-  // Phase A34: Team Branding Settings (logo + colors) — separate from the
-  // above, which only feeds the join-code QR/print flow.
-  branding: TeamBrandingSettings;
-  // Phase A35: whether coach fundraising is currently enabled for this
-  // campaign — Head-Coach-only section below.
-  allowCoachFundraising: boolean;
-  // QA fix: same elf_accounts.profile_photo_url source AccountMenu already
-  // displays (threaded from settings/page.tsx's getAccountSession() call) —
-  // null for a legacy team_coach-cookie-only session, same as AccountMenu.
-  photoUrl: string | null;
-};
-
-export default function SettingsView({ slug, coach, initialCode, joinCodeSettings, branding, allowCoachFundraising, photoUrl }: Props) {
-  const router = useRouter();
+}) {
   const [code, setCode]       = useState<ActiveJoinCode | null>(initialCode);
   const [working, setWorking] = useState(false);
   const [copied, setCopied]   = useState(false);
@@ -62,12 +45,6 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
     code,
     (c) => setCode(c as ActiveJoinCode | null),
   );
-
-  // Phase 10: routes through the shared logout helper so a native iOS
-  // device's own APNs token (if any) is deactivated server-side alongside
-  // the existing cookie-clearing logout — see nativePushDevice.ts. On
-  // web/PWA this behaves identically to before (no token exists to send).
-  const handleSignOut = () => performNativeAwareLogout(router);
 
   const appBase = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const joinUrl = code ? `${appBase}/join/${code.code}` : null;
@@ -132,32 +109,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         </div>
       )}
 
-    <div className="elf-settings-noprint" style={{ animation: "elf-fadeUp .22s ease both", maxWidth: 700, margin: "0 auto" }}>
-
-      {/* ── Coach identity strip ── */}
-      <div style={{
-        background: "var(--surface-light)",
-        borderRadius: "var(--radius-lg)",
-        padding: ".75rem 1rem",
-        border: "1px solid var(--border-app)",
-        marginBottom: ".75rem",
-        display: "flex",
-        alignItems: "center",
-        gap: ".75rem",
-      }}>
-        <IdentityAvatar name={coach.name} photoUrl={photoUrl} />
-        <div>
-          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)" }}>{coach.name}</div>
-          <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".05rem" }}>{staffRoleLabel(coach.role)}</div>
-        </div>
-      </div>
-
-      {/* ── Team Access section ── */}
-      <div style={{ marginBottom: ".4rem", marginTop: "1rem" }}>
-        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Team Access
-        </span>
-      </div>
+      <div className="elf-settings-noprint" data-testid="team-access">
       <div style={{
         background: "var(--surface-light)",
         borderRadius: "var(--radius-lg)",
@@ -348,137 +300,6 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
         </div>
       </div>
 
-      {/* ── Team Branding section (Head Coach only) ── */}
-      {coach.role === "head_coach" && (
-        <>
-          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-              Team Branding
-            </span>
-          </div>
-          <ReadOnlyFieldset><TeamBrandingSection slug={slug} branding={branding} /></ReadOnlyFieldset>
-        </>
-      )}
-
-      {/* ── Coach Fundraising section (Head Coach only) ── */}
-      {coach.role === "head_coach" && (
-        <>
-          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-              Coach Fundraising
-            </span>
-          </div>
-          <ReadOnlyFieldset><CoachFundraisingSection slug={slug} initialAllowCoachFundraising={allowCoachFundraising} /></ReadOnlyFieldset>
-        </>
-      )}
-
-      {/* ── Public Athlete Photos (Head Coach only) — Phase T7 ── */}
-      {coach.role === "head_coach" && (
-        <>
-          <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-            <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-              Public Athlete Photos
-            </span>
-          </div>
-          <ReadOnlyFieldset><PublicAthletePhotosSection slug={slug} /></ReadOnlyFieldset>
-        </>
-      )}
-
-      {/* ── Team Management section ── */}
-      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Team Management
-        </span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: ".65rem" }}>
-        {/* Staff (Head Coach only) */}
-        {coach.role === "head_coach" && (
-          <div style={{
-            background: "var(--surface-light)",
-            borderRadius: "var(--radius-lg)",
-            padding: "1rem",
-            border: "1px solid var(--border-app)",
-          }}>
-            <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
-              Manage the assistant coaches and boosters who help run your team.
-            </p>
-            <button
-              onClick={() => router.push(`/team/${slug}/staff`)}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem", padding: ".6rem .75rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
-            >
-              <Users size={15} /> Manage Team Staff
-            </button>
-          </div>
-        )}
-
-        {/* Your Teams */}
-        <div style={{
-          background: "var(--surface-light)",
-          borderRadius: "var(--radius-lg)",
-          padding: "1rem",
-          border: "1px solid var(--border-app)",
-        }}>
-          <p style={{ margin: "0 0 .75rem", fontSize: ".82rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
-            Coaching more than one team? Switch between them or link a new one.
-          </p>
-          <div style={{ display: "flex", gap: ".5rem" }}>
-            <button
-              onClick={() => router.push("/teams")}
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem", padding: ".6rem .75rem", background: "var(--team-primary)", color: "var(--team-primary-foreground)", border: "none", borderRadius: 9, fontSize: ".82rem", fontWeight: 700, cursor: "pointer" }}
-            >
-              <ArrowLeftRight size={14} /> Switch Team
-            </button>
-            <button
-              onClick={() => router.push("/enter-code")}
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem", padding: ".6rem .75rem", background: "#fff", color: "var(--text-secondary-app)", border: "1.5px solid var(--border-app)", borderRadius: 9, fontSize: ".82rem", fontWeight: 600, cursor: "pointer" }}
-            >
-              <Plus size={14} /> Add Team
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Notification Preferences — which categories of native app push
-          (iOS APNs / Android FCM) this account receives. Existing backend
-          (push_preferences + isCategoryEnabled), no UI previously existed. ── */}
-      <NotificationPreferencesSection />
-
-      {/* ── Account & Privacy (Blocked Users, Delete Account) — moved here
-          from the AccountMenu flyout so every role can reach them from
-          the same place; both modals are reused completely unchanged. ── */}
-      <AccountPrivacySection slug={slug} />
-
-      {/* ── Account section ── */}
-      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Account
-        </span>
-      </div>
-      <div style={{
-        background: "var(--surface-light)",
-        borderRadius: "var(--radius-lg)",
-        padding: ".5rem",
-        border: "1px solid var(--border-app)",
-      }}>
-        <button
-          onClick={handleSignOut}
-          style={{
-            width: "100%",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
-            fontSize: ".82rem",
-            fontWeight: 700,
-            color: "var(--color-error)",
-            background: "none",
-            padding: ".6rem .75rem",
-            borderRadius: 7,
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <LogOut size={15} /> Sign Out
-        </button>
-      </div>
-
       {qrModalOpen && (
         <TeamQrModal
           settings={joinCodeSettings}
@@ -496,7 +317,7 @@ export default function SettingsView({ slug, coach, initialCode, joinCodeSetting
           onClose={() => setQrModalOpen(false)}
         />
       )}
-    </div>
+      </div>
     </>
   );
 }

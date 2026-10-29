@@ -9,11 +9,12 @@ import {
 } from "../../../../lib/publicAthletePhotos.ts";
 
 const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8").replace(/\r\n/g, "\n");
-const view = read("./SettingsView.tsx");
+// Settings Redesign: the section lives on its own Head-Coach-only screen.
+const view = read("./athlete-photos/page.tsx");
 const section = read("./PublicAthletePhotosSection.tsx");
 
 test("section is shown to the Head Coach only, inside the completed-season read-only wrapper", () => {
-  assert.match(view, /\{coach\.role === "head_coach" && \(\n\s+<>\n[\s\S]*?Public Athlete Photos[\s\S]*?<ReadOnlyFieldset><PublicAthletePhotosSection slug=\{slug\} \/><\/ReadOnlyFieldset>/);
+  assert.match(view, /if \(!canOpenSettingsCategory\(actor, "athlete-photos"\)\) \{\n\s+return <SettingsAccessGate slug=\{slug\} title="Public Athlete Photos" who="Head Coach" \/>;\n\s+\}[\s\S]*<ReadOnlyFieldset><PublicAthletePhotosSection slug=\{slug\} \/><\/ReadOnlyFieldset>/);
 });
 
 test("turning on: confirmation checkbox gates the button; confirm + wording version are sent; turning off sends neither", () => {
