@@ -402,3 +402,8 @@ test("goal algorithm, attribution and checkout are untouched by the redesign", (
     assert.ok(!/stripe|\/api\/checkout|insertDonation/i.test(src), `${f} must not touch Stripe/checkout/donation writes`);
   }
 });
+
+test("section cards reset the marketing `section { padding }` from globals.css", () => {
+  const css = read(`${DIR}/Fundraiser.module.css`);
+  assert.match(css, /\.card \{[^}]*padding: 0;/);
+});

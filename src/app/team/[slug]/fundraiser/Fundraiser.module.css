@@ -100,6 +100,8 @@
  * CampaignOverviewCard.tsx). Theme tokens only, so team colors and the
  * existing light Team App surfaces carry through. */
 .card {
+  /* <section> cards: reset globals.css's marketing `section { padding: 6rem 5% }`. */
+  padding: 0;
   background: var(--surface-light);
   border: 1px solid var(--border-app);
   border-radius: 14px;
