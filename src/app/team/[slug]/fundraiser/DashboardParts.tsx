@@ -3,7 +3,6 @@
 // the client FundraiserView render the same rows. Callers decide what
 // records a role may see; these components never fetch or widen anything.
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { ArrowLeft, ArrowRight, ChevronDown, HandCoins, Trophy, Users } from "lucide-react";
 import { fmt, initials, avatarColor, timeAgo, donationsLabel } from "./fundraiserFormat";
 import styles from "./Fundraiser.module.css";
@@ -55,13 +54,15 @@ export function CollapsibleSection({
 }
 
 /** "View All …" link under a top-five list. Only rendered when there is
- *  actually more to see. */
+ *  actually more to see. A plain <a> (one server render), not next/link:
+ *  a same-route ?view= change kept the dashboard's scroll position in QA,
+ *  opening the full list mid-page with Back out of view. */
 export function ViewAllLink({ href, label, total, shown }: { href: string; label: string; total: number; shown: number }) {
   if (total <= shown) return null;
   return (
-    <Link href={href} className={styles.viewAll} aria-label={`${label} (${total})`}>
+    <a href={href} className={styles.viewAll} aria-label={`${label} (${total})`}>
       {label} ({total}) <ArrowRight size={14} strokeWidth={2.25} aria-hidden="true" />
-    </Link>
+    </a>
   );
 }
 
@@ -240,9 +241,9 @@ export function FullListView({
 }) {
   return (
     <div className={styles.fullListWrap} data-testid={testId}>
-      <Link href={backHref} className={styles.backLink}>
+      <a href={backHref} className={styles.backLink}>
         <ArrowLeft size={16} strokeWidth={2.25} aria-hidden="true" /> Back to Fundraiser
-      </Link>
+      </a>
       <div style={{ margin: ".35rem 0 .6rem" }}>
         <span className={styles.eyebrow}>{eyebrow}</span>
         <h2 className={styles.pageTitle}>{title}</h2>

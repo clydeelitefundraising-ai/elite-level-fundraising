@@ -408,3 +408,10 @@ test("section cards reset the marketing `section { padding }` from globals.css",
   const card = css.split(".card {")[1].split("\n}")[0];
   assert.match(card, /\n  padding: 0;/);
 });
+
+test("View All and Back are full navigations so the full list always opens at the top", () => {
+  const parts = read(`${DIR}/DashboardParts.tsx`);
+  assert.ok(!parts.includes('from "next/link"'));
+  assert.match(parts, /<a href=\{href\} className=\{styles\.viewAll\}/);
+  assert.match(parts, /<a href=\{backHref\} className=\{styles\.backLink\}>/);
+});
