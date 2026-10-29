@@ -31,7 +31,9 @@ const IDLE_ROW_STATE: RowState = { saving: false, error: false };
 // partial {category: value} body would silently reset every other category
 // back to true. Always sending the full known state sidesteps that without
 // touching the shared sender/preferences library code.
-export default function NotificationPreferencesSection() {
+// Settings Redesign: the dedicated Notifications screen supplies its own
+// title, so it hides this section's small group heading (showHeading=false).
+export default function NotificationPreferencesSection({ showHeading = true }: { showHeading?: boolean } = {}) {
   const [prefs, setPrefs] = useState<Preferences | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [rowState, setRowState] = useState<Record<PushCategory, RowState>>({
@@ -90,11 +92,13 @@ export default function NotificationPreferencesSection() {
 
   return (
     <>
-      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Notification Preferences
-        </span>
-      </div>
+      {showHeading && (
+        <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+          <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+            Notification Preferences
+          </span>
+        </div>
+      )}
       <p style={{ fontSize: ".78rem", color: "var(--text-muted-app)", margin: "0 0 .6rem", lineHeight: 1.45 }}>
         Choose which team notifications you receive on this account, on every device where you&rsquo;re signed in.
       </p>

@@ -9,7 +9,8 @@ import { join } from "node:path";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 const SECTION = "src/app/team/[slug]/settings/NotificationPreferencesSection.tsx";
-const SETTINGS_VIEW = "src/app/team/[slug]/settings/SettingsView.tsx";
+// Settings Redesign: mounted on the dedicated Notifications screen.
+const SETTINGS_VIEW = "src/app/team/[slug]/settings/notifications/page.tsx";
 const PREFS_ROUTE = "src/app/api/push/preferences/route.ts";
 
 test("NotificationPreferencesSection.tsx: loads state via GET /api/push/preferences", () => {
@@ -61,7 +62,7 @@ test("NotificationPreferencesSection.tsx: exposes exactly the four existing back
   }
 });
 
-test("SettingsView.tsx: mounts NotificationPreferencesSection exactly once", () => {
+test("settings/notifications/page.tsx: mounts NotificationPreferencesSection exactly once", () => {
   const source = read(SETTINGS_VIEW);
   assert.equal(source.split("<NotificationPreferencesSection").length - 1, 1);
 });

@@ -11,17 +11,21 @@ import DeleteAccountModal from "../_components/DeleteAccountModal";
 // the flyout open. Both modals are reused completely unchanged; this
 // component only decides WHERE the trigger buttons live, never how
 // blocking/unblocking or account deletion actually behave.
-export default function AccountPrivacySection({ slug }: { slug: string }) {
+// Settings Redesign: the dedicated Account & Privacy screen supplies its own
+// title, so it hides this section's small group heading (showHeading=false).
+export default function AccountPrivacySection({ slug, showHeading = true }: { slug: string; showHeading?: boolean }) {
   const [blockedOpen, setBlockedOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <>
-      <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
-        <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
-          Account &amp; Privacy
-        </span>
-      </div>
+      {showHeading && (
+        <div style={{ marginBottom: ".4rem", marginTop: "1.25rem" }}>
+          <span style={{ fontSize: ".65rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".09em" }}>
+            Account &amp; Privacy
+          </span>
+        </div>
+      )}
       <div style={{
         background: "var(--surface-light)",
         borderRadius: "var(--radius-lg)",

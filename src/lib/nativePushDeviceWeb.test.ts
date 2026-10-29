@@ -121,8 +121,9 @@ for (const file of FORM_LOGOUT_SURFACES) {
 // platform internally via getNativePlatform() and is a safe no-op body on the
 // web. No code change was needed here; this test only guards against a future
 // edit accidentally adding a narrowing gate.
-test("SettingsView.tsx: Sign Out calls performNativeAwareLogout unconditionally (already platform-safe)", () => {
-  const source = read("src/app/team/[slug]/settings/SettingsView.tsx");
+test("settings/SignOutButton.tsx: Sign Out calls performNativeAwareLogout unconditionally (already platform-safe)", () => {
+  // Settings Redesign: Sign Out moved from SettingsView to the Settings home.
+  const source = read("src/app/team/[slug]/settings/SignOutButton.tsx");
   assert.ok(
     /const handleSignOut = \(\) => performNativeAwareLogout\(router\);/.test(source),
     "must call performNativeAwareLogout directly, with no isNativeIosApp/isNativeApp gate narrowing it to one platform",

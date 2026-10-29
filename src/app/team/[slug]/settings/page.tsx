@@ -1,21 +1,23 @@
 import { redirect } from "next/navigation";
 import { getTeamActor } from "@/lib/permissions.server";
-import { memberRoleLabel, platformAdminRoleLabel } from "@/lib/permissions";
+import { memberRoleLabel, platformAdminRoleLabel, staffRoleLabel } from "@/lib/permissions";
 import { getActiveJoinCode } from "@/lib/teamData";
 import { getCampaignSettings } from "@/lib/supabase";
 import { getAccountSession } from "@/lib/accountSession";
-import SettingsView from "./SettingsView";
-import MemberSettingsView from "./MemberSettingsView";
+import SettingsHome from "./SettingsHome";
+import { settingsCategoriesFor, type SettingsCategory } from "./settingsCategories";
 
-// Settings is reachable by every authenticated team role:
-//   - Head Coach / Assistant Coach (actor.kind === "coach"): the full
-//     SettingsView — general/account settings (AccountPrivacySection)
-//     PLUS all existing coach/team settings (branding, staff, join
-//     codes, coach fundraising, etc.), unchanged.
-//   - Athlete / Parent / Booster, and a Platform Admin browsing this
-//     team's settings (everyone else): MemberSettingsView — general/
-//     account settings only (AccountPrivacySection: Blocked Users,
-//     Delete Account). No coach-only control is ever exposed here.
+// Settings Redesign — the compact Settings home. Every authenticated team
+// role lands here; settingsCategoriesFor() decides which category rows it
+// sees (same boundaries as the previous single page):
+//   - Head Coach: Team Access, Team Branding, Coach Fundraising, Public
+//     Athlete Photos, Team Staff, Switch Teams + Notifications, Account.
+//   - Assistant Coach (actor.kind === "coach"): Team Access, Switch Teams
+//     + Notifications, Account.
+//   - Athlete / Parent / Booster, and a Platform Admin browsing this team
+//     (memberRoleLabel / platformAdminRoleLabel): Notifications, Account.
+// Each row opens its own screen (settings/<category>/page.tsx), which
+// re-checks the same rule server-side for direct URL visits.
 export default async function SettingsPage({
   params,
 }: {
@@ -28,45 +30,42 @@ export default async function SettingsPage({
   if (actor.kind === "public") redirect(`/coach-login`);
 
   // Same elf_accounts.profile_photo_url source AccountMenu already
-  // displays (see layout.tsx) — memoized per-request via React cache(), so
-  // this doesn't add a duplicate fetch beyond the one layout.tsx already
-  // makes. null for a legacy team_coach/team_member-cookie-only session,
-  // same as AccountMenu's fallback (no second photo system).
+  // displays (see layout.tsx) — memoized per-request via React cache().
+  // null for a legacy team_coach/team_member-cookie-only session.
   const accountSession = await getAccountSession();
   const photoUrl = accountSession?.profile_photo_url ?? null;
 
+  const categories = settingsCategoriesFor(actor);
+  const summaries: Partial<Record<SettingsCategory, string>> = {
+    notifications: accountSession ? "Choose which push notifications you get" : "Activate your ELF account to manage",
+    account: accountSession ? "Profile, blocked users and account deletion" : "Blocked users and account deletion",
+  };
+
+  let roleLabel: string;
   if (actor.kind === "coach") {
+    roleLabel = staffRoleLabel(actor.session.role);
     const [activeCode, settings] = await Promise.all([
       getActiveJoinCode(slug),
       getCampaignSettings(slug),
     ]);
-    return (
-      <SettingsView
-        slug={slug}
-        coach={actor.session}
-        initialCode={activeCode}
-        photoUrl={photoUrl}
-        joinCodeSettings={{
-          school_name:   settings?.school_name ?? "",
-          sport_name:    settings?.sport_name ?? "",
-          mascot:        settings?.mascot ?? null,
-          season:        settings?.season ?? null,
-          primary_color: settings?.primary_color ?? "#0b1e3d",
-        }}
-        branding={{
-          school_name:          settings?.school_name ?? "",
-          logo_url:             settings?.logo_url ?? "",
-          primary_color:        settings?.primary_color ?? null,
-          secondary_color:      settings?.secondary_color ?? null,
-          branding_customized:  settings?.branding_customized ?? false,
-        }}
-        allowCoachFundraising={settings?.allow_coach_fundraising ?? false}
-      />
-    );
+    summaries.access = activeCode ? `Join code ${activeCode.code} · Active` : "No active join code";
+    summaries.branding = settings?.branding_customized ? "Custom team logo and colors" : "Default ELF theme";
+    summaries["coach-fundraising"] = settings?.allow_coach_fundraising ? "On" : "Off";
+    summaries["athlete-photos"] = settings?.public_athlete_photos ? "On" : "Off";
+    summaries.staff = "Assistant coaches and boosters";
+    summaries.teams = "Switch teams or add another team";
+  } else {
+    roleLabel = actor.kind === "member" ? memberRoleLabel(actor.session.role) : platformAdminRoleLabel();
   }
 
-  // Member (athlete/parent/booster) or a Platform Admin browsing this
-  // team's Settings page — general account settings only.
-  const roleLabel = actor.kind === "member" ? memberRoleLabel(actor.session.role) : platformAdminRoleLabel();
-  return <MemberSettingsView slug={slug} name={actor.session.name} roleLabel={roleLabel} photoUrl={photoUrl} />;
+  return (
+    <SettingsHome
+      slug={slug}
+      name={actor.session.name}
+      roleLabel={roleLabel}
+      photoUrl={photoUrl}
+      categories={categories}
+      summaries={summaries}
+    />
+  );
 }

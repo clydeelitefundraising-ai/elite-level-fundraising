@@ -25,15 +25,21 @@ test("settings/page.tsx no longer dead-ends non-coaches with a 'Coach Access Onl
   assert.ok(!/function CoachOnlyGate/.test(source), "the old dead-end gate function must not be defined");
 });
 
-test("settings/page.tsx: a real coach (Head Coach or Assistant Coach — both are actor.kind === 'coach') renders the full SettingsView", () => {
+// Settings Redesign: the single SettingsView/MemberSettingsView pair became
+// a Settings home (SettingsHome) whose category rows come from
+// settingsCategoriesFor(actor) — role coverage is tested by rendering in
+// settingsRedesign.test.ts; these guards keep the page's wiring.
+test("settings/page.tsx: every authenticated role renders the Settings home, with rows from settingsCategoriesFor(actor)", () => {
   const source = read("src/app/team/[slug]/settings/page.tsx");
-  assert.ok(source.includes('actor.kind === "coach"'), "must branch on actor.kind === 'coach'");
-  assert.ok(/actor\.kind === "coach"[\s\S]{0,400}<SettingsView/.test(source), "the coach branch must render SettingsView (full existing coach settings)");
+  assert.ok(source.includes("const categories = settingsCategoriesFor(actor);"), "rows must come from the shared role rule");
+  assert.ok(/<SettingsHome[\s\S]{0,300}categories=\{categories\}/.test(source), "must render SettingsHome with those categories");
+  assert.ok(source.includes('actor.kind === "coach"'), "coach-only summaries are only loaded for a coach");
+  assert.ok(!source.includes("SettingsView") && !source.includes("MemberSettingsView"), "the old single-page views are gone");
 });
 
-test("settings/page.tsx: every non-coach role (athlete/parent/booster/platform admin) renders MemberSettingsView, never SettingsView", () => {
+test("settings/page.tsx: resolves a real role label for coach, member and platform_admin actors", () => {
   const source = read("src/app/team/[slug]/settings/page.tsx");
-  assert.ok(source.includes("<MemberSettingsView"), "must render MemberSettingsView for the non-coach fallback");
+  assert.ok(source.includes("staffRoleLabel(actor.session.role)"));
   assert.ok(source.includes("memberRoleLabel") && source.includes("platformAdminRoleLabel"), "must resolve a real role label for both member and platform_admin actors");
 });
 
@@ -42,19 +48,19 @@ test("settings/page.tsx still redirects an unauthenticated (public) visitor — 
   assert.ok(/actor\.kind === "public"[\s\S]{0,80}redirect/.test(source), "public visitors must still be redirected, not shown any settings view");
 });
 
-test("SettingsView.tsx (coach settings) includes AccountPrivacySection — coaches reach Blocked Users/Delete Account from Settings too", () => {
-  const source = read("src/app/team/[slug]/settings/SettingsView.tsx");
-  assert.ok(source.includes('import AccountPrivacySection from "./AccountPrivacySection"'), "SettingsView must import AccountPrivacySection");
-  assert.ok(source.includes("<AccountPrivacySection"), "SettingsView must render AccountPrivacySection");
+test("settings/account/page.tsx renders AccountPrivacySection for every authenticated role — Blocked Users/Delete Account stay reachable from Settings", () => {
+  const source = read("src/app/team/[slug]/settings/account/page.tsx");
+  assert.ok(source.includes('import AccountPrivacySection from "../AccountPrivacySection"'), "must import AccountPrivacySection");
+  assert.ok(source.includes("<AccountPrivacySection"), "must render AccountPrivacySection");
+  assert.ok(!source.includes("canOpenSettingsCategory"), "no role gate beyond sign-in: every role reaches its own account settings");
 });
 
-test("MemberSettingsView.tsx (non-coach settings) includes AccountPrivacySection — the ONLY thing GENERAL settings needs to expose, no coach-only controls", () => {
-  const source = read("src/app/team/[slug]/settings/MemberSettingsView.tsx");
-  assert.ok(source.includes('import AccountPrivacySection from "./AccountPrivacySection"'), "MemberSettingsView must import AccountPrivacySection");
-  assert.ok(source.includes("<AccountPrivacySection"), "MemberSettingsView must render AccountPrivacySection");
-  // Coach-only concerns that must never leak into the general settings view.
-  for (const forbidden of ["TeamBrandingSection", "CoachFundraisingSection", "TeamQrModal", "join-codes", "Manage Team Staff"]) {
-    assert.ok(!source.includes(forbidden), `MemberSettingsView must never reference coach-only feature: ${forbidden}`);
+test("personal Settings screens (Notifications, Account & Privacy) never reference coach-only features", () => {
+  for (const f of ["notifications/page.tsx", "account/page.tsx", "SettingsHome.tsx"]) {
+    const source = read(`src/app/team/[slug]/settings/${f}`);
+    for (const forbidden of ["TeamBrandingSection", "CoachFundraisingSection", "TeamQrModal", "join-codes", "PublicAthletePhotosSection"]) {
+      assert.ok(!source.includes(forbidden), `${f} must never reference coach-only feature: ${forbidden}`);
+    }
   }
 });
 
@@ -189,21 +195,15 @@ test("IdentityAvatar.tsx falls back to initials when no photo URL is provided �
   assert.ok(/\) : \(\s*initials\s*\)/.test(source), "must render the computed `initials` value when no photo URL is provided");
 });
 
-test("SettingsView.tsx (coach) and MemberSettingsView.tsx (non-coach) both render IdentityAvatar with a photoUrl prop, reusing the SAME component rather than reimplementing the avatar twice", () => {
-  for (const file of [
-    "src/app/team/[slug]/settings/SettingsView.tsx",
-    "src/app/team/[slug]/settings/MemberSettingsView.tsx",
-  ]) {
-    const source = read(file);
-    assert.ok(source.includes('import IdentityAvatar from "./IdentityAvatar"'), `${file} must import the shared IdentityAvatar component`);
-    assert.ok(/<IdentityAvatar name=\{.+\} photoUrl=\{photoUrl\}/.test(source), `${file} must render <IdentityAvatar> with a photoUrl prop`);
-  }
+test("SettingsHome.tsx (every role's identity card) renders IdentityAvatar with a photoUrl prop, reusing the SAME component", () => {
+  const source = read("src/app/team/[slug]/settings/SettingsHome.tsx");
+  assert.ok(source.includes('import IdentityAvatar from "./IdentityAvatar"'), "must import the shared IdentityAvatar component");
+  assert.ok(/<IdentityAvatar name=\{.+\} photoUrl=\{photoUrl\}/.test(source), "must render <IdentityAvatar> with a photoUrl prop");
 });
 
-test("settings/page.tsx resolves photoUrl from the SAME getAccountSession() source AccountMenu uses (layout.tsx), and passes it to both SettingsView and MemberSettingsView", () => {
+test("settings/page.tsx resolves photoUrl from the SAME getAccountSession() source AccountMenu uses (layout.tsx), and passes it to the Settings home for every role", () => {
   const source = read("src/app/team/[slug]/settings/page.tsx");
   assert.ok(source.includes('import { getAccountSession } from "@/lib/accountSession"'), "must import the existing getAccountSession() resolver, not a new one");
   assert.ok(source.includes("accountSession?.profile_photo_url"), "must read profile_photo_url off the resolved account session, same field AccountMenu/layout.tsx reads");
-  assert.ok(/<SettingsView[\s\S]{0,400}photoUrl=\{photoUrl\}/.test(source), "coach branch must pass photoUrl to SettingsView");
-  assert.ok(/<MemberSettingsView[^>]*photoUrl=\{photoUrl\}/.test(source), "non-coach branch must pass photoUrl to MemberSettingsView");
+  assert.ok(/<SettingsHome[\s\S]{0,300}photoUrl=\{photoUrl\}/.test(source), "must pass photoUrl to SettingsHome");
 });

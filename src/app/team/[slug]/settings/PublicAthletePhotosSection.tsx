@@ -17,6 +17,13 @@ type State = {
 
 const errorBox = { margin: ".65rem 0 0", padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "var(--color-error)", fontSize: ".78rem" } as const;
 
+/** Case-insensitive name match; an empty query shows everyone, in roster order. */
+export function filterAthletesByName<T extends { name: string }>(athletes: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return athletes;
+  return athletes.filter(a => a.name.toLowerCase().includes(q));
+}
+
 function changedLine(s: State): string | null {
   if (!s.changed_at || !s.changed_by) return null;
   const when = new Date(s.changed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -37,6 +44,9 @@ export default function PublicAthletePhotosSection({ slug }: { slug: string }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  // Settings Redesign: search the already-loaded roster by name. A pure
+  // display filter — it never changes which athletes are saved or hidden.
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +111,8 @@ export default function PublicAthletePhotosSection({ slug }: { slug: string }) {
 
   const on = state?.enabled ?? false;
   const line = state ? changedLine(state) : null;
+  const visible = state ? filterAthletesByName(state.athletes, query) : [];
+  const hiddenCount = state ? state.athletes.filter(a => a.excluded).length : 0;
 
   return (
     <div style={{ background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "1rem", border: "1px solid var(--border-app)" }}>
@@ -165,11 +177,34 @@ export default function PublicAthletePhotosSection({ slug }: { slug: string }) {
           <p style={{ margin: "0 0 .6rem", fontSize: ".75rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
             Uncheck any athlete whose photo may not be published — their fundraising page shows your team logo instead.
           </p>
+          {state.athletes.length > 0 && (
+            <div style={{ marginBottom: ".6rem" }}>
+              <label htmlFor="public-photos-search" style={{ display: "block", fontSize: ".72rem", fontWeight: 700, color: "var(--text-secondary-app)", marginBottom: ".25rem" }}>
+                Search athletes
+              </label>
+              <input
+                id="public-photos-search"
+                type="search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Type a name"
+                autoComplete="off"
+                style={{ width: "100%", boxSizing: "border-box", minHeight: 40, padding: ".5rem .7rem", borderRadius: 9, border: "1.5px solid var(--border-app)", background: "var(--surface-light)", fontSize: ".85rem", color: "var(--text-primary-app)" }}
+              />
+              <p aria-live="polite" data-testid="public-photos-count" style={{ margin: ".35rem 0 0", fontSize: ".72rem", color: "var(--text-muted-app)" }}>
+                {query.trim()
+                  ? `Showing ${visible.length} of ${state.athletes.length} athletes`
+                  : `${state.athletes.length} athletes · ${hiddenCount} hidden`}
+              </p>
+            </div>
+          )}
           {state.athletes.length === 0 ? (
             <p style={{ margin: 0, fontSize: ".82rem", color: "var(--text-muted-app)" }}>No athletes on the roster yet.</p>
+          ) : visible.length === 0 ? (
+            <p style={{ margin: 0, fontSize: ".82rem", color: "var(--text-muted-app)" }}>No athletes match &ldquo;{query.trim()}&rdquo;.</p>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: ".4rem" }}>
-              {state.athletes.map(a => (
+              {visible.map(a => (
                 <li key={a.id}>
                   <label style={{ display: "flex", alignItems: "center", gap: ".7rem", padding: ".55rem .8rem", borderRadius: 9, background: "var(--surface-light-elevated)", border: "1px solid var(--border-app)", opacity: savingId === a.id ? .7 : 1, cursor: "pointer" }}>
                     <input type="checkbox" checked={!a.excluded} disabled={savingId === a.id} onChange={e => void setExcluded(a, !e.target.checked)}
