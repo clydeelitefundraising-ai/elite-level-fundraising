@@ -138,10 +138,14 @@ test("the Complete Season card is hidden on a completed season; permissions unch
 // ── Fundraising ────────────────────────────────────────────────────────────
 
 test("completed seasons show 'Season completed' instead of a countdown; totals untouched", () => {
-  const fr = read(`${TEAM}/fundraiser/page.tsx`);
-  assert.match(fr, /const remaining  = settings\.deadline && !seasonCompleted \? daysLeft\(settings\.deadline\) : null;/);
-  assert.match(fr, /\{seasonCompleted && \(\s*<div data-testid="season-completed-stat"[\s\S]*?Season completed/);
-  assert.match(fr, /const daysRemaining = settings\.deadline && !isSeasonCompleted\(settings\)/);
+  // Fundraiser Dashboard Redesign: the team card moved to
+  // CampaignOverviewCard.tsx and the analytics stats to fundraiserData.ts
+  // (both unchanged); page.tsx renders them.
+  const card = read(`${TEAM}/fundraiser/CampaignOverviewCard.tsx`);
+  assert.match(card, /const remaining  = settings\.deadline && !seasonCompleted \? daysLeft\(settings\.deadline\) : null;/);
+  assert.match(card, /\{seasonCompleted && \(\s*<div data-testid="season-completed-stat"[\s\S]*?Season completed/);
+  const data = read(`${TEAM}/fundraiser/fundraiserData.ts`);
+  assert.match(data, /const daysRemaining = settings\.deadline && !isSeasonCompleted\(settings\)/);
   const an = read(`${TEAM}/analytics/page.tsx`);
   assert.match(an, /const daysRemaining = settings\.deadline && !isSeasonCompleted\(settings\)/);
 });

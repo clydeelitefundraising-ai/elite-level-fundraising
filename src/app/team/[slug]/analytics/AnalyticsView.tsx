@@ -163,15 +163,52 @@ function TeamOverviewCard({
 
 // ── Pace card ─────────────────────────────────────────────────────────────────
 
-function PaceCard({ pace, primary }: { pace: PaceData; primary: string }) {
-  if (!pace) return null;
+// The status pill and rows are exported so the Fundraiser dashboard's
+// collapsible "Fundraising Pace" section shows exactly the same values and
+// on-track indicator; PaceCard below wraps them for this standalone view.
+export function PaceStatusBadge({ onTrack }: { onTrack: boolean }) {
+  return (
+    <span style={{
+      fontSize: ".65rem", fontWeight: 700, padding: ".18rem .55rem", borderRadius: 100,
+      background: onTrack ? "#d1fae5" : "#fee2e2",
+      color:      onTrack ? "#065f46" : "#dc2626",
+    }}>
+      {onTrack ? "On track" : "Behind pace"}
+    </span>
+  );
+}
 
+export function PaceRows({ pace, primary }: { pace: NonNullable<PaceData>; primary: string }) {
   const rows = [
     { label: "Daily pace needed",  value: fmtDay(pace.neededPerDay),    highlight: false },
     { label: "Current pace",       value: fmtDay(pace.currentPerDay),   highlight: true  },
     { label: "Projected finish",   value: fmt(pace.projectedFinish),     highlight: false },
     { label: "Days remaining",     value: `${pace.daysRemaining} days`, highlight: false },
   ];
+
+  return (
+    <div style={{ padding: ".5rem 0" }}>
+      {rows.map((row, i) => (
+        <div key={i} style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: ".5rem 1.25rem",
+          background: row.highlight ? `${primary}06` : "transparent",
+        }}>
+          <span style={{ fontSize: ".8rem", color: "#6b7280" }}>{row.label}</span>
+          <span style={{
+            fontSize: ".88rem", fontWeight: 800,
+            color: row.highlight ? primary : "#111827",
+          }}>
+            {row.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PaceCard({ pace, primary }: { pace: PaceData; primary: string }) {
+  if (!pace) return null;
 
   return (
     <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
@@ -182,32 +219,9 @@ function PaceCard({ pace, primary }: { pace: PaceData; primary: string }) {
         <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
           Fundraising Pace
         </span>
-        <span style={{
-          fontSize: ".65rem", fontWeight: 700, padding: ".18rem .55rem", borderRadius: 100,
-          background: pace.onTrack ? "#d1fae5" : "#fee2e2",
-          color:      pace.onTrack ? "#065f46" : "#dc2626",
-        }}>
-          {pace.onTrack ? "On track" : "Behind pace"}
-        </span>
+        <PaceStatusBadge onTrack={pace.onTrack} />
       </div>
-
-      <div style={{ padding: ".5rem 0" }}>
-        {rows.map((row, i) => (
-          <div key={i} style={{
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: ".5rem 1.25rem",
-            background: row.highlight ? `${primary}06` : "transparent",
-          }}>
-            <span style={{ fontSize: ".8rem", color: "#6b7280" }}>{row.label}</span>
-            <span style={{
-              fontSize: ".88rem", fontWeight: 800,
-              color: row.highlight ? primary : "#111827",
-            }}>
-              {row.value}
-            </span>
-          </div>
-        ))}
-      </div>
+      <PaceRows pace={pace} primary={primary} />
     </div>
   );
 }
@@ -371,6 +385,22 @@ function parseCsv(text: string): string[][] {
 }
 
 function ExportCard({ slug }: { slug: string }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
+      <div style={{ padding: ".75rem 1.25rem .55rem", borderBottom: "1px solid #f3f4f6" }}>
+        <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Export Data
+        </span>
+      </div>
+      <ExportActions slug={slug} />
+    </div>
+  );
+}
+
+// The export buttons + report viewer, exported so the Fundraiser
+// dashboard's collapsible "Export Data" section uses the very same
+// endpoints, file contents and download behavior.
+export function ExportActions({ slug }: { slug: string }) {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [viewing, setViewing] = useState<{ title: string; rows: string[][] } | null>(null);
@@ -411,13 +441,7 @@ function ExportCard({ slug }: { slug: string }) {
   };
 
   return (
-    <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)", marginBottom: ".75rem" }}>
-      <div style={{ padding: ".75rem 1.25rem .55rem", borderBottom: "1px solid #f3f4f6" }}>
-        <span style={{ fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".08em" }}>
-          Export Data
-        </span>
-      </div>
-
+    <div>
       <div style={{ padding: ".875rem 1.25rem", display: "flex", flexDirection: "column", gap: ".55rem" }}>
         <button onClick={() => download("donations", "donations")} disabled={downloading === "donations"} style={btn}>
           {downloading === "donations" ? "Preparing…" : "↓ Download Donations CSV"}

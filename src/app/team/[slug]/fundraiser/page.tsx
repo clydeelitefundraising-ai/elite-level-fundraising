@@ -1,16 +1,13 @@
 import { notFound } from "next/navigation";
-import { ArrowUpRight, Trophy, HandCoins, Users } from "lucide-react";
+import { ArrowUpRight, Users } from "lucide-react";
 import { getCampaignSettings, getDonations } from "@/lib/supabase";
-import type { CampaignSettings, DonationRow } from "@/lib/supabase";
+import type { CampaignSettings } from "@/lib/supabase";
 import { getAthleteById, getTeamAthletes, getOutreachMap, getContactCountsByAthlete } from "@/lib/teamData";
-import type { TeamAthleteRow } from "@/lib/teamData";
 import { getLinkedAthleteIdsForMember } from "@/lib/familyRelationships";
 import { getTeamActor } from "@/lib/permissions.server";
 import { isStaff } from "@/lib/permissions";
-import { isSeasonCompleted } from "@/lib/seasonState";
 import { resolveFundraiserRouteView } from "@/lib/fundraiserAccess";
 import { getDisplayGoalCents } from "@/lib/platform/donations";
-import { attributeDonationsToAthletes } from "@/lib/donationAttribution";
 import { buildFollowUpRows, buildCoachFollowUpRows } from "@/lib/followUps";
 import type { FollowUpRow } from "@/lib/followUps";
 import {
@@ -21,92 +18,20 @@ import { buildCoachShareUrl, buildCoachShareText } from "@/lib/shareCopy";
 import CoachShareButton from "./CoachShareButton";
 import FundraisingInquiryState from "./FundraisingInquiryState";
 import FundraiserView from "./FundraiserView";
-import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
-import AnalyticsView from "../analytics/AnalyticsView";
-import type { TeamStats, PaceData, AthleteProgress, TopDonor } from "../analytics/AnalyticsView";
 import FundraiserTabs from "./FundraiserTabs";
+import { CoachDashboard, TeamDashboard } from "./TeamDashboards";
+import { FullListView, AthleteRows, DonationRows, DonorRows } from "./DashboardParts";
+import {
+  DASHBOARD_PREVIEW_COUNT, MEMBER_TEAM_FEED_LIMIT, parseFundraiserListView, fundraiserHref,
+  buildLeaderboard, buildTeamFeed, buildTeamStats, buildPace, buildAthleteProgress, buildTopDonors,
+} from "./fundraiserData";
+import type { FundraiserListView } from "./fundraiserData";
+import type { LeaderboardEntry, FeedDonation } from "./FundraiserView";
+import { fmt } from "./fundraiserFormat";
 import FollowUpsWorkspaceView from "./FollowUpsWorkspaceView";
 import styles from "./Fundraiser.module.css";
 
 export const dynamic = "force-dynamic";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(cents: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
-}
-
-function daysLeft(deadline: string): number {
-  return Math.max(0, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86_400_000));
-}
-
-function timeAgo(iso: string): string {
-  const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60)    return "just now";
-  if (sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
-}
-
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
-}
-
-function avatarBg(name: string): string {
-  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return palette[h % palette.length];
-}
-
-// ── Data builders ─────────────────────────────────────────────────────────────
-
-function buildLeaderboard(
-  athletes: TeamAthleteRow[],
-  donations: DonationRow[],
-): LeaderboardEntry[] {
-  // Phase 6: delegates to the single authoritative attribution
-  // implementation (src/lib/donationAttribution.ts) instead of an inline
-  // copy — behavior (id-first match, legacy name fallback, zero-seeded
-  // for every roster athlete) is unchanged from the prior inline version.
-  const { totalsCents, donorCounts } = attributeDonationsToAthletes(athletes, donations);
-
-  return athletes
-    .map(a => ({
-      id:            a.id,
-      name:          a.name,
-      profile_photo: a.profile_photo,
-      event:         a.event,
-      class_year:    a.class_year ?? null,
-      raisedCents:   totalsCents[a.id] ?? 0,
-      goalCents:     a.goal_cents      ?? null,
-      donorCount:    donorCounts[a.id] ?? 0,
-      rank:          0,
-    }))
-    .sort((a, b) => b.raisedCents - a.raisedCents)
-    .map((a, i) => ({ ...a, rank: i + 1 }));
-}
-
-function buildTeamFeed(
-  athletes: TeamAthleteRow[],
-  donations: DonationRow[],
-  limit = 15,
-): FeedDonation[] {
-  const idToName: Record<string, string> = {};
-  for (const a of athletes) idToName[a.id] = a.name;
-
-  return donations.slice(0, limit).map(d => ({
-    donor_name:       d.donor_name,
-    amount_cents:     d.amount_cents,
-    athlete_label:    (d.athlete_id && idToName[d.athlete_id])
-                        ? idToName[d.athlete_id]
-                        : (d.athlete_name ?? null),
-    donation_message: d.donation_message,
-    created_at:       d.created_at,
-  }));
-}
 
 // ── Merged Follow-Ups rows (Phase A35) ──────────────────────────────────
 // Appends active coach-fundraiser rows to the existing roster-first
@@ -209,308 +134,61 @@ function MyCoachFundraiserCard({
   );
 }
 
-// ── Coach view ────────────────────────────────────────────────────────────────
-
-function TeamCampaignView({
-  settings,
-  raisedCents,
-  donorCount,
-  leaderboard,
-  teamFeed,
-  displayGoalCents,
-}: {
-  settings:    CampaignSettings;
-  raisedCents: number;
-  donorCount:  number;
-  leaderboard: LeaderboardEntry[];
-  teamFeed:    FeedDonation[];
-  // Phase 3D: dynamic display goal for this fundraising-facing team
-  // progress card — always base goal_cents until raised approaches it,
-  // then steps ahead of it. Never used for the nested AnalyticsView
-  // (pace/forecast), which keeps reading settings.goal_cents directly.
-  displayGoalCents: number;
-}) {
-  const pct        = displayGoalCents > 0
-    ? Math.min(100, Math.round((raisedCents / displayGoalCents) * 100))
-    : 0;
-  // Complete Season Phase 4: a completed season has no countdown — its
-  // totals and donations stay, the deadline no longer applies.
-  const seasonCompleted = isSeasonCompleted(settings);
-  const remaining  = settings.deadline && !seasonCompleted ? daysLeft(settings.deadline) : null;
-  const avgDonation = donorCount > 0 ? Math.round(raisedCents / donorCount) : null;
-
-  return (
-    <div>
-      {/* ── Section header ── */}
-      <div style={{ marginBottom: ".625rem" }}>
-        <span style={{ fontSize: ".6rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".12rem" }}>
-          Fundraiser
-        </span>
-        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
-          Campaign Progress
-        </h2>
-      </div>
-
-      {/* ── Progress card ── */}
-      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
-        <div style={{ background: "var(--team-primary)", padding: "1.25rem 1.25rem .875rem", color: "var(--team-primary-foreground)" }}>
-          {settings.season && (
-            <div style={{ fontSize: ".65rem", opacity: .75, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".25rem" }}>
-              {settings.season}
-            </div>
-          )}
-          <div style={{ fontWeight: 800, fontSize: "1.1rem", lineHeight: 1.2 }}>{settings.school_name}</div>
-          {[settings.mascot, settings.sport_name].filter(Boolean).length > 0 && (
-            <div style={{ fontSize: ".82rem", opacity: .85, marginTop: ".2rem" }}>
-              {[settings.mascot, settings.sport_name].filter(Boolean).join(" · ")}
-            </div>
-          )}
-          <div style={{ background: "var(--team-secondary)", height: 3, borderRadius: 2, marginTop: ".875rem", marginLeft: "-1.25rem", marginRight: "-1.25rem", marginBottom: "-.875rem" }} />
-        </div>
-
-        <div style={{ padding: "1.25rem" }}>
-          <div style={{ marginBottom: ".875rem" }}>
-            <span style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-primary-app)" }}>
-              {fmt(raisedCents)}
-            </span>
-            {displayGoalCents > 0 && (
-              <span style={{ fontSize: ".9rem", color: "var(--text-muted-app)", marginLeft: ".35rem" }}>
-                of {fmt(displayGoalCents)} goal
-              </span>
-            )}
-          </div>
-
-          {displayGoalCents > 0 && (
-            <div style={{ marginBottom: "1rem" }}>
-              <div style={{ height: 12, background: "var(--surface-light-elevated)", borderRadius: 100, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${pct}%`, background: "var(--team-primary)", borderRadius: 100, transition: "width .4s ease" }} />
-              </div>
-              <div style={{ marginTop: ".4rem", fontSize: ".75rem", fontWeight: 700, color: "var(--team-primary)" }}>
-                {pct}% funded
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: "1rem", paddingTop: ".875rem", borderTop: "1px solid var(--border-app)" }}>
-            <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{donorCount}</div>
-              <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>donor{donorCount !== 1 ? "s" : ""}</div>
-            </div>
-            {avgDonation !== null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(avgDonation)}</div>
-                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>avg donation</div>
-              </div>
-            )}
-            {displayGoalCents > 0 && avgDonation === null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-primary-app)" }}>{fmt(Math.max(0, displayGoalCents - raisedCents))}</div>
-                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>still needed</div>
-              </div>
-            )}
-            {seasonCompleted && (
-              <div data-testid="season-completed-stat" style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
-                <div style={{ fontSize: ".95rem", fontWeight: 800, color: "var(--text-primary-app)", lineHeight: 1.6 }}>Season completed</div>
-                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>archived totals</div>
-              </div>
-            )}
-            {remaining !== null && (
-              <div style={{ flex: 1, textAlign: "center", borderLeft: "1px solid var(--border-app)" }}>
-                <div style={{ fontSize: "1.25rem", fontWeight: 800, color: remaining <= 7 ? "var(--color-error, #dc2626)" : "var(--text-primary-app)" }}>{remaining}</div>
-                <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>day{remaining !== 1 ? "s" : ""} left</div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.overviewGrid}>
-      <div>
-      {/* ── Team leaderboard (main content) ── */}
-      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
-          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid var(--border-app)", display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
-              Team Leaderboard
-            </div>
-            {leaderboard.length > 0 && (
-              <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
-                {leaderboard.length}
-              </span>
-            )}
-          </div>
-          {leaderboard.length === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem" }}>
-              <Trophy size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No leaderboard yet</div>
-                <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Athlete totals will appear here after donations are attributed.</div>
-              </div>
-            </div>
-          ) : (
-          <div style={{ padding: ".25rem 0" }}>
-            {/* QA fix: no per-row individual percent-funded progress bar — see
-                FundraiserView.tsx's LeaderboardSection for the full
-                rationale (this coach-facing leaderboard has the same row
-                shape and had the exact same inconsistency). */}
-            {leaderboard.map((entry, i) => {
-              const bg = avatarBg(entry.name);
-              return (
-                <div
-                  key={entry.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: ".65rem",
-                    padding: ".6rem 1rem",
-                    borderBottom: i < leaderboard.length - 1 ? "1px solid var(--border-app)" : "none",
-                  }}
-                >
-                  <div style={{ width: 22, fontWeight: 800, fontSize: ".72rem", color: entry.rank <= 3 ? "var(--text-primary-app)" : "var(--text-muted-app)", flexShrink: 0, paddingTop: ".2rem", textAlign: "center" }}>
-                    #{entry.rank}
-                  </div>
-                  <div style={{ flexShrink: 0 }}>
-                    {entry.profile_photo ? (
-                      <img src={entry.profile_photo} alt={entry.name} style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ width: 34, height: 34, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: ".65rem", color: "#fff" }}>
-                        {initials(entry.name)}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
-                      <span style={{ fontWeight: 700, fontSize: ".83rem", color: "var(--text-primary-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "55%" }}>
-                        {entry.name}
-                      </span>
-                      <span style={{ fontWeight: 800, fontSize: ".92rem", color: "var(--text-primary-app)", flexShrink: 0 }}>
-                        {fmt(entry.raisedCents)}
-                      </span>
-                    </div>
-                    {(entry.class_year || entry.event) && (
-                      <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)" }}>
-                        {entry.class_year ?? entry.event}{entry.donorCount > 0 ? ` · ${entry.donorCount} donor${entry.donorCount !== 1 ? "s" : ""}` : ""}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          )}
-        </div>
-
-      {/* ── Team donation feed ── */}
-      <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
-          <div style={{ padding: ".875rem 1rem .5rem", borderBottom: "1px solid var(--border-app)", display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
-              Recent Donations
-            </div>
-            {teamFeed.length > 0 && (
-              <span style={{ background: "var(--surface-light-elevated)", color: "var(--text-muted-app)", borderRadius: 100, fontSize: ".58rem", fontWeight: 700, padding: ".1rem .4rem" }}>
-                {donorCount}
-              </span>
-            )}
-          </div>
-          {teamFeed.length === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: "1rem" }}>
-              <HandCoins size={16} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: ".78rem", color: "var(--text-secondary-app)" }}>No fundraising activity yet</div>
-                <div style={{ fontSize: ".72rem", color: "var(--text-muted-app)", marginTop: ".1rem" }}>Donations will appear here once your fundraiser gets moving.</div>
-              </div>
-            </div>
-          ) : (
-          <div style={{ padding: ".25rem 0" }}>
-            {teamFeed.map((d, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  gap: ".65rem",
-                  padding: ".6rem 1rem",
-                  borderBottom: i < teamFeed.length - 1 ? "1px solid var(--border-app)" : "none",
-                  alignItems: "flex-start",
-                }}
-              >
-                <div style={{
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: "var(--team-secondary)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontWeight: 700, fontSize: ".62rem", color: "#fff", flexShrink: 0,
-                }}>
-                  {d.donor_name ? initials(d.donor_name) : "?"}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".15rem" }}>
-                    <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--color-success, #059669)" }}>
-                      {fmt(d.amount_cents)}
-                    </span>
-                    <span style={{ fontSize: ".62rem", color: "var(--text-muted-app)", flexShrink: 0 }}>
-                      {timeAgo(d.created_at)}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {d.donor_name ?? "Anonymous"}
-                    {d.athlete_label && (
-                      <span style={{ color: "var(--text-muted-app)" }}> → {d.athlete_label}</span>
-                    )}
-                  </div>
-                  {d.donation_message && (
-                    <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: ".12rem" }}>
-                      &ldquo;{d.donation_message}&rdquo;
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          )}
-        </div>
-      </div>
-
-      <div>
-        {/* ── Share link (secondary column) ── */}
-        <div style={{ background: "var(--surface-light)", borderRadius: 14, overflow: "hidden", border: "1px solid var(--border-app)", marginBottom: ".875rem" }}>
-          <div style={{ padding: "1rem 1.1rem .875rem" }}>
-            <div style={{ fontSize: ".68rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".5rem" }}>
-              Share Campaign
-            </div>
-            <a
-              href={`/campaign/${settings.campaign_slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".75rem .9rem", background: "var(--surface-light-elevated)", borderRadius: 10, border: "1px solid var(--border-app)", textDecoration: "none" }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: ".78rem", fontWeight: 700, color: "var(--text-primary-app)", marginBottom: ".1rem" }}>Donation Page</div>
-                <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  /campaign/{settings.campaign_slug}
-                </div>
-              </div>
-              <ArrowUpRight size={14} strokeWidth={2} style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
-            </a>
-          </div>
-        </div>
-      </div>
-      </div>
-
-    </div>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const DEFAULT_ATHLETE_GOAL_CENTS = 50_000;
+
+function listEyebrow(settings: CampaignSettings): string {
+  return [settings.school_name, settings.season].filter(Boolean).join(" · ");
+}
+
+// ── Full-list views (?view=) ──────────────────────────────────────────────────
+// Rendered on the server from the same data the dashboard already loaded
+// for this actor, so a full list is one page load (no extra API) and can
+// never contain more than the actor's branch was authorized to load.
+
+/** Athletes, parents, boosters and the public team view: the full
+ *  leaderboard (same ranking) or the existing 15-most-recent team
+ *  donations — never more donor history than the dashboard allowed. */
+function TeamListPage({
+  view, settings, leaderboard, teamFeed, backHref, currentAthleteId,
+}: {
+  view:              Exclude<FundraiserListView, "donors">;
+  settings:          CampaignSettings;
+  leaderboard:       LeaderboardEntry[];
+  teamFeed:          FeedDonation[];
+  backHref:          string;
+  currentAthleteId?: string;
+}) {
+  if (view === "athletes") {
+    return (
+      <FullListView backHref={backHref} eyebrow={listEyebrow(settings)} title={`Team Leaderboard (${leaderboard.length})`} testId="full-list-athletes">
+        <AthleteRows entries={leaderboard} currentAthleteId={currentAthleteId} />
+      </FullListView>
+    );
+  }
+  return (
+    <FullListView
+      backHref={backHref}
+      eyebrow={listEyebrow(settings)}
+      title="Recent Team Donations"
+      note={`The ${MEMBER_TEAM_FEED_LIMIT} most recent team donations.`}
+      testId="full-list-donations"
+    >
+      <DonationRows donations={teamFeed.slice(0, MEMBER_TEAM_FEED_LIMIT)} />
+    </FullListView>
+  );
+}
 
 export default async function FundraiserPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ athlete?: string }>;
+  searchParams: Promise<{ athlete?: string; view?: string | string[] }>;
 }) {
   const { slug } = await params;
-  const { athlete: requestedAthleteId } = await searchParams;
+  const { athlete: requestedAthleteId, view: requestedView } = await searchParams;
 
   const [settings, actor] = await Promise.all([
     getCampaignSettings(slug),
@@ -541,11 +219,15 @@ export default async function FundraiserPage({
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
     const leaderboard = buildLeaderboard(athletes, donations);
     const teamFeed    = buildTeamFeed(athletes, donations);
+    const listView    = parseFundraiserListView(requestedView, false);
+    if (listView === "athletes" || listView === "donations") {
+      return <TeamListPage view={listView} settings={settings} leaderboard={leaderboard} teamFeed={teamFeed} backHref={fundraiserHref(slug)} />;
+    }
     return (
-      <TeamCampaignView
+      <TeamDashboard
         settings={settings}
         raisedCents={raisedCents}
-        donorCount={donations.length}
+        donationCount={donations.length}
         leaderboard={leaderboard}
         teamFeed={teamFeed}
         displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
@@ -575,8 +257,37 @@ export default async function FundraiserPage({
     ]);
 
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
-    const leaderboard = buildLeaderboard(athletes, donations);
-    const teamFeed    = buildTeamFeed(athletes, donations);
+    const teamGoalCents = settings.goal_cents ?? 0;
+    const athleteProgress = buildAthleteProgress(athletes, donations);
+    const topDonors       = buildTopDonors(athletes, donations);
+    // Decision 2: coaches/platform admins keep the complete donation
+    // history (they can already export it) — the only branch that does.
+    const allDonations    = buildTeamFeed(athletes, donations, donations.length);
+
+    const listView = parseFundraiserListView(requestedView, true);
+    if (listView) {
+      const backHref = fundraiserHref(slug);
+      const eyebrow  = listEyebrow(settings);
+      if (listView === "athletes") {
+        return (
+          <FullListView backHref={backHref} eyebrow={eyebrow} title={`Athlete Progress (${athleteProgress.length})`} testId="full-list-athletes">
+            <AthleteRows entries={athleteProgress} detail="progress" />
+          </FullListView>
+        );
+      }
+      if (listView === "donors") {
+        return (
+          <FullListView backHref={backHref} eyebrow={eyebrow} title={`Top Donors (${topDonors.length})`} note="Donors grouped by name, highest total first. Anonymous gifts are grouped together." testId="full-list-donors">
+            <DonorRows donors={topDonors} />
+          </FullListView>
+        );
+      }
+      return (
+        <FullListView backHref={backHref} eyebrow={eyebrow} title={`All Donations (${allDonations.length})`} note="Every donation to this campaign, newest first." testId="full-list-donations">
+          <DonationRows donations={allDonations} />
+        </FullListView>
+      );
+    }
 
     // Personal fundraising view — absent (not an error state) unless this
     // specific coach is an ACTIVE participant. A platform admin has no
@@ -608,91 +319,9 @@ export default async function FundraiserPage({
     }
 
     // ── Analytics data ────────────────────────────────────────────────────────
-    const teamGoalCents = settings.goal_cents ?? 0;
-    const donorCount    = donations.length;
-    const pct           = teamGoalCents > 0
-      ? Math.min(100, Math.round((raisedCents / teamGoalCents) * 100))
-      : 0;
-    const daysRemaining = settings.deadline && !isSeasonCompleted(settings)
-      ? Math.max(0, Math.ceil((new Date(settings.deadline).getTime() - Date.now()) / 86_400_000))
-      : null;
-
-    const teamStats: TeamStats = {
-      raisedCents, teamGoalCents, donorCount,
-      avgDonation:  donorCount > 0 ? Math.round(raisedCents / donorCount) : 0,
-      pct, daysRemaining,
-    };
-
-    let pace: PaceData = null;
-    if (settings.deadline && donations.length > 0 && daysRemaining !== null) {
-      const oldest         = donations[donations.length - 1];
-      const daysSinceFirst = Math.max(1, Math.ceil(
-        (Date.now() - new Date(oldest.created_at).getTime()) / 86_400_000,
-      ));
-      const currentPerDay = raisedCents / daysSinceFirst;
-      const safeRemaining = Math.max(1, daysRemaining);
-      const neededPerDay  = teamGoalCents > 0
-        ? Math.max(0, (teamGoalCents - raisedCents) / safeRemaining)
-        : 0;
-      pace = {
-        daysRemaining:   safeRemaining,
-        neededPerDay:    Math.round(neededPerDay),
-        currentPerDay:   Math.round(currentPerDay),
-        projectedFinish: Math.round(raisedCents + currentPerDay * safeRemaining),
-        onTrack:         teamGoalCents > 0 ? currentPerDay >= neededPerDay : true,
-      };
-    }
-
-    const idToName: Record<string, string> = {};
-    for (const a of athletes) idToName[a.id] = a.name;
-
-    // Phase 6: same authoritative attribution as buildLeaderboard() above
-    // — was previously a second independent inline copy of this exact
-    // logic, now delegated to the one shared implementation.
-    const { totalsCents: totals, donorCounts, lastDonationAt: lastDon } = attributeDonationsToAthletes(athletes, donations);
-
-    const athleteProgress: AthleteProgress[] = athletes
-      .map(a => {
-        const raised = totals[a.id] ?? 0;
-        const goal   = a.goal_cents ?? null;
-        return {
-          id:             a.id,
-          name:           a.name,
-          event:          a.event,
-          class_year:     a.class_year ?? null,
-          profile_photo:  a.profile_photo ?? null,
-          raisedCents:    raised,
-          goalCents:      goal,
-          pct:            goal && goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : null,
-          donorCount:     donorCounts[a.id] ?? 0,
-          lastDonationAt: lastDon[a.id],
-          rank:           0,
-          contact_phone:  a.contact_phone ?? null,
-          contact_email:  a.contact_email ?? null,
-        };
-      })
-      .sort((a, b) => b.raisedCents - a.raisedCents)
-      .map((a, i) => ({ ...a, rank: i + 1 }));
-
-    const donorMap = new Map<string, { totalCents: number; count: number; athletes: Set<string> }>();
-    for (const d of donations) {
-      const key = d.donor_name ?? "Anonymous";
-      if (!donorMap.has(key)) donorMap.set(key, { totalCents: 0, count: 0, athletes: new Set() });
-      const entry = donorMap.get(key)!;
-      entry.totalCents += d.amount_cents;
-      entry.count++;
-      const ath = d.athlete_id ? idToName[d.athlete_id] : (d.athlete_name ?? undefined);
-      if (ath) entry.athletes.add(ath);
-    }
-    const topDonors: TopDonor[] = Array.from(donorMap.entries())
-      .map(([name, data]) => ({
-        name,
-        totalCents:    data.totalCents,
-        donationCount: data.count,
-        athletes:      Array.from(data.athletes),
-      }))
-      .sort((a, b) => b.totalCents - a.totalCents)
-      .slice(0, 10);
+    // Same calculations as before, moved into fundraiserData.ts unchanged.
+    const teamStats = buildTeamStats(settings, donations, raisedCents);
+    const pace      = buildPace(settings, donations, teamStats);
 
     // Phase 6: roster-first Follow-Ups rows — starts from `athletes`
     // (every roster row), enriched by athlete id from contactCounts/
@@ -705,6 +334,8 @@ export default async function FundraiserPage({
       buildFollowUpRows(athletes, donations, contactCounts, outreachMap),
     );
 
+    // Only the first DASHBOARD_PREVIEW_COUNT rows of each list are
+    // rendered (and serialized); the rest open in the ?view= full lists.
     return (
       <FundraiserTabs
         actor={actor}
@@ -721,21 +352,16 @@ export default async function FundraiserPage({
                 shareText={myFundraiser.shareText}
               />
             )}
-            <TeamCampaignView
-              settings={settings}
-              raisedCents={raisedCents}
-              donorCount={donorCount}
-              leaderboard={leaderboard}
-              teamFeed={teamFeed}
-              displayGoalCents={getDisplayGoalCents(teamGoalCents, raisedCents)}
-            />
-            <AnalyticsView
+            <CoachDashboard
               slug={slug}
               settings={settings}
-              teamStats={teamStats}
+              raisedCents={raisedCents}
+              donationCount={teamStats.donorCount}
+              displayGoalCents={getDisplayGoalCents(teamGoalCents, raisedCents)}
               pace={pace}
               athleteProgress={athleteProgress}
               topDonors={topDonors}
+              recentDonations={allDonations}
             />
           </div>
         }
@@ -748,7 +374,7 @@ export default async function FundraiserPage({
 
   // ── Booster (staff member, not a team_coaches row) — Follow-Ups access
   // only. Deliberately narrower than the coach branch above: gives the
-  // same public-safe TeamCampaignView as Overview, but NOT AnalyticsView
+  // same public-safe team view (TeamDashboard) as Overview, but NOT the coach analytics
   // (which contains coach-only donor/pace/needs-attention tooling) —
   // isStaff() alone must never widen access to that existing surface.
   if (actor.kind === "member" && isStaff(actor)) {
@@ -769,6 +395,12 @@ export default async function FundraiserPage({
     const raisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
     const leaderboard = buildLeaderboard(athletes, donations);
     const teamFeed    = buildTeamFeed(athletes, donations);
+    // Decision 2: no Top Donors list and no donation history beyond the
+    // existing 15 for boosters — "donors" is not a valid view here.
+    const listView    = parseFundraiserListView(requestedView, false);
+    if (listView === "athletes" || listView === "donations") {
+      return <TeamListPage view={listView} settings={settings} leaderboard={leaderboard} teamFeed={teamFeed} backHref={fundraiserHref(slug)} />;
+    }
     // Phase A35: a booster's Follow-Ups access is otherwise unchanged
     // (still no AnalyticsView, per the comment above) — but boosters
     // already record outreach for anyone via the same staff-gated
@@ -786,10 +418,10 @@ export default async function FundraiserPage({
         actor={actor}
         overview={
           <div className={styles.overviewDesktopWrap}>
-            <TeamCampaignView
+            <TeamDashboard
               settings={settings}
               raisedCents={raisedCents}
-              donorCount={donations.length}
+              donationCount={donations.length}
               leaderboard={leaderboard}
               teamFeed={teamFeed}
               displayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, raisedCents)}
@@ -887,7 +519,30 @@ export default async function FundraiserPage({
 
   const leaderboard = buildLeaderboard(athletes, donations);
   const teamFeed    = buildTeamFeed(athletes, donations);
+  // A parent with several linked athletes keeps the selected (and
+  // server-revalidated) athlete across the full lists and Back.
+  const selectedParam = linkedAthletes ? athleteId : undefined;
 
+  const listView = parseFundraiserListView(requestedView, false);
+  if (listView === "athletes" || listView === "donations") {
+    return (
+      <div className={styles.memberFundraiserDesktop}>
+        <TeamListPage
+          view={listView}
+          settings={settings}
+          leaderboard={leaderboard}
+          teamFeed={teamFeed}
+          backHref={fundraiserHref(slug, undefined, selectedParam)}
+          currentAthleteId={athleteId}
+        />
+      </div>
+    );
+  }
+
+  const teamRaisedCents = donations.reduce((s, d) => s + d.amount_cents, 0);
+
+  // Only the top five leaderboard rows and five team donations go to the
+  // client; "View All" opens the server-rendered full lists above.
   return (
     <FundraiserView
       mode="athlete"
@@ -900,8 +555,13 @@ export default async function FundraiserPage({
       totalAthletes={athletes.length}
       donorCount={donorCount}
       recentDonations={recentDonations}
-      leaderboard={leaderboard}
-      teamFeed={teamFeed}
+      leaderboard={leaderboard.slice(0, DASHBOARD_PREVIEW_COUNT)}
+      teamFeed={teamFeed.slice(0, DASHBOARD_PREVIEW_COUNT)}
+      teamFeedTotal={teamFeed.length}
+      teamRaisedCents={teamRaisedCents}
+      teamDonationCount={donations.length}
+      teamDisplayGoalCents={getDisplayGoalCents(settings.goal_cents ?? 0, teamRaisedCents)}
+      selectedAthleteParam={selectedParam}
       linkedAthletes={linkedAthletes}
     />
   );
