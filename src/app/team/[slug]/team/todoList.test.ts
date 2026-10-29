@@ -172,8 +172,12 @@ test("detail view: back action, full content, and Head Coach actions inside it",
 });
 
 test("no <section> elements: globals.css `section { padding: 6rem 5% }` would add ~96px gaps", () => {
+  // CSS isolation (R1): the rule this originally guarded against is no longer
+  // global — it is scoped to the marketing shell — but Team views keep using
+  // <div>s so they never depend on element-level styling.
   const global = src("../../../globals.css");
-  assert.match(global, /\nsection \{\s*padding: 6rem 5%;/); // the rule this guards against
+  assert.doesNotMatch(global, /\nsection \{/);
+  assert.match(src("../../../marketing.css"), /:where\(\.mk-root\) section \{\s*padding: 6rem 5%;/);
   for (const [name, code] of [["TodoListView", todo], ["ClearanceView", clearance]] as const) {
     assert.doesNotMatch(withoutComments(code), /<section\b/, name);
   }

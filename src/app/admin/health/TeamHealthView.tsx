@@ -167,7 +167,7 @@ export default function TeamHealthView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Total Teams"          value={summary.totalTeams}    icon="🏕" />
@@ -184,7 +184,7 @@ export default function TeamHealthView({ data }: Props) {
       ) : (
         <>
           {/* Filters */}
-          <section style={{ marginBottom: "1.5rem" }}>
+          <section className="adm-section" style={{ marginBottom: "1.5rem" }}>
             <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 type="text"
@@ -209,7 +209,7 @@ export default function TeamHealthView({ data }: Props) {
           </section>
 
           {/* Team list */}
-          <section>
+          <section className="adm-section">
             <div style={sectionLabel}>Teams ({filtered.length})</div>
             <div style={{ display: "flex", flexDirection: "column", gap: ".9rem" }}>
               {filtered.map(t => <TeamCard key={t.slug} team={t} />)}
