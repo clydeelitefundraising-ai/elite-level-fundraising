@@ -415,3 +415,20 @@ test("View All and Back are full navigations so the full list always opens at th
   assert.match(parts, /<a href=\{href\} className=\{styles\.viewAll\}/);
   assert.match(parts, /<a href=\{backHref\} className=\{styles\.backLink\}>/);
 });
+
+test("stats grid fits the card's own width: auto-fit 130px columns, no viewport 4-column rule", () => {
+  const css = read(`${DIR}/Fundraiser.module.css`);
+  const grid = css.split(".statsGrid {")[1].split("\n}")[0];
+  assert.match(grid, /grid-template-columns: repeat\(auto-fit, minmax\(130px, 1fr\)\);/);
+  assert.ok(!/min-width: 640px/.test(css), "the 640px breakpoint squeezed labels in the narrow 640–1023px app column");
+  assert.ok(!/\.statsGrid \{[^}]*repeat\(4,/.test(css));
+});
+
+test("personal progress bar is a labelled progressbar, like the team campaign bar", () => {
+  const markup = athleteMarkup({ athleteRaisedCents: 10_000, goalCents: 50_000 });
+  assert.match(markup, /role="progressbar" aria-label="Personal fundraising progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="20"/);
+  assert.match(markup, /role="progressbar" aria-label="Team fundraising progress"/);
+  assert.ok(markup.includes("20% complete"), "visible percentage unchanged");
+  const over = athleteMarkup({ athleteRaisedCents: 80_000, goalCents: 50_000 });
+  assert.match(over, /aria-label="Personal fundraising progress"[^>]*aria-valuenow="100"/, "clamped like the bar width");
+});

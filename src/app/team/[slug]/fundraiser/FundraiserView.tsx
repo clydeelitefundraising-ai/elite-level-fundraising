@@ -87,12 +87,22 @@ type Props = AthleteMode | ClaimMode;
 
 // ── Progress bar ───────────────────────────────────────────────────────────────
 
-function ProgressBar({ pct, color }: { pct: number; color: string }) {
+// Exposed as a labelled progressbar, like the Team Campaign bar in
+// CampaignOverviewCard; the visual and the value it shows are unchanged.
+function ProgressBar({ pct, color, label = "Personal fundraising progress" }: { pct: number; color: string; label?: string }) {
+  const clamped = Math.min(100, Math.max(0, pct));
   return (
-    <div style={{ background: "var(--border-app)", borderRadius: 100, height: 10, overflow: "hidden" }}>
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamped)}
+      style={{ background: "var(--border-app)", borderRadius: 100, height: 10, overflow: "hidden" }}
+    >
       <div style={{
         background: color, borderRadius: 100, height: "100%",
-        width: `${Math.min(100, Math.max(0, pct))}%`,
+        width: `${clamped}%`,
         transition: "width .6s ease",
       }} />
     </div>

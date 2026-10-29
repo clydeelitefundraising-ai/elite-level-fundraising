@@ -453,9 +453,13 @@
   color: var(--text-secondary-app);
 }
 
+/* Fits however many stats the card has to the space the card actually
+ * gets (the Team App keeps a narrow column until 1024px, so a viewport
+ * breakpoint squeezed labels at 640-1023px). Narrow: 2 per row; desktop
+ * card: one row, with no empty columns when a card has only 3 stats. */
 .statsGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: .5rem;
   margin-top: .85rem;
 }
@@ -496,8 +500,3 @@
   text-decoration: none;
 }
 
-@media screen and (min-width: 640px) {
-  .statsGrid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
