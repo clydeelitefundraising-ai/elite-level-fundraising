@@ -525,3 +525,68 @@
   .mk-fp-intro { margin-bottom: var(--mk-space-8); }
   .mk-root .mk-fp-intro p { font-size: var(--mk-text-base); }
 }
+
+/* ── /fundraising hero + benefits — approved "Minimal Fundraising Website"
+   mockup (clean athletic editorial). ── */
+.mk-fhero { background: #FFFFFF; padding: var(--mk-space-16) 0 var(--mk-space-16); }
+.mk-fhero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: var(--mk-space-16); align-items: start; }
+.mk-root .mk-fhero-title {
+  font-size: clamp(3rem, 6.4vw, 5.75rem);
+  line-height: 0.92;
+  letter-spacing: 0;
+  margin: var(--mk-space-2) 0 0;
+}
+.mk-fhero-rule { display: block; width: 68px; height: 7px; background: var(--mk-orange); margin: var(--mk-space-6) 0 var(--mk-space-6); }
+.mk-root .mk-fhero-copy p { font-size: 1.25rem; line-height: 1.5; color: var(--mk-muted); max-width: 31em; margin: 0; }
+.mk-fhero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-4) var(--mk-space-8); margin-top: var(--mk-space-8); }
+.mk-fhero-actions .mk-btn-lg { min-height: 60px; padding: 0 var(--mk-space-12); font-size: var(--mk-text-lg); font-weight: 600; }
+.mk-fhero-link {
+  font-size: var(--mk-text-lg);
+  font-weight: 500;
+  color: var(--mk-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+.mk-fhero-link span { display: inline-block; margin-left: 6px; transition: transform var(--mk-duration) var(--mk-ease); }
+.mk-fhero-link:hover span { transform: translateX(3px); }
+@media (prefers-reduced-motion: reduce) { .mk-fhero-link span { transition: none; } }
+.mk-fhero-shot { margin: var(--mk-space-4) 0 0; min-width: 0; }
+.mk-fhero-frame { background: #FFFFFF; border: 1px solid #EEEAE3; border-radius: 6px; overflow: hidden; box-shadow: 0 22px 50px -18px rgba(18,17,16,0.18), 0 2px 8px rgba(18,17,16,0.05); }
+.mk-fhero-frame img { display: block; width: 100%; height: auto; }
+.mk-root .mk-fhero-caption { margin-top: var(--mk-space-4); font-size: var(--mk-text-sm); color: var(--mk-muted); }
+@media (max-width: 1080px) {
+  .mk-fhero-grid { gap: var(--mk-space-10); }
+}
+@media (max-width: 900px) {
+  .mk-fhero { padding: var(--mk-space-12) 0; }
+  .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-fhero-shot { margin-top: 0; }
+}
+@media (max-width: 640px) {
+  .mk-root .mk-fhero-copy p { font-size: var(--mk-text-lg); }
+  .mk-fhero-actions .mk-btn-lg { width: 100%; }
+}
+
+.mk-fbenefits { background: #F7F4EF; padding: var(--mk-space-20) 0 var(--mk-space-24); }
+.mk-fbenefits-head { margin-bottom: var(--mk-space-16); }
+.mk-root .mk-fbenefits-title { font-size: clamp(2.75rem, 6vw, 5.5rem); line-height: 0.95; letter-spacing: 0; margin: var(--mk-space-2) 0 var(--mk-space-4); }
+.mk-root .mk-fbenefits-head p { font-size: var(--mk-text-xl); color: var(--mk-muted); margin: 0; }
+.mk-fbenefit-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-space-16) var(--mk-space-12); }
+.mk-fbenefit { display: grid; grid-template-columns: auto 28px minmax(0, 1fr); column-gap: var(--mk-space-5); align-items: start; }
+.mk-fbenefit-num { font-family: var(--mk-font-display); font-size: 3.5rem; line-height: 0.9; color: #CFC9C0; min-width: 2ch; }
+.mk-fbenefit-rule { display: block; height: 2px; background: var(--mk-orange); margin-top: 1.55rem; }
+.mk-root .mk-fbenefit h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; margin: 0.2rem 0 var(--mk-space-2); }
+.mk-root .mk-fbenefit p { font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); max-width: 36ch; margin: 0; }
+@media (max-width: 1080px) {
+  .mk-fbenefit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .mk-fbenefits { padding: var(--mk-space-16) 0; }
+  .mk-fbenefits-head { margin-bottom: var(--mk-space-10); }
+  .mk-root .mk-fbenefits-head p { font-size: var(--mk-text-lg); }
+  .mk-fbenefit-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-fbenefit { grid-template-columns: auto 22px minmax(0, 1fr); column-gap: var(--mk-space-4); }
+  .mk-fbenefit-num { font-size: 2.75rem; }
+  .mk-fbenefit-rule { margin-top: 1.2rem; }
+}

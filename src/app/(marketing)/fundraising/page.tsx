@@ -54,25 +54,29 @@ const FAQS = [
 export default function FundraisingPage() {
   return (
     <>
-      <div className="mk-page-hero mk-product-hero">
-        <div className="mk-container mk-product-hero-grid">
-          <div>
+      {/* Hero — clean athletic editorial (approved "Minimal Fundraising
+          Website" mockup): white, two columns, display headline over a short
+          orange rule, and the real campaign screenshot in a soft frame. */}
+      <section className="mk-fhero" aria-labelledby="mk-fhero-title">
+        <div className="mk-container mk-fhero-grid">
+          <div className="mk-fhero-copy">
             <span className="mk-eyebrow">ELF Fundraising</span>
-            <h1 className="mk-display">
-              Raise more for <span className="mk-marker-underline">the season.</span>
+            <h1 id="mk-fhero-title" className="mk-display mk-fhero-title">
+              Raise more<br /> for the season.
             </h1>
+            <span className="mk-fhero-rule" aria-hidden="true" />
             <p>
               Give every athlete a role in your team&rsquo;s success. ELF brings personal fundraising
               pages, live progress tracking, and secure online donations together&mdash;making it
               easier to raise the resources your program needs.
             </p>
-            <div className="mk-offer-actions">
+            <div className="mk-fhero-actions">
               <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
-              <a href="#preview" className="mk-text-link">Explore a Sample Fundraiser &rarr;</a>
+              <a href="#preview" className="mk-fhero-link">Explore a Sample Fundraiser <span aria-hidden="true">&rarr;</span></a>
             </div>
           </div>
-          <figure className="mk-hero-shot">
-            <div className="mk-shot">
+          <figure className="mk-fhero-shot">
+            <div className="mk-fhero-frame">
               {/* Captured from the current PublicCampaignPage (via the
                   fictional /preview/fundraiser sample) — the real ELF
                   campaign design, not a mock-up. */}
@@ -82,29 +86,34 @@ export default function FundraisingPage() {
                 width={2880}
                 height={1668}
                 priority
-                sizes="(max-width: 900px) 100vw, 560px"
+                sizes="(max-width: 900px) 100vw, 640px"
               />
             </div>
-            <figcaption className="mk-shot-caption">The current ELF campaign page. Sunridge Valley High School is a fictional sample team.</figcaption>
+            <figcaption className="mk-fhero-caption">The current ELF campaign page. Sunridge Valley High School is a fictional sample team.</figcaption>
           </figure>
         </div>
-      </div>
+      </section>
 
-      <section className="mk-home-section" aria-labelledby="mk-fund-benefits">
+      {/* Benefits — minimalist numbered editorial grid (no cards). */}
+      <section className="mk-fbenefits" aria-labelledby="mk-fund-benefits">
         <div className="mk-container">
-          <div className="mk-home-head">
+          <div className="mk-fbenefits-head">
             <span className="mk-eyebrow">Why ELF Fundraising</span>
-            <h2 id="mk-fund-benefits" className="mk-display mk-home-title">Built for the whole team.</h2>
+            <h2 id="mk-fund-benefits" className="mk-display mk-fbenefits-title">Built for the whole team.</h2>
             <p>Simple for coaches. Easy for athletes. Seamless for supporters.</p>
           </div>
-          <ul className="mk-benefit-grid">
-            {BENEFITS.map((b) => (
-              <li key={b.title} className="mk-benefit">
-                <h3>{b.title}</h3>
-                <p>{b.copy}</p>
+          <ol className="mk-fbenefit-grid">
+            {BENEFITS.map((b, i) => (
+              <li key={b.title} className="mk-fbenefit">
+                <span className="mk-fbenefit-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mk-fbenefit-rule" aria-hidden="true" />
+                <div>
+                  <h3>{b.title}</h3>
+                  <p>{b.copy}</p>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </section>
 

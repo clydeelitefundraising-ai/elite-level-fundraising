@@ -60,10 +60,27 @@ test("/fundraising: current campaign screenshot up top; the 'Every dollar, visib
   for (const gone of ["Every dollar, visible.", "/marketing/campaign-hero.png", "/marketing/leaderboard.png", "mk-fund-support", "Riverside"]) {
     assert.ok(!page.includes(gone), `still on /fundraising: ${gone}`);
   }
-  // Hero copy and calls to action unchanged.
-  assert.match(page, /Raise more for <span className="mk-marker-underline">the season\.<\/span>/);
+  // Hero copy and calls to action unchanged (editorial layout from the approved mockup).
+  assert.match(page, /<h1 id="mk-fhero-title" className="mk-display mk-fhero-title">\s*Raise more<br \/> for the season\.\s*<\/h1>/);
+  assert.match(page, /Give every athlete a role in your team&rsquo;s success\. ELF brings personal fundraising\s+pages, live progress tracking, and secure online donations together&mdash;making it\s+easier to raise the resources your program needs\./);
   assert.match(page, /<LinkButton href="\/demo" size="lg">Book a Free Demo<\/LinkButton>/);
-  assert.match(page, /<a href="#preview" className="mk-text-link">Explore a Sample Fundraiser &rarr;<\/a>/);
+  assert.match(page, /<a href="#preview" className="mk-fhero-link">Explore a Sample Fundraiser <span aria-hidden="true">&rarr;<\/span><\/a>/);
+  assert.match(page, /Sunridge Valley High School is a fictional sample team\./);
+});
+
+test("/fundraising benefits: numbered 01–06 editorial grid, no cards, approved copy kept", () => {
+  const page = read(`${MK}/fundraising/page.tsx`);
+  assert.match(page, /<ol className="mk-fbenefit-grid">/);
+  assert.match(page, /String\(i \+ 1\)\.padStart\(2, "0"\)/);
+  assert.ok(!/mk-benefit-grid|className="mk-benefit"/.test(page), "the old bordered cards are gone from /fundraising");
+  const titles = [...page.matchAll(/\{ title: "([^"]+)", copy: "([^"]+)" \}/g)].map((m) => m[1]);
+  assert.deepEqual(titles, ["Every athlete has a role.", "Every dollar moves you forward.", "Giving made simple.", "Show what you're building.", "Less admin. More coaching.", "Backed by your community."]);
+  assert.match(page, /Built for the whole team\.<\/h2>\s*<p>Simple for coaches\. Easy for athletes\. Seamless for supporters\.<\/p>/);
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-fbenefit-grid \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.mk-fbenefit \{[^}]*grid-template-columns: auto 28px minmax\(0, 1fr\)/);
+  const benefitRules = css.slice(css.indexOf(".mk-fbenefits {"));
+  assert.ok(!/\.mk-fbenefit[^{]*\{[^}]*(border|box-shadow)/.test(benefitRules), "no borders or shadows on the benefits");
 });
 
 test("/fundraising 'How ELF fundraising works': editorial four-step timeline, accurate step 1", () => {
@@ -160,7 +177,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
