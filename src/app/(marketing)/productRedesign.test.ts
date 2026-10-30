@@ -312,18 +312,24 @@ test("the preview route is never indexed", () => {
   assert.ok(!read("src/app/sitemap.ts").includes("/preview"));
 });
 
-test("simulator: three roles with the specified tabs, a reset, and preview-only actions", () => {
+test("simulator: three roles, a reset and the isolated Team App demo in the phone frame", () => {
   const sim = read("src/components/marketing/demo/TeamAppSimulator.tsx");
-  const tabs = (role: string) => [...sim.match(new RegExp(`  ${role}: \\[([\\s\\S]*?)\\n  \\],`))![1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(tabs("coach"), ["Home", "Attendance", "Messages", "Fundraiser"]);
-  assert.deepEqual(tabs("athlete"), ["Home", "My Page", "Schedule", "Leaderboard"]);
-  assert.deepEqual(tabs("parent"), ["Home", "Schedule", "Messages", "Support"]);
+  assert.deepEqual([...sim.matchAll(/\{ id: "(coach|athlete|parent)", label: "([^"]+)"/g)].map((m) => m[2]), ["Coach", "Athlete", "Parent"]);
   assert.match(sim, /Reset demo/);
   assert.match(sim, /role="tablist" aria-label="Choose a view"/);
   assert.match(sim, /onKeyDown=\{\(e\) => onTabKey/);
-  // No RSVP: the production app has no RSVP feature, so the simulator doesn't fake one.
+  // The phone shows the isolated demo page (see team-app-demo/teamAppDemo.test.ts).
+  assert.match(sim, /<iframe[\s\S]*?src=\{src\}[\s\S]*?title="Interactive ELF Team App demo/);
+  assert.match(sim, /setSrc\(`\$\{DEMO_PAGE_PATH\}\?role=\$\{start\}&embed=1`\)/);
+  // No RSVP: the production app has no RSVP feature, so the demo doesn't fake one.
   assert.ok(!/rsvp/i.test(sim));
   assert.match(read("src/app/marketing-product.css"), /@media \(prefers-reduced-motion: no-preference\)/);
+});
+
+test("/product attendance copy matches the app: coach-managed, no athlete absence reporting", () => {
+  const page = read(`${MK}/product/page.tsx`);
+  assert.match(page, /title: "Attendance", copy: "Coaches take attendance in a few taps and record a reason for each absence\. Athletes and parents can see their own absences on the athlete's profile\."/);
+  assert.ok(!/report absences|ahead of time/i.test(page));
 });
 
 // ── Lead gate rules ──────────────────────────────────────────────────────────

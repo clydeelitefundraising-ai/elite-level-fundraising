@@ -30,7 +30,7 @@ const FEATURES = [
   { title: "Parents included", copy: "When a coach messages an athlete, the athlete's parent or guardian is included automatically." },
   { title: "Head coach oversight", copy: "Conversations between staff and athletes stay visible to the head coach, by design." },
   { title: "Calendar and events", copy: "Practices, games and meetings in one team calendar that families can subscribe to on their phones." },
-  { title: "Attendance", copy: "Coaches take attendance in a few taps, with a reason for each absence, and athletes can report absences ahead of time." },
+  { title: "Attendance", copy: "Coaches take attendance in a few taps and record a reason for each absence. Athletes and parents can see their own absences on the athlete's profile." },
   { title: "Roster and team management", copy: "One shared roster. Parents and athletes join with a team code — no spreadsheet of logins." },
   { title: "Multiple teams, one account", copy: "Coach two sports or have kids on two teams? Switch between teams from a single account." },
   { title: "Fundraising when you want it", copy: "Teams that choose to fundraise get athlete pages, share links and a live leaderboard, built in." },

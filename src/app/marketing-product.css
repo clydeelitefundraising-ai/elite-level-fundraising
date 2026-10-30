@@ -357,94 +357,13 @@
   line-height: 1.4;
 }
 @media (max-width: 480px) { .mk-sim-phone { width: 100%; height: 700px; border-width: 8px; border-radius: 34px; } }
-.mk-sim-status { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 22px 4px; font-size: 12px; font-weight: 700; background: #0B1E3D; color: #fff; }
+/* Device status strip above the demo: same white canvas as the app header below it. */
+.mk-sim-status { display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; padding: 6px 22px 4px; font-size: 12px; font-weight: 700; background: #FFFFFF; color: #12151C; }
 .mk-sim-notch { width: 90px; height: 20px; border-radius: 0 0 14px 14px; background: #121110; margin-top: -6px; }
-.mk-sim-header { display: flex; align-items: center; gap: 10px; padding: 8px 16px 14px; background: #0B1E3D; color: #fff; }
-.mk-sim-header strong { display: block; font-size: 15px; }
-.mk-sim-header small { display: block; font-size: 11.5px; opacity: 0.75; }
-.mk-sim-logo { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: #F2B705; color: #0B1E3D; font-weight: 900; font-size: 13px; flex-shrink: 0; }
-.mk-sim-screen { flex: 1; overflow-y: auto; padding: 14px 14px 18px; }
-.mk-sim-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: #fff; border-top: 1px solid #E3E6ED; padding: 6px 4px 10px; }
-.mk-sim-tabs button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 48px; border: 0; background: transparent; color: #6B7280; font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; border-radius: 10px; }
-.mk-sim-tabs button[aria-selected="true"] { color: #1D3E8A; background: #EEF2FB; }
-.mk-sim-toast { position: absolute; left: 12px; right: 12px; bottom: 74px; display: flex; justify-content: center; pointer-events: none; }
-.mk-sim-toast span { background: #12151C; color: #fff; font-size: 12.5px; line-height: 1.4; padding: 10px 14px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); text-align: center; }
+/* The isolated demo page (/preview/team-app) fills the rest of the phone. */
+.mk-sim-frame { display: block; flex: 1; width: 100%; min-height: 0; border: 0; background: #F5F6F8; }
 
-.mk-sim-stack { display: grid; gap: 12px; }
-.mk-root .mk-sim-hello { font-size: 17px; font-weight: 800; margin: 2px 2px 0; }
-.mk-sim-card { background: #fff; border-radius: 14px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.06); }
-.mk-sim-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.mk-sim-card-head h4 { font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #4B5563; margin: 0; }
-.mk-sim-link { border: 0; background: transparent; color: #1D3E8A; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; padding: 6px 4px; }
-.mk-root .mk-sim-meta { font-size: 12.5px; color: #6B7280; margin: 6px 0 0; }
-.mk-root .mk-sim-big { font-size: 24px; font-weight: 900; margin: 0 0 8px; }
-.mk-sim-big small { font-size: 13px; font-weight: 600; color: #6B7280; }
-.mk-sim-progress { height: 8px; border-radius: 99px; background: #E5E7EB; overflow: hidden; }
-.mk-sim-progress span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #1D3E8A, #3B6FD8); }
-.mk-sim-next { display: flex; gap: 12px; align-items: center; }
-.mk-sim-next strong, .mk-sim-row strong { display: block; font-size: 14px; }
-.mk-sim-next small, .mk-sim-row small { display: block; font-size: 12px; color: #6B7280; }
-.mk-sim-date { width: 44px; height: 48px; flex-shrink: 0; border-radius: 10px; background: #EEF2FB; color: #1D3E8A; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; font-size: 17px; line-height: 1; }
-.mk-sim-date small { font-size: 10px; font-weight: 800; color: #1D3E8A; margin-bottom: 2px; }
-.mk-sim-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.mk-sim-row { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; min-height: 48px; padding: 8px 4px; border: 0; background: transparent; font: inherit; color: inherit; cursor: pointer; border-radius: 10px; }
-.mk-sim-row:hover { background: #F3F4F6; }
-.mk-sim-row > span:nth-child(2) { flex: 1; min-width: 0; }
-.mk-sim-row svg { flex-shrink: 0; color: #6B7280; }
-.mk-sim-detail h4, .mk-sim-thread h4 { font-size: 17px; margin: 8px 0 4px; }
-.mk-sim-detail p { font-size: 14px; line-height: 1.5; margin: 8px 0 0; }
-.mk-sim-back { display: inline-flex; align-items: center; gap: 2px; border: 0; background: transparent; color: #1D3E8A; font: inherit; font-size: 13px; font-weight: 800; padding: 6px 0; cursor: pointer; min-height: 36px; }
-.mk-sim-attendance li { background: #fff; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
-.mk-sim-att-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.mk-sim-att-row strong { display: block; font-size: 14px; }
-.mk-sim-att-row small { display: block; font-size: 11.5px; color: #6B7280; }
-.mk-sim-pill-group, .mk-sim-reasons, .mk-sim-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.mk-sim-reasons { margin-top: 8px; }
-.mk-sim-pill-group button, .mk-sim-reasons button, .mk-sim-chips button { min-height: 34px; padding: 0 10px; border-radius: 99px; border: 1.5px solid #D1D5DB; background: #fff; font: inherit; font-size: 12px; font-weight: 700; color: #374151; cursor: pointer; }
-.mk-sim-pill-group button[aria-pressed="true"]:first-child { background: #DCFCE7; border-color: #16A34A; color: #14532D; }
-.mk-sim-pill-group button[aria-pressed="true"]:last-child { background: #FEE2E2; border-color: #DC2626; color: #7F1D1D; }
-.mk-sim-reasons button[aria-pressed="true"], .mk-sim-chips button[aria-pressed="true"] { background: #1D3E8A; border-color: #1D3E8A; color: #fff; }
-.mk-sim-primary, .mk-sim-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
-.mk-sim-primary { border: 0; background: #1D3E8A; color: #fff; }
-.mk-sim-secondary { border: 1.5px solid #1D3E8A; background: #fff; color: #1D3E8A; margin-top: 10px; }
-.mk-sim-stack > .mk-sim-secondary { margin-top: 0; }
-.mk-sim-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.mk-sim-actions .mk-sim-secondary { margin-top: 0; }
-.mk-sim-note { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #92400E; background: #FEF3C7; border-radius: 8px; padding: 6px 8px; margin: 4px 0 10px; }
-.mk-sim-bubbles { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
-.mk-sim-bubbles li { display: grid; gap: 3px; justify-items: start; }
-.mk-sim-bubbles li span { background: #fff; padding: 9px 12px; border-radius: 14px 14px 14px 4px; font-size: 13.5px; line-height: 1.45; max-width: 86%; box-shadow: 0 1px 2px rgba(16,24,40,0.06); }
-.mk-sim-bubbles li.mine { justify-items: end; }
-.mk-sim-bubbles li.mine span { background: #1D3E8A; color: #fff; border-radius: 14px 14px 4px 14px; }
-.mk-sim-bubbles small { font-size: 10.5px; color: #6B7280; }
-.mk-sim-compose { display: flex; gap: 8px; }
-.mk-sim-compose input { flex: 1; min-width: 0; min-height: 44px; border: 1.5px solid #D1D5DB; border-radius: 22px; padding: 0 14px; font: inherit; font-size: 14px; }
-.mk-sim-compose button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: #1D3E8A; color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-.mk-sim-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.mk-sim-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #DC2626; margin-left: 6px; vertical-align: middle; }
-.mk-sim-ath { display: grid; gap: 6px; padding: 8px 2px; }
-.mk-sim-ath strong { font-size: 13.5px; }
-.mk-sim-ath small { font-size: 12px; color: #6B7280; margin-left: 6px; }
-.mk-sim-supporter { padding: 8px 2px; font-size: 13.5px; border-bottom: 1px solid #F0F1F4; }
-.mk-sim-supporter span { float: right; font-weight: 800; color: #166534; }
-.mk-sim-supporter small { display: block; color: #6B7280; font-size: 12px; margin-top: 2px; }
-.mk-sim-events li { background: #fff; border-radius: 12px; margin-bottom: 6px; }
-.mk-sim-event-detail { margin: 0; padding: 0 14px 12px 62px; font-size: 13px; color: #4B5563; line-height: 1.5; }
-.mk-sim-board li { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
-.mk-sim-board li.me { outline: 2px solid #F2B705; }
-.mk-sim-board strong { display: block; font-size: 13.5px; }
-.mk-sim-board small { display: block; font-size: 11.5px; color: #6B7280; }
-.mk-sim-board li > span:nth-child(2) { flex: 1; min-width: 0; }
-.mk-sim-rank { width: 26px; height: 26px; border-radius: 50%; background: #EEF2FB; color: #1D3E8A; font-weight: 900; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.mk-sim-amt { font-weight: 900; font-size: 13.5px; }
-.mk-sim-rot { transform: rotate(90deg); }
 .mk-sim :focus-visible { outline: 2px solid #F2B705; outline-offset: 2px; }
-@media (prefers-reduced-motion: no-preference) {
-  .mk-sim-screen { animation: mk-sim-in 180ms ease-out; }
-  .mk-sim-toast span { animation: mk-sim-in 160ms ease-out; }
-  .mk-sim-progress span { transition: width 400ms ease; }
-}
-@keyframes mk-sim-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 /* Pricing page: the free Team App note under the hero heading. */
 .mk-page-hero p.mk-pricing-free { color: var(--mk-ink); font-size: var(--mk-text-base); background: var(--mk-yellow); padding: var(--mk-space-3) var(--mk-space-4); border-radius: 4px; margin-bottom: var(--mk-space-4); display: inline-block; max-width: none; }
