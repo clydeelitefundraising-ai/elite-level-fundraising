@@ -43,6 +43,7 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
           <nav aria-label="Legal and trust">
             <ul>
               <li><Link href="/trust">Trust Center</Link></li>
+              <li><Link href="/trust/privacy">Privacy Policy</Link></li>
               <li><Link href="/legal/terms">Terms</Link></li>
               <li><Link href="/legal/cookies">Cookie Policy</Link></li>
               <li><Link href="/trust/accessibility">Accessibility</Link></li>
@@ -74,7 +75,7 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
               <li><Link href="/fundraising">Fundraising</Link></li>
               <li><Link href="/communication">Communication</Link></li>
               <li><Link href="/sponsors">Sponsors &amp; Reporting</Link></li>
-              <li><Link href="/#how">How It Works</Link></li>
+              <li><Link href="/product">How It Works</Link></li>
             </ul>
           </div>
 

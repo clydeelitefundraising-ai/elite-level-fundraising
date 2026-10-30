@@ -17,5 +17,14 @@ export default function config(phase: string): NextConfig {
     // Build-time deployment mode for client code ("qa" or "standard"),
     // derived from the guard — not separately configurable.
     env: { NEXT_PUBLIC_ELF_DEPLOYMENT_MODE: deployment.mode },
+    // Compatibility addresses for store listings and links that guess the
+    // short form. The canonical legal documents stay where they are
+    // (/trust/privacy, /legal/terms); these only forward to them (308).
+    async redirects() {
+      return [
+        { source: "/privacy", destination: "/trust/privacy", permanent: true },
+        { source: "/terms", destination: "/legal/terms", permanent: true },
+      ];
+    },
   };
 }

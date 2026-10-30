@@ -24,6 +24,7 @@ const MARKETING_ROUTES = [
   "/trust/data-protection",
   "/trust/status",
   "/trust/contact",
+  "/support",
   "/legal/terms",
   "/legal/acceptable-use",
   "/legal/cookies",
