@@ -665,11 +665,12 @@
   .mk-phero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
   .mk-phero-shot { max-width: 280px; }
 }
-/* Features: ten items in two even columns (five rows), one column on phones. */
+/* Features: ten items in two even columns (five rows) on desktop, one
+   column on tablets and phones. */
 .mk-pfeatures { background: #FFFFFF; }
 .mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--mk-space-16); row-gap: var(--mk-space-12); }
 .mk-root .mk-fbenefit-grid-2 .mk-fbenefit p { max-width: 52ch; }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: minmax(0, 1fr); row-gap: var(--mk-space-10); }
 }
 /* Closing: one black band — free-for-every-team message, CTAs and badges. */

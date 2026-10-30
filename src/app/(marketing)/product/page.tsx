@@ -96,8 +96,8 @@ export default function TeamAppPage() {
             <span className="mk-eyebrow">What&rsquo;s inside</span>
             <h2 id="mk-app-features" className="mk-fbenefits-title">Everything your team needs, in one place.</h2>
           </div>
-          {/* Ten features: two even columns (five rows) on desktop and tablet,
-              one column on phones — never a lone item on a last row. */}
+          {/* Ten features: two even columns (five rows) on desktop,
+              one column on tablets and phones — never a lone item on a last row. */}
           <ol className="mk-fbenefit-grid mk-fbenefit-grid-2">
             {FEATURES.map((f, i) => (
               <li key={f.title} className="mk-fbenefit">
