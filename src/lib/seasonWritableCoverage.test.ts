@@ -52,6 +52,7 @@ const EXEMPT: Record<string, string> = {
   "jobs/automation POST": "background job (automation events, not season content)",
   "jobs/notifications POST": "background job (notification delivery)",
   "marketing/demo-request POST": "marketing site",
+  "marketing/preview-lead POST": "marketing site (fictional preview lead, no team data)",
   "platform-admin/community-partners POST": "platform-wide advertising, not a team",
   "platform-admin/community-partners/[id] PATCH": "platform-wide advertising, not a team",
   "platform-admin/community-partners/logo POST": "platform-wide advertising, not a team",

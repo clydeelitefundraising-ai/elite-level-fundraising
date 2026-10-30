@@ -318,6 +318,25 @@ export async function sendPasswordReset(p: PasswordResetParams): Promise<void> {
 
 // ── Marketing: demo request notification (to ELF) ─────────────────────────────
 
+/** Website-visitor text is escaped before it goes into any email HTML. */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function detailRowsHtml(rows: Array<[string, string]>): string {
+  return rows
+    .map(
+      ([label, value]) =>
+        `<tr><td style="color:#6b7280;font-size:0.9rem;padding:8px;width:140px;">${escapeHtml(label)}</td><td style="color:#0B1E3D;font-size:0.9rem;padding:8px;">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("");
+}
+
 export interface DemoRequestNotificationParams {
   to:            string;
   firstName:     string;
@@ -327,24 +346,23 @@ export interface DemoRequestNotificationParams {
   email:         string;
   role:          string;
   message:       string | null;
+  /** "partner" = a Community Partner inquiry from /sponsors (business name
+   *  arrives in schoolName, teams to support in sportProgram). */
+  kind?:         "demo" | "partner";
 }
 
 export async function sendDemoRequestNotification(p: DemoRequestNotificationParams): Promise<void> {
+  const partner = p.kind === "partner";
   const rows: Array<[string, string]> = [
     ["Name", `${p.firstName} ${p.lastName}`],
-    ["School", p.schoolName],
-    ["Sport / Program", p.sportProgram || "—"],
+    [partner ? "Business" : "School", p.schoolName],
+    [partner ? "Team(s) to support" : "Sport / Program", p.sportProgram || "—"],
     ["Role", p.role],
     ["Email", p.email],
   ];
-  const rowsHtml = rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="color:#6b7280;font-size:0.9rem;padding:8px;width:140px;">${label}</td><td style="color:#0B1E3D;font-size:0.9rem;padding:8px;">${value}</td></tr>`,
-    )
-    .join("");
+  const rowsHtml = detailRowsHtml(rows);
   const messageBlock = p.message
-    ? `<tr><td style="color:#374151;font-size:0.95rem;line-height:1.6;padding:16px 8px 0;" colspan="2">${p.message}</td></tr>`
+    ? `<tr><td style="color:#374151;font-size:0.95rem;line-height:1.6;padding:16px 8px 0;white-space:pre-wrap;" colspan="2">${escapeHtml(p.message)}</td></tr>`
     : "";
 
   const html = `<!DOCTYPE html>
@@ -355,7 +373,7 @@ export async function sendDemoRequestNotification(p: DemoRequestNotificationPara
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
         <tr><td style="padding-bottom:16px;">
-          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0;">New Demo Request</h1>
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0;">${partner ? "New Community Partner Inquiry" : "New Demo Request"}</h1>
         </td></tr>
         <tr><td>
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
@@ -369,7 +387,49 @@ export async function sendDemoRequestNotification(p: DemoRequestNotificationPara
 </body>
 </html>`;
 
-  await sendEmail(p.to, `New demo request — ${p.schoolName}`, html);
+  await sendEmail(p.to, `${partner ? "New Community Partner inquiry" : "New demo request"} — ${p.schoolName.replace(/[\r\n]+/g, " ")}`, html);
+}
+
+// ── Marketing: fundraising-preview lead notification (to ELF only) ─────────────
+
+export interface PreviewLeadNotificationParams {
+  /** Always the configured business inbox — never a visitor-supplied address. */
+  to:               string;
+  fullName:         string;
+  email:            string;
+  marketingConsent: boolean;
+  isNewContact:     boolean;
+}
+
+export async function sendPreviewLeadNotification(p: PreviewLeadNotificationParams): Promise<void> {
+  const rowsHtml = detailRowsHtml([
+    ["Name", p.fullName],
+    ["Email", p.email],
+    ["Marketing emails", p.marketingConsent ? "Opted in" : "Not opted in"],
+    ["CRM", p.isNewContact ? "New contact (source: Fundraising Preview)" : "Existing contact — activity added, details unchanged"],
+  ]);
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:0;background:#f5f6fa;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
+        <tr><td style="padding-bottom:16px;">
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0;">Fundraising preview unlocked</h1>
+        </td></tr>
+        <tr><td>
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6fa;border-radius:8px;">
+            ${rowsHtml}
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendEmail(p.to, "New lead — fundraising preview", html);
 }
 
 // ── Marketing: demo request confirmation (to prospect) ─────────────────────────
@@ -388,7 +448,7 @@ export async function sendDemoRequestConfirmation(p: DemoRequestConfirmationPara
     <tr><td align="center">
       <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;padding:40px;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:520px;width:100%;">
         <tr><td style="padding-bottom:20px;">
-          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0 0 8px 0;">Thanks, ${p.firstName}!</h1>
+          <h1 style="color:#0B1E3D;font-size:1.5rem;margin:0 0 8px 0;">Thanks, ${escapeHtml(p.firstName)}!</h1>
           <p style="color:#6b7280;margin:0;font-size:0.95rem;">We received your demo request.</p>
         </td></tr>
         <tr><td style="color:#374151;font-size:1rem;line-height:1.7;padding-bottom:8px;">

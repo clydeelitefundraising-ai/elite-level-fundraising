@@ -119,6 +119,29 @@ export async function consumeRateLimit(key: string, cfg: RateLimitConfig): Promi
 }
 
 /**
+ * consumeRateLimit, but FAILS CLOSED: if Redis is not configured or is
+ * unavailable, the request is refused. For public endpoints that write
+ * into a business system (the fundraising-preview CRM lead), where an
+ * unthrottled path is worse than a briefly unavailable form.
+ */
+export async function consumeRateLimitStrict(key: string, cfg: RateLimitConfig): Promise<RateLimitResult> {
+  try {
+    const count = await r().incr(key);
+    if (count === 1) {
+      await r().expire(key, cfg.windowSeconds);
+    }
+    if (count > cfg.limit) {
+      const ttl = await r().ttl(key);
+      return { allowed: false, remaining: 0, retryAfter: Math.max(ttl, 0) };
+    }
+    return { allowed: true, remaining: cfg.limit - count, retryAfter: 0 };
+  } catch (err) {
+    console.error("[rateLimit] consumeRateLimitStrict error — failing closed:", err);
+    return { allowed: false, remaining: 0, retryAfter: 60 };
+  }
+}
+
+/**
  * Clear the failed-attempt counter for an IP after a successful authentication.
  * Prevents residual failures from locking out a user who has since provided correct credentials.
  * Fails silently: if Redis is unavailable, the stale counter is left to expire naturally.
