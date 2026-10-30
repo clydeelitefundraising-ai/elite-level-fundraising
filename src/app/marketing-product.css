@@ -309,7 +309,7 @@
 /* ── Team App simulator ──
    The phone uses the Team App's own system font and navy/blue palette so
    it reads as the app, not as the marketing site around it. */
-.mk-sim { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--mk-space-12); align-items: start; }
+.mk-sim { display: grid; grid-template-columns: minmax(0, 1fr) 414px; gap: var(--mk-space-12); align-items: start; }
 @media (min-width: 901px) { .mk-sim-controls { position: sticky; top: calc(var(--mk-nav-height) + var(--mk-space-8)); padding-top: var(--mk-space-10); } }
 @media (max-width: 900px) { .mk-sim { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); } }
 .mk-sim-controls { display: flex; flex-direction: column; align-items: flex-start; gap: var(--mk-space-4); }
@@ -342,9 +342,10 @@
 .mk-sim-device { display: flex; justify-content: center; min-width: 0; }
 .mk-sim-phone {
   position: relative;
-  width: 380px;
+  /* 414px - 2 x 12px border = a 390px screen, the width of a typical phone. */
+  width: 414px;
   max-width: 100%;
-  height: 760px;
+  height: 820px;
   display: flex;
   flex-direction: column;
   border-radius: 46px;

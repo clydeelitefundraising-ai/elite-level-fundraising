@@ -28,6 +28,9 @@ export default async function TeamAppDemoPage({ searchParams }: { searchParams: 
         @keyframes elf-modalIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
         @keyframes elf-backdropIn{from{opacity:0}to{opacity:1}}
       `}</style>
+      {/* Inside /product's phone frame the page scrolls like a phone app:
+          touch/wheel scrolling, no desktop scrollbar. */}
+      {embedded && <style>{`html{scrollbar-width:none}html::-webkit-scrollbar{display:none}`}</style>}
       {/* Opened directly (not inside /product's labelled frame), the page
           carries its own sample notice. */}
       {!embedded && (
