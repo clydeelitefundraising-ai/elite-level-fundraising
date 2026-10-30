@@ -198,7 +198,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-fund-faq|mk-home-section\.mk-fund-faq)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
@@ -478,4 +478,17 @@ test("buttons: 12px radius on every marketing page via the shared .mk-btn; campa
   // .mk-root only exists inside the marketing shell, so the Team App and admin are unaffected.
   assert.ok(!read("src/app/campaign/_shared/campaign.css").includes("--mk-btn-radius"));
   assert.match(read("src/components/marketing/MarketingShell.tsx"), /mk-root/);
+});
+
+test("/fundraising FAQ is compact and scoped; the shared FAQ list and /faq are unchanged", () => {
+  const page = read(`${MK}/fundraising/page.tsx`);
+  assert.match(page, /<section className="mk-home-section mk-home-alt mk-fund-faq" aria-labelledby="mk-fund-faq">/);
+  assert.match(page, /<FaqList items=\{FAQS\} \/>/);
+  assert.equal((page.match(/\{ q: "/g) ?? []).length, 6, "all six questions kept");
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-home-section\.mk-fund-faq \{ padding: var\(--mk-space-16\) 0; \}/);
+  assert.match(css, /\.mk-fund-faq \.mk-faq-item summary \{ padding: 19px 0; \}/);
+  // Base FAQ styles (used on /faq) untouched.
+  assert.match(read("src/app/marketing.css"), /\.mk-faq-item summary \{[^}]*padding: var\(--mk-space-6\) 0;/);
+  assert.ok(!read(`${MK}/faq/page.tsx`).includes("mk-fund-faq"));
 });

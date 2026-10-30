@@ -84,7 +84,7 @@ export default function FundraisingPage() {
         </div>
       </section>
 
-      <section className="mk-home-section mk-home-alt" aria-labelledby="mk-fund-faq">
+      <section className="mk-home-section mk-home-alt mk-fund-faq" aria-labelledby="mk-fund-faq">
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">FAQ</span>

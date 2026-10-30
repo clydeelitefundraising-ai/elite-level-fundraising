@@ -638,3 +638,16 @@
 .mk-root .mk-btn-primary:active,
 .mk-root .mk-btn-yellow:active,
 .mk-root .mk-btn-dark:active { filter: brightness(0.96); }
+
+/* ── /fundraising FAQ: compact (scoped — the shared FaqList on /faq is
+   unchanged). ~33% less section padding, a slightly smaller headline, ~20%
+   tighter question rows; answers keep their own breathing room. ── */
+.mk-home-section.mk-fund-faq { padding: var(--mk-space-16) 0; }
+.mk-fund-faq .mk-home-head { margin-bottom: var(--mk-space-8); }
+.mk-root .mk-fund-faq .mk-va-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+.mk-fund-faq .mk-faq-item summary { padding: 19px 0; }
+.mk-root .mk-fund-faq .mk-faq-item p { padding: 2px 0 var(--mk-space-6); line-height: 1.65; }
+@media (max-width: 640px) {
+  .mk-home-section.mk-fund-faq { padding: 44px 0; }
+  .mk-fund-faq .mk-home-head { margin-bottom: var(--mk-space-6); }
+}
