@@ -68,16 +68,19 @@ export default function FundraisingPage() {
           </div>
           <figure className="mk-hero-shot">
             <div className="mk-shot">
+              {/* Captured from the current PublicCampaignPage (via the
+                  fictional /preview/fundraiser sample) — the real ELF
+                  campaign design, not a mock-up. */}
               <Image
-                src="/marketing/campaign-hero.png"
-                alt="A real ELF campaign page for a sample football program, showing the goal, days left and donor count"
-                width={1440}
-                height={620}
+                src="/marketing/fundraiser-campaign-current.png"
+                alt="The current ELF fundraising campaign page for the fictional Sunridge Valley Comets: team crest, $9,840 raised of a $15,000 goal, 112 donations, 18 days left, and the Support the Comets donation form"
+                width={2880}
+                height={1668}
                 priority
                 sizes="(max-width: 900px) 100vw, 560px"
               />
             </div>
-            <figcaption className="mk-shot-caption">A real ELF campaign page. Riverside High School is a sample program.</figcaption>
+            <figcaption className="mk-shot-caption">The current ELF campaign page. Sunridge Valley High School is a fictional sample team.</figcaption>
           </figure>
         </div>
       </div>
@@ -131,38 +134,7 @@ export default function FundraisingPage() {
         </div>
       </section>
 
-      <section className="mk-home-section mk-home-alt" aria-labelledby="mk-fund-support">
-        <div className="mk-container mk-spotlight-grid">
-          <div className="mk-spotlight-copy">
-            <span className="mk-eyebrow">For coaches and boosters</span>
-            <h2 id="mk-fund-support" className="mk-home-title-sm">Every dollar, visible.</h2>
-            <p>
-              Each donation is credited to the athlete (or coach) it was given for and shows up on the
-              leaderboard right away. The campaign page lists what the money supports, so families and
-              donors can see the season they&rsquo;re funding.
-            </p>
-            <ul className="mk-check-list">
-              <li>Donations credited to the right athlete automatically</li>
-              <li>Recent supporters and messages on the campaign page</li>
-              <li>Fund-use breakdown set by the coach</li>
-            </ul>
-          </div>
-          <figure className="mk-hero-shot">
-            <div className="mk-shot">
-              <Image
-                src="/marketing/leaderboard.png"
-                alt="A real ELF athlete leaderboard and donation form, ranked by amount raised"
-                width={1002}
-                height={660}
-                sizes="(max-width: 900px) 100vw, 560px"
-              />
-            </div>
-            <figcaption className="mk-shot-caption">A real ELF leaderboard. Riverside High School is a sample program.</figcaption>
-          </figure>
-        </div>
-      </section>
-
-      <section className="mk-home-section" aria-labelledby="mk-fund-faq">
+      <section className="mk-home-section mk-home-alt" aria-labelledby="mk-fund-faq">
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">FAQ</span>

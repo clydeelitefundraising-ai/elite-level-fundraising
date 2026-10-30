@@ -13,6 +13,11 @@ import {
   PREVIEW_LEAD_SOURCE, MARKETING_CONSENT_TEXT, type PreviewLeadStore, type ConsentRecord,
 } from "../../lib/marketing/previewLead.ts";
 import { escapeHtml } from "../../lib/email.ts";
+import {
+  SAMPLE_TEAM, SAMPLE_ATHLETES, SAMPLE_COACHES, SAMPLE_DONATIONS, SAMPLE_PARTNERS, SAMPLE_PREVIEW_PARTNERS,
+  samplePortrait, sampleAvatar, samplePortraitFor, sampleAvatarFor,
+} from "../../components/marketing/demo/fixtures.ts";
+import { COMMUNITY_PARTNER_SLOT_COUNT } from "../../lib/platform/communityPartnerSlots.ts";
 
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
@@ -46,6 +51,19 @@ test("/how-it-works carries the nine-stage walkthrough unchanged from the old /p
   assert.match(now, /alternates: \{ canonical: "\/how-it-works" \}/);
   assert.equal((stages(now).match(/num: "0\d"/g) ?? []).length, 9);
   assert.ok(read("src/app/sitemap.ts").includes(`"/how-it-works",`));
+});
+
+test("/fundraising: current campaign screenshot up top; the 'Every dollar, visible.' section is gone", () => {
+  const page = read(`${MK}/fundraising/page.tsx`);
+  assert.match(page, /src="\/marketing\/fundraiser-campaign-current\.png"/);
+  assert.ok(existsSync(join(ROOT, "public/marketing/fundraiser-campaign-current.png")));
+  for (const gone of ["Every dollar, visible.", "/marketing/campaign-hero.png", "/marketing/leaderboard.png", "mk-fund-support", "Riverside"]) {
+    assert.ok(!page.includes(gone), `still on /fundraising: ${gone}`);
+  }
+  // Hero copy and calls to action unchanged.
+  assert.match(page, /Raise more for <span className="mk-marker-underline">the season\.<\/span>/);
+  assert.match(page, /<LinkButton href="\/demo" size="lg">Book a Free Demo<\/LinkButton>/);
+  assert.match(page, /<a href="#preview" className="mk-text-link">Explore a sample fundraiser &rarr;<\/a>/);
 });
 
 test("/product is now the free Team App page with the simulator", () => {
@@ -150,15 +168,41 @@ test("the sample campaign is the real page component with donations disabled and
   const sample = read("src/components/marketing/demo/SampleCampaign.tsx");
   assert.match(sample, /import PublicCampaignPage from "@\/app\/campaign\/_shared\/PublicCampaignPage"/);
   assert.match(sample, /handleDonate=\{\(\) => setDonateError\(PREVIEW_DONATE_MESSAGE\)\}/);
-  assert.match(sample, /athletePhotos=\{false\}/);
   assert.match(sample, /donating=\{false\}/);
-  // The live campaign page keeps photos on by default and never passes the flag.
+  // Sample imagery comes from static files via the optional resolvers, never the photo API.
+  assert.match(sample, /athletePhotoSrcFor=\{samplePortraitFor\}/);
+  assert.match(sample, /avatarSrcFor=\{sampleAvatarFor\}/);
+  assert.match(sample, /logoUrl=\{SAMPLE_TEAM\.logoUrl\}/);
+  for (const a of SAMPLE_ATHLETES) assert.match(samplePortraitFor(a.id)!, /^\/marketing\/demo\/people\/[a-z-]+\.svg$/);
+  // The live campaign page: same photo route by default, initials when no avatar resolver.
   const pcp = read("src/app/campaign/_shared/PublicCampaignPage.tsx");
-  assert.match(pcp, /athletePhotos = true,/);
-  assert.ok(!/athletePhotos/.test(read("src/app/campaign/_shared/CampaignPageClient.tsx")));
+  assert.match(pcp, /const src = srcFor \? srcFor\(athlete\.id\) : athletePhotoSrc\(slug, athlete\.id\);/);
+  assert.match(pcp, /: <span className="pc-lb-avatar">\{initials\(person\.name\)\}<\/span>;/);
+  assert.ok(!/athletePhotoSrcFor|avatarSrcFor/.test(read("src/app/campaign/_shared/CampaignPageClient.tsx")), "real pages never pass sample imagery");
 });
 
-test("fictional data: every sample business has no website or logo, and every surface labels the data as a sample", () => {
+test("sample artwork: crest, a portrait for every person, and all 21 partner positions filled with unique fictional businesses", () => {
+  const pub = (url: string) => join(ROOT, "public", url);
+  assert.ok(existsSync(pub(SAMPLE_TEAM.logoUrl)), "crest");
+  for (const p of [...SAMPLE_ATHLETES, ...SAMPLE_COACHES]) {
+    assert.ok(existsSync(pub(samplePortrait(p.image))), p.name);
+    assert.ok(existsSync(pub(sampleAvatar(p.image))), p.name);
+  }
+  for (const d of SAMPLE_DONATIONS) assert.ok(existsSync(pub(sampleAvatarFor({ name: d.name })!)), d.name);
+  assert.equal(SAMPLE_PREVIEW_PARTNERS.length, COMMUNITY_PARTNER_SLOT_COUNT, "every position filled");
+  assert.equal(new Set(SAMPLE_PREVIEW_PARTNERS.map((p) => p.business_name)).size, COMMUNITY_PARTNER_SLOT_COUNT, "unique names");
+  assert.equal(new Set(SAMPLE_PREVIEW_PARTNERS.map((p) => p.logo_url)).size, COMMUNITY_PARTNER_SLOT_COUNT, "unique logos");
+  for (const p of SAMPLE_PREVIEW_PARTNERS) {
+    assert.equal(p.website_url, null, `${p.business_name} links nowhere`);
+    assert.ok(existsSync(pub(p.logo_url)), p.logo_url);
+    assert.ok(!/<script|<image|href=/i.test(readFileSync(pub(p.logo_url), "utf8")), `${p.logo_url} is inert, self-contained artwork`);
+  }
+  // The first six keep the names used elsewhere on the site (Sponsors page).
+  assert.deepEqual(SAMPLE_PREVIEW_PARTNERS.slice(0, SAMPLE_PARTNERS.length).map((p) => p.business_name), SAMPLE_PARTNERS.map((p) => p.business_name));
+  assert.match(read("src/components/marketing/demo/SampleCampaign.tsx"), /communityPartners=\{SAMPLE_PREVIEW_PARTNERS\}/);
+});
+
+test("fictional data: no real websites, emails or URLs, and every surface labels the data as a sample", () => {
   const fx = read("src/components/marketing/demo/fixtures.ts");
   const partners = fx.match(/export const SAMPLE_PARTNERS = \[([\s\S]*?)\];/)![1];
   assert.equal((partners.match(/website_url: null, logo_url: null/g) ?? []).length, (partners.match(/business_name:/g) ?? []).length);

@@ -5,16 +5,17 @@ import PublicCampaignPage from "@/app/campaign/_shared/PublicCampaignPage";
 import { publicLeaderboardFilters } from "@/lib/athleteClass";
 import {
   SAMPLE_ATHLETES, SAMPLE_CAMPAIGN, SAMPLE_COACHES, SAMPLE_DONATIONS, SAMPLE_FUND_USES,
-  SAMPLE_PARTNERS, SAMPLE_TEAM, SAMPLE_ME,
+  SAMPLE_PREVIEW_PARTNERS, SAMPLE_TEAM, SAMPLE_ME, sampleAvatarFor, samplePortraitFor,
 } from "./fixtures";
 
 // The fundraising preview: the REAL public campaign page component, fed
 // fictional sample data (./fixtures). The same local state the live page
 // keeps (amount, filters, leaderboard expansion…) so it behaves like the
 // real thing — but there is no fetch, no Stripe, no checkout and no write
-// of any kind: "Donate" only explains that this is a preview. Athlete
-// photos are switched off (athletePhotos={false}), so not even a read hits
-// the server.
+// of any kind: "Donate" only explains that this is a preview. The crest,
+// portraits, avatars and partner logos are invented static artwork
+// (scripts/marketing/sample-assets.mjs) passed in through the page's
+// optional image props, so not even a photo request hits the server.
 
 type Coach = { id: string; name: string; role: "head_coach" | "assistant_coach"; raised: number; goal_cents: number | null };
 
@@ -89,7 +90,7 @@ export function SampleCampaign({ view }: { view: "team" | "athlete" }) {
       themePrimaryColor={SAMPLE_TEAM.primaryColor}
       location={SAMPLE_TEAM.location}
       season={SAMPLE_TEAM.season}
-      logoUrl=""
+      logoUrl={SAMPLE_TEAM.logoUrl}
       description={SAMPLE_TEAM.description}
       raised={SAMPLE_CAMPAIGN.raised}
       donors={SAMPLE_CAMPAIGN.donors}
@@ -109,7 +110,7 @@ export function SampleCampaign({ view }: { view: "team" | "athlete" }) {
       participantFilter={participantFilter}
       setParticipantFilter={setParticipantFilter}
       recentDonations={SAMPLE_DONATIONS}
-      communityPartners={[...SAMPLE_PARTNERS]}
+      communityPartners={SAMPLE_PREVIEW_PARTNERS}
       missionItems={SAMPLE_FUND_USES}
       showLeaderboard
       showFundUses
@@ -136,7 +137,8 @@ export function SampleCampaign({ view }: { view: "team" | "athlete" }) {
       setDonationsExpanded={setDonationsExpanded}
       hasMoreDonations={SAMPLE_DONATIONS.length > 5}
       spotlight={view === "athlete" ? { id: me.id, name: me.name, classYear: me.class_year } : null}
-      athletePhotos={false}
+      athletePhotoSrcFor={samplePortraitFor}
+      avatarSrcFor={sampleAvatarFor}
     />
   );
 }

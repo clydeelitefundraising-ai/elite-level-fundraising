@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" role="img" aria-label="Illustrated portrait (fictional)"><title>Illustrated portrait (fictional)</title>
+  <defs><linearGradient id="bg-caleb-brooks" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E7EEFA"/><stop offset="1" stop-color="#C7D6EF"/></linearGradient></defs>
+  <rect width="400" height="500" fill="url(#bg-caleb-brooks)"/>
+  <circle cx="200" cy="200" r="150" fill="#FFFFFF" opacity=".35"/>
+  
+  <path d="M30 500 C 40 404, 112 360, 200 356 C 288 360, 360 404, 370 500 Z" fill="#1D3E8A"/>
+            <path d="M44 430 C 70 396, 100 380, 128 372 L 136 392 C 106 400, 80 414, 58 440 Z M356 430 C 330 396, 300 380, 272 372 L 264 392 C 294 400, 320 414, 342 440 Z" fill="#F2B705"/>
+            <path d="M160 360 L 200 404 L 240 360 Z" fill="#FFFFFF"/>
+            <path d="M166 360 L 200 396 L 234 360" fill="none" stroke="#F2B705" stroke-width="7"/>
+            <text x="200" y="488" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="74" fill="#FFFFFF" stroke="#F2B705" stroke-width="3">44</text>
+  <rect x="168" y="286" width="64" height="82" rx="26" fill="#dbbc94"/>
+  <ellipse cx="124" cy="226" rx="13" ry="21" fill="#dbbc94"/>
+  <ellipse cx="276" cy="226" rx="13" ry="21" fill="#dbbc94"/>
+  <ellipse cx="200" cy="216" rx="78" ry="92" fill="#FFDBAC"/>
+  <path d="M122 200 C 112 86, 288 86, 278 200 C 262 160, 236 148, 200 148 C 164 148, 138 160, 124 196 Z" fill="#6A4E42" opacity=".85"/>
+  <path d="M158 202 C 166 196, 178 196, 186 200 M214 200 C 222 196, 234 196, 242 202" stroke="#5f463b" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <ellipse cx="172" cy="222" rx="7" ry="8" fill="#1E1B18"/>
+  <ellipse cx="228" cy="222" rx="7" ry="8" fill="#1E1B18"/>
+  <circle cx="174" cy="219" r="2" fill="#FFFFFF"/><circle cx="230" cy="219" r="2" fill="#FFFFFF"/>
+  <path d="M200 230 C 196 246, 194 252, 204 254" stroke="#dbbc94" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M176 270 C 190 284, 212 284, 226 270" stroke="#9e886b" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <ellipse cx="156" cy="252" rx="12" ry="7" fill="#E8796B" opacity=".18"/><ellipse cx="244" cy="252" rx="12" ry="7" fill="#E8796B" opacity=".18"/></svg>

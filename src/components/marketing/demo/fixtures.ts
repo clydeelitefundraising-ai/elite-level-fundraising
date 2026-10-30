@@ -23,7 +23,15 @@ export const SAMPLE_TEAM = {
   secondaryColor: "#F2B705",
   description:
     "The Sunridge Valley Comets are raising money for travel to away games, new practice equipment and team meals for the season.",
+  /** Invented crest (scripts/marketing/sample-assets.mjs) — not a real school's mark. */
+  logoUrl: "/marketing/demo/sunridge-comets-logo.svg",
 } as const;
+
+// Illustrated (not photographic) portraits of the fictional people, generated
+// by scripts/marketing/sample-assets.mjs into /marketing/demo/people/.
+const PEOPLE_DIR = "/marketing/demo/people";
+export const samplePortrait = (slug: string) => `${PEOPLE_DIR}/${slug}.svg`;
+export const sampleAvatar = (slug: string) => `${PEOPLE_DIR}/${slug}-avatar.svg`;
 
 export const SAMPLE_CAMPAIGN = {
   goal: 15000,
@@ -35,33 +43,47 @@ export const SAMPLE_CAMPAIGN = {
 /** Stable, UUID-shaped fake ids (never a real record). */
 const fakeId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-export type SampleAthlete = { id: string; name: string; event: string | null; class_year: string; raised: number; goal: number };
+export type SampleAthlete = { id: string; name: string; event: string | null; class_year: string; raised: number; goal: number; image: string };
 
 export const SAMPLE_ATHLETES: SampleAthlete[] = [
-  { id: fakeId(1), name: "Maya Torres",     event: "Wide Receiver", class_year: "Senior",    raised: 1240, goal: 1000 },
-  { id: fakeId(2), name: "Jordan Ellis",    event: "Quarterback",   class_year: "Junior",    raised: 1105, goal: 1000 },
-  { id: fakeId(3), name: "Caleb Brooks",    event: "Linebacker",    class_year: "Senior",    raised: 960,  goal: 1000 },
-  { id: fakeId(4), name: "Isaiah Grant",    event: "Running Back",  class_year: "Sophomore", raised: 875,  goal: 750 },
-  { id: fakeId(5), name: "Noah Ramirez",    event: "Offensive Line", class_year: "Junior",   raised: 790,  goal: 750 },
-  { id: fakeId(6), name: "Elijah Carter",   event: "Kicker",        class_year: "Freshman",  raised: 640,  goal: 500 },
-  { id: fakeId(7), name: "Mason Reyes",     event: "Cornerback",    class_year: "Sophomore", raised: 585,  goal: 750 },
-  { id: fakeId(8), name: "Owen Patel",      event: "Safety",        class_year: "Junior",    raised: 520,  goal: 750 },
-  { id: fakeId(9), name: "Lucas Bennett",   event: "Tight End",     class_year: "Senior",    raised: 455,  goal: 1000 },
-  { id: fakeId(10), name: "Gabriel Nguyen", event: "Defensive Line", class_year: "Freshman", raised: 380,  goal: 500 },
+  { id: fakeId(1), name: "Maya Torres",     event: "Wide Receiver", class_year: "Senior",    raised: 1240, goal: 1000, image: "maya-torres" },
+  { id: fakeId(2), name: "Jordan Ellis",    event: "Quarterback",   class_year: "Junior",    raised: 1105, goal: 1000, image: "jordan-ellis" },
+  { id: fakeId(3), name: "Caleb Brooks",    event: "Linebacker",    class_year: "Senior",    raised: 960,  goal: 1000, image: "caleb-brooks" },
+  { id: fakeId(4), name: "Isaiah Grant",    event: "Running Back",  class_year: "Sophomore", raised: 875,  goal: 750,  image: "isaiah-grant" },
+  { id: fakeId(5), name: "Noah Ramirez",    event: "Offensive Line", class_year: "Junior",   raised: 790,  goal: 750,  image: "noah-ramirez" },
+  { id: fakeId(6), name: "Elijah Carter",   event: "Kicker",        class_year: "Freshman",  raised: 640,  goal: 500,  image: "elijah-carter" },
+  { id: fakeId(7), name: "Mason Reyes",     event: "Cornerback",    class_year: "Sophomore", raised: 585,  goal: 750,  image: "mason-reyes" },
+  { id: fakeId(8), name: "Owen Patel",      event: "Safety",        class_year: "Junior",    raised: 520,  goal: 750,  image: "owen-patel" },
+  { id: fakeId(9), name: "Lucas Bennett",   event: "Tight End",     class_year: "Senior",    raised: 455,  goal: 1000, image: "lucas-bennett" },
+  { id: fakeId(10), name: "Gabriel Nguyen", event: "Defensive Line", class_year: "Freshman", raised: 380,  goal: 500,  image: "gabriel-nguyen" },
 ];
 
 export const SAMPLE_COACHES = [
-  { id: fakeId(101), name: "Dana Whitfield", role: "head_coach" as const, raised: 1290, goal_cents: 150000 },
+  { id: fakeId(101), name: "Dana Whitfield", role: "head_coach" as const, raised: 1290, goal_cents: 150000, image: "dana-whitfield" },
 ];
 
 export const SAMPLE_DONATIONS = [
-  { name: "The Alvarez Family", amount: 100, message: "Go Comets! Have a great season.", time: "2h ago" },
-  { name: "Anonymous",          amount: 50,  message: "",                                 time: "5h ago" },
-  { name: "Grandma Ellis",      amount: 75,  message: "So proud of you, Jordan!",          time: "1d ago" },
-  { name: "Coach K.",           amount: 25,  message: "",                                  time: "1d ago" },
-  { name: "The Brooks Family",  amount: 150, message: "For the away-game bus. Good luck!", time: "2d ago" },
-  { name: "Sam P.",             amount: 40,  message: "",                                  time: "3d ago" },
+  { name: "The Alvarez Family", amount: 100, message: "Go Comets! Have a great season.", time: "2h ago", image: "alvarez-family" },
+  { name: "Anonymous",          amount: 50,  message: "",                                 time: "5h ago", image: "anonymous" },
+  { name: "Grandma Ellis",      amount: 75,  message: "So proud of you, Jordan!",          time: "1d ago", image: "grandma-ellis" },
+  { name: "Coach K.",           amount: 25,  message: "",                                  time: "1d ago", image: "coach-k" },
+  { name: "The Brooks Family",  amount: 150, message: "For the away-game bus. Good luck!", time: "2d ago", image: "brooks-family" },
+  { name: "Sam P.",             amount: 40,  message: "",                                  time: "3d ago", image: "sam-p" },
 ];
+
+/** Avatar for any fictional person shown in the preview (athlete, coach or
+ *  donor), by id or display name — one image per person everywhere. */
+export function sampleAvatarFor({ id, name }: { id?: string; name: string }): string | null {
+  const person = [...SAMPLE_ATHLETES, ...SAMPLE_COACHES].find((p) => (id ? p.id === id : p.name === name))
+    ?? SAMPLE_DONATIONS.find((d) => d.name === name);
+  return person ? sampleAvatar(person.image) : null;
+}
+
+/** Full portrait for an athlete's personal page. */
+export function samplePortraitFor(athleteId: string): string | null {
+  const a = SAMPLE_ATHLETES.find((x) => x.id === athleteId);
+  return a ? samplePortrait(a.image) : null;
+}
 
 export const SAMPLE_FUND_USES = [
   { icon: "plane",    label: "Travel to away games", desc: "Bus travel for every away game on the schedule." },
@@ -79,6 +101,41 @@ export const SAMPLE_PARTNERS = [
   { id: fakeId(205), business_name: "Desert Bloom Realty",     short_description: "Helping local families find home.",          website_url: null, logo_url: null },
   { id: fakeId(206), business_name: "Summit Physical Therapy", short_description: "Sports injury care and recovery.",           website_url: null, logo_url: null },
 ];
+
+// Every Community Partner position in the fundraising preview, filled with
+// invented local businesses (the first six are SAMPLE_PARTNERS above), each
+// with its own invented logo from scripts/marketing/sample-assets.mjs. No
+// websites: the cards are never links to a real business.
+const PARTNER_LOGO = (slug: string) => `/marketing/demo/partners/${slug}.svg`;
+export const SAMPLE_PREVIEW_PARTNERS = ([
+  ["Comet Coffee Co.", "comet-coffee"],
+  ["Valley Family Dental", "valley-family-dental"],
+  ["Ridgeline Auto Care", "ridgeline-auto-care"],
+  ["Sunridge Pizza Kitchen", "sunridge-pizza"],
+  ["Desert Bloom Realty", "desert-bloom-realty"],
+  ["Summit Physical Therapy", "summit-pt"],
+  ["Iron Mesa Fitness", "iron-mesa-fitness"],
+  ["Copperline Construction", "copperline"],
+  ["Saguaro Hardware & Supply", "saguaro-hardware"],
+  ["Blue Agave Taqueria", "blue-agave"],
+  ["Northgate Insurance Group", "northgate-insurance"],
+  ["Bright Smiles Orthodontics", "bright-smiles"],
+  ["Trailhead Outfitters", "trailhead-outfitters"],
+  ["Cactus Creek Car Wash", "cactus-creek-wash"],
+  ["Sunridge Valley Credit Union", "sunridge-cu"],
+  ["Golden Hour Photography", "golden-hour-photo"],
+  ["Ridgeview Pet Clinic", "ridgeview-pet"],
+  ["High Desert Plumbing & Air", "high-desert-air"],
+  ["The Corner Scoop", "corner-scoop"],
+  ["Pinnacle Print & Sign", "pinnacle-print"],
+  ["Hometown Barber Co.", "hometown-barber"],
+] as const).map(([business_name, slug], i) => ({
+  id: SAMPLE_PARTNERS[i]?.id ?? fakeId(300 + i),
+  business_name,
+  short_description: SAMPLE_PARTNERS[i]?.short_description ?? null,
+  website_url: null,
+  logo_url: PARTNER_LOGO(slug),
+}));
 
 // ── Team App simulator ──────────────────────────────────────────────────────
 
