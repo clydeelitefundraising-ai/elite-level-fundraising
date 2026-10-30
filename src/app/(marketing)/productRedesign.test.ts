@@ -150,8 +150,12 @@ test("/product is now the free Team App page with the simulator", () => {
 test("/product redesign: Variation A headings, real app visual, numbered 10-feature grid, one closing band", () => {
   const page = read(`${MK}/product/page.tsx`);
   assert.ok(!/mk-display|mk-marker-underline|mk-app-hero-points|mk-benefit-grid|mk-partners-band/.test(page), "old hero blocks, cards and bands removed");
-  // Hero visual is the real app screenshot already in the repo (not a mock-up).
-  assert.match(page, /src="\/marketing\/communications\.png"/);
+  // Hero visual is a real Coach Home capture of the fictional Sunridge QA
+  // team (not a mock-up), labelled fictional; no Riverside sample left.
+  assert.match(page, /src="\/marketing\/team-app-coach-home\.png"/);
+  assert.match(page, /Sunridge Valley High School is a fictional sample team\./);
+  assert.ok(!/Riverside/.test(page), "outdated Riverside capture replaced");
+  assert.ok(existsSync("public/marketing/team-app-coach-home.png"), "hero capture committed");
   assert.match(page, /<h2 id="mk-sim-title" className="mk-va-title">See how your team stays connected\.<\/h2>/);
   assert.match(page, /<h2 id="mk-app-features" className="mk-fbenefits-title">Everything your team needs, in one place\.<\/h2>/);
   assert.match(page, /<ol className="mk-fbenefit-grid mk-fbenefit-grid-2">/);

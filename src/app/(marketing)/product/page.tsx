@@ -60,18 +60,18 @@ export default function TeamAppPage() {
           </div>
           <figure className="mk-phero-shot">
             <div className="mk-phone-frame">
-              {/* The real ELF Team App (Team Communications screen of the
-                  Riverside sample program) — not a mock-up. */}
+              {/* Captured at phone width (390px, 2x) from the real Coach Home
+                  of the fictional Sunridge Valley Comets QA team — not a mock-up. */}
               <Image
-                src="/marketing/communications.png"
-                alt="The real ELF Team App: the Team Communications screen with coach announcements about practice and an away game"
-                width={720}
-                height={900}
+                src="/marketing/team-app-coach-home.png"
+                alt="The real ELF Team App Coach Home for the fictional Sunridge Valley Comets varsity football team: quick actions to post an announcement, add an event, send a message or manage the team, and the next practices and team meeting"
+                width={780}
+                height={1560}
                 priority
                 sizes="(max-width: 900px) 70vw, 320px"
               />
             </div>
-            <figcaption className="mk-fhero-caption">The real ELF Team App. Riverside High School is a sample program.</figcaption>
+            <figcaption className="mk-fhero-caption">The real ELF Team App. Sunridge Valley High School is a fictional sample team.</figcaption>
           </figure>
         </div>
       </section>
