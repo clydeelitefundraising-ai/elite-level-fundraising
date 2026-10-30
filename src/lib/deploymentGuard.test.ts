@@ -99,6 +99,23 @@ test("marketing Log in: production destination unchanged; QA stays on its own /l
   assert.equal(teamAppLoginUrl(undefined), "https://app.elitelevelfundraising.com/login");
   assert.equal(teamAppLoginUrl("standard"), "https://app.elitelevelfundraising.com/login");
   assert.equal(teamAppLoginUrl("qa"), "/login");
+  // Hosted marketing preview: only the exact "qa" flag, only to the fixed QA Team App.
+  assert.equal(teamAppLoginUrl("standard", "qa"), "https://elf-team-qa-clydeelitefundraising-5717s-projects.vercel.app/login");
+  assert.equal(teamAppLoginUrl(undefined, "true"), "https://app.elitelevelfundraising.com/login");
+  assert.equal(teamAppLoginUrl("qa", "qa"), "/login");
+});
+
+test("marketing preview builds: flag must be exactly qa and the build must carry no secrets or app configuration", () => {
+  assert.deepEqual(checkDeployment({ NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "qa" }), { mode: "standard", triggers: [], errors: [] });
+  assert.equal(checkDeployment({ NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "yes" }).errors.length, 1);
+  for (const n of ["NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "STRIPE_SECRET_KEY", "RESEND_API_KEY", "UPSTASH_REDIS_REST_URL"]) {
+    const r = checkDeployment({ NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "qa", [n]: "x" });
+    assert.ok(r.errors.some(e => e.startsWith(n)), n);
+  }
+  // Never alongside the QA app deployment either.
+  assert.ok(checkDeployment({ ELF_DEPLOYMENT: "qa", NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "qa" }).errors.some(e => e.includes("NEXT_PUBLIC_ELF_MARKETING_PREVIEW")));
+  // Production (no flag) is unaffected.
+  assert.deepEqual(checkDeployment({ NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", STRIPE_SECRET_KEY: "x" }).errors, []);
 });
 
 // ── Valid QA configuration ───────────────────────────────────────────────
@@ -317,6 +334,6 @@ test("wired into the build (next.config.ts) and start-up (src/instrumentation.ts
   assert.match(instrumentation, /export async function register\(\)/);
   assert.match(instrumentation, /assertDeploymentSafe\(process\.env, "startup"\)/);
   const nav = readFileSync(join(ROOT, "src", "components", "marketing", "MarketingNav.tsx"), "utf8");
-  assert.match(nav, /teamAppLoginUrl\(process\.env\.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE\)/);
+  assert.match(nav, /teamAppLoginUrl\(process\.env\.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, process\.env\.NEXT_PUBLIC_ELF_MARKETING_PREVIEW\)/);
   assert.ok(!nav.includes('"https://app.elitelevelfundraising.com/login"'), "the production URL lives in one place");
 });

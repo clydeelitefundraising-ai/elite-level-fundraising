@@ -163,6 +163,23 @@ function qaTriggers(env: Env): string[] {
   return triggers;
 }
 
+// Hosted marketing preview (docs/MARKETING_PREVIEW.md): a marketing-only
+// build whose "Log in" goes to the QA Team App. It must carry NO secrets,
+// no database and no app mode — so it can never write anywhere, send email
+// or take a payment, and a production build can't be flipped into it.
+export const MARKETING_PREVIEW_FLAG = "NEXT_PUBLIC_ELF_MARKETING_PREVIEW";
+const FORBIDDEN_IN_MARKETING_PREVIEW = [
+  "NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY",
+  "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "ADMIN_PASSWORD", "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN",
+];
+
+function marketingPreviewErrors(env: Env): string[] {
+  const flag = value(env, MARKETING_PREVIEW_FLAG);
+  if (!flag) return [];
+  if (flag !== "qa") return [`${MARKETING_PREVIEW_FLAG} must be "qa" or unset`];
+  return FORBIDDEN_IN_MARKETING_PREVIEW.filter(n => value(env, n)).map(n => `${n} is not allowed in a marketing preview build (it must carry no secrets or app configuration)`);
+}
+
 export function checkDeployment(env: Env = process.env): DeploymentCheck {
   const deployment = value(env, "ELF_DEPLOYMENT");
   const triggers = qaTriggers(env);
@@ -175,10 +192,12 @@ export function checkDeployment(env: Env = process.env): DeploymentCheck {
     const errors: string[] = [];
     if (deployment) errors.push(`ELF_DEPLOYMENT must be "qa" or unset (it is set to something else)`);
     if (value(env, QA_UNVERIFIED_CHECKOUTS)) errors.push(`${QA_UNVERIFIED_CHECKOUTS} is QA-only and is not allowed in this deployment`);
+    errors.push(...marketingPreviewErrors(env));
     return { mode: "standard", triggers, errors };
   }
 
   const errors: string[] = [];
+  if (value(env, MARKETING_PREVIEW_FLAG)) errors.push(`${MARKETING_PREVIEW_FLAG} is for marketing-only preview builds, not a QA app deployment`);
   if (deployment !== "qa") {
     errors.push(`QA deployment detected (${triggers.join("; ")}) but ELF_DEPLOYMENT is not "qa"`);
   }

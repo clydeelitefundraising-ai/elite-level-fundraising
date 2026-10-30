@@ -42,7 +42,7 @@ const NAV_LINKS: NavLink[] = [
 // marketing-site visitor, regardless of which environment the marketing
 // site itself is deployed from — except the isolated QA deployment, which
 // stays on its own /login (src/lib/teamAppLogin.ts).
-const TEAM_APP_LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE);
+const TEAM_APP_LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, process.env.NEXT_PUBLIC_ELF_MARKETING_PREVIEW);
 
 export const MARKETING_NAV_LINKS: NavLink[] = [
   { href: "/fundraising", label: "Fundraising" },
