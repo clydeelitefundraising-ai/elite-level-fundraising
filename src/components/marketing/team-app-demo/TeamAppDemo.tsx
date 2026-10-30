@@ -16,7 +16,7 @@ import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoTabForHref, type Dem
 // notifications, no payments. The page also installs networkGuard.ts.
 //
 // Navigation: every anchor in the demo (the app's real components render
-// plain <a href="/team/…"> links) is intercepted at the document level and
+// plain anchors to /team/<slug>/… paths) is intercepted at the document level and
 // mapped to an in-demo tab, or answered with a "preview only" notice —
 // nothing ever navigates to the real app.
 //
