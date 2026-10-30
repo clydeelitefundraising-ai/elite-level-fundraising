@@ -44,7 +44,7 @@ const FAQS = [
 
 export default function FundraisingPage() {
   return (
-    <>
+    <div className="mk-page-fundraising">
       <FundraisingHero />
       <FundraisingBenefits />
 
@@ -104,6 +104,6 @@ export default function FundraisingPage() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

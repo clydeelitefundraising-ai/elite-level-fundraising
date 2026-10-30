@@ -218,8 +218,13 @@
 /* ── Fundraising preview ── */
 .mk-fp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-3); margin-bottom: var(--mk-space-5); }
 .mk-fp-badge { font-size: var(--mk-text-xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 10px; border-radius: 3px; background: var(--mk-ink); color: var(--mk-yellow); margin-right: auto; }
-.mk-seg { display: inline-flex; border: var(--mk-border-width) solid var(--mk-ink); border-radius: 4px; overflow: hidden; background: var(--mk-paper); }
-.mk-seg button { border: 0; background: transparent; padding: 8px 14px; min-height: 40px; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; }
+.mk-seg { display: inline-flex; border: var(--mk-border-width) solid var(--mk-ink); border-radius: 12px; overflow: hidden; background: var(--mk-paper); }
+.mk-seg button { border: 0; background: transparent; padding: 8px 14px; min-height: 40px; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; transition: background-color var(--mk-duration) var(--mk-ease); }
+.mk-seg button[aria-pressed="false"]:hover { background: var(--mk-paper-2); }
+/* The rounded group clips outside rings, so the focus ring sits inside the
+   button (white on the selected black segment). */
+.mk-root .mk-seg button:focus-visible { outline: 2px solid var(--mk-ink); outline-offset: -5px; border-radius: 8px; }
+.mk-root .mk-seg button[aria-pressed="true"]:focus-visible { outline-color: #fff; }
 .mk-seg button + button { border-left: var(--mk-border-width) solid var(--mk-ink); }
 .mk-seg button[aria-pressed="true"] { background: var(--mk-ink); color: #fff; }
 @media (max-width: 640px) { .mk-seg-device { display: none; } .mk-fp-badge { margin-right: 0; width: 100%; text-align: center; } }
@@ -621,3 +626,18 @@
   .mk-fbenefit-num { font-size: 3rem; }
   .mk-fbenefit-rule { margin-top: 1.33rem; }
 }
+
+/* ── Buttons: 12px radius (approved premium minimalist direction) ──
+   Applies to the shared .mk-btn in the marketing nav (site-wide Get Started)
+   and on /fundraising. Other pages keep the default radius for now. The
+   site-wide focus ring otherwise forces 2px corners, so it keeps 12px too;
+   colors, type, padding and hover fills are the existing ones. */
+.mk-nav-actions,
+.mk-mobile-panel,
+.mk-page-fundraising { --mk-btn-radius: 12px; }
+.mk-root .mk-nav-actions .mk-btn:focus-visible,
+.mk-root .mk-mobile-panel .mk-btn:focus-visible,
+.mk-root .mk-page-fundraising .mk-btn:focus-visible { border-radius: var(--mk-btn-radius); }
+.mk-page-fundraising .mk-btn-primary:active,
+.mk-page-fundraising .mk-btn-yellow:active,
+.mk-nav-actions .mk-btn-primary:active { filter: brightness(0.96); }

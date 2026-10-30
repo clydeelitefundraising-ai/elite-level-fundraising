@@ -198,7 +198,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-page-fundraising|mk-nav-actions|mk-mobile-panel)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
@@ -459,4 +459,16 @@ test("/fundraising benefit numerals: 48px between 901 and 1500px, 56px wider, da
   const css = read("src/app/marketing-product.css");
   assert.match(css, /@media \(min-width: 901px\) and \(max-width: 1500px\) \{\s*\.mk-fbenefit-num \{ font-size: 3rem; \}\s*\.mk-fbenefit-rule \{ margin-top: 1\.33rem; \}\s*\}/);
   assert.match(css, /\.mk-fbenefit-num \{[^}]*font-size: 3\.5rem;/);
+});
+
+test("buttons: 12px radius in the nav and on /fundraising via the shared .mk-btn variable; default elsewhere", () => {
+  const base = read("src/app/marketing.css");
+  assert.match(base, /\.mk-btn \{[^}]*border-radius: var\(--mk-btn-radius, var\(--mk-radius-md\)\);/);
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-nav-actions,\s*\.mk-mobile-panel,\s*\.mk-page-fundraising \{ --mk-btn-radius: 12px; \}/);
+  assert.match(css, /\.mk-root \.mk-page-fundraising \.mk-btn:focus-visible \{ border-radius: var\(--mk-btn-radius\); \}/);
+  assert.match(css, /\.mk-seg \{[^}]*border-radius: 12px; overflow: hidden;/);
+  assert.match(read(`${MK}/fundraising/page.tsx`), /<div className="mk-page-fundraising">/);
+  // The sample fundraiser inside the preview (campaign.css) is untouched.
+  assert.ok(!read("src/app/campaign/_shared/campaign.css").includes("--mk-btn-radius"));
 });
