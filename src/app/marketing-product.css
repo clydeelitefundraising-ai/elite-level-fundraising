@@ -651,3 +651,27 @@
   .mk-home-section.mk-fund-faq { padding: 44px 0; }
   .mk-fund-faq .mk-home-head { margin-bottom: var(--mk-space-6); }
 }
+
+/* ── /product (free Team App) — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here. */
+/* Hero: the visual is a phone, so the headline column gets more room. */
+.mk-phero .mk-fhero-grid { grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.75fr); align-items: center; }
+.mk-phero .mk-store-badges { margin-top: var(--mk-space-8); }
+.mk-phero-shot { margin: 0; justify-self: center; width: 100%; max-width: 320px; min-width: 0; }
+.mk-phero-shot .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-phero-shot .mk-fhero-caption { text-align: center; }
+@media (max-width: 900px) {
+  .mk-phero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-phero-shot { max-width: 280px; }
+}
+/* Features: ten items in two even columns (five rows), one column on phones. */
+.mk-pfeatures { background: #FFFFFF; }
+.mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--mk-space-16); row-gap: var(--mk-space-12); }
+.mk-root .mk-fbenefit-grid-2 .mk-fbenefit p { max-width: 52ch; }
+@media (max-width: 640px) {
+  .mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: minmax(0, 1fr); row-gap: var(--mk-space-10); }
+}
+/* Closing: one black band — free-for-every-team message, CTAs and badges. */
+.mk-pclose .mk-eyebrow { margin-bottom: var(--mk-space-3); }
+.mk-pclose .mk-store-badges { justify-content: center; margin-top: var(--mk-space-8); }

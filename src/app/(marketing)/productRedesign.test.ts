@@ -137,12 +137,32 @@ test("/fundraising sample-fundraiser intro: new copy, sans-serif sentence-case h
 
 test("/product is now the free Team App page with the simulator", () => {
   const page = read(`${MK}/product/page.tsx`);
-  assert.match(page, /The free Team App built for your <span className="mk-marker-underline">entire program\.<\/span>/);
+  assert.match(page, /<h1 id="mk-phero-title" className="mk-fhero-title">\s*One team\. One app\.<br \/> Everything connected\.\s*<\/h1>/);
+  assert.match(page, /Bring coaches, athletes and parents together with messaging, schedules, attendance and\s+team updates &mdash; all in one free app\./);
   assert.match(page, /Free for every team &middot; No fundraiser required/);
   assert.match(page, /<section id="simulator"/);
   assert.match(page, /<TeamAppSimulator \/>/);
   assert.match(page, /<StoreBadges \/>/);
+  assert.match(page, /<StoreBadges tone="light"/);
   assert.ok(!/const STAGES/.test(page), "walkthrough moved out");
+});
+
+test("/product redesign: Variation A headings, real app visual, numbered 10-feature grid, one closing band", () => {
+  const page = read(`${MK}/product/page.tsx`);
+  assert.ok(!/mk-display|mk-marker-underline|mk-app-hero-points|mk-benefit-grid|mk-partners-band/.test(page), "old hero blocks, cards and bands removed");
+  // Hero visual is the real app screenshot already in the repo (not a mock-up).
+  assert.match(page, /src="\/marketing\/communications\.png"/);
+  assert.match(page, /<h2 id="mk-sim-title" className="mk-va-title">See how your team stays connected\.<\/h2>/);
+  assert.match(page, /<h2 id="mk-app-features" className="mk-fbenefits-title">Everything your team needs, in one place\.<\/h2>/);
+  assert.match(page, /<ol className="mk-fbenefit-grid mk-fbenefit-grid-2">/);
+  assert.equal((page.match(/\{ title: "/g) ?? []).length, 10, "all ten features kept");
+  // One closing band: free message + Get Started + fundraising link + badges.
+  assert.equal((page.match(/mk-cta-band/g) ?? []).length, 1);
+  assert.match(page, /Your team deserves a better way to stay connected\./);
+  assert.match(page, /<LinkButton href="\/demo" variant="yellow" size="lg">Get Started Free<\/LinkButton>/);
+  assert.match(page, /href="\/fundraising"/);
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-fbenefit-grid\.mk-fbenefit-grid-2 \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
 });
 
 // ── Store links ──────────────────────────────────────────────────────────────
@@ -168,7 +188,7 @@ test("store badges use the verified ELF Team listings and the official badge art
 test("the Team App is presented as free, with no fundraiser required", () => {
   assert.match(read("src/app/MarketingPage.tsx"), /Free for every team &mdash; no fundraiser required\./);
   assert.match(read(`${MK}/fundraising/page.tsx`), /Does my team have to run a fundraiser to use ELF\?/);
-  assert.match(read(`${MK}/product/page.tsx`), /No fundraiser required\. Really\./);
+  assert.match(read(`${MK}/product/page.tsx`), /free for every team &mdash; no fundraiser required\./);
 });
 
 test("sponsors page: inquiry only — no published prices, no promised reach, exclusivity or placement", () => {
@@ -198,7 +218,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-fund-faq|mk-home-section\.mk-fund-faq)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-fund-faq|mk-home-section\.mk-fund-faq|mk-phero|mk-pclose)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);

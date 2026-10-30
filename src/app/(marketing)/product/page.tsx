@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { LinkButton } from "@/components/marketing/Button";
 import { StoreBadges } from "@/components/marketing/StoreBadges";
 import { TeamAppSimulator } from "@/components/marketing/demo/TeamAppSimulator";
@@ -7,6 +8,9 @@ import { TeamAppSimulator } from "@/components/marketing/demo/TeamAppSimulator";
 // to live here moved, unchanged, to /how-it-works). Every feature listed
 // exists in the production app; the simulator runs on fictional data in the
 // visitor's browser only (see TeamAppSimulator.tsx).
+//
+// Layout and type follow the approved /fundraising direction (Variation A
+// Inter headings, .mk-fhero hero, numbered .mk-fbenefit grid, 12px buttons).
 
 export const metadata: Metadata = {
   title: "The Free ELF Team App | Elite Level Fundraising",
@@ -36,37 +40,47 @@ const FEATURES = [
 export default function TeamAppPage() {
   return (
     <>
-      <div className="mk-page-hero mk-product-hero mk-app-hero">
-        <div className="mk-container mk-product-hero-grid">
-          <div>
+      <section className="mk-fhero mk-phero" aria-labelledby="mk-phero-title">
+        <div className="mk-container mk-fhero-grid">
+          <div className="mk-fhero-copy">
             <span className="mk-free-pill">Free for every team &middot; No fundraiser required</span>
-            <h1 className="mk-display">
-              The free Team App built for your <span className="mk-marker-underline">entire program.</span>
+            <h1 id="mk-phero-title" className="mk-fhero-title">
+              One team. One app.<br /> Everything connected.
             </h1>
+            <span className="mk-fhero-rule" aria-hidden="true" />
             <p>
-              Announcements, messages, calendar, attendance and roster for coaches, athletes and
-              parents &mdash; in one app. The ELF Team App is free for every team, whether or not you
-              run a fundraiser.
+              Bring coaches, athletes and parents together with messaging, schedules, attendance and
+              team updates &mdash; all in one free app.
             </p>
-            <div className="mk-offer-actions">
+            <div className="mk-fhero-actions">
               <LinkButton href="#simulator" size="lg">Try the Interactive Demo</LinkButton>
-              <a href="/demo" className="mk-text-link">Get your team set up &rarr;</a>
+              <a href="/demo" className="mk-fhero-link">Get your team set up <span aria-hidden="true">&rarr;</span></a>
             </div>
             <StoreBadges />
           </div>
-          <ul className="mk-app-hero-points" aria-label="Who it's for">
-            <li><strong>Coaches</strong><span>Run the team from one place.</span></li>
-            <li><strong>Athletes</strong><span>Know what&rsquo;s next, every day.</span></li>
-            <li><strong>Parents</strong><span>Stay in the loop, without group-text chaos.</span></li>
-          </ul>
+          <figure className="mk-phero-shot">
+            <div className="mk-phone-frame">
+              {/* The real ELF Team App (Team Communications screen of the
+                  Riverside sample program) — not a mock-up. */}
+              <Image
+                src="/marketing/communications.png"
+                alt="The real ELF Team App: the Team Communications screen with coach announcements about practice and an away game"
+                width={720}
+                height={900}
+                priority
+                sizes="(max-width: 900px) 70vw, 320px"
+              />
+            </div>
+            <figcaption className="mk-fhero-caption">The real ELF Team App. Riverside High School is a sample program.</figcaption>
+          </figure>
         </div>
-      </div>
+      </section>
 
       <section id="simulator" className="mk-home-section mk-home-alt mk-sim-section" aria-labelledby="mk-sim-title">
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">Interactive demo</span>
-            <h2 id="mk-sim-title" className="mk-display mk-home-title">Try the app as a coach, athlete or parent.</h2>
+            <h2 id="mk-sim-title" className="mk-va-title">See how your team stays connected.</h2>
             <p>
               Pick a role and tap around. It runs on a fictional team, right in your browser &mdash;
               nothing is sent or saved.
@@ -76,49 +90,42 @@ export default function TeamAppPage() {
         </div>
       </section>
 
-      <section className="mk-home-section" aria-labelledby="mk-app-features">
+      <section className="mk-fbenefits mk-pfeatures" aria-labelledby="mk-app-features">
         <div className="mk-container">
-          <div className="mk-home-head">
+          <div className="mk-fbenefits-head">
             <span className="mk-eyebrow">What&rsquo;s inside</span>
-            <h2 id="mk-app-features" className="mk-display mk-home-title">Everything your team runs on.</h2>
+            <h2 id="mk-app-features" className="mk-fbenefits-title">Everything your team needs, in one place.</h2>
           </div>
-          <ul className="mk-benefit-grid">
-            {FEATURES.map((f) => (
-              <li key={f.title} className="mk-benefit">
-                <h3>{f.title}</h3>
-                <p>{f.copy}</p>
+          {/* Ten features: two even columns (five rows) on desktop and tablet,
+              one column on phones — never a lone item on a last row. */}
+          <ol className="mk-fbenefit-grid mk-fbenefit-grid-2">
+            {FEATURES.map((f, i) => (
+              <li key={f.title} className="mk-fbenefit">
+                <span className="mk-fbenefit-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mk-fbenefit-rule" aria-hidden="true" />
+                <div>
+                  <h3>{f.title}</h3>
+                  <p>{f.copy}</p>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       </section>
 
-      <section className="mk-home-section mk-home-partners" aria-labelledby="mk-app-free">
-        <div className="mk-container mk-partners-band">
-          <div>
-            <span className="mk-eyebrow mk-eyebrow-on-dark">Free for every team</span>
-            <h2 id="mk-app-free" className="mk-home-title-sm">No fundraiser required. Really.</h2>
-            <p>
-              Any team can use the ELF Team App for free. If your program decides to raise money,
-              ELF Fundraising plugs right into the same app &mdash; but it&rsquo;s never a condition
-              of using it.
-            </p>
-          </div>
-          <div className="mk-partners-actions">
-            <StoreBadges tone="light" />
-            <a href="/fundraising" className="mk-text-link mk-text-link-on-dark">Learn about ELF Fundraising &rarr;</a>
-          </div>
-        </div>
-      </section>
-
-      <section className="mk-section mk-cta-band">
+      <section className="mk-section mk-cta-band mk-pclose" aria-labelledby="mk-app-close">
         <div className="mk-container-narrow">
-          <h2>Get your team on the free ELF Team App.</h2>
-          <p>We&rsquo;ll set up your team page, coach account and roster, then help you invite your families.</p>
+          <span className="mk-eyebrow mk-eyebrow-on-dark">Free for every team</span>
+          <h2 id="mk-app-close">Your team deserves a better way to stay connected.</h2>
+          <p>
+            The ELF Team App is free for every team &mdash; no fundraiser required. If your program
+            decides to raise money, ELF Fundraising plugs right into the same app.
+          </p>
           <div className="mk-final-actions">
             <LinkButton href="/demo" variant="yellow" size="lg">Get Started Free</LinkButton>
-            <LinkButton href="/how-it-works" variant="outline" size="lg" className="mk-btn-on-dark">See How ELF Works</LinkButton>
+            <LinkButton href="/fundraising" variant="outline" size="lg" className="mk-btn-on-dark">Learn About ELF Fundraising</LinkButton>
           </div>
+          <StoreBadges tone="light" className="mk-pclose-badges" />
         </div>
       </section>
     </>
