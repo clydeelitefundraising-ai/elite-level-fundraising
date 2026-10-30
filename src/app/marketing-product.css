@@ -576,7 +576,7 @@
 .mk-fbenefit { display: grid; grid-template-columns: auto 28px minmax(0, 1fr); column-gap: var(--mk-space-5); align-items: start; }
 .mk-fbenefit-num { font-family: var(--mk-font-display); font-size: 3.5rem; line-height: 0.9; color: #CFC9C0; min-width: 2ch; }
 .mk-fbenefit-rule { display: block; height: 2px; background: var(--mk-orange); margin-top: 1.55rem; }
-.mk-root .mk-fbenefit h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; margin: 0.2rem 0 var(--mk-space-2); }
+.mk-root .mk-fbenefit h3 { font-size: 1.175rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; margin: 0.2rem 0 var(--mk-space-2); }
 .mk-root .mk-fbenefit p { font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); max-width: 36ch; margin: 0; }
 @media (max-width: 1080px) {
   .mk-fbenefit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -589,4 +589,17 @@
   .mk-fbenefit { grid-template-columns: auto 22px minmax(0, 1fr); column-gap: var(--mk-space-4); }
   .mk-fbenefit-num { font-size: 2.75rem; }
   .mk-fbenefit-rule { margin-top: 1.2rem; }
+}
+/* The mockup runs edge-to-edge with ~5.5% side margins rather than the
+   1120px content column the rest of the site uses. */
+.mk-fhero .mk-container,
+.mk-fbenefits .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+/* Keep "Book a Free Demo" and "Explore a Sample Fundraiser" side by side on
+   common laptop widths (as in the mockup): equal columns and one step
+   smaller button/link text below 1500px. They stack naturally on tablets. */
+@media (max-width: 1500px) and (min-width: 901px) {
+  .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .mk-fhero-actions { column-gap: var(--mk-space-6); }
+  .mk-fhero-actions .mk-btn-lg { padding: 0 var(--mk-space-8); font-size: var(--mk-text-base); }
+  .mk-fhero-link { font-size: var(--mk-text-base); }
 }

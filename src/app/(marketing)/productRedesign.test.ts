@@ -177,7 +177,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
