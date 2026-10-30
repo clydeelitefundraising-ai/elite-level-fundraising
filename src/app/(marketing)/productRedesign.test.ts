@@ -61,13 +61,20 @@ test("/fundraising: current campaign screenshot up top; the 'Every dollar, visib
     assert.ok(!page.includes(gone), `still on /fundraising: ${gone}`);
   }
   // Hero copy and calls to action unchanged (editorial layout from the approved mockup).
-  assert.match(page, /<Heading id=\{titleId\} className="mk-display mk-fhero-title">\s*Raise more<br \/> for the season\.\s*<\/Heading>/);
-  assert.match(page, /<FundraisingHero \/>\s*<FundraisingBenefits \/>/, "/fundraising renders the shared sections with default ids and an h1");
-  // Temporary typography review route: same components, never indexed.
-  const review = read(`${MK}/fundraising/typography/page.tsx`);
-  assert.match(review, /robots: \{ index: false, follow: false \}/);
-  assert.match(read("src/app/robots.ts"), /"\/fundraising\/typography"/);
-  assert.ok(!read("src/app/sitemap.ts").includes("/fundraising/typography"));
+  assert.match(page, /<h1 id="mk-fhero-title" className="mk-fhero-title">\s*Raise more<br \/> for the season\.\s*<\/h1>/);
+  assert.match(page, /<FundraisingHero \/>\s*<FundraisingBenefits \/>/, "/fundraising renders the shared sections");
+});
+
+test("/fundraising typography: approved Variation A (Inter 700, sentence case) and Inter benefit numerals; review page removed", () => {
+  const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
+  assert.ok(!/mk-display[^"]*mk-(fhero|fbenefits)-title|mk-(fhero|fbenefits)-title[^"]*mk-display/.test(page), "no condensed display face on the two headlines");
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-root \.mk-fhero-title,\s*\.mk-root \.mk-fbenefits-title \{\s*font-family: inherit;\s*font-size: clamp\(2\.75rem, 4\.7vw, 4\.5rem\);\s*font-weight: 700;\s*letter-spacing: -0\.04em;\s*line-height: 1\.02;\s*text-transform: none;/);
+  assert.match(css, /\.mk-fbenefit-num \{ font-family: inherit; font-weight: 500;[^}]*font-size: 3\.5rem;[^}]*color: #CFC9C0;/);
+  // The temporary comparison page and its styles are gone.
+  assert.ok(!existsSync(join(ROOT, MK, "fundraising", "typography")));
+  assert.ok(!/mk-typo/.test(css));
+  assert.ok(!read("src/app/robots.ts").includes("/fundraising/typography"));
   assert.match(page, /Give every athlete a role in your team&rsquo;s success\. ELF brings personal fundraising\s+pages, live progress tracking, and secure online donations together&mdash;making it\s+easier to raise the resources your program needs\./);
   assert.match(page, /<LinkButton href="\/demo" size="lg">Book a Free Demo<\/LinkButton>/);
   assert.match(page, /<a href="#preview" className="mk-fhero-link">Explore a Sample Fundraiser <span aria-hidden="true">&rarr;<\/span><\/a>/);
@@ -183,7 +190,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-typo-label)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
