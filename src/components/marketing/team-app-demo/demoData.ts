@@ -161,7 +161,9 @@ export function buildDemoAnnouncements(now: Date): AnnouncementRow[] {
       category: a.category,
       priority: a.priority,
       author_name: "Dana Whitfield",
-      author_role: "head_coach",
+      // Stored as the display label, exactly as the announcements API does
+      // (staffRoleLabel(role)) — so the card renders the same role chip.
+      author_role: "Head Coach",
       recipient_scope: a.recipient_scope,
       recipient_athlete_id: null,
       created_at: at,

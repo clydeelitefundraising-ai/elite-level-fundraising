@@ -290,6 +290,9 @@ test("roles: announcement audiences follow the app's own visibility rule", () =>
   assert.ok(titles("athlete").some((t) => t.startsWith("Athletes:")) && !titles("athlete").some((t) => t.startsWith("Parents:")));
   assert.ok(titles("parent").some((t) => t.startsWith("Parents:")) && !titles("parent").some((t) => t.startsWith("Athletes:")));
   assert.equal(all.filter((a) => a.priority === "pinned").length, 1);
+  // author_role is stored as the label (announcements/route.ts: author_role: authorRole = staffRoleLabel(...)).
+  assert.match(read("src/app/api/team/[slug]/announcements/route.ts"), /const authorRole\s+= actor\.kind === "platform_admin" \? platformAdminRoleLabel\(\) : staffRoleLabel\(actor\.session\.role\);/);
+  assert.ok(all.every((a) => a.author_role === "Head Coach"));
 });
 
 test("roles: the demo shell shows the bell to members only and Partners to every signed-in role, like layout.tsx", () => {
