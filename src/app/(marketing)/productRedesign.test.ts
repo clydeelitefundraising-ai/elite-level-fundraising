@@ -54,14 +54,20 @@ test("/how-it-works carries the nine-stage walkthrough unchanged from the old /p
 });
 
 test("/fundraising: current campaign screenshot up top; the 'Every dollar, visible.' section is gone", () => {
-  const page = read(`${MK}/fundraising/page.tsx`);
+  const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /src="\/marketing\/fundraiser-campaign-current\.png"/);
   assert.ok(existsSync(join(ROOT, "public/marketing/fundraiser-campaign-current.png")));
   for (const gone of ["Every dollar, visible.", "/marketing/campaign-hero.png", "/marketing/leaderboard.png", "mk-fund-support", "Riverside"]) {
     assert.ok(!page.includes(gone), `still on /fundraising: ${gone}`);
   }
   // Hero copy and calls to action unchanged (editorial layout from the approved mockup).
-  assert.match(page, /<h1 id="mk-fhero-title" className="mk-display mk-fhero-title">\s*Raise more<br \/> for the season\.\s*<\/h1>/);
+  assert.match(page, /<Heading id=\{titleId\} className="mk-display mk-fhero-title">\s*Raise more<br \/> for the season\.\s*<\/Heading>/);
+  assert.match(page, /<FundraisingHero \/>\s*<FundraisingBenefits \/>/, "/fundraising renders the shared sections with default ids and an h1");
+  // Temporary typography review route: same components, never indexed.
+  const review = read(`${MK}/fundraising/typography/page.tsx`);
+  assert.match(review, /robots: \{ index: false, follow: false \}/);
+  assert.match(read("src/app/robots.ts"), /"\/fundraising\/typography"/);
+  assert.ok(!read("src/app/sitemap.ts").includes("/fundraising/typography"));
   assert.match(page, /Give every athlete a role in your team&rsquo;s success\. ELF brings personal fundraising\s+pages, live progress tracking, and secure online donations together&mdash;making it\s+easier to raise the resources your program needs\./);
   assert.match(page, /<LinkButton href="\/demo" size="lg">Book a Free Demo<\/LinkButton>/);
   assert.match(page, /<a href="#preview" className="mk-fhero-link">Explore a Sample Fundraiser <span aria-hidden="true">&rarr;<\/span><\/a>/);
@@ -69,7 +75,7 @@ test("/fundraising: current campaign screenshot up top; the 'Every dollar, visib
 });
 
 test("/fundraising benefits: numbered 01–06 editorial grid, no cards, approved copy kept", () => {
-  const page = read(`${MK}/fundraising/page.tsx`);
+  const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /<ol className="mk-fbenefit-grid">/);
   assert.match(page, /String\(i \+ 1\)\.padStart\(2, "0"\)/);
   assert.ok(!/mk-benefit-grid|className="mk-benefit"/.test(page), "the old bordered cards are gone from /fundraising");
@@ -84,7 +90,7 @@ test("/fundraising benefits: numbered 01–06 editorial grid, no cards, approved
 });
 
 test("/fundraising 'How ELF fundraising works': editorial four-step timeline, accurate step 1", () => {
-  const page = read(`${MK}/fundraising/page.tsx`);
+  const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /How ELF fundraising works/);
   assert.match(page, /We make fundraising simple\./);
   const steps = [...page.matchAll(/\{ num: "(0\d)", title: "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
@@ -101,7 +107,7 @@ test("/fundraising 'How ELF fundraising works': editorial four-step timeline, ac
 });
 
 test("/fundraising sample-fundraiser intro: new copy, sans-serif sentence-case headline, disclosure kept", () => {
-  const page = read(`${MK}/fundraising/page.tsx`);
+  const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /<span className="mk-eyebrow">See ELF in action<\/span>/);
   assert.match(page, /<h2 id="mk-fund-preview" className="mk-fp-title">Your team\. Your fundraiser\.<\/h2>/);
   assert.match(page, /See what fundraising with ELF looks like\. Explore a sample campaign, switch between team\s+and athlete pages, and experience the platform your supporters will use\./);
@@ -177,7 +183,7 @@ test("the redesign stylesheet never restyles a class the existing marketing page
   const rules = (f: string) => strip(read(f)).split("}").map((r) => r.split("{")[0]).filter((s) => s && !s.includes("@"))
     .flatMap((s) => s.split(",").map((p) => p.trim())).filter(Boolean);
   const existing = new Set(rules("src/app/marketing.css").flatMap((s) => (s.match(/\.(mk-[a-z0-9-]+)/g) ?? []).map((c) => c.slice(1))));
-  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits)\b/;
+  const scopedBy = /^\.(mk-btn-on-dark|mk-form-card|mk-gate-card|mk-page-hero|mk-root|mk-nav-links|mk-fhero-actions|mk-fhero|mk-fbenefits|mk-typo-label)\b/;
   for (const sel of rules("src/app/marketing-product.css")) {
     const target = (sel.match(/\.(mk-[a-z0-9-]+)/g) ?? []).pop()?.slice(1);
     if (target && existing.has(target)) assert.ok(scopedBy.test(sel), `marketing-product.css restyles existing .${target}: "${sel}"`);
