@@ -66,7 +66,7 @@ export default function FundraisingPage() {
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">How ELF fundraising works</span>
-            <h2 id="mk-fund-process" className="mk-display mk-home-title">We make fundraising simple.</h2>
+            <h2 id="mk-fund-process" className="mk-va-title">We make fundraising simple.</h2>
             <p>
               From launching your campaign to tracking every donation, ELF gives your program a
               straightforward way to raise more with less work.
@@ -88,7 +88,7 @@ export default function FundraisingPage() {
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">FAQ</span>
-            <h2 id="mk-fund-faq" className="mk-display mk-home-title">Fundraising questions.</h2>
+            <h2 id="mk-fund-faq" className="mk-va-title">Fundraising questions.</h2>
           </div>
           <FaqList items={FAQS} />
         </div>

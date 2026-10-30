@@ -69,7 +69,15 @@ test("/fundraising typography: approved Variation A (Inter 700, sentence case) a
   const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.ok(!/mk-display[^"]*mk-(fhero|fbenefits)-title|mk-(fhero|fbenefits)-title[^"]*mk-display/.test(page), "no condensed display face on the two headlines");
   const css = read("src/app/marketing-product.css");
-  assert.match(css, /\.mk-root \.mk-fhero-title,\s*\.mk-root \.mk-fbenefits-title \{\s*font-family: inherit;\s*font-size: clamp\(2\.75rem, 4\.7vw, 4\.5rem\);\s*font-weight: 700;\s*letter-spacing: -0\.04em;\s*line-height: 1\.02;\s*text-transform: none;/);
+  assert.match(css, /\.mk-root \.mk-fhero-title,\s*\.mk-root \.mk-fbenefits-title,\s*\.mk-root \.mk-va-title \{\s*font-family: inherit;\s*font-size: clamp\(2\.75rem, 4\.7vw, 4\.5rem\);\s*font-weight: 700;\s*letter-spacing: -0\.04em;\s*line-height: 1\.02;\s*text-transform: none;/);
+  // Timeline and FAQ headlines share the same Variation A treatment; copy unchanged.
+  assert.match(page, /<h2 id="mk-fund-process" className="mk-va-title">We make fundraising simple\.<\/h2>/);
+  assert.match(page, /<h2 id="mk-fund-faq" className="mk-va-title">Fundraising questions\.<\/h2>/);
+  // Timeline 01–04 numerals in Inter 500 (positions/markers unchanged).
+  assert.match(css, /\.mk-timeline-num \{\s*display: block;\s*font-family: inherit;\s*font-weight: 500;/);
+  // No condensed display face left on any /fundraising section headline (the final CTA was already Inter).
+  assert.ok(!/<h[12][^>]*mk-display/.test(read(`${MK}/fundraising/page.tsx`)), "no mk-display headings on /fundraising");
+  assert.match(read(`${MK}/fundraising/page.tsx`), /<h2>See a fundraiser built around your sport\.<\/h2>/);
   assert.match(css, /\.mk-fbenefit-num \{ font-family: inherit; font-weight: 500;[^}]*font-size: 3\.5rem;[^}]*color: #CFC9C0;/);
   // The temporary comparison page and its styles are gone.
   assert.ok(!existsSync(join(ROOT, MK, "fundraising", "typography")));

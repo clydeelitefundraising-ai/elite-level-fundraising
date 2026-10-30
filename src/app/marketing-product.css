@@ -474,10 +474,11 @@
 }
 .mk-timeline-num {
   display: block;
-  font-family: var(--mk-font-display);
-  font-size: clamp(3.25rem, 5vw, 4.5rem);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: clamp(2.75rem, 4.2vw, 3.5rem);
   line-height: 0.9;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.04em;
   color: var(--mk-ink);
   margin-bottom: var(--mk-space-4);
 }
@@ -531,9 +532,11 @@
 .mk-fhero { background: #FFFFFF; padding: var(--mk-space-16) 0 var(--mk-space-16); }
 .mk-fhero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: var(--mk-space-16); align-items: start; }
 /* Approved typography (Variation A — Modern Athletic): Inter 700, sentence
-   case, tight tracking. Same size scale for both /fundraising headlines. */
+   case, tight tracking. One size scale for every /fundraising section
+   headline (.mk-va-title: timeline and FAQ). */
 .mk-root .mk-fhero-title,
-.mk-root .mk-fbenefits-title {
+.mk-root .mk-fbenefits-title,
+.mk-root .mk-va-title {
   font-family: inherit;
   font-size: clamp(2.75rem, 4.7vw, 4.5rem);
   font-weight: 700;
