@@ -212,9 +212,13 @@ function fakeWindow(origin = "https://elf.example") {
     WebSocket: class {},
     EventSource: class {},
     console: { warn: () => {} },
+    open: () => ({}),
+    listeners: {} as Record<string, (e: { target?: unknown; preventDefault: () => void }) => void>,
+    document: undefined as unknown,
     URL,
     __ELF_DEMO_BLOCKED__: undefined as string[] | undefined,
   };
+  win.document = { addEventListener: (type: string, fn: (e: { target?: unknown; preventDefault: () => void }) => void, capture: boolean) => { assert.equal(capture, true); win.listeners[type] = fn; } };
   return { win, calls };
 }
 
@@ -238,6 +242,20 @@ test("network guard (as the inline script): blocks API, app routes, other origin
   assert.throws(() => new (win.EventSource as unknown as new (u: string) => unknown)("/api/stream"), TypeError);
   assert.deepEqual(calls, ["/_next/static/chunks/app.js", "https://elf.example/marketing/demo/sunridge-comets-logo.svg"]);
   assert.equal(win.__ELF_DEMO_BLOCKED__!.length, 11);
+});
+
+test("guard: before hydration, no link click, middle-click or form submit can navigate, and window.open is refused", () => {
+  const { win } = fakeWindow();
+  runInNewContext(DEMO_NETWORK_GUARD_SCRIPT, { window: win, URL, Promise, TypeError, String });
+  const fire = (type: string, target: unknown) => { let prevented = false; win.listeners[type]({ target, preventDefault: () => { prevented = true; } }); return prevented; };
+  const insideLink = { closest: (sel: string) => (sel === "a[href]" ? { href: "/team/x/home" } : null) };
+  const plain = { closest: () => null };
+  assert.equal(fire("click", insideLink), true);
+  assert.equal(fire("auxclick", insideLink), true);
+  assert.equal(fire("click", plain), false, "ordinary buttons keep working");
+  assert.equal(fire("submit", plain), true);
+  assert.equal((win.open as (u: string) => unknown)("https://example.com"), null);
+  assert.ok(win.__ELF_DEMO_BLOCKED__!.some((b) => b.startsWith("window.open")));
 });
 
 test("network guard: the inlined allow-list matches the exported one", () => {

@@ -12,6 +12,12 @@
 //            origin, any non-GET method, sendBeacon, WebSocket and
 //            EventSource
 //
+// It also cancels every link click and form submit from the very first
+// paint: the header and bottom nav are server-rendered anchors, and until
+// React hydrates and TeamAppDemo's own handler takes over (mapping links to
+// demo tabs) a tap must never navigate to a real /team route. window.open
+// is refused too.
+//
 // Blocked attempts are recorded on window.__ELF_DEMO_BLOCKED__ so the
 // visual-validation run can assert that none happened.
 //
@@ -28,6 +34,8 @@ type GuardWindow = {
   WebSocket?: unknown;
   EventSource?: unknown;
   console?: { warn: (...args: unknown[]) => void };
+  open?: (...args: unknown[]) => unknown;
+  document?: { addEventListener: (type: string, fn: (e: { target?: unknown; preventDefault: () => void }) => void, capture: boolean) => void };
   __ELF_DEMO_BLOCKED__?: string[];
 };
 
@@ -80,6 +88,18 @@ export function installDemoNetworkGuard(win: GuardWindow): void {
   }
   if (win.navigator && win.navigator.sendBeacon) {
     win.navigator.sendBeacon = function (url: unknown) { deny("beacon " + String(url)); return false; };
+  }
+  if (win.open) {
+    win.open = function (url: unknown) { deny("window.open " + String(url)); return null; };
+  }
+  if (win.document) {
+    const cancelLink = (e: { target?: unknown; preventDefault: () => void }) => {
+      const t = e.target as { closest?: (sel: string) => unknown } | null | undefined;
+      if (t && typeof t.closest === "function" && t.closest("a[href]")) e.preventDefault();
+    };
+    win.document.addEventListener("click", cancelLink, true);
+    win.document.addEventListener("auxclick", cancelLink, true);
+    win.document.addEventListener("submit", (e) => e.preventDefault(), true);
   }
   for (const name of ["WebSocket", "EventSource"] as const) {
     if (win[name]) {
