@@ -329,7 +329,7 @@
 .mk-sim-blurb { font-size: var(--mk-text-lg); color: var(--mk-ink-2); max-width: 46ch; }
 .mk-sim-try { font-size: var(--mk-text-sm); color: var(--mk-muted); padding: var(--mk-space-3) var(--mk-space-4); border-left: 3px solid var(--mk-orange); background: var(--mk-paper); max-width: 46ch; }
 .mk-sim-try strong { color: var(--mk-ink); }
-.mk-sim-reset { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 var(--mk-space-4); border: var(--mk-border-width) solid var(--mk-line-strong); border-radius: 4px; background: transparent; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; }
+.mk-sim-reset { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 var(--mk-space-4); border: var(--mk-border-width) solid var(--mk-line-strong); border-radius: var(--mk-btn-radius); background: transparent; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; }
 .mk-sim-reset:hover { border-color: var(--mk-ink); }
 .mk-sim-fine { font-size: var(--mk-text-xs); color: var(--mk-muted); max-width: 46ch; }
 @media (max-width: 900px) {
@@ -627,17 +627,14 @@
   .mk-fbenefit-rule { margin-top: 1.33rem; }
 }
 
-/* ── Buttons: 12px radius (approved premium minimalist direction) ──
-   Applies to the shared .mk-btn in the marketing nav (site-wide Get Started)
-   and on /fundraising. Other pages keep the default radius for now. The
-   site-wide focus ring otherwise forces 2px corners, so it keeps 12px too;
-   colors, type, padding and hover fills are the existing ones. */
-.mk-nav-actions,
-.mk-mobile-panel,
-.mk-page-fundraising { --mk-btn-radius: 12px; }
-.mk-root .mk-nav-actions .mk-btn:focus-visible,
-.mk-root .mk-mobile-panel .mk-btn:focus-visible,
-.mk-root .mk-page-fundraising .mk-btn:focus-visible { border-radius: var(--mk-btn-radius); }
-.mk-page-fundraising .mk-btn-primary:active,
-.mk-page-fundraising .mk-btn-yellow:active,
-.mk-nav-actions .mk-btn-primary:active { filter: brightness(0.96); }
+/* ── Buttons: 12px radius across the marketing site (approved premium
+   minimalist direction). Every marketing CTA and form submit is the shared
+   .mk-btn (LinkButton / SubmitButton / nav Get Started). The site-wide
+   focus ring otherwise forces 2px corners, so it keeps 12px too; colors,
+   type, padding and hover fills are the existing ones. Text links
+   (.mk-text-link, .mk-fhero-link) are not buttons and are unaffected. */
+.mk-root { --mk-btn-radius: 12px; }
+.mk-root .mk-btn:focus-visible { border-radius: var(--mk-btn-radius); }
+.mk-root .mk-btn-primary:active,
+.mk-root .mk-btn-yellow:active,
+.mk-root .mk-btn-dark:active { filter: brightness(0.96); }
