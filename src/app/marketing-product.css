@@ -504,3 +504,24 @@
   }
 }
 @keyframes mk-timeline-mark { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* ── /fundraising: sample fundraiser introduction ("See ELF in action") ──
+   Clean athletic editorial: the site's own Inter at 800, sentence case and
+   tight tracking instead of the condensed display face. Only the intro —
+   the preview controls and frames below are untouched. */
+.mk-fp-intro { max-width: 720px; margin-bottom: var(--mk-space-12); }
+.mk-root .mk-fp-title {
+  font-family: inherit;
+  font-size: clamp(2.25rem, 4.4vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-transform: none;
+  color: var(--mk-ink);
+  margin: var(--mk-space-1) 0 var(--mk-space-5);
+}
+.mk-root .mk-fp-intro p { max-width: 56ch; font-size: var(--mk-text-lg); line-height: var(--mk-leading-body); color: var(--mk-muted); margin: 0; }
+@media (max-width: 640px) {
+  .mk-fp-intro { margin-bottom: var(--mk-space-8); }
+  .mk-root .mk-fp-intro p { font-size: var(--mk-text-base); }
+}

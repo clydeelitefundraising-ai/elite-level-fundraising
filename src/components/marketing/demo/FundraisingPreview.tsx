@@ -48,7 +48,7 @@ export function FundraisingPreview({ gateEnabled }: { gateEnabled: boolean }) {
   return (
     <div className="mk-fp">
       <div className="mk-fp-toolbar">
-        <span className="mk-fp-badge">Sample fundraiser · fictional team</span>
+        <span className="mk-fp-badge">Live product preview</span>
         <div className="mk-seg" role="group" aria-label="Page to preview">
           <button type="button" aria-pressed={view === "team"} onClick={() => setView("team")}>Team page</button>
           <button type="button" aria-pressed={view === "athlete"} onClick={() => setView("athlete")}>Athlete page</button>

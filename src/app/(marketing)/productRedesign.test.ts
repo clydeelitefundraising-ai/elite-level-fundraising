@@ -83,6 +83,20 @@ test("/fundraising 'How ELF fundraising works': editorial four-step timeline, ac
   assert.match(css, /prefers-reduced-motion: no-preference\) \{\s*@supports \(animation-timeline: view\(\)\)/);
 });
 
+test("/fundraising sample-fundraiser intro: new copy, sans-serif sentence-case headline, disclosure kept", () => {
+  const page = read(`${MK}/fundraising/page.tsx`);
+  assert.match(page, /<span className="mk-eyebrow">See ELF in action<\/span>/);
+  assert.match(page, /<h2 id="mk-fund-preview" className="mk-fp-title">Your team\. Your fundraiser\.<\/h2>/);
+  assert.match(page, /See what fundraising with ELF looks like\. Explore a sample campaign, switch between team\s+and athlete pages, and experience the platform your supporters will use\./);
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-root \.mk-fp-title \{[^}]*font-family: inherit;[^}]*font-weight: 800;[^}]*text-transform: none;/);
+  const ui = read("src/components/marketing/demo/FundraisingPreview.tsx");
+  assert.match(ui, /<span className="mk-fp-badge">Live product preview<\/span>/);
+  // The fictional-team disclosure stays visible: under the preview and inside it.
+  assert.match(ui, /<p className="mk-fp-note">\s*\{SAMPLE_NOTICE\}/);
+  assert.match(read("src/app/preview/fundraiser/page.tsx"), /Preview · \{SAMPLE_NOTICE\} Donations are turned off\./);
+});
+
 test("/product is now the free Team App page with the simulator", () => {
   const page = read(`${MK}/product/page.tsx`);
   assert.match(page, /The free Team App built for your <span className="mk-marker-underline">entire program\.<\/span>/);

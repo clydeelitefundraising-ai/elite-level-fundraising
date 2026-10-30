@@ -110,12 +110,12 @@ export default function FundraisingPage() {
 
       <section id="preview" className="mk-home-section mk-home-alt mk-fp-section" aria-labelledby="mk-fund-preview">
         <div className="mk-container">
-          <div className="mk-home-head">
-            <span className="mk-eyebrow">Interactive preview</span>
-            <h2 id="mk-fund-preview" className="mk-display mk-home-title">Explore a sample fundraiser.</h2>
+          <div className="mk-home-head mk-fp-intro">
+            <span className="mk-eyebrow">See ELF in action</span>
+            <h2 id="mk-fund-preview" className="mk-fp-title">Your team. Your fundraiser.</h2>
             <p>
-              This is the real ELF campaign page, filled with a fictional team. Switch between the team
-              page and an athlete&rsquo;s page, and between phone and desktop.
+              See what fundraising with ELF looks like. Explore a sample campaign, switch between team
+              and athlete pages, and experience the platform your supporters will use.
             </p>
           </div>
           <FundraisingPreview gateEnabled={GATE_ENABLED} />
