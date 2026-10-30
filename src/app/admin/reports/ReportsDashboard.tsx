@@ -141,7 +141,7 @@ function ReportCard({ report }: { report: (ReportSection & { entityLabel?: strin
       </div>
 
       {/* Key Metrics */}
-      <section style={{ marginBottom: "1.5rem" }}>
+      <section className="adm-section" style={{ marginBottom: "1.5rem" }}>
         <div style={sectionLabel}>Key Metrics</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: ".9rem" }}>
           {report.metrics.map(m => (
@@ -156,7 +156,7 @@ function ReportCard({ report }: { report: (ReportSection & { entityLabel?: strin
 
       {/* Charts */}
       {report.charts.length > 0 && (
-        <section style={{ marginBottom: "1.5rem" }}>
+        <section className="adm-section" style={{ marginBottom: "1.5rem" }}>
           <div style={sectionLabel}>Charts</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1rem" }}>
             {report.charts.map(c => <BarChart key={c.title} title={c.title} bars={c.bars} maxValue={c.maxValue} />)}
@@ -166,13 +166,13 @@ function ReportCard({ report }: { report: (ReportSection & { entityLabel?: strin
 
       {/* Insights + Recommendations */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
-        <section>
+        <section className="adm-section">
           <div style={sectionLabel}>Insights</div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
             {report.insights.map((i, idx) => <InsightRow key={idx} insight={i} />)}
           </div>
         </section>
-        <section>
+        <section className="adm-section">
           <div style={sectionLabel}>Recommended Actions</div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
             {report.recommendations.map((r, idx) => <RecommendationRow key={idx} rec={r} />)}
@@ -182,7 +182,7 @@ function ReportCard({ report }: { report: (ReportSection & { entityLabel?: strin
 
       {/* Detail tables */}
       {report.detail && Object.entries(report.detail).map(([name, rows]) => rows.length > 0 && (
-        <section key={name} style={{ marginBottom: "1.5rem" }}>
+        <section className="adm-section" key={name} style={{ marginBottom: "1.5rem" }}>
           <div style={sectionLabel}>{name}</div>
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
             {rows.map((row, idx) => (

@@ -159,7 +159,7 @@ export default function ExecutiveDashboard({ data }: Props) {
       </div>
 
       {/* Executive Summary — KPIs */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Executive Summary</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: ".9rem" }}>
           <KpiCard label="Total Campaigns"     value={kpis.totalCampaigns}                     icon="🏕" />
@@ -181,7 +181,7 @@ export default function ExecutiveDashboard({ data }: Props) {
       </section>
 
       {/* Business Health */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Business Health</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
 
@@ -238,7 +238,7 @@ export default function ExecutiveDashboard({ data }: Props) {
       </section>
 
       {/* Revenue Forecast */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Revenue Forecast <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>— estimated from current pace, not guaranteed</span></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: ".9rem" }}>
           <KpiCard label="Projected Campaign Revenue" value={money(forecast.projectedCampaignRevenueCents)} icon="📉" sublabel="Estimate" />
@@ -249,7 +249,7 @@ export default function ExecutiveDashboard({ data }: Props) {
       </section>
 
       {/* Sponsor Intelligence Summary */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Sponsor Intelligence Summary</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
           <div style={cardStyle}>
@@ -285,14 +285,14 @@ export default function ExecutiveDashboard({ data }: Props) {
       {/* Executive Insights + Timeline */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", alignItems: "start" }}>
 
-        <section>
+        <section className="adm-section">
           <div style={sectionLabel}>Executive Insights</div>
           <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
             {insights.map((insight, i) => <InsightRow key={i} insight={insight} />)}
           </div>
         </section>
 
-        <section>
+        <section className="adm-section">
           <div style={sectionLabel}>Executive Timeline</div>
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "0 1rem" }}>
             {timeline.length === 0 ? (

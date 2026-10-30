@@ -158,7 +158,7 @@ export default function AutomationView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Open Events"    value={summary.open}          icon="⚡" />
@@ -170,7 +170,7 @@ export default function AutomationView({ data }: Props) {
       </section>
 
       {/* Job run summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Run History Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Last Run Status" value={jobSummary.lastRunStatus ?? "—"} icon="🏁" />
@@ -181,7 +181,7 @@ export default function AutomationView({ data }: Props) {
       </section>
 
       {/* Filter */}
-      <section style={{ marginBottom: "1rem" }}>
+      <section className="adm-section" style={{ marginBottom: "1rem" }}>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as AutomationStatus | "all")}
           style={{ padding: ".5rem .75rem", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: ".85rem", fontFamily: "inherit" }}>
           <option value="open">Open</option>
@@ -192,7 +192,7 @@ export default function AutomationView({ data }: Props) {
       </section>
 
       {/* Table */}
-      <section>
+      <section className="adm-section">
         <div style={sectionLabel}>Events ({filtered.length})</div>
         {filtered.length === 0 ? (
           <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: 10, padding: "2.5rem 1rem", textAlign: "center" }}>
@@ -236,7 +236,7 @@ export default function AutomationView({ data }: Props) {
       </section>
 
       {/* Run History */}
-      <section style={{ marginTop: "2rem" }}>
+      <section className="adm-section" style={{ marginTop: "2rem" }}>
         <div style={sectionLabel}>Run History</div>
         {runs.length === 0 ? (
           <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: 10, padding: "2.5rem 1rem", textAlign: "center" }}>

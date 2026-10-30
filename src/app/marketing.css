@@ -1,4 +1,20 @@
 /*
+ * CSS isolation (R1): the element rules globals.css used to apply to EVERY
+ * page, now scoped to the marketing shell only. :where() keeps their
+ * specificity at (0,0,1) — exactly what the old bare `section` / `footer`
+ * rules had — so every .mk-* class rule still overrides them as before.
+ */
+:where(.mk-root) section {
+  padding: 6rem 5%;
+}
+
+:where(.mk-root) footer {
+  background: #060F1E;
+  padding: 3.5rem 5%;
+  border-top: 1px solid rgba(212,160,23,0.15);
+}
+
+/*
  * Marketing site component styles. Scoped by the .mk- prefix and only ever
  * loaded within src/components/marketing/* and src/app/(marketing)/* —
  * never imported by /team, /admin, or /campaign.

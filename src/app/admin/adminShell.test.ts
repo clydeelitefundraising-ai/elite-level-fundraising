@@ -83,10 +83,15 @@ test("every selector is admin-scoped (.adm-) so nothing leaks to other pages", (
 
 test("desktop is untouched: outside the mobile media query, only the mobile-only elements are hidden", () => {
   const outside = topLevelBlocks(css).filter(([prelude]) => !prelude.startsWith("@media"));
-  assert.equal(outside.length, 1);
+  // CSS isolation (R1): the only other top-level rule is .adm-section, which
+  // reproduces exactly the padding admin sections used to get from the
+  // global `section { padding: 6rem 5% }` — so desktop stays visually identical.
+  assert.equal(outside.length, 2);
   const [prelude, body] = outside[0];
   assert.deepEqual(prelude.split(",").map(s => s.trim()).sort(), [".adm-backdrop", ".adm-drawer-close", ".adm-menu-btn"]);
   assert.equal(body.trim(), "display: none;");
+  assert.equal(outside[1][0].trim(), ".adm-section");
+  assert.equal(outside[1][1].trim(), "padding: 6rem 5%;");
   for (const [p] of topLevelBlocks(css).filter(([p]) => p.startsWith("@media"))) {
     assert.ok(p.startsWith(MOBILE_MEDIA), `media query not mobile-scoped: ${p}`);
   }

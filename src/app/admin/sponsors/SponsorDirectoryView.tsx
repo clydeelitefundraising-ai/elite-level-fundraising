@@ -219,7 +219,7 @@ export default function SponsorDirectoryView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Total Businesses"   value={summary.totalBusinesses}    icon="🏢" />
@@ -235,7 +235,7 @@ export default function SponsorDirectoryView({ data }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 380px" : "1fr", gap: "1.5rem", alignItems: "start" }}>
         <div>
           {/* Filters */}
-          <section style={{ marginBottom: "1.5rem" }}>
+          <section className="adm-section" style={{ marginBottom: "1.5rem" }}>
             <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 type="text"
@@ -275,7 +275,7 @@ export default function SponsorDirectoryView({ data }: Props) {
 
           {/* Renewals due */}
           {renewalsDue.length > 0 && (
-            <section style={{ marginBottom: "2rem" }}>
+            <section className="adm-section" style={{ marginBottom: "2rem" }}>
               <div style={sectionLabel}>Renewals Due Soon</div>
               <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: ".25rem 1rem" }}>
                 {renewalsDue.slice(0, 6).map(s => (
@@ -293,7 +293,7 @@ export default function SponsorDirectoryView({ data }: Props) {
           )}
 
           {/* Sponsor list */}
-          <section style={{ marginBottom: "2rem" }}>
+          <section className="adm-section" style={{ marginBottom: "2rem" }}>
             <div style={sectionLabel}>Businesses ({filtered.length})</div>
             {filtered.length === 0 ? (
               <EmptyState onAdd={() => setShowNew(true)} />
@@ -307,7 +307,7 @@ export default function SponsorDirectoryView({ data }: Props) {
           </section>
 
           {/* Recent activity */}
-          <section>
+          <section className="adm-section">
             <div style={sectionLabel}>Recent Activity</div>
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".25rem 1rem" }}>
               {recentActivity.length === 0 ? (

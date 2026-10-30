@@ -168,7 +168,7 @@ export default function CoachCrmView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Total Contacts"    value={summary.totalContacts}    icon="📇" />
@@ -184,7 +184,7 @@ export default function CoachCrmView({ data }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 380px" : "1fr", gap: "1.5rem", alignItems: "start" }}>
         <div>
           {/* Filters */}
-          <section style={{ marginBottom: "1.5rem" }}>
+          <section className="adm-section" style={{ marginBottom: "1.5rem" }}>
             <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 type="text"
@@ -208,7 +208,7 @@ export default function CoachCrmView({ data }: Props) {
 
           {/* Follow-ups due */}
           {followUpsDue.length > 0 && (
-            <section style={{ marginBottom: "2rem" }}>
+            <section className="adm-section" style={{ marginBottom: "2rem" }}>
               <div style={sectionLabel}>Follow-ups Due Soon</div>
               <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 10, padding: ".25rem 1rem" }}>
                 {followUpsDue.slice(0, 6).map(c => (
@@ -226,7 +226,7 @@ export default function CoachCrmView({ data }: Props) {
           )}
 
           {/* Pipeline by status */}
-          <section style={{ marginBottom: "2rem" }}>
+          <section className="adm-section" style={{ marginBottom: "2rem" }}>
             <div style={sectionLabel}>Pipeline</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "1rem" }}>
               {CRM_STATUSES.map(status => (
@@ -251,7 +251,7 @@ export default function CoachCrmView({ data }: Props) {
           </section>
 
           {/* Contact list */}
-          <section style={{ marginBottom: "2rem" }}>
+          <section className="adm-section" style={{ marginBottom: "2rem" }}>
             <div style={sectionLabel}>Contacts ({filtered.length})</div>
             {filtered.length === 0 ? (
               <EmptyState onAdd={() => setShowNew(true)} />
@@ -265,7 +265,7 @@ export default function CoachCrmView({ data }: Props) {
           </section>
 
           {/* Recent activity */}
-          <section>
+          <section className="adm-section">
             <div style={sectionLabel}>Recent Activity</div>
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".25rem 1rem" }}>
               {recentActivity.length === 0 ? (
@@ -699,7 +699,7 @@ function MarketingRequestsPanel({
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <section style={{ marginBottom: "2rem" }}>
+    <section className="adm-section" style={{ marginBottom: "2rem" }}>
       <div style={sectionLabel}>Marketing Requests</div>
 
       <div style={{ marginBottom: ".75rem" }}>

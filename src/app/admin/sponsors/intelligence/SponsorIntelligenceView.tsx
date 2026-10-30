@@ -134,7 +134,7 @@ export default function SponsorIntelligenceView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Sponsors Scored"    value={totalScored}                  icon="🏢" />
@@ -147,7 +147,7 @@ export default function SponsorIntelligenceView({ data }: Props) {
       </section>
 
       {/* Recommendations */}
-      <section id="recommendations" style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" id="recommendations" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Campaign Recommendations</div>
         <div style={cardStyle}>
           <div style={{ marginBottom: "1rem" }}>
@@ -188,7 +188,7 @@ export default function SponsorIntelligenceView({ data }: Props) {
       </section>
 
       {/* Renewal forecast detail */}
-      <section id="renewals" style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" id="renewals" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Upcoming Renewals</div>
         <div style={cardStyle}>
           {renewalForecast.upcoming.length === 0 ? (
@@ -202,7 +202,7 @@ export default function SponsorIntelligenceView({ data }: Props) {
       </section>
 
       {/* Top Sponsors */}
-      <section id="top-sponsors" style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" id="top-sponsors" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Top Sponsors by Score</div>
         <div style={cardStyle}>
           {topSponsors.length === 0 ? (
@@ -214,7 +214,7 @@ export default function SponsorIntelligenceView({ data }: Props) {
       </section>
 
       {/* Sponsor Insights */}
-      <section>
+      <section className="adm-section">
         <div style={sectionLabel}>Sponsor Insights</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1rem" }}>
 

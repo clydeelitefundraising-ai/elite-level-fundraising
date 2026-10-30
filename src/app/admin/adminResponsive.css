@@ -171,3 +171,12 @@
     transition: none;
   }
 }
+
+/* CSS isolation (R1): admin content sections used to get this spacing from
+ * a bare `section { padding: 6rem 5% }` rule in globals.css. That rule is
+ * now marketing-only, so every admin <section> opts in explicitly via
+ * .adm-section to keep its current spacing unchanged. Same values, no media
+ * query — exactly the old behavior. */
+.adm-section {
+  padding: 6rem 5%;
+}

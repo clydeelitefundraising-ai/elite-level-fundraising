@@ -271,7 +271,7 @@ export default function OperationsView({ data }: Props) {
       </div>
 
       {/* ── Needs Attention ─────────────────────────────────────────────────── */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Needs Attention</div>
         {attention.length === 0 ? (
           <div style={{
@@ -298,7 +298,7 @@ export default function OperationsView({ data }: Props) {
       </section>
 
       {/* ── Today's Activity ─────────────────────────────────────────────────── */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Today&rsquo;s Activity</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: ".9rem" }}>
           {todayStats.map(stat => <StatCard key={stat.label} stat={stat} />)}
@@ -309,7 +309,7 @@ export default function OperationsView({ data }: Props) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", alignItems: "start" }}>
 
         {/* Recent Activity */}
-        <section>
+        <section className="adm-section">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".75rem" }}>
             <div style={sectionLabel}>Recent Activity</div>
             <a href="/admin/audit" style={{ fontSize: ".72rem", color: "#2563eb", fontWeight: 600, textDecoration: "none" }}>
@@ -331,7 +331,7 @@ export default function OperationsView({ data }: Props) {
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
 
           {/* Platform Status */}
-          <section>
+          <section className="adm-section">
             <div style={sectionLabel}>Platform Status</div>
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".25rem 1rem" }}>
               {platformStatus.map(s => <PlatformRow key={s.name} service={s} />)}
@@ -339,7 +339,7 @@ export default function OperationsView({ data }: Props) {
           </section>
 
           {/* Pending Items */}
-          <section>
+          <section className="adm-section">
             <div style={sectionLabel}>Pending Items</div>
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: ".25rem 1rem" }}>
               {pendingItems.map(p => <PendingRow key={p.label} item={p} />)}

@@ -91,7 +91,7 @@ export default function NotificationsView({ data }: Props) {
       </div>
 
       {/* Summary cards */}
-      <section style={{ marginBottom: "2rem" }}>
+      <section className="adm-section" style={{ marginBottom: "2rem" }}>
         <div style={sectionLabel}>Overview</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: ".9rem" }}>
           <StatCard label="Queued"     value={summary.queued}     icon="🕓" />
@@ -103,7 +103,7 @@ export default function NotificationsView({ data }: Props) {
       </section>
 
       {/* Filters */}
-      <section style={{ marginBottom: "1rem", display: "flex", gap: ".6rem", flexWrap: "wrap" }}>
+      <section className="adm-section" style={{ marginBottom: "1rem", display: "flex", gap: ".6rem", flexWrap: "wrap" }}>
         <select value={channelFilter} onChange={e => setChannelFilter(e.target.value as NotificationChannel | "all")} style={selectStyle}>
           <option value="all">All channels</option>
           <option value="email">Email</option>
@@ -131,7 +131,7 @@ export default function NotificationsView({ data }: Props) {
       </section>
 
       {/* Queue table */}
-      <section>
+      <section className="adm-section">
         <div style={sectionLabel}>Queue ({filtered.length})</div>
         {filtered.length === 0 ? (
           <div style={{ background: "#fff", border: "1px dashed #d1d5db", borderRadius: 10, padding: "2.5rem 1rem", textAlign: "center" }}>
