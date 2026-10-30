@@ -446,3 +446,9 @@ test("visitor text is HTML-escaped in every marketing notification email", () =>
   assert.match(email, /escapeHtml\(p\.message\)/);
   assert.match(email, /function detailRowsHtml[\s\S]*?escapeHtml\(label\)[\s\S]*?escapeHtml\(value\)/);
 });
+
+test("/fundraising benefit numerals: 48px between 901 and 1500px, 56px wider, dash re-centred", () => {
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /@media \(min-width: 901px\) and \(max-width: 1500px\) \{\s*\.mk-fbenefit-num \{ font-size: 3rem; \}\s*\.mk-fbenefit-rule \{ margin-top: 1\.33rem; \}\s*\}/);
+  assert.match(css, /\.mk-fbenefit-num \{[^}]*font-size: 3\.5rem;/);
+});

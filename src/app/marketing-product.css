@@ -611,3 +611,10 @@
   .mk-fhero-link { font-size: var(--mk-text-base); }
 }
 
+/* Laptop widths: slightly smaller 01–06 numerals (48px) give the benefit
+   headings more room; the dash stays centred on the numeral. 56px above
+   1500px, mobile sizes unchanged. */
+@media (min-width: 901px) and (max-width: 1500px) {
+  .mk-fbenefit-num { font-size: 3rem; }
+  .mk-fbenefit-rule { margin-top: 1.33rem; }
+}
