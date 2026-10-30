@@ -15,12 +15,16 @@ export const metadata: Metadata = {
 
 const FACTORS = [
   "The size of your roster and program",
-  "Which modules you use — fundraising, communication, sponsors, or all three",
+  "Which ELF Fundraising and sponsor features you use (the Team App itself is free)",
   "Whether you're a single team or an athletic department with multiple teams",
   "Your season length and campaign timing",
 ];
 
 const CONCERNS = [
+  {
+    q: "Is the ELF Team App really free?",
+    a: "Yes. The ELF Team App is free for every team — announcements, messages, calendar, attendance and roster — and you don't need to run a fundraiser to use it. Pricing on this page is about ELF Fundraising.",
+  },
   {
     q: "Why isn't there a price on this page?",
     a: "Because publishing a number that doesn't actually fit most programs isn't honest pricing — it's a placeholder. We'd rather give you an accurate answer in a short conversation than a generic figure you'd have to double-check anyway.",
@@ -46,6 +50,10 @@ export default function PricingPage() {
         <div className="mk-container-narrow">
           <span className="mk-eyebrow">Pricing</span>
           <h1>Pricing tailored to your program</h1>
+          <p className="mk-pricing-free">
+            <strong>The ELF Team App is free for every team</strong> &mdash; no fundraiser required.{" "}
+            <a href="/product">Explore the Team App &rarr;</a>
+          </p>
           <p>
             We don&rsquo;t have a published price list yet, and we&rsquo;d rather tell you that
             plainly than publish numbers that don&rsquo;t hold up. Here&rsquo;s what actually

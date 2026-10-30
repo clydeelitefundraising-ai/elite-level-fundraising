@@ -3,7 +3,8 @@ import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { MARKETING_NAV_LINKS } from "@/components/marketing/MarketingNav";
 
 // Wraps every route in this group — currently: /about, /communication,
-// /contact, /demo, /faq, /fundraising, /pricing, /product, /sponsors,
+// /contact, /demo, /faq, /fundraising, /how-it-works, /pricing, /product,
+// /sponsors, /support,
 // /why-elf, /legal/*, and /trust/* — in the shared marketing nav + footer.
 // Does not affect "/", which renders MarketingPage directly (see
 // src/app/page.tsx) — Next.js route groups can't share a URL with a

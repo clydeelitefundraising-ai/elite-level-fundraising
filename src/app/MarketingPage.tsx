@@ -2,48 +2,68 @@ import { MarketingShell } from "@/components/marketing/MarketingShell";
 import { MARKETING_NAV_LINKS } from "@/components/marketing/MarketingNav";
 import { LinkButton } from "@/components/marketing/Button";
 import { CrownMark } from "@/components/marketing/brand-marks/BrandMarks";
+import { StoreBadges } from "@/components/marketing/StoreBadges";
 import Image from "next/image";
 
-// Phase 8 (asset integration) + the Row 1 replacement pass: the hero photo
-// and every mosaic tile below are now real approved production artwork (not
-// MediaPlaceholder slots) — see /public/marketing/brand/ for exact source
-// files. MediaPlaceholder itself is untouched/still exported for future use
-// elsewhere; it's simply no longer referenced from this page. Row 1 ("Raise
-// More. Do More.") is, like Row 2, a single finished composite image with
-// only a transparent accessible link over its baked-in CTA — no live
-// headline/copy/screenshots are rendered alongside it any more.
+// Product-focused homepage. The hero (photo, FUND THE SEASON headline,
+// callout, actions) is unchanged. Below it, the two finished promotional
+// composites that used to fill the page ("Raise More. Do More." and "Real
+// Opportunities for Real Teams") are replaced by real, responsive sections
+// in accessible HTML: the two offerings, a spotlight on each, how ELF
+// works, Community Partners, who ELF is for, the existing closing brand
+// band, and a final call to action. Product imagery is real ELF screenshots
+// of the Riverside sample program (labelled as such); nothing here invents
+// customers, testimonials, counts or results.
 
-// Mockup-fidelity homepage structure (Phase 7): Header/Nav -> Hero ->
-// Trust strip -> three mosaic rows -> Footer. This intentionally REMOVES
-// the previous How It Works / standalone Fundraising / Communication /
-// Sponsors / Coaches-ADs-Boosters / homepage FAQ / final-CTA sections from
-// the HOMEPAGE ONLY — every one of those topics still has its own real,
-// unchanged page (/product, /fundraising, /communication, /sponsors,
-// /pricing, /faq) reachable from nav/footer. See the Phase 7 report for the
-// full rationale and the two content gaps this creates (no page currently
-// hosts the exact "How It Works" 4-step content or the Coaches/ADs/Booster
-// persona breakdown outside the homepage they used to live on).
+const ROLE_PREVIEWS = [
+  {
+    role: "Coach",
+    key: "coach",
+    points: ["Post announcements the whole team sees", "Take attendance in a few taps", "Track the fundraiser if you run one"],
+  },
+  {
+    role: "Athlete",
+    key: "athlete",
+    points: ["See the schedule and team updates", "Share a personal fundraising page", "Follow the team leaderboard"],
+  },
+  {
+    role: "Parent",
+    key: "parent",
+    points: ["Stay in every conversation with your athlete", "Subscribe to the team calendar", "Support your athlete's fundraiser"],
+  },
+];
 
-// Marketing header standardization: the homepage nav link set/order/wording
-// now lives as the single canonical MARKETING_NAV_LINKS export in
-// MarketingNav.tsx (consumed here AND by every other public marketing page
-// via (marketing)/layout.tsx) rather than a homepage-only local const — see
-// that file for the full route-mapping rationale.
+const STEPS = [
+  {
+    num: "1",
+    title: "Talk to us",
+    copy: "Book a short demo. We'll walk through ELF using your sport and program as the example.",
+  },
+  {
+    num: "2",
+    title: "We set up your team",
+    copy: "We build your branded team page and coach account, and get your roster ready — before you touch anything.",
+  },
+  {
+    num: "3",
+    title: "Invite your team and go",
+    copy: "Families join with a team code. Run the season in the free app, and launch a fundraiser whenever you're ready.",
+  },
+];
 
-// Change 3 (surgical cleanup pass): the trust strip (customer-proof copy,
-// the Glendale/PVCC logo chips, "Real teams. Real results.") was removed
-// from the homepage entirely — ELF has no approved public
-// testimonials/customer-logo endorsements yet, and no fake proof replaces
-// it. The hero's own bottom border (see marketing.css) is the "extremely
-// minimal visual divider" the removal instructions allow in its place.
+const AUDIENCES = [
+  { title: "Coaches", copy: "One place for announcements, messages, attendance and your fundraiser.", href: "/product", cta: "The Team App" },
+  { title: "Athletic Directors", copy: "Consistent fundraising pages and team tools across every program.", href: "/how-it-works", cta: "How ELF works" },
+  { title: "Athletes", copy: "The schedule, team updates and a fundraising page of their own.", href: "/product", cta: "Athlete view" },
+  { title: "Parents", copy: "Included in their athlete's conversations, and always on the calendar.", href: "/product", cta: "Parent view" },
+  { title: "Booster Clubs", copy: "Live campaign progress and a clear breakdown of what funds support.", href: "/fundraising", cta: "ELF Fundraising" },
+  { title: "Local Businesses", copy: "Become a Community Partner and support the teams in your town.", href: "/sponsors", cta: "Community Partners" },
+];
 
 export default function MarketingPage() {
   return (
     <MarketingShell navVariant="overlay" navLinks={MARKETING_NAV_LINKS} footerVariant="minimal">
-      {/* ── HERO ──
-          Full-bleed photo, nav and headline sitting directly on top of it as
-          one composition — not a side-by-side split. See marketing.css for
-          the mockup-fidelity notes. */}
+      {/* ── HERO ── unchanged composition (see marketing.css). */}
       <section className="mk-hero">
         <div className="mk-hero-media">
           <Image
@@ -72,9 +92,7 @@ export default function MarketingPage() {
             <p className="mk-hero-sub">Tools. Community. Real impact.</p>
             <div className="mk-hero-actions">
               <LinkButton href="/demo" variant="yellow" size="lg">Get Started &rarr;</LinkButton>
-              {/* R2: there is no video, so this is labelled for what it does — opens
-                  the How It Works page — with an arrow instead of a play icon. */}
-              <a href="/product" className="mk-hero-watch">
+              <a href="/how-it-works" className="mk-hero-watch">
                 <span className="mk-hero-watch-icon">
                   <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 11h12.17l-4.58-4.59L13 5l7 7-7 7-1.41-1.41L16.17 13H4z" /></svg>
                 </span>
@@ -88,118 +106,195 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── MOSAIC ROW 1 — Raise More. Do More. ──
-          Asset-replacement pass: this row is now ONE finished composite
-          artwork (athlete photo, "Big things start locally.", the
-          headline/copy/CTA, and the real-product phone composition are all
-          baked into the image itself) — same "one continuous artwork" +
-          transparent percentage-positioned hit-area pattern already
-          established for Row 2's banner below. The only live element is the
-          accessible link over the image's baked-in "See How It Works"
-          button, routed to the same /product destination the previous live
-          button used. */}
-      <section className="mk-mosaic-row mk-row1-banner">
-        <div className="mk-row1-banner-frame">
-          <Image
-            src="/marketing/brand/raise-more-do-more.png"
-            alt="Big things start locally. Raise more. Do more. ELF makes it easy for high school teams to raise money, manage their program, and keep everyone connected, all in one place. Real Elite Level Fundraising athlete leaderboard and team communications screenshots shown on two phones, captioned Built for teams."
-            fill
-            sizes="100vw"
-            style={{ objectFit: "cover" }}
-          />
-          <a
-            href="/product"
-            className="mk-row1-banner-link"
-            aria-label="See How It Works"
-          />
-        </div>
-      </section>
-
-      {/* ── MOSAIC ROW 2 — Real Opportunities for Real Teams. ──
-          Phase 8: this row is now ONE finished composite artwork (the
-          orange panel, both photos, and all their copy/marks are baked into
-          the image itself) — see the Phase 8 report. The only live element
-          is a transparent, percentage-positioned hit-area over the image's
-          baked-in "Explore Stories" button, so it still functions as a
-          real link once its destination is decided (see the TODO below —
-          no dedicated stories/case-studies page exists yet, so this
-          deliberately does not navigate anywhere until that's resolved). */}
-      <section className="mk-mosaic-row mk-row2-banner">
-        {/* Desktop/tablet (>640px): the single panoramic composite, unchanged
-            from the surgical-cleanup pass. Hidden below 640px. */}
-        <div className="mk-row2-banner-frame mk-row2-desktop-only">
-          <Image
-            src="/marketing/brand/real-opportunities-banner.png"
-            alt="More than fundraising. Real opportunities for real teams. This is why we raise: a team of athletes celebrating together, and a squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
-            fill
-            sizes="100vw"
-            style={{ objectFit: "cover" }}
-          />
-          {/* R2: no stories page exists yet, so the artwork's baked-in
-              "Explore Stories" button links to the real Fundraising product
-              page, and is announced by what it actually opens. */}
-          <a
-            href="/fundraising"
-            className="mk-row2-banner-link"
-            aria-label="Explore ELF Fundraising"
-          />
-        </div>
-
-        {/* Mobile (<=640px): the same single source image, shown as three
-            stacked, independently-scaled "windows" onto its orange / team /
-            travel regions, so the baked-in copy reads at a legible size
-            instead of shrinking the whole panorama. See marketing.css for
-            the crop math (each segment: width 100/segFrac%, translateX
-            -startFrac*100%) — no new image files, no re-authored artwork. */}
-        <div className="mk-row2-mobile-only">
-          <div className="mk-row2-seg mk-row2-seg-orange">
-            <Image
-              src="/marketing/brand/real-opportunities-banner.png"
-              alt="More than fundraising. Real opportunities for real teams."
-              width={2170}
-              height={725}
-              sizes="100vw"
-            />
-            <a
-              href="/fundraising"
-              className="mk-row2-banner-link mk-row2-banner-link-mobile"
-              aria-label="Explore ELF Fundraising"
-            />
+      {/* ── TWO OFFERINGS ── */}
+      <section className="mk-home-section mk-home-offers" aria-labelledby="mk-offers-title">
+        <div className="mk-container">
+          <div className="mk-home-head">
+            <span className="mk-eyebrow">What ELF does</span>
+            <h2 id="mk-offers-title" className="mk-display mk-home-title">Two ways ELF helps your program.</h2>
           </div>
-          <div className="mk-row2-seg mk-row2-seg-celebration">
-            <Image
-              src="/marketing/brand/real-opportunities-banner.png"
-              alt="This is why we raise: a team of athletes celebrating together."
-              width={2170}
-              height={725}
-              sizes="100vw"
-            />
-          </div>
-          <div className="mk-row2-seg mk-row2-seg-travel">
-            <Image
-              src="/marketing/brand/real-opportunities-banner.png"
-              alt="A squad walking toward a sunset with gear bags, captioned Travel, Uniforms, Tournaments, Team dinners, Equipment, and more."
-              width={2170}
-              height={725}
-              sizes="100vw"
-            />
+          <div className="mk-offer-grid">
+            <article className="mk-offer-card mk-offer-fundraising">
+              <span className="mk-offer-tag">ELF Fundraising</span>
+              <h3>Raise more for the season.</h3>
+              <p>
+                A branded campaign page for your team, a personal fundraising page and share link for
+                every athlete, and a live leaderboard that keeps the whole team moving.
+              </p>
+              <ul className="mk-check-list">
+                <li>Athlete pages and personal share links</li>
+                <li>Live progress and leaderboard</li>
+                <li>Secure donations powered by Stripe — donors don&rsquo;t need an account</li>
+              </ul>
+              <div className="mk-offer-actions">
+                <LinkButton href="/fundraising">Explore Fundraising</LinkButton>
+                <a href="/fundraising#preview" className="mk-text-link">See a sample fundraiser &rarr;</a>
+              </div>
+            </article>
+
+            <article className="mk-offer-card mk-offer-app">
+              <span className="mk-offer-tag mk-offer-tag-free">Free for every team</span>
+              <h3>The free ELF Team App.</h3>
+              <p>
+                Announcements, messages, calendar, attendance and roster in one app for coaches,
+                athletes and parents. Free for every team &mdash; no fundraiser required.
+              </p>
+              <ul className="mk-check-list">
+                <li>Team announcements and direct messages</li>
+                <li>Calendar, attendance and roster</li>
+                <li>iPhone, Android and the web</li>
+              </ul>
+              <div className="mk-offer-actions">
+                <LinkButton href="/product" variant="dark">Explore the Team App</LinkButton>
+              </div>
+              <StoreBadges />
+            </article>
           </div>
         </div>
       </section>
 
-      {/* ── MOSAIC ROW 3 — Athletes Build Better People. ──
-          Stencil photo tile | ELF brand-statement panel | photo tile.
-          Change 2 (surgical cleanup pass): both photo tiles now use a plain
-          (non-`fill`) Image sized by its own intrinsic width/height and an
-          `align-self: center` opt-out of the grid's default row-stretch
-          (see marketing.css) — so neither the artwork's baked-in typography
-          nor its composition gets cropped to fit a box shape the images
-          were never designed for.
-          Change 4: the Coach Bolus quote/attribution/carousel — MOCKUP
-          CONTENT that was never an approved real testimonial — has been
-          removed entirely and replaced with ELF-owned brand copy below.
-          That resolves the standing testimonial-approval warning from
-          every prior report; there is nothing left needing approval here. */}
+      {/* ── FUNDRAISING SPOTLIGHT ── */}
+      <section className="mk-home-section mk-home-spotlight mk-home-alt" aria-labelledby="mk-fund-spot-title">
+        <div className="mk-container mk-spotlight-grid">
+          <div className="mk-spotlight-copy">
+            <span className="mk-eyebrow">ELF Fundraising</span>
+            <h2 id="mk-fund-spot-title" className="mk-home-title-sm">A fundraiser families actually want to share.</h2>
+            <p>
+              Every athlete gets a page of their own. Donations show up on the team&rsquo;s live
+              leaderboard, and families can see exactly what the money supports before they give.
+            </p>
+            <ul className="mk-check-list">
+              <li>One shareable campaign page per team</li>
+              <li>Fund-use breakdown donors can see</li>
+              <li>Coach dashboard to track progress</li>
+            </ul>
+            <div className="mk-offer-actions">
+              <LinkButton href="/fundraising#preview">Explore the sample fundraiser</LinkButton>
+              <a href="/demo" className="mk-text-link">Book a demo &rarr;</a>
+            </div>
+          </div>
+          <figure className="mk-shot-stack">
+            <div className="mk-shot mk-shot-wide">
+              <Image
+                src="/marketing/campaign-hero.png"
+                alt="A real ELF campaign page for a sample football program, showing the goal, days left and donor count"
+                width={1440}
+                height={620}
+                sizes="(max-width: 900px) 100vw, 560px"
+              />
+            </div>
+            <div className="mk-shot mk-shot-inset">
+              <Image
+                src="/marketing/leaderboard.png"
+                alt="A real ELF athlete leaderboard and donation form, ranked by amount raised"
+                width={1002}
+                height={660}
+                sizes="(max-width: 900px) 70vw, 320px"
+              />
+            </div>
+            <figcaption className="mk-shot-caption">Real ELF screens. Riverside High School is a sample program.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      {/* ── TEAM APP SPOTLIGHT ── */}
+      <section className="mk-home-section mk-home-spotlight" aria-labelledby="mk-app-spot-title">
+        <div className="mk-container mk-spotlight-grid mk-spotlight-reverse">
+          <div className="mk-spotlight-copy">
+            <span className="mk-eyebrow">The free ELF Team App</span>
+            <h2 id="mk-app-spot-title" className="mk-home-title-sm">One app for coaches, athletes and parents.</h2>
+            <p>
+              Everyone sees the version of the team they need. Try each view in the interactive
+              preview &mdash; it runs on fictional sample data, right in your browser.
+            </p>
+            <ul className="mk-role-cards">
+              {ROLE_PREVIEWS.map((r) => (
+                <li key={r.key} className="mk-role-card">
+                  <h3>{r.role}</h3>
+                  <ul>
+                    {r.points.map((p) => <li key={p}>{p}</li>)}
+                  </ul>
+                  <a href={`/product?role=${r.key}#simulator`} className="mk-text-link">Try the {r.role.toLowerCase()} view &rarr;</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <figure className="mk-phone-shot">
+            <div className="mk-phone-frame">
+              <Image
+                src="/marketing/communications.png"
+                alt="The real Team Communications screen in the ELF Team App, showing coach announcements about practice and an away game"
+                width={720}
+                height={900}
+                sizes="(max-width: 900px) 70vw, 320px"
+              />
+            </div>
+            <figcaption className="mk-shot-caption">The real ELF Team App.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      {/* ── HOW ELF WORKS ── */}
+      <section className="mk-home-section mk-home-alt" aria-labelledby="mk-how-title">
+        <div className="mk-container">
+          <div className="mk-home-head">
+            <span className="mk-eyebrow">How ELF works</span>
+            <h2 id="mk-how-title" className="mk-display mk-home-title">Up and running in three steps.</h2>
+          </div>
+          <ol className="mk-three-steps">
+            {STEPS.map((s) => (
+              <li key={s.num}>
+                <span className="mk-three-num" aria-hidden="true">{s.num}</span>
+                <h3>{s.title}</h3>
+                <p>{s.copy}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mk-home-more">
+            <a href="/how-it-works" className="mk-text-link">See the full season walkthrough &rarr;</a>
+          </p>
+        </div>
+      </section>
+
+      {/* ── COMMUNITY PARTNERS ── */}
+      <section className="mk-home-section mk-home-partners" aria-labelledby="mk-partners-title">
+        <div className="mk-container mk-partners-band">
+          <div>
+            <span className="mk-eyebrow mk-eyebrow-on-dark">For local businesses</span>
+            <h2 id="mk-partners-title" className="mk-home-title-sm">Get in front of the families who show up every week.</h2>
+            <p>
+              ELF Community Partners appear in the Team App and on the public fundraising pages of the
+              teams they support &mdash; with your logo, your name and a link to your website.
+            </p>
+          </div>
+          <div className="mk-partners-actions">
+            <LinkButton href="/sponsors#inquire" variant="yellow" size="lg">Become a Community Partner</LinkButton>
+            <a href="/sponsors" className="mk-text-link mk-text-link-on-dark">How partnerships work &rarr;</a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHO ELF IS FOR ── */}
+      <section className="mk-home-section" aria-labelledby="mk-audience-title">
+        <div className="mk-container">
+          <div className="mk-home-head">
+            <span className="mk-eyebrow">Who ELF is for</span>
+            <h2 id="mk-audience-title" className="mk-display mk-home-title">Built for the whole program.</h2>
+          </div>
+          <ul className="mk-audience-grid">
+            {AUDIENCES.map((a) => (
+              <li key={a.title} className="mk-audience-card">
+                <h3>{a.title}</h3>
+                <p>{a.copy}</p>
+                <a href={a.href} className="mk-text-link">{a.cta} &rarr;</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ── CLOSING BRAND BAND ── (the existing "Athletes Build Better
+          People" row, unchanged) */}
       <section className="mk-mosaic-row mk-row3">
         <div className="mk-mosaic-tile mk-row3-athletics-tile">
           <Image
@@ -228,6 +323,18 @@ export default function MarketingPage() {
             height={553}
             sizes="(max-width: 900px) 100vw, 33vw"
           />
+        </div>
+      </section>
+
+      {/* ── FINAL CTA ── */}
+      <section className="mk-section mk-cta-band mk-home-final">
+        <div className="mk-container-narrow">
+          <h2>Ready to fund the season?</h2>
+          <p>Book a free demo for your program, or ask about becoming a Community Partner.</p>
+          <div className="mk-final-actions">
+            <LinkButton href="/demo" variant="yellow" size="lg">Book a Free Demo</LinkButton>
+            <LinkButton href="/sponsors#inquire" variant="outline" size="lg" className="mk-btn-on-dark">Partner With ELF</LinkButton>
+          </div>
         </div>
       </section>
     </MarketingShell>

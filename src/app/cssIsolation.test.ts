@@ -45,14 +45,19 @@ test("the old marketing element rules live only in marketing.css, scoped to the 
   assert.match(read("src/components/marketing/MarketingShell.tsx"), /className=\{`mk-root /, "MarketingShell renders the .mk-root scope");
 });
 
-test("every marketing.css selector is inside the marketing scope (.mk-* or :where(.mk-root))", () => {
-  for (const s of selectors(read("src/app/marketing.css"))) {
-    if (/^(from|to|\d+(\.\d+)?%)$/.test(s)) continue; // @keyframes steps
-    // The selector's first compound must carry an .mk-* class (e.g. ".mk-nav a",
-    // "a.mk-btn:hover") or be the :where(.mk-root) scope itself.
-    const first = s.split(/\s*[\s>+~]\s*/)[0];
-    assert.ok(first === ":where(.mk-root)" || /\.mk-/.test(first), `marketing.css selector escapes the marketing scope: "${s}"`);
+test("every marketing stylesheet selector is inside the marketing scope (.mk-* or :where(.mk-root))", () => {
+  for (const file of ["src/app/marketing.css", "src/app/marketing-product.css"]) {
+    for (const s of selectors(read(file))) {
+      if (/^(from|to|\d+(\.\d+)?%)$/.test(s)) continue; // @keyframes steps
+      // The selector's first compound must carry an .mk-* class (e.g. ".mk-nav a",
+      // "a.mk-btn:hover") or be the :where(.mk-root) scope itself.
+      const first = s.split(/\s*[\s>+~]\s*/)[0];
+      assert.ok(first === ":where(.mk-root)" || /\.mk-/.test(first), `${file} selector escapes the marketing scope: "${s}"`);
+    }
   }
+  // The redesign sheet is loaded only by the marketing shell.
+  const importers = execSync(`git grep -l "marketing-product.css" -- "src/*.tsx" "src/*.ts"`, { cwd: process.cwd() }).toString().trim().split("\n").filter(f => !f.endsWith(".test.ts"));
+  assert.deepEqual(importers, ["src/components/marketing/MarketingShell.tsx"]);
 });
 
 test("every admin stylesheet selector stays inside the .adm- prefix; admin sections keep their spacing explicitly", () => {

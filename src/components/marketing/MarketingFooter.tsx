@@ -47,6 +47,7 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
               <li><Link href="/legal/terms">Terms</Link></li>
               <li><Link href="/legal/cookies">Cookie Policy</Link></li>
               <li><Link href="/trust/accessibility">Accessibility</Link></li>
+              <li><Link href="/support">Support</Link></li>
               <li><Link href="/trust/status">System Status</Link></li>
             </ul>
           </nav>
@@ -71,11 +72,11 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
           <div>
             <div className="mk-footer-col-title">Platform</div>
             <ul className="mk-footer-links">
-              <li><Link href="/product">Product</Link></li>
               <li><Link href="/fundraising">Fundraising</Link></li>
+              <li><Link href="/product">Team App</Link></li>
+              <li><Link href="/how-it-works">How It Works</Link></li>
+              <li><Link href="/sponsors">Community Partners</Link></li>
               <li><Link href="/communication">Communication</Link></li>
-              <li><Link href="/sponsors">Sponsors &amp; Reporting</Link></li>
-              <li><Link href="/product">How It Works</Link></li>
             </ul>
           </div>
 
@@ -109,6 +110,7 @@ export function MarketingFooter({ variant }: MarketingFooterProps) {
             <ul className="mk-footer-links" style={{ flexDirection: "row", gap: "var(--mk-space-6)" }}>
               <li><Link href="/legal/terms">Terms</Link></li>
               <li><Link href="/legal/cookies">Cookie Policy</Link></li>
+              <li><Link href="/support">Support</Link></li>
               <li><Link href="/trust/status">System Status</Link></li>
             </ul>
           </nav>

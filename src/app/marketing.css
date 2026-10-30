@@ -328,6 +328,16 @@
   transition: border-color var(--mk-duration) var(--mk-ease), color var(--mk-duration) var(--mk-ease);
 }
 .mk-nav-links a:hover { border-bottom-color: var(--mk-orange); color: var(--mk-ink); }
+/* Product redesign: the current page is underlined (and aria-current). */
+.mk-nav-links a[aria-current="page"] { border-bottom-color: var(--mk-orange); }
+.mk-nav-dark .mk-nav-links a[aria-current="page"],
+.mk-nav-hero .mk-nav-links a[aria-current="page"] { border-bottom-color: var(--mk-yellow); }
+.mk-mobile-panel ul a[aria-current="page"] { color: var(--mk-accent-ink); }
+/* Six top-level links: labels never wrap, the gap tightens on narrower
+   desktops, and below 1040px (where six links can't share one line with
+   Log in / Get Started) the bar switches to the menu button. */
+.mk-nav-links a, .mk-nav-login { white-space: nowrap; }
+@media (max-width: 1180px) { .mk-nav-links { gap: var(--mk-space-5); } }
 .mk-nav-actions { display: flex; align-items: center; gap: var(--mk-space-4); }
 .mk-nav-menu-btn {
   display: none;
@@ -372,7 +382,7 @@
   border-bottom: 1px solid var(--mk-line);
 }
 
-@media (max-width: 880px) {
+@media (max-width: 1040px) {
   .mk-nav-links, .mk-nav-actions .mk-btn-ghost-nav { display: none; }
   .mk-nav-menu-btn { display: inline-flex; }
 }

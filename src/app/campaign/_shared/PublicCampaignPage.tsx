@@ -106,6 +106,10 @@ export type PublicCampaignPageProps = {
   // An athlete link whose roster hasn't loaded yet — reserve the spotlight
   // layout instead of flashing the team hero first.
   spotlightPending?: boolean;
+  // Marketing's fictional sample campaign has no real photos to fetch:
+  // false skips the photo request and shows the team logo/initials
+  // straight away. Omitted (every real campaign page) = unchanged.
+  athletePhotos?: boolean;
 };
 
 export type SpotlightAthlete = { id: string; name: string; classYear: string | null };
@@ -115,9 +119,9 @@ const LEADERBOARD_PREVIEW_COUNT = 5;
 // The athlete's photo via the public photo route; when there is none (404)
 // or it fails to load, the team's own logo — then the team initials. Never
 // the ELF mark standing in for the team.
-function AthletePhoto({ slug, athlete, logoUrl, schoolName }: { slug: string; athlete: SpotlightAthlete; logoUrl: string; schoolName: string }) {
+function AthletePhoto({ slug, athlete, logoUrl, schoolName, live = true }: { slug: string; athlete: SpotlightAthlete; logoUrl: string; schoolName: string; live?: boolean }) {
   const [failedFor, setFailedFor] = useState<string | null>(null);
-  if (failedFor !== athlete.id) {
+  if (live && failedFor !== athlete.id) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- streamed by our own route; next/image adds nothing here
       <img src={athletePhotoSrc(slug, athlete.id)} alt={athlete.name} className="pc-ath-photo" onError={() => setFailedFor(athlete.id)} />
@@ -150,7 +154,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
     donationsExpanded, setDonationsExpanded, hasMoreDonations,
-    slug, spotlight = null, spotlightPending = false,
+    slug, spotlight = null, spotlightPending = false, athletePhotos = true,
   } = props;
   const athletePage = !!spotlight || spotlightPending;
 
@@ -348,7 +352,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                 {spotlight ? (
                   <>
                     <div className="pc-ath-top">
-                      <AthletePhoto slug={slug} athlete={spotlight} logoUrl={logoUrl} schoolName={schoolName} />
+                      <AthletePhoto slug={slug} athlete={spotlight} logoUrl={logoUrl} schoolName={schoolName} live={athletePhotos} />
                       <div className="pc-ath-text">
                         <p className="pc-ath-eyebrow">Support our athlete</p>
                         <h1 className="pc-ath-name">{spotlight.name}</h1>
