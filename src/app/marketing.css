@@ -382,8 +382,11 @@
   border-bottom: 1px solid var(--mk-line);
 }
 
+@media (max-width: 640px) {
+  .mk-nav-actions .mk-btn-ghost-nav { display: none; }
+}
 @media (max-width: 1040px) {
-  .mk-nav-links, .mk-nav-actions .mk-btn-ghost-nav { display: none; }
+  .mk-nav-links { display: none; }
   .mk-nav-menu-btn { display: inline-flex; }
 }
 
