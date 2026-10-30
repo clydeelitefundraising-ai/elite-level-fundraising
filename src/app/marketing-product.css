@@ -444,3 +444,63 @@
 /* Pricing page: the free Team App note under the hero heading. */
 .mk-page-hero p.mk-pricing-free { color: var(--mk-ink); font-size: var(--mk-text-base); background: var(--mk-yellow); padding: var(--mk-space-3) var(--mk-space-4); border-radius: 4px; margin-bottom: var(--mk-space-4); display: inline-block; max-width: none; }
 .mk-pricing-free a { text-decoration: underline; font-weight: 700; white-space: nowrap; }
+
+/* ── /fundraising: "How ELF fundraising works" editorial timeline ──
+   Clean athletic editorial: big display numerals, a hairline connector with
+   small orange markers, concise text — no cards, icons or shadows.
+   Desktop: one row of four. Below 900px: a vertical timeline. */
+.mk-timeline-section { background: #FBF8F2; }
+.mk-timeline { list-style: none; margin: var(--mk-space-12) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mk-space-10); }
+.mk-timeline-step { position: relative; padding-top: var(--mk-space-8); }
+/* Connector: runs from this step's marker to the next step's. */
+.mk-timeline-step::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: calc(-1 * var(--mk-space-10));
+  height: 1px;
+  background: var(--mk-line-strong);
+}
+.mk-timeline-step:last-child::before { right: 0; background: linear-gradient(90deg, var(--mk-line-strong), transparent); }
+.mk-timeline-step::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  background: var(--mk-orange);
+}
+.mk-timeline-num {
+  display: block;
+  font-family: var(--mk-font-display);
+  font-size: clamp(3.25rem, 5vw, 4.5rem);
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+  color: var(--mk-ink);
+  margin-bottom: var(--mk-space-4);
+}
+.mk-timeline-step h3 { font-size: var(--mk-text-lg); letter-spacing: -0.005em; margin-bottom: var(--mk-space-2); }
+.mk-timeline-step p { color: var(--mk-muted); font-size: var(--mk-text-sm); line-height: var(--mk-leading-body); max-width: 30ch; margin: 0; }
+
+@media (max-width: 900px) {
+  .mk-timeline { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: var(--mk-space-8); }
+  .mk-timeline-step { padding: 0 0 var(--mk-space-8) var(--mk-space-12); }
+  .mk-timeline-step:last-child { padding-bottom: 0; }
+  .mk-timeline-step::before { top: 6px; bottom: 0; left: 5px; right: auto; width: 1px; height: auto; }
+  .mk-timeline-step:last-child::before { display: none; }
+  .mk-timeline-step::after { top: 6px; }
+  .mk-timeline-num { font-size: 2.75rem; margin-bottom: var(--mk-space-2); }
+  .mk-timeline-step p { max-width: 52ch; }
+}
+
+/* Optional, subtle: markers settle in as the section scrolls into view
+   (CSS scroll-driven, so no JavaScript); off for reduced motion and in
+   browsers without support. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .mk-timeline-step::after { animation: mk-timeline-mark linear both; animation-timeline: view(); animation-range: entry 10% cover 30%; }
+  }
+}
+@keyframes mk-timeline-mark { from { transform: scale(0); } to { transform: scale(1); } }

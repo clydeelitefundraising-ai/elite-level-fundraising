@@ -66,6 +66,23 @@ test("/fundraising: current campaign screenshot up top; the 'Every dollar, visib
   assert.match(page, /<a href="#preview" className="mk-text-link">Explore a Sample Fundraiser &rarr;<\/a>/);
 });
 
+test("/fundraising 'How ELF fundraising works': editorial four-step timeline, accurate step 1", () => {
+  const page = read(`${MK}/fundraising/page.tsx`);
+  assert.match(page, /How ELF fundraising works/);
+  assert.match(page, /We make fundraising simple\./);
+  const steps = [...page.matchAll(/\{ num: "(0\d)", title: "([^"]+)"/g)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(steps, ["01 Launch Your Campaign", "02 Your Team Shares", "03 Watch It Grow", "04 Stay in Control"]);
+  // Fundraising is enabled and configured with ELF (it starts off for self-created teams), so step 1
+  // must read as a partnership, not as a coach self-launching or ELF doing everything alone.
+  assert.match(page, /We work with you to get your team's branded campaign ready/);
+  assert.match(page, /<ol className="mk-timeline">/);
+  assert.ok(!/mk-three-steps|mk-four-steps/.test(page), "no generic step cards on /fundraising");
+  const css = read("src/app/marketing-product.css");
+  assert.match(css, /\.mk-timeline \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 900px\) \{\s*\.mk-timeline \{ grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css, /prefers-reduced-motion: no-preference\) \{\s*@supports \(animation-timeline: view\(\)\)/);
+});
+
 test("/product is now the free Team App page with the simulator", () => {
   const page = read(`${MK}/product/page.tsx`);
   assert.match(page, /The free Team App built for your <span className="mk-marker-underline">entire program\.<\/span>/);

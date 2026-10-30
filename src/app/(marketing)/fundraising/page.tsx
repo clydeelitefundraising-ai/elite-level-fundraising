@@ -31,11 +31,15 @@ const BENEFITS = [
   { title: "Backed by your community.", copy: "Give local businesses visibility alongside the programs they support through ELF Community Partnerships." },
 ];
 
+// Step 1 is worded as a partnership on purpose: coaches can create their
+// team in the app themselves, but fundraising starts switched off and is
+// turned on and configured with ELF (fundraising inquiry → platform admin
+// Campaign Control Center), using the coach's roster and goals.
 const PROCESS = [
-  { num: "1", title: "Set up", copy: "We build your branded campaign page with your goal, deadline and what the funds are for. Athletes are added from your roster." },
-  { num: "2", title: "Share", copy: "Athletes and families share personal links by text, email and social media. Donors give on any device." },
-  { num: "3", title: "Track", copy: "Watch progress and the leaderboard update as donations come in, from the campaign page or the coach dashboard." },
-  { num: "4", title: "Report", copy: "See totals by athlete and for the team, so coaches, ADs and boosters always know where things stand." },
+  { num: "01", title: "Launch Your Campaign", copy: "We work with you to get your team's branded campaign ready with your roster, fundraising goals and everything supporters need to know." },
+  { num: "02", title: "Your Team Shares", copy: "Every athlete gets a personal fundraising link to share with family, friends and supporters by text, email or social media." },
+  { num: "03", title: "Watch It Grow", copy: "Follow donations and team progress in real time, with a live leaderboard that keeps everyone moving toward the goal." },
+  { num: "04", title: "Stay in Control", copy: "See what's been raised, track individual contributions and access reporting from your coach dashboard." },
 ];
 
 const FAQS = [
@@ -118,16 +122,20 @@ export default function FundraisingPage() {
         </div>
       </section>
 
-      <section className="mk-home-section" aria-labelledby="mk-fund-process">
+      <section className="mk-home-section mk-timeline-section" aria-labelledby="mk-fund-process">
         <div className="mk-container">
           <div className="mk-home-head">
-            <span className="mk-eyebrow">How a fundraiser runs</span>
-            <h2 id="mk-fund-process" className="mk-display mk-home-title">Set up. Share. Track. Report.</h2>
+            <span className="mk-eyebrow">How ELF fundraising works</span>
+            <h2 id="mk-fund-process" className="mk-display mk-home-title">We make fundraising simple.</h2>
+            <p>
+              From launching your campaign to tracking every donation, ELF gives your program a
+              straightforward way to raise more with less work.
+            </p>
           </div>
-          <ol className="mk-three-steps mk-four-steps">
+          <ol className="mk-timeline">
             {PROCESS.map((s) => (
-              <li key={s.num}>
-                <span className="mk-three-num" aria-hidden="true">{s.num}</span>
+              <li key={s.num} className="mk-timeline-step">
+                <span className="mk-timeline-num" aria-hidden="true">{s.num}</span>
                 <h3>{s.title}</h3>
                 <p>{s.copy}</p>
               </li>
