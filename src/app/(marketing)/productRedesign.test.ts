@@ -63,7 +63,7 @@ test("/fundraising: current campaign screenshot up top; the 'Every dollar, visib
   // Hero copy and calls to action unchanged.
   assert.match(page, /Raise more for <span className="mk-marker-underline">the season\.<\/span>/);
   assert.match(page, /<LinkButton href="\/demo" size="lg">Book a Free Demo<\/LinkButton>/);
-  assert.match(page, /<a href="#preview" className="mk-text-link">Explore a sample fundraiser &rarr;<\/a>/);
+  assert.match(page, /<a href="#preview" className="mk-text-link">Explore a Sample Fundraiser &rarr;<\/a>/);
 });
 
 test("/product is now the free Team App page with the simulator", () => {

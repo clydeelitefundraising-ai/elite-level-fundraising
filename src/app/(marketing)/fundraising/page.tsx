@@ -23,12 +23,12 @@ export const metadata: Metadata = {
 const GATE_ENABLED = previewLeadReadiness(process.env).ready;
 
 const BENEFITS = [
-  { title: "A page for every athlete", copy: "Every athlete gets a personal fundraising page and their own share link — easy to text, post or email to family and friends." },
-  { title: "Live progress and leaderboard", copy: "The campaign page shows progress toward the goal in real time, and the leaderboard turns giving into visible team momentum." },
-  { title: "Secure, simple donations", copy: "Donations are processed by Stripe. Donors give in a few taps with no account to create, and ELF never stores card details." },
-  { title: "Clear about where money goes", copy: "Coaches list what the season's funds are for — travel, equipment, uniforms — so donors see exactly what they're supporting." },
-  { title: "Coach dashboard and reporting", copy: "Coaches see what's been raised, by whom, and how close each athlete is to their goal — no spreadsheet to keep up." },
-  { title: "Community Partners on your page", copy: "Local businesses supporting your program can appear on your public fundraising page as Community Partners." },
+  { title: "Every athlete has a role.", copy: "Give each athlete a personal fundraising page and shareable link, making it easy to reach family, friends, and supporters." },
+  { title: "Every dollar moves you forward.", copy: "Follow your team's progress in real time with live totals and an athlete leaderboard that keeps everyone engaged." },
+  { title: "Giving made simple.", copy: "Supporters can donate securely in just a few steps—no account required. Payments are powered by Stripe." },
+  { title: "Show what you're building.", copy: "Share exactly what your team is raising money for, from travel and equipment to opportunities beyond the field." },
+  { title: "Less admin. More coaching.", copy: "Track contributions, monitor athlete progress, and manage your fundraiser from one organized dashboard." },
+  { title: "Backed by your community.", copy: "Give local businesses visibility alongside the programs they support through ELF Community Partnerships." },
 ];
 
 const PROCESS = [
@@ -58,12 +58,13 @@ export default function FundraisingPage() {
               Raise more for <span className="mk-marker-underline">the season.</span>
             </h1>
             <p>
-              Personal athlete pages, a live team leaderboard and secure donations &mdash; everything
-              your program needs to fund travel, gear and the moments that make a season.
+              Give every athlete a role in your team&rsquo;s success. ELF brings personal fundraising
+              pages, live progress tracking, and secure online donations together&mdash;making it
+              easier to raise the resources your program needs.
             </p>
             <div className="mk-offer-actions">
               <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
-              <a href="#preview" className="mk-text-link">Explore a sample fundraiser &rarr;</a>
+              <a href="#preview" className="mk-text-link">Explore a Sample Fundraiser &rarr;</a>
             </div>
           </div>
           <figure className="mk-hero-shot">
@@ -89,7 +90,8 @@ export default function FundraisingPage() {
         <div className="mk-container">
           <div className="mk-home-head">
             <span className="mk-eyebrow">Why ELF Fundraising</span>
-            <h2 id="mk-fund-benefits" className="mk-display mk-home-title">Built to get the whole team raising.</h2>
+            <h2 id="mk-fund-benefits" className="mk-display mk-home-title">Built for the whole team.</h2>
+            <p>Simple for coaches. Easy for athletes. Seamless for supporters.</p>
           </div>
           <ul className="mk-benefit-grid">
             {BENEFITS.map((b) => (
