@@ -114,6 +114,15 @@ test("marketing preview builds: flag must be exactly qa and the build must carry
   }
   // Never alongside the QA app deployment either.
   assert.ok(checkDeployment({ ELF_DEPLOYMENT: "qa", NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "qa" }).errors.some(e => e.includes("NEXT_PUBLIC_ELF_MARKETING_PREVIEW")));
+  // Deployed into the QA project as a preview: accepted only with no secrets, never as production.
+  const qaPreview = { NEXT_PUBLIC_ELF_MARKETING_PREVIEW: "qa", VERCEL_PROJECT_ID: "prj_OPk52HPvdi6YlAvxSQ4F1nZwmKiJ", VERCEL_ENV: "preview", VERCEL_URL: "elf-team-abc123-clydeelitefundraising-5717s-projects.vercel.app" };
+  assert.deepEqual(checkDeployment(qaPreview), { mode: "standard", triggers: [], errors: [] });
+  assert.ok(checkDeployment({ ...qaPreview, VERCEL_ENV: "production" }).errors.some(e => e.includes("never production")));
+  assert.ok(checkDeployment({ ...qaPreview, SUPABASE_SERVICE_ROLE_KEY: "x" }).errors.length > 0);
+  // Real QA app configuration still goes through the full QA checks (and refuses the flag).
+  assert.equal(checkDeployment({ ...qaPreview, ELF_QA_SUPABASE_REF: "mzsvbxosoidwhntpjdkf" }).mode, "qa");
+  // Without the flag, the QA project identity alone still means full QA checks.
+  assert.equal(checkDeployment({ VERCEL_PROJECT_ID: "prj_OPk52HPvdi6YlAvxSQ4F1nZwmKiJ" }).mode, "qa");
   // Production (no flag) is unaffected.
   assert.deepEqual(checkDeployment({ NEXT_PUBLIC_SUPABASE_URL: "https://x.supabase.co", STRIPE_SECRET_KEY: "x" }).errors, []);
 });

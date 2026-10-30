@@ -177,12 +177,27 @@ function marketingPreviewErrors(env: Env): string[] {
   const flag = value(env, MARKETING_PREVIEW_FLAG);
   if (!flag) return [];
   if (flag !== "qa") return [`${MARKETING_PREVIEW_FLAG} must be "qa" or unset`];
-  return FORBIDDEN_IN_MARKETING_PREVIEW.filter(n => value(env, n)).map(n => `${n} is not allowed in a marketing preview build (it must carry no secrets or app configuration)`);
+  const errors = FORBIDDEN_IN_MARKETING_PREVIEW.filter(n => value(env, n)).map(n => `${n} is not allowed in a marketing preview build (it must carry no secrets or app configuration)`);
+  if (value(env, "VERCEL_ENV") === "production") errors.push(`${MARKETING_PREVIEW_FLAG} is only allowed on a preview deployment, never production`);
+  return errors;
+}
+
+/** The only QA signals are the QA Vercel project/host identity — i.e. a
+ *  deployment in the elf-team-qa project, not QA app configuration. */
+function identityOnly(triggers: string[]): boolean {
+  return triggers.every(t => t.startsWith("Vercel identifies the ") || t.endsWith(` is an ${QA_VERCEL_PROJECT} host`));
 }
 
 export function checkDeployment(env: Env = process.env): DeploymentCheck {
   const deployment = value(env, "ELF_DEPLOYMENT");
   const triggers = qaTriggers(env);
+
+  // A marketing preview deployed into the QA project (docs/MARKETING_PREVIEW.md):
+  // identified as elf-team-qa by Vercel, but carrying none of the QA app's
+  // configuration. Standard mode, provided it carries no secrets at all.
+  if (value(env, MARKETING_PREVIEW_FLAG) && triggers.length > 0 && identityOnly(triggers) && !deployment) {
+    return { mode: "standard", triggers: [], errors: marketingPreviewErrors(env) };
+  }
 
   if (triggers.length === 0) {
     // Standard (production, preview, marketing, local) deployments are left

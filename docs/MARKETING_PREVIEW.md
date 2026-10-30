@@ -26,7 +26,9 @@ Like every `*.vercel.app` deployment of this team, the preview sits behind Verce
 git archive <commit> | tar -x -C <dir>      # clean export, no local .env files
 cp <qa .vercel/project.json> <dir>/.vercel/  # elf-team-qa
 cd <dir> && vercel deploy --yes --scope team_WGuvL9lm4lllGcw5BCYiZ9hQ \
-  --build-env NEXT_PUBLIC_ELF_MARKETING_PREVIEW=qa
+  --build-env NEXT_PUBLIC_ELF_MARKETING_PREVIEW=qa --env NEXT_PUBLIC_ELF_MARKETING_PREVIEW=qa
 ```
 
-Never add `--prod`, which would replace the QA Team App. Never set the flag as a project environment variable.
+The flag is needed at build time and at runtime, because the guard also runs at server startup. It is set per deployment only, never as a project environment variable. Never add `--prod`, which would replace the QA Team App (the guard also refuses the flag on a production deployment).
+
+The guard accepts a QA-project deployment as a marketing preview only when the Vercel project/host identity is its sole QA signal and it carries no secrets. Real QA app configuration still gets the full QA checks.
