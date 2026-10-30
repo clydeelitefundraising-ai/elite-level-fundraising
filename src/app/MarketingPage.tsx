@@ -72,11 +72,13 @@ export default function MarketingPage() {
             <p className="mk-hero-sub">Tools. Community. Real impact.</p>
             <div className="mk-hero-actions">
               <LinkButton href="/demo" variant="yellow" size="lg">Get Started &rarr;</LinkButton>
+              {/* R2: there is no video, so this is labelled for what it does — opens
+                  the How It Works page — with an arrow instead of a play icon. */}
               <a href="/product" className="mk-hero-watch">
                 <span className="mk-hero-watch-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 11h12.17l-4.58-4.59L13 5l7 7-7 7-1.41-1.41L16.17 13H4z" /></svg>
                 </span>
-                Watch video
+                See how it works
               </a>
             </div>
             <p className="mk-hero-gear-line mk-hand">
@@ -133,18 +135,13 @@ export default function MarketingPage() {
             sizes="100vw"
             style={{ objectFit: "cover" }}
           />
-          {/* TODO(pending user decision): no real "stories" destination exists
-              on the site yet (Phase 1 audit routes: /about, /why-elf,
-              /product, /fundraising, /communication, /sponsors, /pricing,
-              /faq, /contact, /demo, /trust/*, /legal/*). Per explicit
-              instruction we are not inventing one — this button is
-              keyboard-focusable and announced to screen readers as
-              "Explore Stories" but intentionally does not navigate until a
-              real destination is approved. */}
-          <button
-            type="button"
+          {/* R2: no stories page exists yet, so the artwork's baked-in
+              "Explore Stories" button links to the real Fundraising product
+              page, and is announced by what it actually opens. */}
+          <a
+            href="/fundraising"
             className="mk-row2-banner-link"
-            aria-label="Explore Stories"
+            aria-label="Explore ELF Fundraising"
           />
         </div>
 
@@ -163,10 +160,10 @@ export default function MarketingPage() {
               height={725}
               sizes="100vw"
             />
-            <button
-              type="button"
+            <a
+              href="/fundraising"
               className="mk-row2-banner-link mk-row2-banner-link-mobile"
-              aria-label="Explore Stories"
+              aria-label="Explore ELF Fundraising"
             />
           </div>
           <div className="mk-row2-seg mk-row2-seg-celebration">

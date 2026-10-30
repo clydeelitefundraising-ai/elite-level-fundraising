@@ -285,7 +285,14 @@ test("next.config.ts refuses a bad QA configuration and keeps production's confi
   };
   try {
     setEnv({ PATH: saved.PATH });
-    assert.deepEqual(config("phase-production-build"), { reactCompiler: true, env: { NEXT_PUBLIC_ELF_DEPLOYMENT_MODE: "standard" } });
+    // Marketing R2 added exactly two compatibility redirects; everything else
+    // in the production config is unchanged.
+    const { redirects, ...prodConfig } = config("phase-production-build");
+    assert.deepEqual(prodConfig, { reactCompiler: true, env: { NEXT_PUBLIC_ELF_DEPLOYMENT_MODE: "standard" } });
+    assert.deepEqual(await redirects?.(), [
+      { source: "/privacy", destination: "/trust/privacy", permanent: true },
+      { source: "/terms", destination: "/legal/terms", permanent: true },
+    ]);
     setEnv({ PATH: saved.PATH, ...QA_ENV });
     assert.equal(config("phase-production-build").env?.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, "qa");
     setEnv({ PATH: saved.PATH, ...QA_ENV, STRIPE_SECRET_KEY: "sk_live_synthetic" });

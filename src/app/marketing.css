@@ -529,7 +529,7 @@
   width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid #fff;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.mk-hero-watch-icon svg { width: 11px; height: 11px; margin-left: 2px; }
+.mk-hero-watch-icon svg { width: 11px; height: 11px; }
 .mk-hero-gear-line { color: #fff; font-size: var(--mk-text-lg); transform: rotate(-1deg); transform-origin: left center; }
 /* Top-right corner callout ("Same grind. Bigger opportunities.") — sits
    over the photo, away from the headline column, per the mockup. */
@@ -794,7 +794,8 @@ a.mk-row1-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; 
    Target the element type directly so this wins outright, matching the same
    fix already applied to `.mk-row1-banner-link` and
    `.mk-row2-banner-link-mobile`. */
-button.mk-row2-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; }
+button.mk-row2-banner-link:focus-visible,
+a.mk-row2-banner-link:focus-visible { outline-color: #fff; outline-offset: 2px; }
 
 /* Mobile Real Opportunities segmentation pass: at 375-430px the full
    panorama scaled down made its baked-in copy (the eyebrow, the travel
