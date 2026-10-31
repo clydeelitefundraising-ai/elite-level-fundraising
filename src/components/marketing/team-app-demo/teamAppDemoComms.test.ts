@@ -7,6 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import postcss from "postcss";
 import { join } from "node:path";
 import {
   isFamilyThread, observerParticipants, otherParticipants, selfParticipantRow, threadDisplayTitle,
@@ -286,4 +287,10 @@ test("phones: no device bezel — the demo runs full width (rule placed after th
   assert.match(block, /\.mk-sim-status \{ display: none; \}/);
   // The desktop frame (12px bezel around a 390px screen) is unchanged.
   assert.match(css, /\.mk-sim-phone \{\n  position: relative;\n  \/\* 414px - 2 x 12px border = a 390px screen, the width of a typical phone\. \*\/\n  width: 414px;/);
+});
+
+test("the marketing stylesheets parse (the same PostCSS the build uses)", () => {
+  for (const f of ["src/app/marketing-product.css", "src/app/marketing.css", "src/app/marketing-tokens.css"]) {
+    assert.doesNotThrow(() => postcss.parse(read(f)), f);
+  }
 });
