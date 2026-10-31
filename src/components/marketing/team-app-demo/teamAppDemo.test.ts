@@ -110,6 +110,35 @@ const AUDITED_APP_MODULES = new Set([
   "src/lib/teamJoinQr.ts",
   "src/lib/seasonState.ts",
   "src/components/marketing/demo/fixtures.ts",
+  // Phase 4 — Fundraiser, Team (Overview, Staff, To-Do), Shop, Partners.
+  // Presentation and pure helpers only; the components that call the API
+  // are generated twins whose fetch is the demo's (demoGlobals.ts).
+  "src/app/team/[slug]/fundraiser/CampaignOverviewCard.tsx",
+  "src/app/team/[slug]/fundraiser/DashboardParts.tsx",
+  "src/app/team/[slug]/fundraiser/DesktopFollowUpsView.tsx",
+  "src/app/team/[slug]/fundraiser/FollowUpsView.tsx",
+  "src/app/team/[slug]/fundraiser/PrintFollowUpsReport.tsx",
+  "src/app/team/[slug]/fundraiser/Fundraiser.module.css",
+  "src/app/team/[slug]/fundraiser/coachShare.ts",
+  "src/app/team/[slug]/fundraiser/followUpsFormat.ts",
+  "src/app/team/[slug]/fundraiser/fundraiserData.ts",
+  "src/app/team/[slug]/fundraiser/fundraiserFormat.ts",
+  "src/app/team/[slug]/fundraiser/fundraiserHelpers.ts",
+  "src/app/team/[slug]/sponsors/CommunityPartnersListView.tsx",
+  "src/app/team/[slug]/sponsors/partnersTabs.ts",
+  "src/app/team/[slug]/team/Overview.module.css",
+  "src/app/team/[slug]/team/completionView.ts",
+  "src/components/communityPartners/CommunityPartnerSlots.tsx",
+  "src/components/communityPartners/CommunityPartnerSlots.module.css",
+  "src/lib/platform/communityPartnerSlots.ts",
+  "src/lib/donationAttribution.ts",
+  "src/lib/followUps.ts",
+  "src/lib/fundraiserAccess.ts",
+  "src/lib/shareCopy.ts",
+  "src/lib/teamOverview.ts",
+  "src/lib/teamShellSettings.ts",
+  "src/lib/teamTaskCompletionCsv.ts",
+  "src/lib/teamTasks.ts",
 ]);
 const HOME_VIEW_EXPORTS = new Set(["CATEGORY_STYLE", "relativeTime", "UpcomingEventRow", "MobileActivityRow", "RequestsEntryCard", "FundraiserSnapshot"]);
 const SYMBOL_AUDITED: Record<string, Set<string>> = {
@@ -166,10 +195,23 @@ test("isolation: nothing the demo loads can make a request, use storage, route, 
   for (const f of seen) {
     if (f.endsWith(".css")) continue;
     const src = code(read(f));
-    if (f !== `${DEMO_DIR}/networkGuard.ts`) {
-      assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon|new WebSocket|EventSource/.test(src), `${f} can make a request`);
+    // A generated twin's fetch / navigator / confirm / alert / window are the
+    // demo's (one import from ./demoGlobals shadows the browser's in that
+    // module), so the real component body can stay unchanged.
+    const shadowed = new Set((src.match(/^import \{ ([^}]+) \} from "\.\/demoGlobals";$/m)?.[1] ?? "").split(", ").filter(Boolean));
+    if (f === `${DEMO_DIR}/demoGlobals.ts` || f === `${DEMO_DIR}/demoFiles.ts` || f === `${DEMO_DIR}/demoReportDownload.ts`) {
+      ["fetch", "navigator", "confirm", "alert", "window"].forEach((n) => shadowed.add(n));
+      if (f !== `${DEMO_DIR}/demoGlobals.ts`) assert.match(src, /import \{[^}]*\bfetch\b[^}]*\} from "\.\/demoGlobals";/);
     }
-    assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie|navigator\.clipboard/.test(src), `${f} touches browser storage`);
+    if (f !== `${DEMO_DIR}/networkGuard.ts`) {
+      if (!shadowed.has("fetch")) assert.ok(!/\bfetch\(/.test(src), `${f} can make a request`);
+      assert.ok(!/XMLHttpRequest|sendBeacon|new WebSocket|EventSource|globalThis\.fetch|window\.fetch/.test(src), `${f} can make a request`);
+    }
+    if (!shadowed.has("navigator")) assert.ok(!/navigator\.(clipboard|share)/.test(src), `${f} shares or copies`);
+    if (!shadowed.has("confirm")) assert.ok(!/(?<![.\w])confirm\(/.test(src), `${f} opens a dialog`);
+    if (!shadowed.has("alert")) assert.ok(!/(?<![.\w])alert\(/.test(src), `${f} opens a dialog`);
+    if (!shadowed.has("window") && f !== `${DEMO_DIR}/networkGuard.ts`) assert.ok(!/window\.(print|open|history|location\.href\s*=)/.test(src), `${f} prints, opens or navigates`);
+    assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(src), `${f} touches browser storage`);
     assert.ok(!/useSeenTracker|usePathname/.test(src), `${f} routes or tracks`);
     // Router hooks only ever come from the demo's own stand-in (in-demo
     // navigation); the import walk above already forbids next/navigation.

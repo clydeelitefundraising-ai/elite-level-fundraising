@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" role="img" aria-label="practice tee (fictional product)">
+  <rect width="360" height="300" fill="#F1F4F9"/>
+  <ellipse cx="180" cy="262" rx="104" ry="12" fill="#DFE4EC"/>
+  <path d="M126 70 L 154 56 Q 180 72 206 56 L 234 70 L 270 104 L 246 130 L 228 116 L 228 236 L 132 236 L 132 116 L 114 130 L 90 104 Z" fill="#F2B705" stroke="none" stroke-width="3" stroke-linejoin="round"/><path d="M154 56 Q 180 80 206 56" fill="none" stroke="#1D3E8A" stroke-width="6"/><text x="180" y="160" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="25" letter-spacing="1.5" fill="#1D3E8A">COMETS</text><polygon points="180.0,183.0 183.4,191.3 192.4,192.0 185.6,197.8 187.6,206.5 180.0,201.8 172.4,206.5 174.4,197.8 167.6,192.0 176.6,191.3" fill="#1D3E8A"/>
+</svg>

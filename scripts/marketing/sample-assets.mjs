@@ -268,4 +268,69 @@ for (const [slug, lines, icon, color, shape, font] of PARTNERS) {
 </svg>`);
 }
 
-console.log(`wrote crest, ${Object.keys(PEOPLE).length * 2 + 3} people files, ${PARTNERS.length} partner logos to ${OUT}`);
+// ── Team App demo: the team's own sponsors ──────────────────────────────────
+// Same badge style as the partner logos. Names must match
+// src/components/marketing/team-app-demo/teamInfoData.ts.
+mkdirSync(join(OUT, "sponsors"), { recursive: true });
+const SPONSOR_ICONS = {
+  pins:   `<g fill="#fff"><path d="M30 30 c-6 0 -8 8 -6 14 c3 8 -6 14 -4 28 c1 8 19 8 20 0 c2 -14 -7 -20 -4 -28 c2 -6 0 -14 -6 -14 Z"/><path d="M62 24 c-7 0 -9 9 -7 16 c3 9 -7 16 -5 32 c1 9 23 9 24 0 c2 -16 -8 -23 -5 -32 c2 -7 0 -16 -7 -16 Z"/></g>`,
+  apple:  `<path d="M50 34 C 38 24, 20 30, 22 52 C 24 72, 38 86, 50 80 C 62 86, 76 72, 78 52 C 80 30, 62 24, 50 34 Z" fill="#fff"/><path d="M50 34 C 50 24, 54 18, 60 16" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M54 24 c8 -8 18 -6 20 -4 c-4 8 -12 10 -20 4 Z" fill="#fff" opacity=".85"/>`,
+  sun:    `<circle cx="50" cy="52" r="17" fill="#fff"/><g stroke="#fff" stroke-width="6" stroke-linecap="round"><path d="M50 18 v10 M50 76 v10 M16 52 h10 M74 52 h10 M26 28 l7 7 M67 69 l7 7 M26 76 l7 -7 M67 35 l7 -7"/></g>`,
+  flame:  `<path d="M50 14 C 58 30, 76 38, 74 60 C 72 78, 60 86, 50 86 C 40 86, 26 78, 26 60 C 26 46, 36 40, 38 28 C 44 36, 46 42, 48 46 C 54 38, 54 26, 50 14 Z" fill="#fff"/>`,
+};
+export const TEAM_SPONSORS = [
+  ["comet-lanes",         "Comet Lanes",  "pins",  "#C2410C", "circle"],
+  ["ridgecrest-market",   "Ridgecrest",   "apple", "#B91C1C", "shield"],
+  ["sundial-landscaping", "Sundial",      "sun",   "#4D7C0F", "hex"],
+  ["mesquite-grill",      "Mesquite",     "flame", "#7C2D12", "square"],
+];
+for (const [slug, mark, icon, color, shape] of TEAM_SPONSORS) {
+  const size = mark.length <= 7 ? 32 : mark.length <= 10 ? 28 : 24;
+  const label = `${mark} logo (fictional business)`;
+  write(`sponsors/${slug}.svg`, `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 176" role="img" aria-label="${esc(label)}">
+  <title>${esc(label)}</title>
+  <g transform="translate(100 66) scale(1.3) translate(-100 -58)">
+    ${badge(shape, color)}
+    <g transform="translate(70 28) scale(.6)" color="${color}">${SPONSOR_ICONS[icon]}</g>
+  </g>
+  <text x="100" y="166" text-anchor="middle" font-family="${FONTS.heavy}" font-weight="900" font-size="${size}" fill="${SHADE(color, 0.2)}">${esc(mark)}</text>
+</svg>`);
+}
+
+// ── Team App demo: Gear Gallery products ────────────────────────────────────
+// Flat illustrations of invented Comets merchandise (navy / gold, the
+// fictional crest's colors). Names must match teamInfoData.ts.
+mkdirSync(join(OUT, "shop"), { recursive: true });
+const STAR = (x, y, r, fill) => {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pts.push(`${(x + rr * Math.cos(a)).toFixed(1)},${(y + rr * Math.sin(a)).toFixed(1)}`);
+  }
+  return `<polygon points="${pts.join(" ")}" fill="${fill}"/>`;
+};
+const CREST = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${NAVY}" stroke="${GOLD}" stroke-width="${r * 0.12}"/>${STAR(x + r * 0.15, y - r * 0.12, r * 0.42, GOLD)}<path d="M${x - r * 0.75} ${y + r * 0.4} Q ${x - r * 0.1} ${y + r * 0.05} ${x + r * 0.05} ${y - r * 0.05}" stroke="${GOLD}" stroke-width="${r * 0.14}" fill="none" stroke-linecap="round"/>`;
+const WORD = (x, y, text, size, fill) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="${FONTS.heavy}" font-weight="900" font-size="${size}" letter-spacing="1.5" fill="${fill}">${esc(text)}</text>`;
+const tee = (body, trim, outline = "none") => `<path d="M126 70 L 154 56 Q 180 72 206 56 L 234 70 L 270 104 L 246 130 L 228 116 L 228 236 L 132 236 L 132 116 L 114 130 L 90 104 Z" fill="${body}" stroke="${outline}" stroke-width="3" stroke-linejoin="round"/><path d="M154 56 Q 180 80 206 56" fill="none" stroke="${trim}" stroke-width="6"/>`;
+const PRODUCTS = {
+  "team-hoodie": `<path d="M124 82 Q 180 30 236 82 L 276 120 L 252 150 L 232 134 L 232 244 L 128 244 L 128 134 L 108 150 L 84 120 Z" fill="${NAVY}"/><path d="M150 82 Q 180 46 210 82 Q 180 104 150 82 Z" fill="#132B63"/><path d="M168 92 v28 M192 92 v28" stroke="${GOLD}" stroke-width="3" stroke-linecap="round"/><path d="M146 196 h68 l-8 38 h-52 Z" fill="#163474"/>${CREST(180, 160, 22)}`,
+  "practice-tee": `${tee(GOLD, NAVY)}${WORD(180, 160, "COMETS", 25, NAVY)}${STAR(180, 196, 13, NAVY)}`,
+  "quarter-zip": `<path d="M122 78 L 156 62 L 204 62 L 238 78 L 274 118 L 250 146 L 230 128 L 230 244 L 130 244 L 130 128 L 110 146 L 86 118 Z" fill="${NAVY}"/><path d="M156 62 L 180 84 L 204 62" fill="#132B63"/><path d="M180 84 V 140" stroke="#C9CED8" stroke-width="4"/><path d="M86 118 L 110 146 M274 118 L 250 146" stroke="${GOLD}" stroke-width="7"/>${STAR(212, 112, 11, GOLD)}`,
+  "snapback": `<path d="M108 168 Q 112 92 180 88 Q 248 92 252 168 Z" fill="${NAVY}"/><path d="M92 170 Q 180 150 268 170 Q 276 192 250 196 Q 180 184 110 196 Q 84 192 92 170 Z" fill="#132B63"/><circle cx="180" cy="88" r="7" fill="${GOLD}"/>${STAR(180, 134, 26, GOLD)}<path d="M180 88 V 166" stroke="#1B3D86" stroke-width="2"/>`,
+  "water-bottle": `<rect x="150" y="64" width="60" height="26" rx="8" fill="${GOLD}"/><rect x="164" y="48" width="32" height="20" rx="6" fill="#D9A404"/><path d="M144 92 Q 144 84 152 84 H 208 Q 216 84 216 92 V 240 Q 216 252 204 252 H 156 Q 144 252 144 240 Z" fill="${NAVY}"/><rect x="144" y="210" width="72" height="8" fill="${GOLD}"/>${CREST(180, 158, 24)}`,
+  "rally-towel": `<path d="M118 64 H 242 Q 250 64 248 74 L 236 236 Q 235 246 226 246 H 134 Q 125 246 124 236 L 112 74 Q 110 64 118 64 Z" fill="${GOLD}"/><path d="M114 86 H 246 M118 226 H 242" stroke="#D9A404" stroke-width="5"/>${WORD(180, 148, "GO", 34, NAVY)}${WORD(180, 184, "COMETS!", 25, NAVY)}`,
+  "parent-tee": `${tee(NAVY, GOLD)}${WORD(180, 150, "PROUD", 17, "#FFFFFF")}${WORD(180, 176, "COMETS", 21, GOLD)}${WORD(180, 200, "PARENT", 17, "#FFFFFF")}`,
+  "coaches-polo": `${tee("#FFFFFF", NAVY, "#C3CAD6")}<path d="M154 56 L 166 86 L 180 70 L 194 86 L 206 56" fill="${NAVY}"/><path d="M180 70 V 112" stroke="#C9CED8" stroke-width="3"/><circle cx="180" cy="90" r="3" fill="#C9CED8"/><circle cx="180" cy="104" r="3" fill="#C9CED8"/>${WORD(208, 136, "COACH", 13, NAVY)}`,
+};
+for (const [slug, art] of Object.entries(PRODUCTS)) {
+  write(`shop/${slug}.svg`, `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" role="img" aria-label="${esc(slug.replace(/-/g, " "))} (fictional product)">
+  <rect width="360" height="300" fill="#F1F4F9"/>
+  <ellipse cx="180" cy="262" rx="104" ry="12" fill="#DFE4EC"/>
+  ${art}
+</svg>`);
+}
+
+console.log(`wrote crest, ${Object.keys(PEOPLE).length * 2 + 3} people files, ${PARTNERS.length} partner logos, ${TEAM_SPONSORS.length} sponsor logos and ${Object.keys(PRODUCTS).length} products to ${OUT}`);

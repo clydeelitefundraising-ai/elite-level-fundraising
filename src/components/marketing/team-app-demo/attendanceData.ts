@@ -67,9 +67,17 @@ const ABSENCES: { practice: number; athlete: string; reason: AbsenceReason; note
   { practice: 8, athlete: "Maya Torres", reason: "excused", note: "Band concert" },
 ];
 
+/** Today's session, already saved by the coach earlier today: eight
+ *  present, one excused and one unexcused absence. */
+const TODAY_ABSENCES: { athlete: string; reason: AbsenceReason; note?: string }[] = [
+  { athlete: "Elijah Carter", reason: "excused", note: "Orthodontist appointment" },
+  { athlete: "Noah Ramirez", reason: "unexcused" },
+];
+
 /** Saved sessions on practice days from 3 weeks ago through yesterday —
- *  some inside the 14-day window (editable), some older (read-only).
- *  Today is left for the visitor to take. */
+ *  some inside the 14-day window (editable), some older (read-only) —
+ *  plus today's session, saved earlier today (still editable, so the
+ *  visitor can change it and Save Draft again, or pick another date). */
 export function buildDemoAttendanceDb(now: Date): DemoAttendanceDb {
   const today = demoTodayISO(now);
   const sessions: Record<string, DemoAttendanceSession> = {};
@@ -92,6 +100,24 @@ export function buildDemoAttendanceDb(now: Date): DemoAttendanceDb {
     }
     sessions[date] = { date, version: 1, createdAt: savedAt, updatedAt: savedAt, createdByName: COACH, updatedByName: COACH, records };
   }
+
+  // Today: saved 25 minutes ago (never before the team's midnight).
+  const midnight = Date.parse(`${today}T07:00:00.000Z`); // 00:00 in Arizona (UTC-7, no DST)
+  const savedToday = new Date(Math.min(now.getTime(), Math.max(midnight + 60_000, now.getTime() - 25 * 60_000))).toISOString();
+  const todayRecords: Record<string, DemoAttendanceRecord> = {};
+  for (const a of DEMO_ROSTER) {
+    const absent = TODAY_ABSENCES.find(x => x.athlete === a.name);
+    todayRecords[a.id] = {
+      recordId: id(7000 + n++),
+      status: absent ? "absent" : "present",
+      absenceReason: absent ? absent.reason : null,
+      note: absent?.note ?? null,
+      updatedAt: savedToday,
+      updatedByName: COACH,
+    };
+  }
+  sessions[today] = { date: today, version: 1, createdAt: savedToday, updatedAt: savedToday, createdByName: COACH, updatedByName: COACH, records: todayRecords };
+
   return { sessions, seq: n };
 }
 

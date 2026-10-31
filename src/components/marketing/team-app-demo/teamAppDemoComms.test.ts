@@ -178,7 +178,7 @@ test("navigation: Send Message and ?tab=messages open Messages; other Comms link
   assert.equal(commsSectionForHref("/team/sunridge-valley-football-demo/communications"), "updates");
   assert.match(read(`${T}/messages/page.tsx`), /redirect\(`\/team\/\$\{slug\}\/communications\?tab=messages`\)/);
   // The real conversation page (/messages/<id>) matches no bottom-nav tab.
-  assert.match(read(`${D}/TeamAppDemo.tsx`), /const activeNav = openThreadId \|\| route\.screen === "attendance" \|\| route\.screen === "athlete" \? "" : tab;/);
+  assert.match(read(`${D}/TeamAppDemo.tsx`), /const activeNav = openThreadId \|\| route\.screen === "attendance" \|\| route\.screen === "contacts" \|\| route\.screen === "athlete" \? "" : tab;/);
 });
 
 // ── Data ────────────────────────────────────────────────────────────────────

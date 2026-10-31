@@ -14,7 +14,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { TWINS, generateTwin } from "../../../../scripts/marketing/generate-team-app-demo-twins.mjs";
+import { TWINS, generateTwin, globalsUsed } from "../../../../scripts/marketing/generate-team-app-demo-twins.mjs";
 import {
   editorReducer, initialEditorState, prepareSave, runSave, entryProblems, type EditorState, type EditorAction,
 } from "../../../app/team/[slug]/attendance/attendanceEditor.ts";
@@ -43,7 +43,13 @@ for (const twin of TWINS) {
     assert.equal(committed, generateTwin(twin, real), "re-run scripts/marketing/generate-team-app-demo-twins.mjs");
     const body = (s: string) => s.split("\n").filter((l) => !/^\s*(import\s|\}\s*from\s|\/\/ GENERATED|\/\/ Identical)/.test(l) && !/^\s+[\w, {}]+,?$/.test(l) || false);
     const nonImport = (s: string) => s.replace(/^import\s[\s\S]*?from\s+["'][^"']+["'];?$/gm, "").replace(/^\/\/ (GENERATED|Identical).*$/gm, "").replace(/^\/\* eslint-disable @next\/next\/no-img-element .*\*\/$/gm, "");
-    assert.equal(nonImport(committed).replace(/\n+/g, "\n"), nonImport(real.replace(/\r\n/g, "\n")).replace(/\n+/g, "\n"));
+    assert.equal(nonImport(committed).replace(/\n+/g, "\n").trim(), nonImport(real.replace(/\r\n/g, "\n")).replace(/\n+/g, "\n").trim());
+    // The only added import: the demo's stand-ins for exactly the browser
+    // globals the real component uses (fetch, navigator, confirm, alert, window).
+    const used = globalsUsed(real);
+    const added = committed.match(/^import \{ ([^}]+) \} from "\.\/demoGlobals";$/m);
+    if (used.length) assert.deepEqual(added?.[1].split(", "), used, "globals answered by the demo");
+    else assert.equal(added, null);
     assert.ok(!/from "next\/(link|navigation)"/.test(committed), "no Next.js routing");
     assert.ok(body(committed).length > 0);
   });
@@ -117,7 +123,7 @@ test("attendance: an absence needs a reason before Save Draft; then the real run
   const outcome = await runSave(api, s.draft!);
   assert.equal(outcome.kind, "saved");
   const session = db().sessions[TODAY];
-  assert.equal(session.version, 1);
+  assert.equal(session.version, 2, "today's saved session, saved again");
   assert.equal(session.records[owen.athleteId!].status, "absent");
   assert.equal(session.records[owen.athleteId!].absenceReason, "excused");
 });
@@ -125,12 +131,16 @@ test("attendance: an absence needs a reason before Save Draft; then the real run
 test("attendance: the server's validation runs on every save (reason required), and stale versions conflict", async () => {
   const { api } = setup();
   const athleteId = DEMO_ROSTER[0].id;
-  const noReason = await api.save({ sessionDate: TODAY, expectedVersion: 0, records: [{ athlete_id: athleteId, status: "absent", absence_reason: null, note: null }] });
+  const noReason = await api.save({ sessionDate: TODAY, expectedVersion: 1, records: [{ athlete_id: athleteId, status: "absent", absence_reason: null, note: null }] });
   assert.ok(!noReason.ok && noReason.failure.kind === "invalid_records");
-  const ok = await api.save({ sessionDate: TODAY, expectedVersion: 0, records: [{ athlete_id: athleteId, status: "present", absence_reason: null, note: null }] });
-  assert.ok(ok.ok && ok.value.created && ok.value.version === 1);
-  const stale = await api.save({ sessionDate: TODAY, expectedVersion: 0, records: [{ athlete_id: athleteId, status: "present", absence_reason: null, note: null }] });
+  const ok = await api.save({ sessionDate: TODAY, expectedVersion: 1, records: [{ athlete_id: athleteId, status: "present", absence_reason: null, note: null }] });
+  assert.ok(ok.ok && !ok.value.created && ok.value.version === 2);
+  const stale = await api.save({ sessionDate: TODAY, expectedVersion: 1, records: [{ athlete_id: athleteId, status: "present", absence_reason: null, note: null }] });
   assert.deepEqual(stale, { ok: false, failure: { kind: "conflict" } });
+  // A day with nothing saved yet starts at version 0 — the real "not saved yet" draft.
+  const blank = [1, 2, 3, 4, 5, 6].map(n => addDaysISO(TODAY, -n)).find(d => !PRACTICE_WEEKDAYS.includes(weekdayISO(d)))!; // no practice, nothing saved
+  const firstSave = await api.save({ sessionDate: blank, expectedVersion: 0, records: [{ athlete_id: athleteId, status: "present", absence_reason: null, note: null }] });
+  assert.ok(firstSave.ok && firstSave.value.created && firstSave.value.version === 1);
 });
 
 test("attendance: a realistic season — saved practices inside and outside the 14-day window, totals from the app's own maths", async () => {
@@ -138,12 +148,20 @@ test("attendance: a realistic season — saved practices inside and outside the 
   const list = await api.listSessions({ from: addDaysISO(TODAY, -365), to: TODAY });
   assert.ok(list.ok);
   const sessions = list.value.sessions;
-  assert.equal(sessions.length, 9, "three practices a week for three weeks");
-  assert.ok(sessions.every((s) => PRACTICE_WEEKDAYS.includes(weekdayISO(s.sessionDate)) && s.sessionDate < TODAY));
+  assert.equal(sessions.length, 10, "today plus three practices a week for three weeks");
+  const [today, ...earlier] = sessions;
+  assert.equal(today.sessionDate, TODAY);
+  assert.ok(earlier.every((s) => PRACTICE_WEEKDAYS.includes(weekdayISO(s.sessionDate)) && s.sessionDate < TODAY));
   assert.ok(sessions.some((s) => s.editable) && sessions.some((s) => !s.editable));
   assert.ok(sessions.every((s) => s.totals.total === DEMO_ROSTER.length && s.totals.reasonMissing === 0));
-  assert.equal(sessions[0].totals.absent, 2);
-  assert.equal(sessions[0].totals.presentPercent, 80);
+  // Today is already saved (a saved session, not an unsaved draft): eight
+  // present, one excused, one unexcused — by the coach, earlier today.
+  assert.equal(today.version, 1);
+  assert.equal(today.updatedByName, "Dana Whitfield");
+  assert.deepEqual([today.totals.present, today.totals.excused, today.totals.unexcused, today.totals.presentPercent], [8, 1, 1, 80]);
+  assert.ok(Date.parse(today.updatedAt) <= NOW.getTime() && demoTodayISO(new Date(today.updatedAt)) === TODAY, "saved earlier today");
+  assert.equal(earlier[0].totals.absent, 2);
+  assert.equal(earlier[0].totals.presentPercent, 80);
 });
 
 test("attendance: athletes and parents never get the coach screen — only their athlete's read-only absences, without notes", () => {
@@ -161,7 +179,7 @@ test("attendance: athletes and parents never get the coach screen — only their
   // The shell only mounts the attendance screen for coaches.
   assert.match(read(`${D}/TeamAppDemo.tsx`), /route\.screen === "attendance" \? \(\s*actor\.kind === "coach" && attendanceApi\s*\? <DemoAttendance/);
   // The member profile shows the card only when the app's rule allows it.
-  assert.match(read(`${D}/DemoTeam.tsx`), /canViewAthleteAttendance\(actor, athleteId, demoLinkedAthleteIds\(actor\)\)/);
+  assert.match(read(`${D}/DemoTeam.tsx`), /const linkedAthleteIds = demoLinkedAthleteIds\(actor\);[\s\S]*canViewAthleteAttendance\(actor, athleteId, linkedAthleteIds\)/);
 });
 
 test("attendance: unsaved changes ask before leaving (the real LeaveDialog), without touching browser history", () => {
@@ -187,10 +205,16 @@ test("routes: Team → Roster → Take Attendance, profiles and the rest map to 
   assert.equal(r(`/team/${DEMO_SLUG}/team/${JORDAN_ELLIS_ID}`), "team/coach-athlete#02");
   assert.equal(r(`/team/${DEMO_SLUG}/calendar`), "calendar/main");
   assert.equal(r(`/team/${DEMO_SLUG}/messages`), "communications/main");
+  assert.equal(r(`/team/${DEMO_SLUG}/contacts`), "fundraiser/contacts");
+  assert.equal(r(`/team/${DEMO_SLUG}/fundraiser?view=donors`), "fundraiser/main?view=donors");
+  assert.equal(r(`/team/${DEMO_SLUG}/shop`), "shop/main");
+  assert.equal(r(`/team/${DEMO_SLUG}/sponsors`), "sponsors/main");
+  assert.equal(r(`/team/${DEMO_SLUG}/staff`), null);
+  assert.equal(r(`/campaign/${DEMO_SLUG}`), null);
   assert.equal(r(`/team/${DEMO_SLUG}/requests`), null);
   assert.equal(r("https://maps.google.com/?q=Comets"), null);
-  // The bottom nav highlights nothing on /attendance or /athlete/<id>, like the app.
-  assert.match(read(`${D}/TeamAppDemo.tsx`), /const activeNav = openThreadId \|\| route\.screen === "attendance" \|\| route\.screen === "athlete" \? "" : tab;/);
+  // The bottom nav highlights nothing on /attendance, /contacts or /athlete/<id>, like the app.
+  assert.match(read(`${D}/TeamAppDemo.tsx`), /const activeNav = openThreadId \|\| route\.screen === "attendance" \|\| route\.screen === "contacts" \|\| route\.screen === "athlete" \? "" : tab;/);
 });
 
 // ── Calendar ────────────────────────────────────────────────────────────────
@@ -257,12 +281,14 @@ function styleDecls(src: string): Set<string> {
   return out;
 }
 
-test("member profile: the hero card uses only the real AthleteProfileView's styles, with the real Attendance card", () => {
+test("member profile: the real AthleteProfileView (generated twin), opened only under the app's own access rule", () => {
   const demoSrc = read(`${D}/DemoTeam.tsx`);
-  const hero = demoSrc.slice(demoSrc.indexOf("export function DemoMemberAthleteProfile"));
-  const real = styleDecls(read(`${T}/athlete/[id]/AthleteProfileView.tsx`));
-  const extra = [...styleDecls(hero)].filter((d) => !real.has(d));
-  assert.deepEqual(extra, []);
-  assert.match(hero, /\{attendance && <AthleteAttendanceCard attendance=\{attendance\} \/>\}/);
+  const member = demoSrc.slice(demoSrc.indexOf("export function DemoMemberAthleteProfile"));
+  assert.match(demoSrc, /import AthleteProfileView from "\.\/DemoAthleteProfileView";/);
+  assert.match(member, /const allowed = canViewAthleteProfile\(\{/);
+  assert.match(member, /<AthleteProfileView\s/);
+  // No hand-written profile markup any more: every style comes from the twin.
+  assert.deepEqual([...styleDecls(member)], []);
+  assert.match(read(`${D}/DemoAthleteProfileView.tsx`), /\{attendance && <AthleteAttendanceCard attendance=\{attendance\} \/>\}/);
   assert.match(read(`${T}/athlete/[id]/AthleteProfileView.tsx`), /\{attendance && <AthleteAttendanceCard attendance=\{attendance\} \/>\}/);
 });

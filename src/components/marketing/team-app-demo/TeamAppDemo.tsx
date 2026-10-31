@@ -1,27 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CalendarEventRow } from "@/lib/teamData";
 import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 import { shouldShowFundraisingNav } from "@/lib/permissions";
+import { toShopSettings } from "@/lib/teamShellSettings";
 import { DemoTeamHeader, DemoTeamNav } from "./DemoChrome";
 import DemoHome from "./DemoHome";
 import DemoComms, { type CommsSection } from "./DemoComms";
 import { DemoCalendarTab } from "./DemoCalendar";
-import DemoTeam, { DemoMemberAthleteProfile } from "./DemoTeam";
+import DemoTeam, { DemoCoachAthleteProfile, DemoMemberAthleteProfile } from "./DemoTeam";
 import DemoAttendance from "./DemoAttendance";
+import DemoFundraiser, { DemoContactsPage } from "./DemoFundraiser";
+import ShopView from "./DemoShopView";
+import PartnersView from "./DemoPartnersView";
 import NextPhaseScreen from "./NextPhase";
-import { DemoNavProvider } from "./demoRouter";
+import { DemoNavProvider, resetDemoLocation } from "./demoRouter";
+import { installDemoServer } from "./demoGlobals";
 import { buildDemoEngagement, buildDemoFiles, buildDemoThreads, personForActor, unreadMessageCount, type DemoStore } from "./commsData";
 import { buildDemoAttendanceDb, createDemoAttendanceApi, type DemoAttendanceDb } from "./attendanceData";
-import { DEMO_ACTORS, DEMO_TEAM, buildDemoAnnouncements, buildDemoEvents, demoTodayISO, upcomingFrom } from "./demoData";
+import { buildDemoDb, createDemoApi, type DemoDb } from "./demoApi";
+import { DEMO_COMMUNITY_PARTNERS } from "./teamInfoData";
+import { DEMO_ACTORS, DEMO_SLUG, DEMO_TEAM, buildDemoAnnouncements, buildDemoEvents, demoTodayISO, upcomingFrom } from "./demoData";
 import type { AttendanceApi } from "@/app/team/[slug]/attendance/attendanceApi";
-import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoRouteForHref, type DemoMessage, type DemoRole, type DemoRoute } from "./demoProtocol";
+import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoRouteForHref, previewNoticeForHref, type DemoMessage, type DemoRole, type DemoRoute } from "./demoProtocol";
 
 // The isolated, high-fidelity ELF Team App demo shown inside the phone
 // frame on /product (via /preview/team-app). Everything lives in this
-// component's React state in the visitor's browser: fictional Sunridge
-// Valley Comets data, no fetch, no storage, no auth, no messages, no
+// component's state in the visitor's browser: fictional Sunridge Valley
+// Comets data, no network, no storage, no auth, no messages, no
 // notifications, no payments. The page also installs networkGuard.ts.
 //
 // Navigation: every anchor in the demo (the app's real components render
@@ -30,26 +37,26 @@ import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoRouteForHref, type D
 // mapped to an in-demo screen (demoRouteForHref) or answered with a
 // "preview only" notice — nothing ever navigates to the real app.
 //
+// Data: the twins' API calls are answered by the demo's in-memory API
+// (demoApi.ts, installed below through demoGlobals.ts) over this run's
+// records; attendance has its own in-memory AttendanceApi. Both report
+// their changes back into the store, so every screen and role sees them
+// until Reset.
+//
 // The embedding page (TeamAppSimulator) switches roles and resets the demo
 // with window.postMessage; the demo reports the active tab back so the
 // marketing page can show the matching hint. Messages are same-origin only.
 
 /** Everything a visitor can change, shared by every role until Reset. */
-type AppStore = DemoStore & { events: CalendarEventRow[]; attendance: DemoAttendanceDb };
+type AppStore = DemoStore & { events: CalendarEventRow[]; attendance: DemoAttendanceDb; db: DemoDb };
 
 function buildStore(now: Date): AppStore {
   const announcements = buildDemoAnnouncements(now);
   return {
     announcements, engagement: buildDemoEngagement(announcements, now), threads: buildDemoThreads(now), files: buildDemoFiles(now), seq: 0,
-    events: buildDemoEvents(now), attendance: buildDemoAttendanceDb(now),
+    events: buildDemoEvents(now), attendance: buildDemoAttendanceDb(now), db: buildDemoDb(now),
   };
 }
-
-const SCREEN_TITLES: Record<string, string> = {
-  fundraiser: "Fundraiser",
-  shop: "Shop",
-  sponsors: "Partners",
-};
 
 const HOME: DemoRoute = { tab: "home", screen: "main", search: "", athleteId: null, commsSection: "updates" };
 
@@ -65,6 +72,18 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [attendanceApi, setAttendanceApi] = useState<AttendanceApi | null>(null);
+  const [api, setApi] = useState<ReturnType<typeof createDemoApi> | null>(null);
+  const actor = DEMO_ACTORS[role];
+  const actorRef = useRef(actor);
+  // Layout effects run before any screen's data requests (passive effects).
+  useLayoutEffect(() => { actorRef.current = actor; }, [actor]);
+
+  const notify = useCallback((msg?: string) => {
+    setToast(msg ?? PREVIEW_ONLY);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 3600);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   // Dates are the team's "today" — set after mount so the server render
   // never disagrees with the browser's clock.
@@ -74,22 +93,24 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
     const fresh = buildStore(d);
     setNow(d);
     setStoreState(fresh);
-    // The attendance "server" for this run of the demo: owns its data and
-    // mirrors every save into the store.
+    // The attendance "server" and the team API for this run of the demo:
+    // each owns its data and mirrors every change into the store.
     setAttendanceApi(createDemoAttendanceApi(fresh.attendance, db => setStoreState(s => (s ? { ...s, attendance: db } : s))));
-  }, [resetKey]);
+    setApi(createDemoApi({
+      initial: fresh.db,
+      actor: () => actorRef.current,
+      notify: m => notify(m),
+      onChange: db => setStoreState(s => (s ? { ...s, db } : s)),
+    }));
+  }, [resetKey, notify]);
   /* eslint-enable react-hooks/set-state-in-effect */
+  useLayoutEffect(() => (api ? installDemoServer(api) : undefined), [api]);
+
   const setCommsStore = useCallback((fn: (s: DemoStore) => DemoStore) => setStoreState(s => (s ? { ...s, ...fn(s) } : s)), []);
   const setEvents = useCallback((fn: (e: CalendarEventRow[]) => CalendarEventRow[]) => setStoreState(s => (s ? { ...s, events: fn(s.events) } : s)), []);
 
-  const notify = useCallback((msg?: string) => {
-    setToast(msg ?? PREVIEW_ONLY);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), 3200);
-  }, []);
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
-
   const goToRoute = useCallback((next: DemoRoute) => {
+    resetDemoLocation(next.search);
     setRoute(next);
     setRouteKey(k => k + 1);
     setCommsSection(next.commsSection);
@@ -99,7 +120,7 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
   const navigate = useCallback((href: string) => {
     const next = href === "back" ? demoRouteForHref("/team/demo/team?tab=roster") : demoRouteForHref(href);
     if (next) goToRoute(next);
-    else notify("Preview only — this opens another part of the real app.");
+    else notify(previewNoticeForHref(href));
   }, [goToRoute, notify]);
   const openThread = useCallback((threadId: string | null) => {
     setOpenThreadId(threadId);
@@ -154,27 +175,31 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
     window.parent.postMessage(msg, window.location.origin);
   }, [embedded, role, tab]);
 
-  const actor = DEMO_ACTORS[role];
   const me = personForActor(actor);
   const upcoming = useMemo(() => (now && store ? upcomingFrom(store.events, demoTodayISO(now)) : []), [now, store]);
   const themeVars = resolveTeamTheme(DEMO_TEAM.primaryColor, DEMO_TEAM.secondaryColor, DEMO_TEAM.brandingCustomized);
 
   // The real app's bottom nav highlights by path: nothing on a conversation
-  // (/messages/<id>), the attendance screen (/attendance) or a member's
-  // athlete profile (/athlete/<id>).
-  const activeNav = openThreadId || route.screen === "attendance" || route.screen === "athlete" ? "" : tab;
+  // (/messages/<id>), the attendance screen (/attendance), contacts
+  // (/contacts) or a member's athlete profile (/athlete/<id>).
+  const activeNav = openThreadId || route.screen === "attendance" || route.screen === "contacts" || route.screen === "athlete" ? "" : tab;
   const screenKey = `${resetKey}-${role}-${routeKey}`;
 
-  const screen = !now || !store ? null
+  // Screens that read the demo API mount only once it's installed.
+  const ready = !!now && !!store && !!api;
+  const screen = !ready || !store || !now ? null
     : route.screen === "attendance" ? (
       actor.kind === "coach" && attendanceApi
         ? <DemoAttendance key={screenKey} api={attendanceApi} onLeave={navigate} onSaved={() => notify("Preview only — attendance was saved in this demo only.")} />
         : <NextPhaseScreen title="Attendance" />
     )
+    : route.screen === "contacts" ? <DemoContactsPage key={screenKey} actor={actor} db={store.db} />
     : route.screen === "athlete" && route.athleteId ? (
-      <DemoMemberAthleteProfile key={screenKey} actor={actor} athleteId={route.athleteId} attendanceDb={store.attendance} />
+      <DemoMemberAthleteProfile key={screenKey} actor={actor} athleteId={route.athleteId} db={store.db} attendanceDb={store.attendance} />
     )
-    : route.screen === "coach-athlete" ? <NextPhaseScreen key={screenKey} title="Athlete profile" />
+    : route.screen === "coach-athlete" && route.athleteId ? (
+      <DemoCoachAthleteProfile key={screenKey} actor={actor} athleteId={route.athleteId} db={store.db} attendanceDb={store.attendance} />
+    )
     : tab === "home" ? (
       <DemoHome key={screenKey} role={role} actor={actor} announcements={store.announcements} upcoming={upcoming} onPreviewOnly={notify} />
     ) : tab === "communications" ? (
@@ -187,14 +212,27 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
       />
     ) : tab === "calendar" ? (
       <DemoCalendarTab key={`${resetKey}-${role}`} actor={actor} events={store.events} setEvents={setEvents} notify={notify} />
+    ) : tab === "fundraiser" ? (
+      <DemoFundraiser key={screenKey} actor={actor} db={store.db} search={route.search} />
+    ) : tab === "shop" ? (
+      <ShopView key={screenKey} slug={DEMO_SLUG} settings={toShopSettings(store.db.settings)} initialProducts={store.db.products} actor={actor} />
+    ) : tab === "sponsors" ? (
+      <PartnersView
+        key={screenKey}
+        slug={DEMO_SLUG}
+        initialSponsors={store.db.sponsors}
+        actor={actor}
+        showCommunityPartners
+        activePartners={DEMO_COMMUNITY_PARTNERS}
+      />
     ) : tab === "team" ? (
-      <DemoTeam key={screenKey} actor={actor} notify={notify} />
+      <DemoTeam key={screenKey} actor={actor} db={store.db} notify={notify} />
     ) : (
-      <NextPhaseScreen title={SCREEN_TITLES[tab] ?? "This screen"} />
+      <NextPhaseScreen title="This screen" />
     );
 
   return (
-    <DemoNavProvider value={{ navigate, notify, search: route.search }}>
+    <DemoNavProvider value={{ navigate, notify }}>
       <div className="elf-shell" style={{
         minHeight: "100vh",
         background: "var(--shell-backdrop)",

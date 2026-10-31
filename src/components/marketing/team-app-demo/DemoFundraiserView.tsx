@@ -1,0 +1,665 @@
+"use client";
+// GENERATED from src/app/team/[slug]/fundraiser/FundraiserView.tsx by scripts/marketing/generate-team-app-demo-twins.mjs — do not edit.
+// Identical to the real component except its import lines (see that script).
+/* eslint-disable @next/next/no-img-element -- verbatim copy of the real component, which uses <img> */
+
+import { useState, useEffect } from "react";
+import { useRouter } from "./demoRouter";
+import { Share2, Copy, QrCode, Check, Users } from "lucide-react";
+import type { TeamAthleteRow } from "@/lib/teamData";
+import type { CampaignSettings } from "@/lib/supabase";
+import Modal from "@/app/team/[slug]/_components/Modal";
+import { useSeasonReadOnly } from "@/app/team/[slug]/_components/SeasonStatus";
+import styles from "@/app/team/[slug]/fundraiser/Fundraiser.module.css";
+import { buildShareText } from "@/lib/shareCopy";
+import CampaignOverviewCard from "@/app/team/[slug]/fundraiser/CampaignOverviewCard";
+import { SectionCard, ViewAllLink, AthleteRows, DonationRows } from "@/app/team/[slug]/fundraiser/DashboardParts";
+import { fundraiserHref, DASHBOARD_PREVIEW_COUNT } from "@/app/team/[slug]/fundraiser/fundraiserData";
+import { fmt, initials, avatarColor, timeAgo, donationsLabel } from "@/app/team/[slug]/fundraiser/fundraiserFormat";
+import { fetch, navigator, window } from "./demoGlobals";
+
+// ── Exported types (consumed by page.tsx) ─────────────────────────────────────
+
+export type RecentDonation = {
+  donor_name:       string | null;
+  amount_cents:     number;
+  donation_message: string | null;
+  created_at:       string;
+};
+
+export type LeaderboardEntry = {
+  id:            string;
+  name:          string;
+  profile_photo: string | null;
+  event:         string | null;
+  class_year:    string | null;
+  raisedCents:   number;
+  goalCents:     number | null;
+  donorCount:    number;
+  rank:          number;
+};
+
+export type FeedDonation = {
+  donor_name:       string | null;
+  amount_cents:     number;
+  athlete_label:    string | null;
+  donation_message: string | null;
+  created_at:       string;
+};
+
+// ── Prop types ────────────────────────────────────────────────────────────────
+
+type AthleteMode = {
+  mode:                "athlete";
+  slug:                string;
+  athlete:             TeamAthleteRow;
+  settings:            CampaignSettings | null;
+  athleteRaisedCents:  number;
+  goalCents:           number;
+  rank:                number;
+  totalAthletes:       number;
+  donorCount:          number;
+  recentDonations:     RecentDonation[];
+  /** Top five only (already ranked); totalAthletes is the full count. */
+  leaderboard:         LeaderboardEntry[];
+  /** Top five of the existing 15-most-recent team feed; teamFeedTotal is
+   *  that feed's length (never more than 15). */
+  teamFeed:            FeedDonation[];
+  teamFeedTotal:       number;
+  teamRaisedCents:     number;
+  teamDonationCount:   number;
+  teamDisplayGoalCents: number;
+  /** Set only for a parent with several linked athletes, so full lists
+   *  and Back keep the selected athlete. */
+  selectedAthleteParam?: string;
+  // Family Relationships Phase B: present only when this parent has an
+  // approved relationship to 2+ athletes on this team — undefined (not an
+  // empty array) for every single-child parent and every athlete, so their
+  // view renders exactly as it did before this phase, with no selector at
+  // all.
+  linkedAthletes?:     { id: string; name: string }[];
+};
+
+type ClaimMode = {
+  mode:     "claim";
+  slug:     string;
+  roster:   TeamAthleteRow[];
+  settings: CampaignSettings | null;
+};
+
+type Props = AthleteMode | ClaimMode;
+
+// ── Progress bar ───────────────────────────────────────────────────────────────
+
+// Exposed as a labelled progressbar, like the Team Campaign bar in
+// CampaignOverviewCard; the visual and the value it shows are unchanged.
+function ProgressBar({ pct, color, label = "Personal fundraising progress" }: { pct: number; color: string; label?: string }) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamped)}
+      style={{ background: "var(--border-app)", borderRadius: 100, height: 10, overflow: "hidden" }}
+    >
+      <div style={{
+        background: color, borderRadius: 100, height: "100%",
+        width: `${clamped}%`,
+        transition: "width .6s ease",
+      }} />
+    </div>
+  );
+}
+
+// ── People to Contact — elevated next-action card (athlete/parent only) ───────
+//
+// Reuses the exact same /contacts summary endpoint and fundraising_contacts/
+// fundraising_contact_goals data as before (Phase 29) — only the presentation
+// and CTA copy changed for Phase 3A-1. Once the contact goal is met, the CTA
+// switches from "Add Contacts" to "View Contacts" so the card stays useful
+// instead of looking like there's nothing left to do (contact status/
+// outreach tracking itself is explicitly out of scope for this phase).
+
+function PeopleToContactCard({ slug, primary }: { slug: string; primary: string }) {
+  // Complete Season Phase 4B: on a completed season the card only views contacts.
+  const seasonReadOnly = useSeasonReadOnly();
+  const [count, setCount] = useState<number | null>(null);
+  const [goal,  setGoal]  = useState<number>(10);
+
+  useEffect(() => {
+    fetch(`/api/team/${slug}/contacts?summary=1`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) { setCount(d.count); setGoal(d.goal); } })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const pct       = goal > 0 && count !== null ? Math.min(100, Math.round((count / goal) * 100)) : 0;
+  const goalMet    = count !== null && count >= goal;
+  const ctaLabel   = goalMet || seasonReadOnly ? "View Contacts →" : "Add Contacts →";
+
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 16, overflow: "hidden",
+      border: "1px solid var(--border-app)",
+      marginBottom: ".65rem",
+      borderLeft: `4px solid ${primary}`,
+    }}>
+      <div style={{ padding: ".9rem 1.15rem .6rem" }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Next Action
+        </div>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", marginTop: ".1rem" }}>
+          People to Contact
+        </div>
+      </div>
+      <div style={{ padding: "0 1.15rem .9rem" }}>
+        {count === null ? (
+          <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Loading…</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".5rem" }}>
+              <div>
+                <span style={{ fontWeight: 800, fontSize: "1.4rem", color: "var(--text-primary-app)", lineHeight: 1 }}>{count}</span>
+                <span style={{ fontSize: ".78rem", color: "var(--text-secondary-app)", marginLeft: ".3rem" }}>of {goal} contacts added</span>
+              </div>
+              {goalMet && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: ".25rem", fontSize: ".65rem", fontWeight: 700, color: "var(--color-success)", background: "#ecfdf5", padding: ".15rem .5rem", borderRadius: 100 }}>
+                  <Check size={11} strokeWidth={3} /> Goal met
+                </span>
+              )}
+            </div>
+            <div style={{ background: "var(--border-app)", borderRadius: 100, height: 8, overflow: "hidden", marginBottom: ".75rem" }}>
+              <div style={{ background: goalMet ? "var(--color-success)" : primary, borderRadius: 100, height: "100%", width: `${pct}%`, transition: "width .5s ease" }} />
+            </div>
+            <a
+              href={`/team/${slug}/contacts`}
+              style={{
+                display: "block", textAlign: "center", padding: ".65rem", width: "100%", boxSizing: "border-box",
+                background: goalMet ? "var(--surface-light-elevated)" : primary, color: goalMet ? "var(--text-secondary-app)" : "#fff",
+                borderRadius: 10, fontSize: ".85rem", fontWeight: 700, textDecoration: "none",
+              }}
+            >
+              {ctaLabel}
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Claim flow ─────────────────────────────────────────────────────────────────
+
+function ClaimView({ slug, roster }: ClaimMode) {
+  const router = useRouter();
+  // Complete Season Phase 4B: linking a profile changes the season roster —
+  // not possible once the season is completed.
+  const seasonReadOnly = useSeasonReadOnly();
+  const [selected, setSelected] = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState("");
+  const [pending,  setPending]  = useState(false);
+  const primary = "var(--team-primary)";
+
+  const handleSave = async () => {
+    if (!selected) { setError("Please select your name from the roster."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/team/${slug}/members/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ athlete_id: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed to link profile."); return; }
+      // Parent role: this is now a pending request, not immediate access
+      // (Phase 11a) — show the "sent for approval" state instead of
+      // refreshing into a dashboard the parent doesn't have access to yet.
+      if (data.pending) { setPending(true); return; }
+      router.refresh();
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (pending) {
+    return (
+      <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+        <div style={{
+          background: "var(--surface-light)", borderRadius: "var(--radius-lg)", padding: "2rem 1.25rem",
+          boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+          borderTop: `4px solid ${primary}`, textAlign: "center",
+        }}>
+          <div style={{ fontSize: "2rem", marginBottom: ".6rem" }}>⏳</div>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)", marginBottom: ".4rem" }}>
+            Request Sent
+          </div>
+          <p style={{ margin: 0, fontSize: ".85rem", color: "var(--text-muted-app)", lineHeight: 1.6 }}>
+            Your request has been sent to the Head Coach for approval. You&rsquo;ll get access once it&rsquo;s approved.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+      <div style={{ marginBottom: ".65rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
+          Fundraiser
+        </span>
+        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          My Dashboard
+        </h2>
+      </div>
+
+      <div style={{
+        background: "var(--surface-light)", borderRadius: 16, padding: "1.5rem 1.25rem",
+        border: "1px solid var(--border-app)",
+        borderTop: `4px solid ${primary}`,
+      }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: ".6rem" }}>
+          <Users size={22} strokeWidth={2} style={{ color: primary }} />
+        </div>
+        <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-primary-app)", textAlign: "center", marginBottom: ".4rem" }}>
+          Link your fundraising profile
+        </div>
+        <p style={{ margin: "0 0 1.25rem", fontSize: ".82rem", color: "var(--text-muted-app)", lineHeight: 1.6, textAlign: "center" }}>
+          Select your name from the roster to track your personal fundraising progress and share your page.
+        </p>
+
+        {seasonReadOnly ? (
+          <p role="note" style={{ textAlign: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
+            This season is completed — profiles can&apos;t be linked. Open the team&apos;s current season instead.
+          </p>
+        ) : roster.length === 0 ? (
+          <p style={{ textAlign: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
+            The roster is empty. Contact your coach to be added.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: ".75rem" }}>
+            <select
+              value={selected}
+              onChange={e => { setSelected(e.target.value); setError(""); }}
+              style={{
+                width: "100%", padding: ".6rem .75rem",
+                border: `1.5px solid ${selected ? primary : "var(--border-app)"}`,
+                borderRadius: 10, fontSize: ".875rem",
+                color: selected ? "#111827" : "var(--text-muted-app)",
+                background: "#fff", cursor: "pointer", boxSizing: "border-box",
+              }}
+            >
+              <option value="">Select your name…</option>
+              {roster.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.name}{(a.class_year || a.event) ? ` — ${a.class_year || a.event}` : ""}
+                </option>
+              ))}
+            </select>
+
+            {error && (
+              <p style={{ margin: 0, padding: ".4rem .6rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "var(--color-error)", fontSize: ".82rem" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !selected}
+              style={{
+                padding: ".75rem",
+                background: selected ? primary : "var(--border-app)",
+                color: selected ? "#fff" : "var(--text-muted-app)",
+                border: "none", borderRadius: 12, fontWeight: 700, fontSize: ".95rem",
+                cursor: selected && !saving ? "pointer" : "not-allowed",
+              }}
+            >
+              {saving ? "Linking…" : "Link My Profile"}
+            </button>
+
+            <p style={{ margin: 0, textAlign: "center", fontSize: ".72rem", color: "var(--text-muted-app)" }}>
+              Not on the roster? Contact your coach to be added.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Athlete dashboard ──────────────────────────────────────────────────────────
+
+function AthleteView({
+  slug, athlete, settings,
+  athleteRaisedCents, goalCents, rank, totalAthletes, donorCount,
+  recentDonations, leaderboard, teamFeed, linkedAthletes,
+  teamFeedTotal, teamRaisedCents, teamDonationCount, teamDisplayGoalCents, selectedAthleteParam,
+}: AthleteMode) {
+  const [copied,    setCopied]    = useState(false);
+  const [showQr,    setShowQr]    = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  const primary   = "var(--team-primary)";
+  const secondary = "var(--team-secondary)";
+  const bg        = avatarColor(athlete.name);
+  const firstName = athlete.name.split(" ")[0];
+  const pct       = goalCents > 0 ? (athleteRaisedCents / goalCents) * 100 : 0;
+  // Canonical donor-facing share URL (Phase 3A-1 share-path fix): the
+  // public campaign page with this athlete preselected via ?athlete=<id>
+  // — NOT the internal Team App /team/[slug]/athlete/[id] page, which
+  // donors should never land on. athleteId is the stable canonical
+  // attribution key; /api/checkout re-validates it server-side against
+  // this exact campaign before it's ever trusted (see checkout route).
+  const profilePath = `/campaign/${slug}?athlete=${athlete.id}`;
+
+  const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const profileUrl = `${siteOrigin}${profilePath}`;
+
+  useEffect(() => {
+    import("qrcode").then(QRCode => {
+      QRCode.default.toDataURL(profileUrl, { width: 240, margin: 2, color: { dark: "#111318" } })
+        .then(url => setQrDataUrl(url))
+        .catch(() => { /* silently ignore */ });
+    });
+  }, [profileUrl]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  const handleShare = async () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Support ${athlete.name}`,
+          text: buildShareText(firstName, settings?.school_name ?? "", settings?.sport_name ?? ""),
+          url: profileUrl,
+        });
+      } catch { /* cancelled */ }
+    } else {
+      handleCopy();
+    }
+  };
+
+  const teamLabel = [settings?.school_name, settings?.mascot, settings?.sport_name].filter(Boolean).join(" ");
+
+  return (
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+
+      {/* Section header */}
+      <div style={{ marginBottom: ".65rem" }}>
+        <span style={{ fontSize: ".58rem", fontWeight: 700, color: "#b0b7c3", textTransform: "uppercase", letterSpacing: ".1em", display: "block", marginBottom: ".1rem" }}>
+          Fundraiser
+        </span>
+        <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          Your Fundraiser
+        </h2>
+      </div>
+
+      {/* Linked-athlete selector — only rendered when this parent has an
+          approved relationship to 2+ athletes on this team (Family
+          Relationships Phase B). Plain links (?athlete=<id>), no client
+          state: a full navigation re-renders the server page with the
+          newly selected (and server-revalidated) athlete. */}
+      {linkedAthletes && linkedAthletes.length > 1 && (
+        <div style={{ display: "flex", gap: ".4rem", flexWrap: "wrap", marginBottom: ".75rem" }}>
+          {linkedAthletes.map(a => (
+            <a
+              key={a.id}
+              href={`/team/${slug}/fundraiser?athlete=${a.id}`}
+              style={{
+                padding: ".35rem .75rem", borderRadius: 100, fontSize: ".78rem", fontWeight: 700,
+                textDecoration: "none",
+                background: a.id === athlete.id ? primary : "#fff",
+                color:      a.id === athlete.id ? "#fff"  : "var(--text-primary-app)",
+                border: `1.5px solid ${a.id === athlete.id ? primary : "rgba(0,0,0,.1)"}`,
+              }}
+            >
+              {a.name}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* ── Hero card ── */}
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "1.25rem 1rem 1rem",
+        textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+        borderTop: `4px solid ${primary}`, marginBottom: ".65rem",
+      }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: ".65rem" }}>
+          {athlete.profile_photo ? (
+            <img src={athlete.profile_photo} alt={athlete.name} style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", boxShadow: "0 2px 10px rgba(0,0,0,.13)" }} />
+          ) : (
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "1.35rem", color: "#fff", boxShadow: "0 2px 10px rgba(0,0,0,.16)" }}>
+              {initials(athlete.name)}
+            </div>
+          )}
+        </div>
+        <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "var(--text-primary-app)", lineHeight: 1.15, marginBottom: ".25rem" }}>
+          {athlete.name}
+        </div>
+        {teamLabel && (
+          <div style={{ fontSize: ".75rem", color: "var(--text-secondary-app)", marginBottom: ".45rem" }}>{teamLabel}</div>
+        )}
+        <div style={{ display: "flex", justifyContent: "center", gap: ".35rem", flexWrap: "wrap" }}>
+          {(athlete.class_year || athlete.event) && (
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
+              {athlete.class_year || athlete.event}
+            </span>
+          )}
+          {athlete.class_year && athlete.event && (
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
+              {athlete.event}
+            </span>
+          )}
+          {athlete.grad_year != null && (
+            <span style={{ display: "inline-block", padding: ".15rem .5rem", borderRadius: 100, fontSize: ".62rem", fontWeight: 700, background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
+              Class of &apos;{String(athlete.grad_year).slice(-2)}
+            </span>
+          )}
+        </div>
+
+      {/* ── Personal stats — same values as before, now inside the hero
+            card so the personal fundraiser reads as one compact card ── */}
+      <div data-testid="personal-stats" style={{
+        textAlign: "left", marginTop: "1rem", paddingTop: "1rem",
+        borderTop: "1px solid var(--border-app)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: ".55rem" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "1.65rem", color: "var(--text-primary-app)", lineHeight: 1 }}>
+              {fmt(athleteRaisedCents)}
+            </div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginTop: ".15rem" }}>raised</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-secondary-app)" }}>{fmt(goalCents)}</div>
+            <div style={{ fontSize: ".68rem", color: "var(--text-muted-app)", marginTop: ".15rem" }}>goal</div>
+          </div>
+        </div>
+
+        <ProgressBar pct={pct} color={primary} />
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          marginTop: ".5rem", paddingTop: ".5rem", borderTop: "1px solid var(--border-app)",
+        }}>
+          <span style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
+            Rank <strong style={{ color: "var(--text-secondary-app)" }}>#{rank}</strong> of {totalAthletes} · {donationsLabel(donorCount)}
+          </span>
+          <span style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", fontWeight: 600 }}>
+            {Math.round(pct)}% complete
+          </span>
+        </div>
+      </div>
+      </div>
+
+      {/* ── Share — the strongest action on the page ── */}
+      <div style={{
+        background: "#fff", borderRadius: 16, padding: "1.15rem 1.25rem",
+        border: "1px solid var(--border-app)",
+        marginBottom: ".65rem",
+        borderLeft: `4px solid ${primary}`,
+      }}>
+        <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Next Action
+        </div>
+        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--text-primary-app)", margin: ".1rem 0 .2rem" }}>
+          Share Your Fundraiser
+        </div>
+        <p style={{ margin: "0 0 .8rem", fontSize: ".78rem", color: "var(--text-secondary-app)", lineHeight: 1.5 }}>
+          Send your personal link to family and friends.
+        </p>
+        <button
+          onClick={handleShare}
+          style={{
+            width: "100%", padding: ".8rem", background: primary, color: "#fff",
+            border: "none", borderRadius: 12, fontSize: ".92rem", fontWeight: 700,
+            cursor: "pointer", marginBottom: ".5rem",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem",
+          }}
+        >
+          <Share2 size={15} strokeWidth={2} /> Share My Fundraiser
+        </button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".5rem" }}>
+          <button onClick={handleCopy} style={{ padding: ".6rem .25rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
+            {copied ? (<><Check size={13} strokeWidth={2.5} /> Copied</>) : (<><Copy size={13} strokeWidth={2} /> Copy Link</>)}
+          </button>
+          <button onClick={() => setShowQr(true)} style={{ padding: ".6rem .25rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".78rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".35rem" }}>
+            <QrCode size={13} strokeWidth={2} /> QR Code
+          </button>
+        </div>
+      </div>
+
+      {/* ── People to contact ── */}
+      <PeopleToContactCard slug={slug} primary={primary} />
+
+      {/* ── Team campaign: total raised, displayed goal, progress (the same
+            team totals the Team Home card already shows members) ── */}
+      {settings && (
+        <CampaignOverviewCard
+          settings={settings}
+          raisedCents={teamRaisedCents}
+          donationCount={teamDonationCount}
+          displayGoalCents={teamDisplayGoalCents}
+          variant="compact"
+        />
+      )}
+
+      {/* ── My recent donations ── */}
+      {recentDonations.length > 0 && (
+        <div style={{
+          background: "#fff", borderRadius: 16, padding: "1rem 1.25rem",
+          border: "1px solid var(--border-app)",
+          marginBottom: ".65rem",
+        }}>
+          <div style={{ fontSize: ".7rem", fontWeight: 700, color: "var(--text-muted-app)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: ".65rem" }}>
+            My Recent Donations
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: ".55rem" }}>
+            {recentDonations.map((d, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex", alignItems: "center", gap: ".75rem",
+                  paddingBottom: i < recentDonations.length - 1 ? ".55rem" : 0,
+                  borderBottom: i < recentDonations.length - 1 ? "1px solid var(--border-app)" : "none",
+                }}
+              >
+                <div style={{ width: 34, height: 34, borderRadius: "50%", background: secondary, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: ".65rem", color: "#fff", flexShrink: 0 }}>
+                  {d.donor_name ? d.donor_name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("") : "?"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: ".83rem", color: "var(--text-primary-app)" }}>
+                    {d.donor_name ?? "Anonymous"}
+                  </div>
+                  {d.donation_message && (
+                    <div style={{ fontSize: ".72rem", color: "var(--text-secondary-app)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      &ldquo;{d.donation_message}&rdquo;
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: ".95rem", color: "var(--color-success)" }}>
+                    {fmt(d.amount_cents)}
+                  </div>
+                  <div style={{ fontSize: ".65rem", color: "var(--text-muted-app)" }}>
+                    {timeAgo(d.created_at)}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team leaderboard: top five (context/motivation, secondary to
+            the athlete's own next actions above); the full ranked list is
+            one tap away. Rank order comes from page.tsx unchanged. ── */}
+      <SectionCard
+        title="Team Leaderboard"
+        count={totalAthletes}
+        testId="team-leaderboard"
+        footer={<ViewAllLink href={fundraiserHref(slug, "athletes", selectedAthleteParam)} label="View All Athletes" total={totalAthletes} shown={DASHBOARD_PREVIEW_COUNT} />}
+      >
+        <AthleteRows entries={leaderboard} currentAthleteId={athlete.id} />
+      </SectionCard>
+
+      {/* ── Team donations: five most recent; "View All" shows the same
+            existing 15-donation feed, never more. ── */}
+      <SectionCard
+        title="Team Donations"
+        testId="team-donations"
+        footer={<ViewAllLink href={fundraiserHref(slug, "donations", selectedAthleteParam)} label="View All Donations" total={teamFeedTotal} shown={DASHBOARD_PREVIEW_COUNT} />}
+      >
+        <DonationRows donations={teamFeed} />
+      </SectionCard>
+
+      {/* ── QR Code modal ── */}
+      {showQr && (
+        <Modal title="Your Fundraising QR Code" onClose={() => setShowQr(false)}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", paddingBottom: ".5rem" }}>
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt={`QR code for ${athlete.name}'s fundraising page`} style={{ width: 220, height: 220, borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,.10)" }} />
+            ) : (
+              <div style={{ width: 220, height: 220, borderRadius: 12, background: "var(--surface-light-elevated)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".82rem", color: "var(--text-muted-app)" }}>
+                Generating…
+              </div>
+            )}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: ".88rem", color: "var(--text-primary-app)", marginBottom: ".2rem" }}>
+                Scan to donate to {firstName}
+              </div>
+              <div style={{ fontSize: ".7rem", color: "var(--text-muted-app)", fontFamily: "monospace", wordBreak: "break-all" }}>
+                {profilePath}
+              </div>
+            </div>
+            <button onClick={handleCopy} style={{ width: "100%", padding: ".65rem", background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)", border: "none", borderRadius: 10, fontSize: ".85rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem" }}>
+              {copied ? (<><Check size={14} strokeWidth={2.5} /> Link Copied!</>) : (<><Copy size={14} strokeWidth={2} /> Copy Link</>)}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Root export ────────────────────────────────────────────────────────────────
+
+export default function FundraiserView(props: Props) {
+  return (
+    <div className={styles.memberFundraiserDesktop}>
+      {props.mode === "claim" ? <ClaimView {...props} /> : <AthleteView {...props} />}
+    </div>
+  );
+}

@@ -1,0 +1,447 @@
+"use client";
+// GENERATED from src/app/team/[slug]/team/ClearanceView.tsx by scripts/marketing/generate-team-app-demo-twins.mjs — do not edit.
+// Identical to the real component except its import lines (see that script).
+/* eslint-disable @next/next/no-img-element -- verbatim copy of the real component, which uses <img> */
+
+import { useEffect, useState } from "react";
+import Modal from "@/app/team/[slug]/_components/Modal";
+import { downloadViaFetch, fetchFileBlob } from "./demoFiles";
+import styles from "@/app/team/[slug]/team/Team.module.css";
+import { useSeasonReadOnly } from "@/app/team/[slug]/_components/SeasonStatus";
+import { fetch, confirm, alert } from "./demoGlobals";
+
+type Attachment = { id: string; name: string; file_type: "pdf" | "image" | "doc"; size_bytes: number };
+
+// Same in-app View/Download pattern already proven in FilesView.tsx — a
+// plain <a href="/api/..."> either loses the session cookie in a separate
+// browsing context or navigates the WebView in-place with no back
+// affordance inside the installed iOS app. Reusing the identical
+// fetchFileBlob (mode=view, in-app preview) / downloadViaFetch (native
+// Share/Save sheet, falls back to a normal download on desktop) helpers
+// this same API route (src/app/api/team/[slug]/files/[id]/route.ts) is
+// already built to support — no API changes needed.
+const PREVIEWABLE_TYPES = new Set(["pdf", "image"]);
+
+type ClearanceResource = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  attachment_id: string | null;
+  attachment: Attachment | null;
+  sort_order: number;
+  created_at: string;
+};
+
+const inp: React.CSSProperties = {
+  padding: ".5rem .75rem",
+  border: "1.5px solid #e5e7eb",
+  borderRadius: 9,
+  // 16px minimum — iOS WebKit auto-zooms the viewport when focusing a form
+  // control smaller than this (Phase 8).
+  fontSize: "1rem",
+  width: "100%",
+  boxSizing: "border-box",
+  color: "#111827",
+  background: "#fff",
+};
+
+// Compact Resources row controls (Team Management Phase 2). Open Link /
+// View / Download use the shared outline button (Team.module.css).
+const outlineBtn = `${styles.btnOutline} elf-focus-ring`;
+const manageBtn: React.CSSProperties = {
+  minHeight: 32, background: "none", border: "none", cursor: "pointer",
+  fontSize: ".72rem", fontWeight: 700, padding: ".25rem .4rem",
+};
+
+const lbl: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: ".3rem",
+  fontSize: ".72rem",
+  fontWeight: 700,
+  color: "#374151",
+  textTransform: "uppercase",
+  letterSpacing: ".05em",
+};
+
+function ResourceCard({
+  resource, slug, canManage, isFirst, isLast, onEdit, onDeleted, onReordered, onView, onDownload, downloading,
+}: {
+  resource: ClearanceResource;
+  slug: string;
+  canManage: boolean;
+  isFirst: boolean;
+  isLast: boolean;
+  onEdit: (r: ClearanceResource) => void;
+  onDeleted: () => void;
+  onReordered: () => void;
+  onView: (a: Attachment) => void;
+  onDownload: (a: Attachment) => void;
+  downloading: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm(`Remove "${resource.title}" from Resources? This does not delete an uploaded file — just this listing.`)) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/team/${slug}/clearance/${resource.id}`, { method: "DELETE" });
+      if (res.ok) onDeleted();
+      else { const data = await res.json().catch(() => ({})); alert(data.error ?? "Failed to delete resource."); }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const move = async (direction: "up" | "down") => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/team/${slug}/clearance/${resource.id}/reorder`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ direction }),
+      });
+      if (res.ok) onReordered();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Team Management Phase 2: a compact row in the Resources list (same
+  // bordered list as the To-Do task rows). Same actions as before.
+  return (
+    <li style={{ padding: ".65rem 1rem" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: ".45rem .75rem" }}>
+        <div style={{ flex: "1 1 10rem", minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: ".92rem", color: "#0b1e3d", lineHeight: 1.35, overflowWrap: "anywhere" }}>
+            {resource.title}
+          </div>
+          {resource.description && (
+            <p style={{ margin: ".1rem 0 0", fontSize: ".78rem", color: "#6b7280", lineHeight: 1.45, overflowWrap: "anywhere" }}>
+              {resource.description}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem" }}>
+          {resource.url && (
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" className={outlineBtn}>
+              Open Link
+            </a>
+          )}
+          {resource.attachment && PREVIEWABLE_TYPES.has(resource.attachment.file_type) && (
+            <button onClick={() => onView(resource.attachment!)} aria-label={`View attachment for ${resource.title}`} className={outlineBtn}>
+              View
+            </button>
+          )}
+          {resource.attachment && (
+            <button
+              onClick={() => onDownload(resource.attachment!)}
+              disabled={downloading}
+              aria-label={`Download attachment for ${resource.title}`}
+              className={outlineBtn}
+            >
+              {downloading ? "Downloading…" : "Download"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {canManage && (
+        <div style={{ display: "flex", gap: ".25rem", marginTop: ".3rem" }}>
+          <button disabled={busy} onClick={() => onEdit(resource)} style={{ ...manageBtn, color: "#0b1e3d" }}>
+            Edit
+          </button>
+          <button disabled={busy || isFirst} onClick={() => move("up")} style={{ ...manageBtn, cursor: isFirst ? "default" : "pointer", color: isFirst ? "#d1d5db" : "#374151" }}>
+            Move Up
+          </button>
+          <button disabled={busy || isLast} onClick={() => move("down")} style={{ ...manageBtn, cursor: isLast ? "default" : "pointer", color: isLast ? "#d1d5db" : "#374151" }}>
+            Move Down
+          </button>
+          <div style={{ flex: 1 }} />
+          <button disabled={busy} onClick={handleDelete} style={{ ...manageBtn, color: "#dc2626" }}>
+            Delete
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function EditModal({
+  slug, resource, onClose, onSaved,
+}: {
+  slug: string;
+  resource: ClearanceResource | null; // null = creating new
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(resource?.title ?? "");
+  const [description, setDescription] = useState(resource?.description ?? "");
+  const [url, setUrl] = useState(resource?.url ?? "");
+  const [attachment, setAttachment] = useState<Attachment | null>(resource?.attachment ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`/api/team/${slug}/clearance/upload`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Upload failed."); return; }
+      setAttachment(data.file);
+    } catch {
+      setError("Network error uploading file.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSubmit = async () => {
+    setError("");
+    if (!title.trim()) { setError("Title is required."); return; }
+    if (!url.trim() && !attachment) { setError("Provide a link, an attachment, or both."); return; }
+
+    setSaving(true);
+    try {
+      const body = JSON.stringify({
+        title: title.trim(),
+        description: description.trim() || null,
+        url: url.trim() || null,
+        attachment_id: attachment?.id ?? null,
+      });
+      const res = await fetch(
+        resource ? `/api/team/${slug}/clearance/${resource.id}` : `/api/team/${slug}/clearance`,
+        { method: resource ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body },
+      );
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed to save resource."); return; }
+      onSaved();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={resource ? "Edit Resource" : "Add Resource"} onClose={onClose}>
+      <div style={{ display: "flex", flexDirection: "column", gap: ".875rem" }}>
+        <label style={lbl}>
+          Title *
+          <input style={inp} value={title} onChange={e => setTitle(e.target.value)} placeholder="Register My Athlete" autoFocus />
+        </label>
+
+        <label style={lbl}>
+          Description
+          <textarea
+            style={{ ...inp, minHeight: 70, resize: "vertical", fontFamily: "inherit" }}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="Complete athlete registration before the first official practice."
+          />
+        </label>
+
+        <label style={lbl}>
+          Link
+          <input style={inp} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://registermyathlete.com/..." />
+        </label>
+
+        <div style={lbl}>
+          Attachment
+          {attachment ? (
+            <div style={{ display: "flex", alignItems: "center", gap: ".5rem", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 9, padding: ".5rem .65rem" }}>
+              <span style={{ flex: 1, fontSize: ".8rem", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {attachment.name}
+              </span>
+              <button type="button" onClick={() => setAttachment(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#dc2626", fontSize: ".72rem", fontWeight: 700 }}>
+                Remove
+              </button>
+            </div>
+          ) : (
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={handleFileChange} disabled={uploading} style={{ fontSize: ".8rem" }} />
+          )}
+          {uploading && <div style={{ fontSize: ".75rem", color: "#6b7280" }}>Uploading…</div>}
+        </div>
+
+        {error && <p style={{ margin: 0, color: "#dc2626", fontSize: ".8rem" }}>{error}</p>}
+
+        <div style={{ display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: ".5rem 1rem", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: "pointer" }}>
+            Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={saving || uploading} style={{ padding: ".5rem 1rem", background: "#0b1e3d", color: "#fff", border: "none", borderRadius: 9, fontSize: ".85rem", fontWeight: 600, cursor: (saving || uploading) ? "not-allowed" : "pointer", opacity: (saving || uploading) ? .7 : 1 }}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Phase 7: Clearance resource library. Everyone on the team can view; only
+// the Head Coach sees Add/Edit/Delete/Move controls (also enforced
+// server-side in every /api/team/[slug]/clearance* route — this UI gate is
+// a convenience, not the authorization boundary).
+export default function ClearanceView({ slug }: { slug: string }) {
+  const [resources, setResources] = useState<ClearanceResource[]>([]);
+  const [canManageResources, setCanManage] = useState(false);
+  // Complete Season Phase 4: resources are read-only on a completed season.
+  const seasonReadOnly = useSeasonReadOnly();
+  const canManage = canManageResources && !seasonReadOnly;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editTarget, setEditTarget] = useState<ClearanceResource | null | "new">(null);
+  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
+  const [viewUrl,     setViewUrl]     = useState<string | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError,   setViewError]   = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // ── View / Download attachment — same pattern as FilesView.tsx ──
+
+  const openView = async (attachment: Attachment) => {
+    setViewingAttachment(attachment);
+    setViewUrl(null);
+    setViewError("");
+    setViewLoading(true);
+    try {
+      const { blob } = await fetchFileBlob(`/api/team/${slug}/files/${attachment.id}?mode=view`);
+      setViewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setViewError(err instanceof Error ? err.message : "Failed to load preview.");
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeView = () => {
+    if (viewUrl) URL.revokeObjectURL(viewUrl);
+    setViewingAttachment(null);
+    setViewUrl(null);
+    setViewError("");
+  };
+
+  const handleDownloadAttachment = async (attachment: Attachment) => {
+    setDownloadingId(attachment.id);
+    try {
+      await downloadViaFetch(`/api/team/${slug}/files/${attachment.id}`, attachment.name);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Download failed.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const load = async () => {
+    try {
+      const res = await fetch(`/api/team/${slug}/clearance`);
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed to load resources."); return; }
+      setError("");
+      setResources(data.resources ?? []);
+      setCanManage(!!data.canManage);
+    } catch {
+      setError("Network error loading resources.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
+        {/* Team Management Phase 2: shown as the "Resources" section of the
+            To-Do List tab (TodoListView.tsx). Same data, API and permissions. */}
+        <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#0b1e3d", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+          Resources
+        </h3>
+        <div style={{ flex: 1 }} />
+        {canManage && (
+          <button
+            onClick={() => setEditTarget("new")}
+            className={`${styles.btnSolid} elf-focus-ring`}
+          >
+            + Add Resource
+          </button>
+        )}
+      </div>
+      <p style={{ margin: ".2rem 0 .5rem", fontSize: ".82rem", color: "#6b7280", lineHeight: 1.5 }}>
+        Registration links, forms, and required documents for the team.
+      </p>
+
+      {error && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: ".55rem .75rem", color: "#dc2626", fontSize: ".82rem", marginBottom: ".65rem" }}>
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: ".75rem 0", color: "#9ca3af", fontSize: ".85rem" }}>Loading…</div>
+      ) : resources.length === 0 ? (
+        <div className={styles.todoList}>
+          <p style={{ margin: 0, padding: ".75rem 1rem", fontSize: ".85rem", color: "#9ca3af" }}>
+            No resources yet.
+          </p>
+        </div>
+      ) : (
+        <ul className={styles.todoList}>
+          {resources.map((r, i) => (
+            <ResourceCard
+              key={r.id}
+              resource={r}
+              slug={slug}
+              canManage={canManage}
+              isFirst={i === 0}
+              isLast={i === resources.length - 1}
+              onEdit={setEditTarget}
+              onDeleted={load}
+              onReordered={load}
+              onView={openView}
+              onDownload={handleDownloadAttachment}
+              downloading={downloadingId === r.attachment?.id}
+            />
+          ))}
+        </ul>
+      )}
+
+      {editTarget !== null && (
+        <EditModal
+          slug={slug}
+          resource={editTarget === "new" ? null : editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { setEditTarget(null); load(); }}
+        />
+      )}
+
+      {viewingAttachment && (
+        <Modal title={viewingAttachment.name} onClose={closeView}>
+          {viewLoading && (
+            <p style={{ textAlign: "center", color: "#6b7280", fontSize: ".85rem" }}>Loading preview…</p>
+          )}
+          {viewError && (
+            <p style={{ margin: 0, padding: ".45rem .65rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, color: "#dc2626", fontSize: ".82rem" }}>
+              {viewError}
+            </p>
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingAttachment.file_type === "image" && (
+            <img src={viewUrl} alt={viewingAttachment.name} style={{ width: "100%", height: "auto", borderRadius: 10, display: "block" }} />
+          )}
+          {!viewLoading && !viewError && viewUrl && viewingAttachment.file_type === "pdf" && (
+            <iframe src={viewUrl} title={viewingAttachment.name} style={{ width: "100%", height: "70vh", border: "none", borderRadius: 10 }} />
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}

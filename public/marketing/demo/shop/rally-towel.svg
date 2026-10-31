@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" role="img" aria-label="rally towel (fictional product)">
+  <rect width="360" height="300" fill="#F1F4F9"/>
+  <ellipse cx="180" cy="262" rx="104" ry="12" fill="#DFE4EC"/>
+  <path d="M118 64 H 242 Q 250 64 248 74 L 236 236 Q 235 246 226 246 H 134 Q 125 246 124 236 L 112 74 Q 110 64 118 64 Z" fill="#F2B705"/><path d="M114 86 H 246 M118 226 H 242" stroke="#D9A404" stroke-width="5"/><text x="180" y="148" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="34" letter-spacing="1.5" fill="#1D3E8A">GO</text><text x="180" y="184" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="25" letter-spacing="1.5" fill="#1D3E8A">COMETS!</text>
+</svg>

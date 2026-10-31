@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" role="img" aria-label="water bottle (fictional product)">
+  <rect width="360" height="300" fill="#F1F4F9"/>
+  <ellipse cx="180" cy="262" rx="104" ry="12" fill="#DFE4EC"/>
+  <rect x="150" y="64" width="60" height="26" rx="8" fill="#F2B705"/><rect x="164" y="48" width="32" height="20" rx="6" fill="#D9A404"/><path d="M144 92 Q 144 84 152 84 H 208 Q 216 84 216 92 V 240 Q 216 252 204 252 H 156 Q 144 252 144 240 Z" fill="#1D3E8A"/><rect x="144" y="210" width="72" height="8" fill="#F2B705"/><circle cx="180" cy="158" r="24" fill="#1D3E8A" stroke="#F2B705" stroke-width="2.88"/><polygon points="183.6,145.0 186.3,151.5 193.2,152.0 187.9,156.5 189.5,163.3 183.6,159.7 177.7,163.3 179.3,156.5 174.0,152.0 180.9,151.5" fill="#F2B705"/><path d="M162 167.6 Q 177.6 159.2 181.2 156.8" stroke="#F2B705" stroke-width="3.3600000000000003" fill="none" stroke-linecap="round"/>
+</svg>

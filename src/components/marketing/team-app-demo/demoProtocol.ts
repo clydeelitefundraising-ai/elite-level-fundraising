@@ -46,13 +46,16 @@ export function commsSectionForHref(href: string): "updates" | "messages" {
  *    /home /communications /calendar /fundraiser /shop /team /sponsors → tabs
  *    /messages               → Comms, Messages section (the app redirects)
  *    /team?tab=roster        → Team tab, Roster
+ *    /fundraiser?view=…      → a Fundraiser full list (Fundraiser tab)
  *    /attendance             → the coach attendance screen (no nav tab)
+ *    /contacts               → fundraising contacts (no nav tab)
  *    /athlete/<id>           → an athlete's profile (member view, no nav tab)
  *    /team/<id>              → an athlete's profile (coach view, Team tab)
- *  Anything else (Requests, Notifications, other sites) → null. */
+ *  Anything else (Requests, Notifications, Settings, other sites) → null,
+ *  answered with previewNoticeForHref's message. */
 export type DemoRoute = {
   tab: string;
-  screen: "main" | "attendance" | "athlete" | "coach-athlete";
+  screen: "main" | "attendance" | "contacts" | "athlete" | "coach-athlete";
   search: string;
   athleteId: string | null;
   commsSection: "updates" | "messages";
@@ -68,9 +71,26 @@ export function demoRouteForHref(href: string): DemoRoute | null {
   const search = url.search.replace(/^\?/, "");
   const base = { search, athleteId: null, commsSection: commsSectionForHref(href) } as const;
   if (seg === "attendance" && !rest) return { ...base, tab: "team", screen: "attendance" };
+  if (seg === "contacts" && !rest) return { ...base, tab: "fundraiser", screen: "contacts" };
   if (seg === "athlete" && rest) return { ...base, tab: "team", screen: "athlete", athleteId: rest };
   if (seg === "team" && rest) return { ...base, tab: "team", screen: "coach-athlete", athleteId: rest };
   if (rest) return null;
   const tab = demoTabForHref(href);
   return tab ? { ...base, tab, screen: "main" } : null;
+}
+
+/** The notice for a link the demo doesn't open (demoRouteForHref → null). */
+export function previewNoticeForHref(href: string): string {
+  if (/^(tel|mailto|sms):/i.test(href)) return "Preview only — in the app this starts a call, text or email.";
+  if (/^blob:/i.test(href)) return "Preview only — nothing is downloaded in this demo.";
+  let url: URL;
+  try { url = new URL(href, "https://demo.invalid"); } catch { return "Preview only — this opens another part of the real app."; }
+  if (url.origin !== "https://demo.invalid") {
+    if (url.hostname === "comets-team-store.example") return "Preview only — in the app this opens the team's online store. Nothing can be bought in this demo.";
+    if (/(^|\.)(google\.com|apple\.com)$/.test(url.hostname) && /maps/.test(url.href)) return "Preview only — in the app this opens the location in Maps.";
+    return "Preview only — links to other websites don't open from the demo.";
+  }
+  if (url.pathname.startsWith("/campaign/")) return "Preview only — in the app this opens the public donation page. No donations are made in this demo.";
+  if (/^\/team\/[^/]+\/staff\/?$/.test(url.pathname)) return "Preview only — staff management is in Settings, which isn't part of this demo.";
+  return "Preview only — this opens another part of the real app.";
 }
