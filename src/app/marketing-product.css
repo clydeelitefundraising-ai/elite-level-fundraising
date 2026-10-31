@@ -613,15 +613,16 @@
 .mk-root .mk-hiw-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 13ch; }
 .mk-hiw-hero .mk-free-pill { margin-bottom: var(--mk-space-5); }
 .mk-hiw-visual { margin: 0; min-width: 0; }
-.mk-hiw-stage { position: relative; padding: 0 0 18% 0; }
+.mk-hiw-stage { position: relative; padding: 0 0 20% 0; }
+.mk-hiw-browser { width: 90%; }
 .mk-hiw-browser img { aspect-ratio: 16 / 10.4; object-fit: cover; object-position: 0 0; }
-.mk-hiw-phone { position: absolute; left: -6%; bottom: 0; width: 31%; padding: 7px; border-radius: 26px; }
+.mk-hiw-phone { position: absolute; right: 0; bottom: 0; width: 29%; padding: 7px; border-radius: 26px; }
 .mk-hiw-phone img { border-radius: 20px; aspect-ratio: 9 / 17; object-fit: cover; object-position: 50% 0; }
 .mk-hiw-visual .mk-fhero-caption { margin-top: var(--mk-space-5); }
 @media (max-width: 900px) {
   .mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
   .mk-root .mk-hiw-hero .mk-fhero-title { max-width: 15ch; }
-  .mk-hiw-phone { left: 0; width: 34%; }
+  .mk-hiw-phone { width: 32%; }
 }
 
 /* Three steps beside the real Team Communications screen. */
