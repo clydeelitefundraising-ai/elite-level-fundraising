@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
+import { TWINS } from "../../../scripts/marketing/generate-team-app-demo-twins.mjs";
 
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
@@ -87,8 +88,12 @@ test("footers keep every legal, trust and support link; Platform column follows 
 });
 
 test("internal link audit: every internal href on the marketing site resolves to a page or redirect", () => {
+  // The Team App demo's generated twins are verbatim copies of Team App
+  // components: their /team/… and /api/… paths are app routes the demo
+  // intercepts (teamAppDemo*.test.ts), not marketing-site links.
+  const twins = new Set(TWINS.map((t: { to: string }) => t.to));
   const files = execSync(`git ls-files "${MK}" src/components/marketing src/app/MarketingPage.tsx`, { cwd: ROOT }).toString().trim().split("\n")
-    .filter(f => f.endsWith(".tsx"));
+    .filter(f => f.endsWith(".tsx") && !twins.has(f));
   const broken: string[] = [];
   let checked = 0;
   for (const f of files) {
