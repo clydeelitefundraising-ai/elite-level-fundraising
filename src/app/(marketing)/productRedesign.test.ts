@@ -43,14 +43,44 @@ test("top navigation is exactly Fundraising | Team App | How It Works | Sponsors
   assert.ok(existsSync(join(ROOT, MK, "communication", "page.tsx")));
 });
 
-test("/how-it-works carries the nine-stage walkthrough unchanged from the old /product page", () => {
-  const stages = (src: string) => src.replace(/\r\n/g, "\n").match(/^const STAGES = \[[\s\S]*?^\];/m)![0];
-  const before = execSync(`git show 7de087228c839f95aa6531eff2ee0603b19de96b:"${MK}/product/page.tsx"`, { cwd: ROOT }).toString();
-  const now = read(`${MK}/how-it-works/page.tsx`);
-  assert.equal(stages(now), stages(before));
-  assert.match(now, /alternates: \{ canonical: "\/how-it-works" \}/);
-  assert.equal((stages(now).match(/num: "0\d"/g) ?? []).length, 9);
+test("/how-it-works: the short redesign — hero, three steps, closing CTA, approved type and real captures only", () => {
+  const page = read(`${MK}/how-it-works/page.tsx`);
+  const copy = code(page);
+  assert.match(page, /alternates: \{ canonical: "\/how-it-works" \}/);
   assert.ok(read("src/app/sitemap.ts").includes(`"/how-it-works",`));
+  // Structure and approved copy.
+  assert.match(copy, /Everything your team needs\. Nothing it doesn&rsquo;t\./);
+  assert.match(copy, /ELF brings your coaches, athletes and parents together in one free app\. When it&rsquo;s\s+time to fundraise, everything is already connected\./);
+  for (const step of ["Set up your team.", "Stay connected all season.", "Fundraise when you’re ready."]) assert.ok(page.includes(step), step);
+  assert.ok(page.includes("Work with ELF to launch a campaign. Athletes share their pages, supporters donate securely, and coaches track progress."));
+  assert.match(copy, /Ready to bring your team together\?/);
+  assert.equal((page.match(/^\s{2}\{\n\s{4}title:/gm) ?? []).length, 3, "three steps");
+  // Approved typography: Inter headings (Variation A classes), no condensed display face.
+  assert.match(page, /className="mk-fhero-title"/);
+  assert.match(page, /className="mk-va-title mk-hiw-steps-title"/);
+  assert.ok(!/mk-display|mk-page-hero|mk-capability|mk-marker-underline|ProductPreview/.test(copy), "no legacy walkthrough layout");
+  // Only real, current captures — no Riverside screenshots or legacy sponsor graphics.
+  const images = [...page.matchAll(/src="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(images.sort(), ["/marketing/fundraiser-campaign-current.png", "/marketing/team-app-coach-home.png", "/marketing/team-app-communications.png"]);
+  for (const img of images) assert.ok(existsSync(join(ROOT, "public", img)), img);
+  assert.ok(!/Riverside|\/marketing\/(campaign-hero|leaderboard|sponsors|communications)\.png/.test(page));
+  // Accuracy: free, self-service team setup; fundraising set up with ELF; a
+  // demo is optional, never required; no invented numbers.
+  assert.match(page, /Free for every team &middot; No fundraiser required/);
+  assert.match(page, /const SIGNUP_URL = teamAppLoginUrl\([\s\S]*?\.replace\(\/\\\/login\$\/, "\/signup"\);/);
+  assert.match(page, /<LinkButton href=\{SIGNUP_URL\} size="lg">Create Your Free Team<\/LinkButton>/);
+  assert.match(copy, /Prefer a guided walkthrough\? <a href="\/demo">Book a free demo<\/a>\./);
+  assert.ok(!/setup call|schedule a call|must book|required demo/i.test(copy));
+  assert.ok(!/testimonial|trusted by|\d{2,}\+?\s*(schools|teams|programs|customers)|raised over/i.test(copy));
+});
+
+test("/how-it-works: signup goes to the same Team App (and environment) as the nav's Log in", async () => {
+  const { teamAppLoginUrl } = await import("../../lib/teamAppLogin.ts");
+  const signup = (mode?: string, preview?: string) => teamAppLoginUrl(mode, preview).replace(/\/login$/, "/signup");
+  assert.equal(signup(undefined, undefined), "https://app.elitelevelfundraising.com/signup");
+  assert.equal(signup("qa"), "/signup");
+  assert.equal(signup(undefined, "qa"), "https://elf-team-qa-clydeelitefundraising-5717s-projects.vercel.app/signup");
+  assert.ok(existsSync(join(ROOT, "src/app/signup/page.tsx")), "the Team App's self-service signup exists");
 });
 
 test("/fundraising: current campaign screenshot up top; the 'Every dollar, visible.' section is gone", () => {

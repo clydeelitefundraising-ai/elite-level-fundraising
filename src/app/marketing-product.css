@@ -604,3 +604,54 @@
 /* Closing: one black band — free-for-every-team message, CTAs and badges. */
 .mk-pclose .mk-eyebrow { margin-bottom: var(--mk-space-3); }
 .mk-pclose .mk-store-badges { justify-content: center; margin-top: var(--mk-space-8); }
+
+/* ── /how-it-works — approved /fundraising + /product direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here (.mk-hiw-*). */
+/* Hero: the real fundraising page with the real Coach Home in front of it. */
+.mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; }
+.mk-root .mk-hiw-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 13ch; }
+.mk-hiw-hero .mk-free-pill { margin-bottom: var(--mk-space-5); }
+.mk-hiw-visual { margin: 0; min-width: 0; }
+.mk-hiw-stage { position: relative; padding: 0 0 18% 0; }
+.mk-hiw-browser img { aspect-ratio: 16 / 10.4; object-fit: cover; object-position: 0 0; }
+.mk-hiw-phone { position: absolute; left: -6%; bottom: 0; width: 31%; padding: 7px; border-radius: 26px; }
+.mk-hiw-phone img { border-radius: 20px; aspect-ratio: 9 / 17; object-fit: cover; object-position: 50% 0; }
+.mk-hiw-visual .mk-fhero-caption { margin-top: var(--mk-space-5); }
+@media (max-width: 900px) {
+  .mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-root .mk-hiw-hero .mk-fhero-title { max-width: 15ch; }
+  .mk-hiw-phone { left: 0; width: 34%; }
+}
+
+/* Three steps beside the real Team Communications screen. */
+.mk-hiw-steps { background: #F7F4EF; padding: var(--mk-space-20) 0; }
+.mk-root .mk-hiw-steps .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-hiw-steps-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); gap: var(--mk-space-16); align-items: center; }
+.mk-root .mk-hiw-steps-title { font-size: clamp(2.5rem, 4vw, 3.75rem); margin: var(--mk-space-2) 0 var(--mk-space-12); max-width: 16ch; }
+.mk-hiw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--mk-space-10); max-width: 640px; }
+.mk-root .mk-hiw-list .mk-fbenefit h3 { font-size: 1.35rem; }
+.mk-root .mk-hiw-list .mk-fbenefit p { font-size: var(--mk-text-base); max-width: 48ch; }
+.mk-hiw-steps-shot { margin: 0; justify-self: center; width: 100%; }
+.mk-hiw-steps-shot .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-hiw-steps-shot .mk-fhero-caption { text-align: center; }
+@media (max-width: 900px) {
+  .mk-hiw-steps { padding: var(--mk-space-16) 0; }
+  .mk-hiw-steps-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-12); }
+  .mk-root .mk-hiw-steps-title { margin-bottom: var(--mk-space-10); }
+  .mk-hiw-steps-shot { max-width: 260px; }
+}
+@media (max-width: 640px) {
+  .mk-root .mk-hiw-list .mk-fbenefit h3 { font-size: 1.2rem; }
+}
+
+/* Closing: warm white, centered. */
+.mk-hiw-close { background: #FFFFFF; padding: var(--mk-space-20) 0; text-align: center; }
+.mk-root .mk-hiw-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); margin: 0 auto var(--mk-space-5); }
+.mk-root .mk-hiw-close p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 42em; margin: 0 auto var(--mk-space-8); }
+.mk-root .mk-hiw-close .mk-hiw-close-note { font-size: var(--mk-text-sm); margin: var(--mk-space-6) auto 0; }
+.mk-hiw-close-note a { color: var(--mk-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .mk-hiw-close { padding: var(--mk-space-16) 0; }
+  .mk-root .mk-hiw-close .mk-final-actions .mk-btn { width: 100%; }
+}
