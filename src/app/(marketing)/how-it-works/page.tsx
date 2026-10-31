@@ -8,7 +8,7 @@ import { teamAppLoginUrl } from "@/lib/teamAppLogin";
 // is ready. Follows the approved /fundraising and /product direction
 // (Inter 700 sentence-case headings, .mk-fhero hero, numbered .mk-fbenefit
 // steps, 12px buttons, warm white/cream backgrounds); page-only styles are
-// the .mk-hiw-* rules in marketing-product.css.
+// the .mk-hiw-* rules in the redesign stylesheet.
 //
 // Every picture is a real capture: the Coach Home and Team Communications of
 // the fictional Sunridge Valley Comets QA team, and the fictional sample
