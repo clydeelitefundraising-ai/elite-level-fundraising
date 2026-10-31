@@ -25,16 +25,19 @@ const ROLES: { id: Role; label: string; blurb: string }[] = [
   { id: "parent", label: "Parent", blurb: "Follow your athlete's team: updates, the calendar, messages with coaches and the fundraiser." },
 ];
 
-/** Hints for the real app's tabs (Home in this phase of the demo). */
+/** Hints for the real app's tabs built so far (Home and Comms). */
 export const TAB_HINTS: Record<Role, Record<string, string>> = {
   coach: {
     home: "Quick actions, requests, what's next and the latest team update. Tap an event for details.",
+    communications: "Post an update, then try Messages: start a conversation or a group. Families are included automatically, and assistant coaches' chats appear under Oversight.",
   },
   athlete: {
     home: "The team's fundraiser, what's next and the latest from your coach. Tap an event for details.",
+    communications: "Like and comment on updates, then message a coach. Your parent is included automatically.",
   },
   parent: {
     home: "Your athlete's team at a glance: the fundraiser, what's next and the latest update.",
+    communications: "Updates for families, comments, and messages with your athlete's coaches — your athlete is included automatically.",
   },
 };
 

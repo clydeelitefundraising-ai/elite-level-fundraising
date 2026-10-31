@@ -30,3 +30,13 @@ export function demoTabForHref(href: string): string | null {
   if (m[1] === "messages") return "communications";
   return DEMO_TAB_IDS.includes(m[1]) ? m[1] : null;
 }
+
+/** Which Communications section an intercepted link opens. /messages (the
+ *  real app's redirect to the Messages section) and ?tab=messages open
+ *  Messages; every other Comms link opens Updates. */
+export function commsSectionForHref(href: string): "updates" | "messages" {
+  let url: URL;
+  try { url = new URL(href, "https://demo.invalid"); } catch { return "updates"; }
+  if (/^\/team\/[^/]+\/messages(\/|$)/.test(url.pathname)) return "messages";
+  return url.searchParams.get("tab") === "messages" ? "messages" : "updates";
+}

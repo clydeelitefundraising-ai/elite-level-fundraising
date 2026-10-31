@@ -6,8 +6,10 @@ import { resolveTeamTheme } from "@/lib/theme/teamTheme";
 import { shouldShowFundraisingNav } from "@/lib/permissions";
 import { DemoTeamHeader, DemoTeamNav } from "./DemoChrome";
 import DemoHome from "./DemoHome";
+import DemoComms, { type CommsSection } from "./DemoComms";
+import { buildDemoEngagement, buildDemoFiles, buildDemoThreads, personForActor, unreadMessageCount, type DemoStore } from "./commsData";
 import { DEMO_ACTORS, DEMO_TEAM, buildDemoAnnouncements, buildDemoUpcoming } from "./demoData";
-import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoTabForHref, type DemoMessage, type DemoRole } from "./demoProtocol";
+import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, commsSectionForHref, demoTabForHref, type DemoMessage, type DemoRole } from "./demoProtocol";
 
 // The isolated, high-fidelity ELF Team App demo shown inside the phone
 // frame on /product (via /preview/team-app). Everything lives in this
@@ -25,8 +27,12 @@ import { DEMO_MESSAGE_SOURCE, DEMO_ROLES, PREVIEW_ONLY, demoTabForHref, type Dem
 // marketing page can show the matching hint. Messages are same-origin only.
 
 
+function buildStore(now: Date): DemoStore {
+  const announcements = buildDemoAnnouncements(now);
+  return { announcements, engagement: buildDemoEngagement(announcements, now), threads: buildDemoThreads(now), files: buildDemoFiles(now), seq: 0 };
+}
+
 const SCREEN_TITLES: Record<string, string> = {
-  communications: "Communications",
   calendar: "Team Calendar",
   fundraiser: "Fundraiser",
   shop: "Shop",
@@ -40,12 +46,16 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
   const [resetKey, setResetKey] = useState(0);
   const [toast, setToast] = useState("");
   const [now, setNow] = useState<Date | null>(null);
+  const [store, setStoreState] = useState<DemoStore | null>(null);
+  const [commsSection, setCommsSection] = useState<CommsSection>("updates");
+  const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Dates are the visitor's own "today" — set after mount so the server
   // render never disagrees with the browser's clock.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setNow(new Date()); }, [resetKey]);
+  useEffect(() => { const d = new Date(); setNow(d); setStoreState(buildStore(d)); }, [resetKey]);
+  const setStore = useCallback((fn: (s: DemoStore) => DemoStore) => setStoreState(s => (s ? fn(s) : s)), []);
 
   const notify = useCallback((msg?: string) => {
     setToast(msg ?? PREVIEW_ONLY);
@@ -54,8 +64,14 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
   }, []);
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
-  const goTo = useCallback((next: string) => {
+  const goTo = useCallback((next: string, section: CommsSection = "updates") => {
     setTab(next);
+    setCommsSection(section);
+    setOpenThreadId(null);
+    window.scrollTo(0, 0);
+  }, []);
+  const openThread = useCallback((threadId: string | null) => {
+    setOpenThreadId(threadId);
     window.scrollTo(0, 0);
   }, []);
 
@@ -65,8 +81,9 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
       const a = (e.target as Element | null)?.closest?.("a[href]");
       if (!a) return;
       e.preventDefault();
-      const target = demoTabForHref(a.getAttribute("href") ?? "");
-      if (target) goTo(target);
+      const href = a.getAttribute("href") ?? "";
+      const target = demoTabForHref(href);
+      if (target) goTo(target, target === "communications" ? commsSectionForHref(href) : "updates");
       else notify("Preview only — this opens another part of the real app.");
     };
     const onSubmit = (e: SubmitEvent) => { e.preventDefault(); notify(); };
@@ -108,7 +125,7 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
   }, [embedded, role, tab]);
 
   const actor = DEMO_ACTORS[role];
-  const announcements = useMemo(() => (now ? buildDemoAnnouncements(now) : []), [now]);
+  const me = personForActor(actor);
   const upcoming = useMemo(() => (now ? buildDemoUpcoming(now) : []), [now]);
   const themeVars = resolveTeamTheme(DEMO_TEAM.primaryColor, DEMO_TEAM.secondaryColor, DEMO_TEAM.brandingCustomized);
 
@@ -124,7 +141,12 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
     }}>
       {/* Twin of TeamShell.module.css's mobile .shellPanel / .mainContent. */}
       <div style={{ width: "100%", maxWidth: 430, minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f5f6f8", boxShadow: "0 0 60px rgba(0, 0, 0, .45)" }}>
-        <DemoTeamNav active={tab} showSponsors showFundraiser={shouldShowFundraisingNav(true, actor)} />
+        <DemoTeamNav
+          active={openThreadId ? "" : tab}
+          showSponsors
+          showFundraiser={shouldShowFundraisingNav(true, actor)}
+          badgeCounts={{ communications: store ? unreadMessageCount(store, me.key) : 0 }}
+        />
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           <div style={{ position: "sticky", top: 0, zIndex: 40 }}>
             <DemoTeamHeader
@@ -135,8 +157,16 @@ export default function TeamAppDemo({ initialRole, embedded }: { initialRole: De
             />
           </div>
           <main style={{ flex: 1, minWidth: 0, padding: "1rem 0.875rem 5.5rem" }}>
-            {now && (tab === "home" ? (
-              <DemoHome key={`${resetKey}-${role}`} role={role} actor={actor} announcements={announcements} upcoming={upcoming} onPreviewOnly={notify} />
+            {now && store && (tab === "home" ? (
+              <DemoHome key={`${resetKey}-${role}`} role={role} actor={actor} announcements={store.announcements} upcoming={upcoming} onPreviewOnly={notify} />
+            ) : tab === "communications" ? (
+              <DemoComms
+                key={`${resetKey}-${role}`}
+                role={role} actor={actor} me={me} store={store} setStore={setStore}
+                section={commsSection} setSection={setCommsSection}
+                openThreadId={openThreadId} setOpenThreadId={openThread}
+                notify={notify}
+              />
             ) : (
               <NextPhaseScreen title={SCREEN_TITLES[tab] ?? "This screen"} />
             ))}

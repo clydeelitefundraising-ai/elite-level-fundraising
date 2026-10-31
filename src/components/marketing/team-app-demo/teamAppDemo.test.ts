@@ -30,6 +30,8 @@ const DEMO_DIR = "src/components/marketing/team-app-demo";
 const PAGE = "src/app/preview/team-app/page.tsx";
 const SIMULATOR = "src/components/marketing/demo/TeamAppSimulator.tsx";
 const HOME_VIEW = "src/app/team/[slug]/home/HomeView.tsx";
+const UPDATE_CARD = "src/app/team/[slug]/files/UpdateCard.tsx";
+const UPDATES_WORKSPACE = "src/app/team/[slug]/files/useUpdatesWorkspace.ts";
 
 // ── 1. Isolation ────────────────────────────────────────────────────────────
 
@@ -62,8 +64,9 @@ function resolve(fromFile: string, spec: string): string | null {
 }
 
 // App modules the demo may load at runtime, each audited for this use.
-// HomeView.tsx is NOT walked as a whole (it posts, edits and deletes
-// through the API) — only the named, audited pure exports may be used.
+// HomeView.tsx, UpdateCard.tsx and useUpdatesWorkspace.ts are NOT walked
+// as a whole (they post, like, comment, track seen and upload through the
+// API) — only the named, audited pure exports may be used.
 const AUDITED_APP_MODULES = new Set([
   "src/app/team/[slug]/home/coachDashboardHelpers.ts",
   "src/app/team/[slug]/home/Home.module.css",
@@ -74,6 +77,8 @@ const AUDITED_APP_MODULES = new Set([
   "src/app/team/[slug]/_components/ElfMark.tsx",
   "src/app/team/[slug]/messages/_shared/Avatar.tsx",
   "src/app/team/[slug]/messages/_shared/participantDisplay.ts",
+  "src/app/team/[slug]/messages/_shared/groupMessaging.ts",
+  "src/app/team/[slug]/files/AnnouncementFormModal.tsx",
   "src/lib/permissions.ts",
   "src/lib/theme/teamTheme.ts",
   "src/lib/theme/contrast.ts",
@@ -83,13 +88,18 @@ const AUDITED_APP_MODULES = new Set([
   "src/components/marketing/demo/fixtures.ts",
 ]);
 const HOME_VIEW_EXPORTS = new Set(["CATEGORY_STYLE", "relativeTime", "UpcomingEventRow", "MobileActivityRow", "RequestsEntryCard", "FundraiserSnapshot"]);
+const SYMBOL_AUDITED: Record<string, Set<string>> = {
+  [HOME_VIEW]: HOME_VIEW_EXPORTS,
+  [UPDATE_CARD]: new Set(["CATEGORY_STYLE", "FILE_STYLE", "FILTER_CHIPS", "SectionLabel", "formatSize"]),
+  [UPDATES_WORKSPACE]: new Set(["BLANK_UPDATE_FORM", "SCOPE_LABELS", "SCOPE_OPTIONS"]),
+};
 const ALLOWED_PACKAGES = new Set(["react", "react-dom", "lucide-react", "next"]);
 
-const ENTRY_FILES = [PAGE, SIMULATOR, ...["TeamAppDemo.tsx", "DemoChrome.tsx", "DemoHome.tsx", "demoData.ts", "demoProtocol.ts", "networkGuard.ts"].map((f) => `${DEMO_DIR}/${f}`)];
+const ENTRY_FILES = [PAGE, SIMULATOR, ...["TeamAppDemo.tsx", "DemoChrome.tsx", "DemoHome.tsx", "DemoComms.tsx", "DemoUpdates.tsx", "DemoMessages.tsx", "commsData.ts", "demoData.ts", "demoProtocol.ts", "networkGuard.ts"].map((f) => `${DEMO_DIR}/${f}`)];
 
 function walkDemoGraph() {
   const seen = new Set<string>();
-  const homeViewNames = new Set<string>();
+  const symbolNames: Record<string, Set<string>> = Object.fromEntries(Object.keys(SYMBOL_AUDITED).map((k) => [k, new Set<string>()]));
   const problems: string[] = [];
   const queue = [...ENTRY_FILES];
   while (queue.length) {
@@ -106,20 +116,23 @@ function walkDemoGraph() {
       }
       const target = resolve(file, spec);
       if (!target) { problems.push(`${file}: cannot resolve ${spec}`); continue; }
-      if (target === HOME_VIEW) { names.forEach((n) => homeViewNames.add(n)); continue; }
+      if (SYMBOL_AUDITED[target]) { names.forEach((n) => symbolNames[target].add(n)); continue; }
       const own = target.startsWith(`${DEMO_DIR}/`) || target === PAGE || target === SIMULATOR;
       if (!own && !AUDITED_APP_MODULES.has(target)) { problems.push(`${file} imports unaudited ${target}`); continue; }
       queue.push(target);
     }
   }
-  return { seen, homeViewNames, problems };
+  return { seen, symbolNames, homeViewNames: symbolNames[HOME_VIEW], problems };
 }
 
 test("isolation: the demo only loads its own files, audited app modules and audited HomeView exports", () => {
   const { seen, homeViewNames, problems } = walkDemoGraph();
   assert.deepEqual(problems, []);
   assert.ok(seen.has(`${DEMO_DIR}/DemoHome.tsx`) && seen.has("src/lib/permissions.ts"), "graph was walked");
-  for (const n of homeViewNames) assert.ok(HOME_VIEW_EXPORTS.has(n), `unaudited HomeView export ${n}`);
+  for (const [file, names] of Object.entries(walkDemoGraph().symbolNames)) {
+    for (const n of names) assert.ok(SYMBOL_AUDITED[file].has(n), `unaudited ${file} export ${n}`);
+    assert.ok(names.size > 0, `${file} is used`);
+  }
   assert.ok(homeViewNames.size > 0);
 });
 
@@ -174,7 +187,7 @@ test("isolation: every link and form in the demo is intercepted and messages are
   assert.match(demo, /document\.addEventListener\("click", onClick, true\)/);
   assert.match(demo, /document\.addEventListener\("auxclick", onClick, true\)/);
   assert.match(demo, /document\.addEventListener\("submit", onSubmit, true\)/);
-  assert.match(demo, /e\.preventDefault\(\);\s*const target = demoTabForHref/);
+  assert.match(demo, /e\.preventDefault\(\);\s*const href = a\.getAttribute\("href"\) \?\? "";\s*const target = demoTabForHref\(href\)/);
   assert.match(demo, /if \(e\.origin !== window\.location\.origin\) return;/);
   assert.match(demo, /window\.parent\.postMessage\(msg, window\.location\.origin\)/);
   const sim = code(read(SIMULATOR));
@@ -298,7 +311,7 @@ test("roles: announcement audiences follow the app's own visibility rule", () =>
 test("roles: the demo shell shows the bell to members only and Partners to every signed-in role, like layout.tsx", () => {
   const demo = read(`${DEMO_DIR}/TeamAppDemo.tsx`);
   assert.match(demo, /isMember=\{actor\.kind === "member"\}/);
-  assert.match(demo, /<DemoTeamNav active=\{tab\} showSponsors showFundraiser=\{shouldShowFundraisingNav\(true, actor\)\} \/>/);
+  assert.match(demo, /<DemoTeamNav\s+active=\{openThreadId \? "" : tab\}\s+showSponsors\s+showFundraiser=\{shouldShowFundraisingNav\(true, actor\)\}/);
   const layout = read("src/app/team/[slug]/layout.tsx");
   assert.match(layout, /showBell=\{isMember\}/);
   assert.match(layout, /showSponsors=\{isAuthenticated\}/);
@@ -351,12 +364,10 @@ test("header twin: every declaration matches the real TeamHeader, NotificationBe
   assert.deepEqual(minus(header, new Set([...demo, ...notApplicable])), []);
 });
 
-test("nav twin: identical style declarations to the real TeamNav", () => {
+test("nav twin: identical style declarations to the real TeamNav (including the unread badge)", () => {
   const real = styleDecls(read("src/app/team/[slug]/_components/TeamNav.tsx"));
   const demo = styleDecls(exportSource(read(`${DEMO_DIR}/DemoChrome.tsx`), "DemoTeamNav"));
-  // The unread badge isn't shown in the demo (a caught-up member's view).
-  const badgeOnly = minus(real, demo);
-  assert.ok(badgeOnly.every((d) => /^(top: -4|right: -7|background: "var\(--color-error\)"|color: "#fff"|borderRadius: 100|fontSize: "\.52rem"|fontWeight: 700|padding: "\.1rem \.28rem"|lineHeight: 1\.4|minWidth: 14|textAlign: "center"|position: "absolute")$/.test(d)), badgeOnly.join(" | "));
+  assert.deepEqual(minus(real, demo), []);
   assert.deepEqual(minus(demo, real), []);
 });
 

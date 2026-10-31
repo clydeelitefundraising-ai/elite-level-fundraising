@@ -357,7 +357,15 @@
   color: #12151C;
   line-height: 1.4;
 }
-@media (max-width: 480px) { .mk-sim-phone { width: 100%; height: 700px; border-width: 8px; border-radius: 34px; } }
+/* Phones: no decorative device bezel — the demo runs edge to edge at the
+   page's full width (cancelling the container gutter), keeping the real
+   Team App header and bottom nav inside it. The phone frame stays on
+   tablets and desktop. */
+@media (max-width: 640px) {
+  .mk-sim-device { margin: 0 calc(-1 * var(--mk-space-6)); }
+  .mk-sim-phone { width: 100%; height: min(760px, 88svh); border: 0; border-top: 1px solid var(--mk-line); border-bottom: 1px solid var(--mk-line); border-radius: 0; box-shadow: none; }
+  .mk-sim-status { display: none; }
+}
 /* Device status strip above the demo: same white canvas as the app header below it. */
 .mk-sim-status { display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; padding: 6px 22px 4px; font-size: 12px; font-weight: 700; background: #FFFFFF; color: #12151C; }
 .mk-sim-notch { width: 90px; height: 20px; border-radius: 0 0 14px 14px; background: #121110; margin-top: -6px; }

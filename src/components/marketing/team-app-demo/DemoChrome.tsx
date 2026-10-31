@@ -130,10 +130,12 @@ export function DemoTeamNav({
   active: activeHref,
   showSponsors,
   showFundraiser,
+  badgeCounts = {},
 }: {
   active: string;
   showSponsors: boolean;
   showFundraiser: boolean;
+  badgeCounts?: Record<string, number>;
 }) {
   const baseTabs = showFundraiser ? DEMO_BASE_TABS : DEMO_BASE_TABS.filter(t => t.href !== "fundraiser");
   const tabs = showSponsors ? [...baseTabs, DEMO_STAFF_TAB] : baseTabs;
@@ -154,6 +156,7 @@ export function DemoTeamNav({
       {tabs.map((tab) => {
         const href = `/team/${DEMO_SLUG}/${tab.href}`;
         const active = tab.href === activeHref;
+        const badge = badgeCounts[tab.href] ?? 0;
 
         return (
           <a
@@ -189,6 +192,24 @@ export function DemoTeamNav({
             )}
             <div style={{ position: "relative", lineHeight: 1.3 }}>
               <tab.icon aria-hidden="true" size={21} strokeWidth={active ? 2.3 : 2} />
+              {badge > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -7,
+                  background: "var(--color-error)",
+                  color: "#fff",
+                  borderRadius: 100,
+                  fontSize: ".52rem",
+                  fontWeight: 700,
+                  padding: ".1rem .28rem",
+                  lineHeight: 1.4,
+                  minWidth: 14,
+                  textAlign: "center",
+                }}>
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </div>
             <span style={{
               fontSize: tab.labelFontSize ?? ".6rem",
