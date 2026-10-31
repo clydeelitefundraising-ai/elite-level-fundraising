@@ -656,3 +656,11 @@
   .mk-hiw-close { padding: var(--mk-space-16) 0; }
   .mk-root .mk-hiw-close .mk-final-actions .mk-btn { width: 100%; }
 }
+/* Phones: show the readable left part of the fundraising page (team name
+   and the $9,840 progress) at a larger scale, with the app in front. */
+@media (max-width: 640px) {
+  .mk-hiw-browser { width: 100%; }
+  .mk-hiw-browser img { aspect-ratio: 1 / 0.9; }
+  .mk-hiw-stage { padding-bottom: 30%; }
+  .mk-hiw-phone { width: 38%; right: -2%; }
+}
