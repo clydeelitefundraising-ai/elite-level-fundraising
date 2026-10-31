@@ -1,0 +1,380 @@
+"use client";
+// GENERATED from src/app/team/[slug]/team/AthleteRosterGrid.tsx by scripts/marketing/generate-team-app-demo-twins.mjs — do not edit.
+// Identical to the real component except its import lines (see that script).
+/* eslint-disable @next/next/no-img-element -- verbatim copy of the real component, which uses <img> */
+
+import { useId, useMemo, useState } from "react";
+import { useRouter } from "./demoRouter";
+import { Search, Users, ChevronRight, Pencil, Trash2, ClipboardList } from "lucide-react";
+import type { TeamAthleteRow } from "@/lib/teamData";
+import {
+  ALL_ATHLETES_TAB,
+  buildGradeTabs,
+  groupAthletesByClass,
+  matchesGradeTab,
+  matchesRosterSearch,
+  myRosterSection,
+  resolveGradeTab,
+  type GradeTabKey,
+} from "@/app/team/[slug]/team/rosterHelpers";
+import GradeTabs, { gradeTabId, gradeTabPanelId } from "@/app/team/[slug]/team/GradeTabs";
+import type { TeamActor } from "@/lib/permissions";
+import { canViewAthleteProfile } from "@/lib/athleteAccess";
+import CoachBar from "@/app/team/[slug]/_components/CoachBar";
+import TakeAttendanceLink from "./DemoTakeAttendanceLink";
+import styles from "@/app/team/[slug]/team/Team.module.css";
+import type { AthleteRosterState } from "@/app/team/[slug]/team/useAthleteRoster";
+
+// Phase 5: replaces the previous 2-column padded-card grid with a
+// compact, grouped, sports-roster-style list — same authoritative
+// roster state/handlers (useAthleteRoster.ts via TeamView.tsx), same
+// staffMode/canDelete/openAdd/openEdit/handleDelete behavior, same
+// staff-vs-member profile-route split (/team/[slug]/team/[id] vs
+// /athlete/[id]) as before. Search/grouping are purely client-side
+// presentation over the already-loaded `athletes` array — no new
+// query, no new backend work.
+
+function initials(name: string): string {
+  return name.split(" ").filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join("");
+}
+
+function avatarColor(name: string): string {
+  const palette = ["#0b2044", "#92400e", "#1e3a8a", "#5b21b6", "#065f46", "#9f1239", "#1e4d7b", "#78350f"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return palette[hash % palette.length];
+}
+
+function AthleteRow({
+  a,
+  slug,
+  staffMode,
+  canEdit,
+  canDelete,
+  canOpen,
+  onEdit,
+  onDelete,
+}: {
+  a: TeamAthleteRow;
+  slug: string;
+  staffMode: boolean;
+  /** Edit/Remove controls — off on a completed season even in staff view. */
+  canEdit: boolean;
+  canDelete: boolean;
+  // Whether THIS viewer is authorized to open THIS athlete's profile —
+  // staff always; an athlete only their own row; a parent only a row
+  // they're linked to (see canViewAthleteProfile / team/page.tsx's
+  // linkedAthleteIds). The destination page itself
+  // (team/[slug]/athlete/[id]/page.tsx) re-enforces this server-side via
+  // canAccessAthleteProfile — this is only what drives the tap affordance,
+  // never the actual security boundary.
+  canOpen: boolean;
+  onEdit: (a: TeamAthleteRow) => void;
+  onDelete: (id: string) => void;
+}) {
+  const router = useRouter();
+  const bg = avatarColor(a.name);
+  const destination = staffMode ? `/team/${slug}/team/${a.id}` : `/team/${slug}/athlete/${a.id}`;
+  const secondary = [a.class_year, a.event].filter(Boolean).join(" · ");
+
+  return (
+    <div
+      onClick={canOpen ? () => router.push(destination) : undefined}
+      className={canOpen ? "elf-list-row elf-focus-ring" : "elf-list-row"}
+      style={{ gap: "var(--space-3)", cursor: canOpen ? "pointer" : "default" }}
+      role={canOpen ? "button" : undefined}
+      tabIndex={canOpen ? 0 : undefined}
+      onKeyDown={canOpen ? (e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(destination); } }) : undefined}
+    >
+      {a.profile_photo ? (
+        <img
+          src={a.profile_photo}
+          alt=""
+          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+        />
+      ) : (
+        <div style={{
+          width: 40, height: 40, borderRadius: "50%", background: bg, flexShrink: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontWeight: 700, fontSize: ".72rem", color: "#fff", letterSpacing: ".02em",
+        }}>
+          {initials(a.name)}
+        </div>
+      )}
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {a.name}
+        </div>
+        {secondary && (
+          <div style={{ fontSize: ".76rem", color: "var(--text-muted-app)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {secondary}
+          </div>
+        )}
+      </div>
+
+      {a.jersey_number != null && (
+        <span className="elf-badge" style={{ flexShrink: 0, background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
+          #{a.jersey_number}
+        </span>
+      )}
+
+      {canEdit && (
+        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <button
+            aria-label={`Edit ${a.name}`}
+            onClick={e => { e.stopPropagation(); onEdit(a); }}
+            className="elf-focus-ring"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-1)", color: "var(--text-muted-app)", display: "flex" }}
+          >
+            <Pencil size={15} />
+          </button>
+          {canDelete && (
+            <button
+              aria-label={`Remove ${a.name}`}
+              onClick={e => { e.stopPropagation(); onDelete(a.id); }}
+              className="roster-remove-btn elf-focus-ring"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-1)", display: "flex" }}
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {canOpen && (
+        <ChevronRight size={16} aria-hidden="true" style={{ color: "var(--text-muted-app)", flexShrink: 0 }} />
+      )}
+    </div>
+  );
+}
+
+export default function AthleteRosterGrid({
+  slug,
+  roster,
+  pendingRequestCount = 0,
+  actor,
+  linkedAthleteIds = [],
+  attendanceHref = null,
+}: {
+  slug: string;
+  roster: AthleteRosterState;
+  // Phase 5-5: Take Attendance (takeAttendanceHref, decided on the server);
+  // null hides it.
+  attendanceHref?: string | null;
+  // The Requests Center (/team/[slug]/requests) is the canonical place to
+  // review/approve pending athlete requests — this is only a small
+  // contextual pointer, not the approval workflow itself.
+  pendingRequestCount?: number;
+  actor: TeamActor;
+  linkedAthleteIds?: string[];
+}) {
+  const { staffMode, canEdit, canDelete, seasonReadOnly, athletes, openAdd, openEdit, handleDelete } = roster;
+  const [search, setSearch] = useState("");
+  const [gradeTab, setGradeTab] = useState<GradeTabKey>(ALL_ATHLETES_TAB);
+  const tabIdPrefix = `roster-grade-${useId().replace(/:/g, "")}`;
+
+  const selfAthleteId = actor.kind === "member" ? actor.session.athlete_id : null;
+  const memberRole = actor.kind === "member" ? actor.session.role : null;
+  const canOpenAthlete = (athleteId: string): boolean => canViewAthleteProfile({
+    isStaffActor: staffMode,
+    memberRole,
+    selfAthleteId,
+    linkedAthleteIds,
+    athleteId,
+  });
+
+  // Grade tabs: "All Athletes" + only the grades on this roster, counts
+  // from the full roster. A tab whose last athlete was edited/removed
+  // falls back to All Athletes.
+  const gradeTabs = useMemo(() => buildGradeTabs(athletes), [athletes]);
+  const activeTab = resolveGradeTab(gradeTab, gradeTabs);
+
+  // My Profile / My Athletes: the signed-in athlete's or parent's own
+  // athlete(s) from this roster, pinned above it and left out of the list
+  // below so no card appears twice. Null for every other actor, or when no
+  // linked athlete is on this roster — then the roster is unchanged.
+  const mySection = useMemo(
+    () => myRosterSection(actor, linkedAthleteIds, athletes),
+    [actor, linkedAthleteIds, athletes],
+  );
+
+  const filtered = useMemo(
+    () => {
+      const mine = new Set(mySection?.athletes.map(a => a.id));
+      return athletes.filter(a => !mine.has(a.id) && matchesRosterSearch(a.name, search) && matchesGradeTab(a.class_year, activeTab));
+    },
+    [athletes, search, activeTab, mySection],
+  );
+
+  // Shared grade order; empty class_year → "No grade set", distinct from a
+  // real "Other" grade (see rosterHelpers.ts's groupAthletesByClass). Grade
+  // headings only under All Athletes — a single-grade tab is one flat list.
+  const groups = useMemo(() => groupAthletesByClass(filtered), [filtered]);
+  const showGroupHeadings = activeTab === ALL_ATHLETES_TAB;
+
+  return (
+    <div style={{ animation: "elf-fadeUp .22s ease both" }}>
+      {/* Staff-only remove button starts neutral, red only on hover/focus —
+          same restrained-destructive pattern already used by the desktop
+          roster table. */}
+      <style>{`
+        .roster-remove-btn { color: var(--text-muted-app); }
+        .roster-remove-btn:hover, .roster-remove-btn:focus-visible { color: var(--color-error); }
+      `}</style>
+
+      {canDelete && pendingRequestCount > 0 && (
+        <a
+          href={`/team/${slug}/requests`}
+          className="elf-focus-ring"
+          style={{
+            display: "flex", alignItems: "center", gap: "var(--space-2)",
+            background: "var(--surface-light)", borderRadius: "var(--radius-md)",
+            padding: "var(--space-2) var(--space-3)", marginBottom: "var(--space-3)",
+            textDecoration: "none", border: "1px solid var(--border-app)",
+            borderLeft: "3px solid var(--color-error)",
+          }}
+        >
+          <ClipboardList size={16} style={{ color: "var(--color-error)", flexShrink: 0 }} aria-hidden="true" />
+          <span className="elf-badge" style={{ background: "var(--color-error)", color: "#fff", flexShrink: 0 }}>
+            {pendingRequestCount}
+          </span>
+          <span style={{ flex: 1, fontSize: ".82rem", fontWeight: 700, color: "var(--text-primary-app)" }}>
+            Pending athlete request{pendingRequestCount !== 1 ? "s" : ""} — review in Requests
+          </span>
+          <ChevronRight size={16} style={{ color: "var(--text-muted-app)" }} aria-hidden="true" />
+        </a>
+      )}
+
+      {mySection && (
+        // padding: 0 — globals.css gives every <section> the marketing
+        // site's 6rem 5% padding.
+        <section aria-label={mySection.title} style={{ padding: 0, marginBottom: "var(--space-5)" }}>
+          <h2 style={{ margin: "0 0 var(--space-2)", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+            {mySection.title}
+          </h2>
+          <div className="elf-section-flat" style={{ padding: 0 }}>
+            {mySection.athletes.map(a => (
+              <AthleteRow
+                key={a.id}
+                a={a}
+                slug={slug}
+                staffMode={staffMode}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canOpen={canOpenAthlete(a.id)}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Section header */}
+      <div style={{ marginBottom: "var(--space-3)" }}>
+        {/* Phase 5-5: wraps (actions on their own right-aligned line) when
+            Take Attendance + Add Athlete don't fit beside the title. */}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+          <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary-app)", letterSpacing: "-.01em", lineHeight: 1.2 }}>
+            Team
+          </h2>
+          {athletes.length > 0 && (
+            <span className="elf-badge" style={{ background: "var(--surface-light-elevated)", color: "var(--text-secondary-app)" }}>
+              {athletes.length} athlete{athletes.length !== 1 ? "s" : ""}
+            </span>
+          )}
+          <div className={styles.rosterHeaderActions}>
+            {attendanceHref && !seasonReadOnly && <TakeAttendanceLink href={attendanceHref} />}
+            <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
+          </div>
+        </div>
+      </div>
+
+      {athletes.length > 0 && (
+        <div style={{ position: "relative", marginBottom: "var(--space-4)" }}>
+          <Search size={16} aria-hidden="true" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted-app)" }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search athletes…"
+            aria-label="Search athletes"
+            className="elf-focus-ring"
+            style={{
+              width: "100%", padding: "var(--space-2) var(--space-3) var(--space-2) 2.25rem",
+              borderRadius: "var(--radius-md)", border: "1px solid var(--border-app)",
+              fontSize: ".85rem", background: "var(--surface-light)", color: "var(--text-primary-app)",
+            }}
+          />
+        </div>
+      )}
+
+      {athletes.length > 0 && (
+        <GradeTabs tabs={gradeTabs} value={activeTab} onChange={setGradeTab} idPrefix={tabIdPrefix} />
+      )}
+
+      {athletes.length === 0 ? (
+        <div className="elf-section-flat" style={{ textAlign: "center", padding: "var(--space-8) var(--space-4)" }}>
+          <Users size={28} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: "var(--space-2)" }} aria-hidden="true" />
+          <div style={{ fontWeight: 700, fontSize: ".9rem", color: "var(--text-primary-app)", marginBottom: "var(--space-1)" }}>
+            No athletes yet.
+          </div>
+          {canEdit ? (
+            <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Add your first athlete above.</div>
+          ) : (
+            <div style={{ fontSize: ".8rem", color: "var(--text-muted-app)" }}>Team roster coming soon.</div>
+          )}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="elf-section-flat" style={{ textAlign: "center", padding: "var(--space-6) var(--space-4)" }}>
+          <Search size={24} style={{ color: "var(--text-muted-app)", opacity: .5, marginBottom: "var(--space-2)" }} aria-hidden="true" />
+          <div style={{ fontWeight: 700, fontSize: ".86rem", color: "var(--text-primary-app)" }}>
+            {!mySection ? "No athletes match your search."
+              : search.trim() || activeTab !== ALL_ATHLETES_TAB ? "No other athletes match your search."
+              : "No other athletes yet."}
+          </div>
+        </div>
+      ) : (
+        <div
+          role="tabpanel"
+          id={gradeTabPanelId(tabIdPrefix)}
+          aria-labelledby={gradeTabId(tabIdPrefix, activeTab)}
+          style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}
+        >
+          {groups.map(group => (
+            <div key={group.label}>
+              {showGroupHeadings && <div style={{
+                display: "flex", alignItems: "baseline", gap: "var(--space-2)",
+                paddingBottom: "var(--space-1)", marginBottom: "var(--space-1)",
+                borderBottom: "1px solid var(--border-app)",
+              }}>
+                <span style={{ fontSize: ".7rem", fontWeight: 800, color: "var(--text-primary-app)", textTransform: "uppercase", letterSpacing: ".06em" }}>
+                  {group.label}
+                </span>
+                <span style={{ fontSize: ".72rem", color: "var(--text-muted-app)" }}>
+                  {group.athletes.length}
+                </span>
+              </div>}
+              <div className="elf-section-flat" style={{ padding: 0 }}>
+                {group.athletes.map(a => (
+                  <AthleteRow
+                    key={a.id}
+                    a={a}
+                    slug={slug}
+                    staffMode={staffMode}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    canOpen={canOpenAthlete(a.id)}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

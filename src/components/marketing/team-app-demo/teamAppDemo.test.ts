@@ -32,6 +32,7 @@ const SIMULATOR = "src/components/marketing/demo/TeamAppSimulator.tsx";
 const HOME_VIEW = "src/app/team/[slug]/home/HomeView.tsx";
 const UPDATE_CARD = "src/app/team/[slug]/files/UpdateCard.tsx";
 const UPDATES_WORKSPACE = "src/app/team/[slug]/files/useUpdatesWorkspace.ts";
+const CALENDAR_WORKSPACE = "src/app/team/[slug]/calendar/useCalendarWorkspace.ts";
 
 // ── 1. Isolation ────────────────────────────────────────────────────────────
 
@@ -79,6 +80,29 @@ const AUDITED_APP_MODULES = new Set([
   "src/app/team/[slug]/messages/_shared/participantDisplay.ts",
   "src/app/team/[slug]/messages/_shared/groupMessaging.ts",
   "src/app/team/[slug]/files/AnnouncementFormModal.tsx",
+  // Phase 3 — Calendar, Team roster, Attendance.
+  "src/app/team/[slug]/calendar/MonthView.tsx",
+  "src/app/team/[slug]/calendar/AgendaList.tsx",
+  "src/app/team/[slug]/calendar/DateGroupCard.tsx",
+  "src/app/team/[slug]/calendar/EventFormModal.tsx",
+  "src/app/team/[slug]/team/rosterHelpers.ts",
+  "src/app/team/[slug]/team/GradeTabs.tsx",
+  "src/app/team/[slug]/team/Team.module.css",
+  "src/app/team/[slug]/team/takeAttendance.ts",
+  "src/app/team/[slug]/team/[id]/AthleteAttendanceCard.tsx",
+  "src/app/team/[slug]/attendance/attendanceEditor.ts",
+  "src/app/team/[slug]/attendance/attendanceFormat.ts",
+  "src/app/team/[slug]/attendance/AttendanceRow.tsx",
+  "src/app/team/[slug]/attendance/AttendancePanels.tsx",
+  "src/app/team/[slug]/attendance/Attendance.module.css",
+  "src/lib/teamAttendance.ts",
+  "src/lib/teamAttendanceDraft.ts",
+  "src/lib/teamAttendanceActor.ts",
+  "src/lib/teamTaskCompletion.ts",
+  "src/lib/teamTaskAcks.ts",
+  "src/lib/athleteAttendance.ts",
+  "src/lib/athleteAccess.ts",
+  "src/lib/athleteClass.ts",
   "src/lib/permissions.ts",
   "src/lib/theme/teamTheme.ts",
   "src/lib/theme/contrast.ts",
@@ -92,10 +116,11 @@ const SYMBOL_AUDITED: Record<string, Set<string>> = {
   [HOME_VIEW]: HOME_VIEW_EXPORTS,
   [UPDATE_CARD]: new Set(["CATEGORY_STYLE", "FILE_STYLE", "FILTER_CHIPS", "SectionLabel", "formatSize"]),
   [UPDATES_WORKSPACE]: new Set(["BLANK_UPDATE_FORM", "SCOPE_LABELS", "SCOPE_OPTIONS"]),
+  [CALENDAR_WORKSPACE]: new Set(["BLANK_EVENT_FORM", "eventFormFromRow"]),
 };
 const ALLOWED_PACKAGES = new Set(["react", "react-dom", "lucide-react", "next"]);
 
-const ENTRY_FILES = [PAGE, SIMULATOR, ...["TeamAppDemo.tsx", "DemoChrome.tsx", "DemoHome.tsx", "DemoComms.tsx", "DemoUpdates.tsx", "DemoMessages.tsx", "commsData.ts", "demoData.ts", "demoProtocol.ts", "networkGuard.ts"].map((f) => `${DEMO_DIR}/${f}`)];
+const ENTRY_FILES = [PAGE, SIMULATOR, ...["TeamAppDemo.tsx", "DemoChrome.tsx", "DemoHome.tsx", "DemoComms.tsx", "DemoUpdates.tsx", "DemoMessages.tsx", "commsData.ts", "demoData.ts", "demoProtocol.ts", "networkGuard.ts", "DemoCalendar.tsx", "DemoExportMenu.tsx", "DemoTeam.tsx", "DemoAttendance.tsx", "attendanceData.ts", "demoRouter.tsx", "DemoLink.tsx", "NextPhase.tsx"].map((f) => `${DEMO_DIR}/${f}`)];
 
 function walkDemoGraph() {
   const seen = new Set<string>();
@@ -145,7 +170,12 @@ test("isolation: nothing the demo loads can make a request, use storage, route, 
       assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon|new WebSocket|EventSource/.test(src), `${f} can make a request`);
     }
     assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie|navigator\.clipboard/.test(src), `${f} touches browser storage`);
-    assert.ok(!/useSeenTracker|useRouter|usePathname|router\.(push|refresh)/.test(src), `${f} routes or tracks`);
+    assert.ok(!/useSeenTracker|usePathname/.test(src), `${f} routes or tracks`);
+    // Router hooks only ever come from the demo's own stand-in (in-demo
+    // navigation); the import walk above already forbids next/navigation.
+    if (/\buse(Router|SearchParams)\(/.test(src) && f !== `${DEMO_DIR}/demoRouter.tsx`) {
+      assert.match(read(f), /from "\.\/demoRouter"/, `${f} uses a router that isn't the demo's`);
+    }
     assert.ok(!/process\.env\.(?!NEXT_PUBLIC_)/.test(src), `${f} reads a server environment variable`);
   }
 });
@@ -187,7 +217,7 @@ test("isolation: every link and form in the demo is intercepted and messages are
   assert.match(demo, /document\.addEventListener\("click", onClick, true\)/);
   assert.match(demo, /document\.addEventListener\("auxclick", onClick, true\)/);
   assert.match(demo, /document\.addEventListener\("submit", onSubmit, true\)/);
-  assert.match(demo, /e\.preventDefault\(\);\s*const href = a\.getAttribute\("href"\) \?\? "";\s*const target = demoTabForHref\(href\)/);
+  assert.match(demo, /e\.preventDefault\(\);\s*const href = a\.getAttribute\("href"\) \?\? "";\s*navigate\(href\);/);
   assert.match(demo, /if \(e\.origin !== window\.location\.origin\) return;/);
   assert.match(demo, /window\.parent\.postMessage\(msg, window\.location\.origin\)/);
   const sim = code(read(SIMULATOR));
@@ -311,7 +341,7 @@ test("roles: announcement audiences follow the app's own visibility rule", () =>
 test("roles: the demo shell shows the bell to members only and Partners to every signed-in role, like layout.tsx", () => {
   const demo = read(`${DEMO_DIR}/TeamAppDemo.tsx`);
   assert.match(demo, /isMember=\{actor\.kind === "member"\}/);
-  assert.match(demo, /<DemoTeamNav\s+active=\{openThreadId \? "" : tab\}\s+showSponsors\s+showFundraiser=\{shouldShowFundraisingNav\(true, actor\)\}/);
+  assert.match(demo, /<DemoTeamNav\s+active=\{activeNav\}\s+showSponsors\s+showFundraiser=\{shouldShowFundraisingNav\(true, actor\)\}/);
   const layout = read("src/app/team/[slug]/layout.tsx");
   assert.match(layout, /showBell=\{isMember\}/);
   assert.match(layout, /showSponsors=\{isAuthenticated\}/);

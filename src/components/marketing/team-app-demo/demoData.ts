@@ -8,12 +8,13 @@
 // the visitor's browser, shaped like the app's own row types so the real
 // presentation components can render them.
 //
-// Dates are relative to the visitor's "today" so Next Up and the week's
-// schedule always make sense.
+// Dates are relative to the team's "today" (America/Phoenix, like the app)
+// so Next Up, the calendar and attendance always make sense.
 
 import type { AnnouncementRow, CalendarEventRow } from "@/lib/teamData";
 import type { TeamActor } from "@/lib/permissions";
 import { SAMPLE_CAMPAIGN, SAMPLE_TEAM } from "../demo/fixtures.ts";
+import { arizonaDateISO } from "../../../lib/calendarShared.ts";
 
 import type { DemoRole } from "./demoProtocol";
 
@@ -66,58 +67,97 @@ export const DEMO_ACTORS: Record<DemoRole, TeamActor> = {
 };
 
 // ── Dates ───────────────────────────────────────────────────────────────────
+//
+// The team's calendar day, in its own time zone (America/Phoenix — the same
+// zone the app uses for Today on the calendar and for attendance).
 
-function isoDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const DEMO_TIME_ZONE = "America/Phoenix";
+
+/** The team's local date (YYYY-MM-DD) at `now`. */
+export function demoTodayISO(now: Date): string {
+  return arizonaDateISO(now);
 }
 
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() + n);
-  return x;
+/** Calendar arithmetic on YYYY-MM-DD strings (time-zone free). */
+export function addDaysISO(iso: string, n: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 0 = Sunday … 6 = Saturday, for a YYYY-MM-DD string. */
+export function weekdayISO(iso: string): number {
+  return new Date(`${iso}T12:00:00Z`).getUTCDay();
 }
 
 // ── Calendar ────────────────────────────────────────────────────────────────
 
-type EventSeed = { offset: number; title: string; type: CalendarEventRow["type"]; start: string; end: string; location: string; description: string };
+type EventSeed = { date: string; title: string; type: CalendarEventRow["type"]; start: string; end: string; location: string; description: string };
 
-// Offsets are relative to game day (the coming Friday), two weeks of it.
-const WEEK: Omit<EventSeed, "offset">[] = [
-  { title: "Practice", type: "practice", start: "15:45", end: "17:45", location: "Comets Field", description: "Helmets and shells. Install this week's game plan." },
-  { title: "Film Session & Team Meeting", type: "team", start: "15:30", end: "16:30", location: "Room 214", description: "Review last week's film. Bring your playbook." },
-  { title: "Practice", type: "practice", start: "15:45", end: "17:45", location: "Comets Field", description: "Full pads." },
-  { title: "Practice (late start)", type: "practice", start: "16:30", end: "18:00", location: "Comets Field", description: "Field is being lined for Friday's game. Bring both practice jerseys." },
-];
+/** Fictional opponents (none is a real school). Week 0 is this week. */
+const GAMES: Record<number, { opponent: string; home: boolean; note: string }> = {
+  [-3]: { opponent: "Cinder Peak Panthers", home: true, note: "Arrive by 5:30 PM in game uniforms." },
+  [-2]: { opponent: "Copper Hollow Miners", home: false, note: "Bus departs from the gym lot at 4:30 PM." },
+  [-1]: { opponent: "Saguaro Flats Falcons", home: true, note: "Homecoming. Arrive by 5:30 PM in game uniforms." },
+  [0]: { opponent: "Mesa Ridge Rattlers", home: false, note: "Bus departs from the gym lot at 4:45 PM. Game uniforms: white jerseys." },
+  [1]: { opponent: "Granite Pass Grizzlies", home: true, note: "Senior night. Arrive by 5:30 PM in game uniforms." },
+};
 
-const SEEDS: EventSeed[] = [
-  ...WEEK.map((e, i) => ({ ...e, offset: i - 4 })),
-  { offset: 0, title: "Game vs. Mesa Ridge Rattlers (Away)", type: "team", start: "19:00", end: "21:30", location: "Mesa Ridge Stadium", description: "Bus departs from the gym lot at 4:45 PM. Game uniforms: white jerseys." },
-  ...WEEK.map((e, i) => ({ ...e, offset: i + 3 })),
-  { offset: 6, title: "Team Pasta Dinner", type: "team", start: "18:00", end: "19:30", location: "School Cafeteria", description: "Families welcome before the home finale." },
-  { offset: 7, title: "Game vs. Canyon View Coyotes (Home)", type: "team", start: "19:00", end: "21:30", location: "Comets Field", description: "Senior night. Arrive by 5:30 PM in game uniforms." },
-];
+/** Practice days the coach takes attendance on: Monday, Wednesday, Thursday. */
+export const PRACTICE_WEEKDAYS = [1, 3, 4];
 
-/** Upcoming events (today onward), soonest first — what the app's
- *  getCalendarEvents(slug, true) returns for Home's Next Up. */
-export function buildDemoUpcoming(today: Date): CalendarEventRow[] {
-  const gameDay = addDays(today, (5 - today.getDay() + 7) % 7);
-  const todayIso = isoDate(today);
-  return SEEDS
+function seasonSeeds(today: string): EventSeed[] {
+  // Friday of this week is game day; weeks run Monday–Friday around it.
+  const gameDay = addDaysISO(today, (5 - weekdayISO(today) + 7) % 7);
+  const seeds: EventSeed[] = [];
+  for (let w = -3; w <= 1; w++) {
+    const friday = addDaysISO(gameDay, w * 7);
+    const at = (offset: number) => addDaysISO(friday, offset);
+    const game = GAMES[w];
+    seeds.push(
+      { date: at(-4), title: "Practice", type: "practice", start: "15:45", end: "17:45", location: "Comets Field", description: "Helmets and shells. Install this week's game plan." },
+      { date: at(-3), title: "Film Session & Team Meeting", type: "team", start: "15:30", end: "16:30", location: "Room 214", description: "Review last week's film. Bring your playbook." },
+      { date: at(-2), title: "Practice", type: "practice", start: "15:45", end: "17:45", location: "Comets Field", description: "Full pads." },
+      w === 0
+        ? { date: at(-1), title: "Practice (late start)", type: "practice", start: "16:30", end: "18:00", location: "Comets Field", description: "Field is being lined for Friday's game. Bring both practice jerseys." }
+        : { date: at(-1), title: "Practice", type: "practice", start: "15:45", end: "17:15", location: "Comets Field", description: "Walkthrough and special teams." },
+      { date: friday, title: `Game vs. ${game.opponent} (${game.home ? "Home" : "Away"})`, type: "team", start: "19:00", end: "21:30", location: game.home ? "Comets Field" : `${game.opponent.split(" ").slice(0, -1).join(" ")} Stadium`, description: game.note },
+    );
+    if (w === 0) seeds.push({ date: at(1), title: "Team Car Wash", type: "fundraiser", start: "09:00", end: "12:00", location: "Sunridge Valley HS parking lot", description: "Athletes and families welcome. Proceeds go to the team fundraiser." });
+    if (w === 1) seeds.push({ date: at(-1), title: "Team Pasta Dinner", type: "team", start: "18:00", end: "19:30", location: "School Cafeteria", description: "Families welcome before the home finale." });
+  }
+  return seeds;
+}
+
+/** The team's whole calendar for the demo season (what getCalendarEvents
+ *  returns for the Calendar tab), in date and time order. */
+export function buildDemoEvents(now: Date): CalendarEventRow[] {
+  const today = demoTodayISO(now);
+  return seasonSeeds(today)
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start))
     .map((s, i): CalendarEventRow => ({
       id: id(1000 + i),
       campaign_slug: DEMO_SLUG,
       title: s.title,
-      event_date: isoDate(addDays(gameDay, s.offset)),
+      event_date: s.date,
       event_time: "",
       start_time: s.start,
       end_time: s.end,
       location: s.location,
       description: s.description,
       type: s.type,
-      created_at: today.toISOString(),
-    }))
-    .filter((e) => e.event_date >= todayIso)
-    .sort((a, b) => (a.event_date + (a.start_time ?? "")).localeCompare(b.event_date + (b.start_time ?? "")));
+      created_at: now.toISOString(),
+    }));
+}
+
+/** Upcoming events (today onward), soonest first — what the app's
+ *  getCalendarEvents(slug, true) returns for Home's Next Up. */
+export function buildDemoUpcoming(now: Date): CalendarEventRow[] {
+  return upcomingFrom(buildDemoEvents(now), demoTodayISO(now));
+}
+
+export function upcomingFrom(events: CalendarEventRow[], today: string): CalendarEventRow[] {
+  return events.filter(e => e.event_date >= today);
 }
 
 // ── Announcements ───────────────────────────────────────────────────────────

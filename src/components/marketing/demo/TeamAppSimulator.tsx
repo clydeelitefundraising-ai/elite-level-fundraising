@@ -25,19 +25,25 @@ const ROLES: { id: Role; label: string; blurb: string }[] = [
   { id: "parent", label: "Parent", blurb: "Follow your athlete's team: updates, the calendar, messages with coaches and the fundraiser." },
 ];
 
-/** Hints for the real app's tabs built so far (Home and Comms). */
+/** Hints for the real app's tabs built so far. */
 export const TAB_HINTS: Record<Role, Record<string, string>> = {
   coach: {
     home: "Quick actions, requests, what's next and the latest team update. Tap an event for details.",
     communications: "Post an update, then try Messages: start a conversation or a group. Families are included automatically, and assistant coaches' chats appear under Oversight.",
+    calendar: "Switch Month and Agenda, tap a day or an event, or add one. Export shows the calendar sync options.",
+    team: "Open Roster, then Take Attendance: mark athletes, choose a reason for each absence, and Save Draft.",
   },
   athlete: {
     home: "The team's fundraiser, what's next and the latest from your coach. Tap an event for details.",
     communications: "Like and comment on updates, then message a coach. Your parent is included automatically.",
+    calendar: "Practices, film, games and team events. Tap a day or an event for details.",
+    team: "Open Roster and tap your own profile to see your attendance record.",
   },
   parent: {
     home: "Your athlete's team at a glance: the fundraiser, what's next and the latest update.",
     communications: "Updates for families, comments, and messages with your athlete's coaches — your athlete is included automatically.",
+    calendar: "Every practice, game and team event. Export shows how to sync it to your phone.",
+    team: "Open Roster and tap Jordan under My Athletes to see attendance.",
   },
 };
 
