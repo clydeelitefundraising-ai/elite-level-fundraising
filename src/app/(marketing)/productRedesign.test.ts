@@ -225,16 +225,49 @@ test("the Team App is presented as free, with no fundraiser required", () => {
   assert.match(read(`${MK}/product/page.tsx`), /free for every team &mdash; no fundraiser required\./);
 });
 
-test("sponsors page: inquiry only — no published prices, no promised reach, exclusivity or placement", () => {
+test("sponsors page: the approved structure and copy, approved type, real captures only", () => {
+  const raw = read(`${MK}/sponsors/page.tsx`);
+  const page = code(raw);
+  assert.match(page, /<span className="mk-eyebrow">ELF Community Partners<\/span>/);
+  assert.match(page, /Your next customers are cheering from the sidelines\./);
+  assert.match(page, /Put your business in front of local sports families through the ELF Team App and team\s+fundraising pages\. Build recognition in your community while helping youth programs thrive\./);
+  assert.match(page, /Affordable monthly partnerships\. Cancel anytime\./);
+  assert.match(page, /<LinkButton href="#inquire" size="lg">Become a Community Partner<\/LinkButton>/);
+  assert.match(page, /<a href="#placements" className="mk-fhero-link">See where your business appears/);
+  for (const t of ["Good for your business. Great for your community.", "Reach local families.", "Stay part of the conversation.", "Support something that matters.",
+    "Real placement. Real community visibility.", "Local advertising that fits your business.", "Monthly partnership options.",
+    "Cancel anytime, subject to the agreed terms.", "Clear placement details before you begin."]) assert.ok(raw.includes(t), t);
+  assert.match(page, /<LinkButton href="#inquire" size="lg">Ask About Monthly Options<\/LinkButton>/);
+  assert.match(page, /Let&rsquo;s put your business on the team\./);
+  assert.match(page, /Your business grows with the community\. Let&rsquo;s support both\./);
+  assert.match(page, /id="placements"/);
+  assert.match(page, /id="inquire"/);
+  // Approved typography: Inter headings (Variation A classes), no condensed display face or old placeholders.
+  assert.match(page, /className="mk-fhero-title"/);
+  assert.ok(!/mk-display|mk-page-hero|mk-marker-underline|mk-partner-hero|CommunityPartnerSlots|SAMPLE_PARTNERS/.test(page), "no legacy layout or letter tiles");
+  // Only the real captures of the fictional sample.
+  const images = [...new Set([...raw.matchAll(/src="([^"]+)"/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(images, ["/marketing/partners-fundraising-page.png", "/marketing/partners-fundraising-section.png", "/marketing/partners-team-app.png"]);
+  for (const img of images) assert.ok(existsSync(join(ROOT, "public", img)), img);
+  assert.match(page, /Sunridge Valley High School and every business shown on this page are fictional samples\./);
+});
+
+test("sponsors page: accurate — no prices, numbers or promises; placements confirmed; partners distinct from team sponsors", () => {
   const page = code(read(`${MK}/sponsors/page.tsx`));
-  assert.match(page, /Contact us for monthly partnership options\./);
   assert.ok(!/\$\s?\d/.test(page), "no dollar amounts");
-  for (const word of [/impressions?/i, /exclusiv/i, /guarantee/i, /\breach\b(?! out)/i, /conversion/i, /\d+\s*(views|families|parents|users)/i, /per month/i]) {
+  for (const word of [/impressions?/i, /exclusiv/i, /guarantee/i, /\breach(es)?\s+(of\s+)?[\d,]+/i, /\breaches\b/i, /conversion/i, /\bROI\b/, /\d[\d,]*\+?\s*(views|families|parents|users|people|visitors|teams|schools)/i, /per month/i, /fee[- ]free|no (service )?fees?/i, /testimonial/i]) {
     assert.ok(!word.test(page), `forbidden claim ${word}`);
   }
-  for (const step of ["Contact ELF", "Talk through options", "Send your branding", "Go live"]) assert.ok(page.includes(step), step);
+  assert.match(page, /Placements\s+depend on the participating teams, your partnership option and each school&rsquo;s settings/);
+  assert.match(page, /we confirm exactly\s+where your business will appear before\s+your partnership begins/);
+  assert.match(page, /separate from the sponsors a team\s+manages itself, which teams list under Team Sponsors/);
+  assert.match(page, /Featured placement may also be available\./);
+  // The working inquiry form, unchanged: same component, endpoint and type.
   assert.match(page, /<PartnerInquiryForm \/>/);
-  assert.match(read("src/components/marketing/PartnerInquiryForm.tsx"), /inquiryType: "partner"/);
+  const form = read("src/components/marketing/PartnerInquiryForm.tsx");
+  assert.match(form, /inquiryType: "partner"/);
+  assert.match(form, /fetch\("\/api\/marketing\/demo-request"/);
+  assert.equal(execSync(`git diff --stat 51f5652 -- src/components/marketing/PartnerInquiryForm.tsx "src/app/api/marketing"`, { cwd: ROOT }).toString().trim(), "", "form and endpoint unchanged");
 });
 
 test("no invented testimonials, customer counts or results on the redesigned pages", () => {

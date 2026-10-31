@@ -664,3 +664,85 @@
   .mk-hiw-stage { padding-bottom: 30%; }
   .mk-hiw-phone { width: 38%; right: -2%; }
 }
+
+/* ── /sponsors (ELF Community Partners) — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here (.mk-spn-*). */
+.mk-root .mk-spn-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+.mk-root .mk-spn-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 14ch; margin-top: var(--mk-space-3); }
+.mk-spn-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr); align-items: center; }
+.mk-root .mk-spn-hero .mk-fhero-copy .mk-spn-terms { margin-top: var(--mk-space-5); font-size: var(--mk-text-base); font-weight: 700; color: var(--mk-ink); }
+/* Hero visual: the public Community Partners section with the Team App screen in front. */
+.mk-spn-visual { margin: 0; min-width: 0; }
+.mk-spn-stage { position: relative; padding: 0 26% 0 0; }
+.mk-spn-public img { aspect-ratio: 1196 / 1100; object-fit: cover; object-position: 0 0; }
+.mk-spn-phone { position: absolute; right: 0; bottom: -6%; width: 38%; padding: 7px; border-radius: 26px; }
+.mk-spn-phone img { border-radius: 20px; aspect-ratio: 9 / 17; object-fit: cover; object-position: 50% 0; }
+.mk-spn-visual .mk-fhero-caption { margin-top: calc(var(--mk-space-5) + 6%); }
+@media (max-width: 900px) {
+  .mk-spn-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-spn-stage { padding-right: 22%; }
+  .mk-spn-phone { width: 40%; }
+}
+
+/* Benefits: the /fundraising numbered style on cream. */
+.mk-spn-benefits { padding-bottom: var(--mk-space-20); }
+
+/* Proof: real captures, then where partners appear. */
+.mk-spn-proof { background: #FFFFFF; padding: var(--mk-space-20) 0; }
+.mk-root .mk-spn-proof .mk-container,
+.mk-root .mk-spn-offer .mk-container,
+.mk-root .mk-spn-inquire .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-spn-head { max-width: 760px; margin-bottom: var(--mk-space-12); }
+.mk-root .mk-spn-head .mk-spn-title { margin: var(--mk-space-2) 0 0; }
+.mk-spn-shots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: var(--mk-space-12); align-items: end; }
+.mk-spn-shot-wide, .mk-spn-shot-phone { margin: 0; min-width: 0; }
+.mk-spn-shot-phone .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-spn-shot-phone .mk-fhero-caption { text-align: center; }
+.mk-spn-placements { list-style: none; margin: var(--mk-space-16) 0 0; padding: var(--mk-space-10) 0 0; border-top: 1px solid var(--mk-line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-space-10); }
+.mk-spn-placements li { position: relative; padding-top: var(--mk-space-5); }
+.mk-spn-placements li::before { content: ""; position: absolute; top: 0; left: 0; width: 28px; height: 2px; background: var(--mk-orange); }
+.mk-root .mk-spn-placements h3 { font-size: 1.175rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--mk-space-2); }
+.mk-root .mk-spn-placements p { font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); margin: 0; max-width: 38ch; }
+.mk-spn-notes { margin-top: var(--mk-space-10); max-width: 72ch; }
+.mk-root .mk-spn-notes p { font-size: var(--mk-text-base); line-height: 1.6; color: var(--mk-muted); margin: 0 0 var(--mk-space-3); }
+.mk-root .mk-spn-notes .mk-spn-disclosure { font-size: var(--mk-text-sm); margin-top: var(--mk-space-5); }
+@media (max-width: 900px) {
+  .mk-spn-proof { padding: var(--mk-space-16) 0; }
+  .mk-spn-shots { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-spn-shot-phone { justify-self: center; width: 100%; max-width: 260px; }
+  .mk-spn-placements { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); margin-top: var(--mk-space-12); }
+}
+
+/* Monthly offer: warm cream, copy and three short points. */
+.mk-spn-offer { background: #FBF8F2; padding: var(--mk-space-20) 0; }
+.mk-spn-offer-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--mk-space-16); align-items: center; }
+.mk-root .mk-spn-offer .mk-spn-title { margin: var(--mk-space-2) 0 var(--mk-space-5); max-width: 16ch; }
+.mk-root .mk-spn-offer p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 46ch; margin: 0 0 var(--mk-space-8); }
+.mk-spn-offer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.mk-spn-offer-list li { display: flex; align-items: center; gap: var(--mk-space-4); padding: var(--mk-space-6) 0; border-bottom: 1px solid var(--mk-line); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; color: var(--mk-ink); }
+.mk-spn-offer-list li:first-child { border-top: 1px solid var(--mk-line); }
+.mk-spn-offer-list li::before { content: ""; flex: 0 0 auto; width: 10px; height: 10px; background: var(--mk-orange); }
+@media (max-width: 900px) {
+  .mk-spn-offer { padding: var(--mk-space-16) 0; }
+  .mk-spn-offer-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+}
+
+/* Inquiry: the existing form, unchanged, beside the invitation. */
+.mk-spn-inquire { background: #FFFFFF; padding: var(--mk-space-20) 0 var(--mk-space-16); scroll-margin-top: 72px; }
+.mk-spn-inquire-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: var(--mk-space-16); align-items: start; }
+.mk-root .mk-spn-inquire .mk-spn-title { margin: var(--mk-space-2) 0 var(--mk-space-5); max-width: 14ch; }
+.mk-root .mk-spn-inquire-grid > div:first-child p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 40ch; margin: 0; }
+.mk-root .mk-spn-inquire-grid > div:first-child .mk-spn-alt { font-size: var(--mk-text-sm); margin-top: var(--mk-space-6); }
+.mk-spn-alt a { color: var(--mk-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.mk-root .mk-spn-inquire .mk-spn-closing { max-width: none; margin: var(--mk-space-16) auto 0; padding: 0 24px; text-align: center; font-size: var(--mk-text-lg); font-weight: 600; letter-spacing: -0.01em; color: var(--mk-ink); }
+.mk-spn-proof { scroll-margin-top: 72px; }
+@media (max-width: 900px) {
+  .mk-spn-inquire { padding: var(--mk-space-16) 0 var(--mk-space-12); }
+  .mk-spn-inquire-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-root .mk-spn-inquire .mk-spn-closing { margin-top: var(--mk-space-12); }
+}
+/* Phones: the public page shows its Community Partners column, readable. */
+@media (max-width: 640px) {
+  .mk-spn-shot-wide img { aspect-ratio: 1 / 1.12; object-fit: cover; object-position: 92% 0; }
+}

@@ -1,188 +1,222 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { LinkButton } from "@/components/marketing/Button";
 import { PartnerInquiryForm } from "@/components/marketing/PartnerInquiryForm";
-import CommunityPartnerSlots from "@/components/communityPartners/CommunityPartnerSlots";
-import { SAMPLE_PARTNERS } from "@/components/marketing/demo/fixtures";
 
-// Community Partners — written for local businesses. Every claim here is
-// what the product actually does: partners show as a card (logo, business
-// name, link to their website) in the Community Partners grid on a team's
-// Team App Home screen, in the team's Partners area, and on the team's
-// public fundraising page. No prices are published (inquiry only), and
-// nothing promises reach, impressions, exclusivity or guaranteed placement.
-// The example grid is the real component with fictional businesses.
+// /sponsors — ELF Community Partners, written for local business owners.
+// Follows the approved /fundraising, /product and /how-it-works direction
+// (Inter 700 sentence-case headings, .mk-fhero hero, numbered .mk-fbenefit
+// items, 12px buttons, warm white/cream backgrounds); page-only styles are
+// the .mk-spn-* rules in the redesign stylesheet.
+//
+// Accuracy — every claim is what the product does today:
+//  • Community Partners are arranged with ELF and appear, as a card with the
+//    business's logo, name and website link, in the Team App's Partners
+//    area, in a Community Partners section on the team's Home screen, and on
+//    the team's public fundraising page. Each depends on the school's
+//    settings (in-app and public placements are separate switches), and
+//    positions rotate, so nothing promises a placement — ELF confirms it.
+//  • No prices, reach, impressions, results or guarantees. The monthly /
+//    cancel-anytime wording is "subject to the agreed terms".
+//  • Community Partners are distinct from the sponsors a team manages
+//    itself (the Team Sponsors list).
+//
+// The two pictures are real captures of the fictional Sunridge Valley
+// Comets sample (the Team App demo's Partners screen and the sample public
+// fundraising page — the app's own components); every business shown is a
+// fictional sample with an invented logo (scripts/marketing/sample-assets.mjs).
 
 export const metadata: Metadata = {
   title: "Community Partners | Elite Level Fundraising",
   description:
-    "Local businesses can become ELF Community Partners and appear in the Team App and on public fundraising pages for the school teams they support. Contact us about monthly partnership options.",
+    "Become an ELF Community Partner: put your business in front of local sports families in the ELF Team App and on team fundraising pages. Affordable monthly partnerships — contact us for options.",
   alternates: { canonical: "/sponsors" },
   openGraph: {
     title: "ELF Community Partners | Elite Level Fundraising",
-    description: "Put your business in front of the families who show up every week. Contact us about monthly partnership options.",
+    description: "Your next customers are cheering from the sidelines. Ask about monthly Community Partner options.",
     type: "website",
   },
 };
 
-const VALUE = [
-  { title: "Be part of the season", copy: "Your business is shown alongside the teams you support — where coaches, athletes and families check in throughout the season." },
-  { title: "Your brand, your link", copy: "Each partner card shows your logo and business name, and links straight to your website." },
-  { title: "Back local athletes", copy: "Show the families in your community that your business supports the teams their kids play on." },
-  { title: "Simple to get started", copy: "Send us your logo and website. We handle the setup and confirm exactly where you'll appear." },
+const BENEFITS = [
+  { title: "Reach local families.", copy: "Put your business where coaches, parents and athletes connect throughout the season." },
+  { title: "Stay part of the conversation.", copy: "Keep your brand visible through ongoing team activity, not just a one-day event or a single advertisement." },
+  { title: "Support something that matters.", copy: "Help ELF make youth sports fundraising more accessible and keep more resources going toward the programs that need them." },
 ];
 
 const PLACEMENTS = [
-  {
-    title: "Team App Home",
-    copy: "The Community Partners grid on the team's Home screen in the ELF Team App.",
-  },
-  {
-    title: "Partners section",
-    copy: "The team's Partners area in the app, listing its Community Partners together.",
-  },
-  {
-    title: "Public fundraising pages",
-    copy: "The Community Partners section of the team's public fundraising page, when the team runs a fundraiser.",
-  },
+  { title: "In the Team App", copy: "The Partners area of the app, where ELF Community Partners are listed for the team’s coaches, athletes and parents." },
+  { title: "On the team’s Home screen", copy: "A Community Partners section on the Team App Home screen. Featured placement may also be available." },
+  { title: "On public fundraising pages", copy: "The Community Partners section of a team’s public fundraising page, while the team is fundraising." },
 ];
 
-const STEPS = [
-  { num: "1", title: "Contact ELF", copy: "Send the form below. Tell us about your business and the school or teams you'd like to support." },
-  { num: "2", title: "Talk through options", copy: "We'll go over monthly partnership options and which participating teams are available." },
-  { num: "3", title: "Send your branding", copy: "Share your logo, business name and website so we can set up your partner card." },
-  { num: "4", title: "Go live", copy: "Your approved partnership begins, and we confirm where your business appears." },
+const OFFER = [
+  "Monthly partnership options.",
+  "Cancel anytime, subject to the agreed terms.",
+  "Clear placement details before you begin.",
 ];
 
 export default function SponsorsPage() {
   return (
     <>
-      <div className="mk-page-hero mk-product-hero">
-        <div className="mk-container mk-product-hero-grid">
-          <div>
+      <section className="mk-fhero mk-spn-hero" aria-labelledby="mk-spn-title">
+        <div className="mk-container mk-fhero-grid">
+          <div className="mk-fhero-copy">
             <span className="mk-eyebrow">ELF Community Partners</span>
-            <h1 className="mk-display">
-              Put your business in front of the families who <span className="mk-marker-underline">show up</span> every week.
+            <h1 id="mk-spn-title" className="mk-fhero-title">
+              Your next customers are cheering from the sidelines.
             </h1>
+            <span className="mk-fhero-rule" aria-hidden="true" />
             <p>
-              Become an ELF Community Partner and support local school teams &mdash; with your business
-              shown in the ELF Team App and on the public fundraising pages of the teams you support.
+              Put your business in front of local sports families through the ELF Team App and team
+              fundraising pages. Build recognition in your community while helping youth programs thrive.
             </p>
-            <div className="mk-offer-actions">
-              <LinkButton href="#inquire" size="lg">Contact Us About Partnering</LinkButton>
-              <a href="#placements" className="mk-text-link">See where partners appear &rarr;</a>
+            <p className="mk-spn-terms">Affordable monthly partnerships. Cancel anytime.</p>
+            <div className="mk-fhero-actions">
+              <LinkButton href="#inquire" size="lg">Become a Community Partner</LinkButton>
+              <a href="#placements" className="mk-fhero-link">See where your business appears <span aria-hidden="true">&rarr;</span></a>
             </div>
           </div>
-          <div className="mk-partner-hero-card" aria-hidden="true">
-            <span className="mk-partner-hero-label">Community Partners</span>
-            <div className="mk-partner-hero-tiles">
-              {SAMPLE_PARTNERS.slice(0, 6).map((p) => (
-                <span key={p.id} className="mk-partner-hero-tile">
-                  <span className="mk-partner-hero-initial">{p.business_name[0]}</span>
-                  {p.business_name}
-                </span>
-              ))}
-            </div>
-            <span className="mk-partner-hero-note">Sample businesses</span>
-          </div>
-        </div>
-      </div>
 
-      <section className="mk-home-section" aria-labelledby="mk-partner-value">
+          <figure className="mk-spn-visual">
+            <div className="mk-spn-stage">
+              <div className="mk-fhero-frame mk-spn-public">
+                <Image
+                  src="/marketing/partners-fundraising-section.png"
+                  alt="The ELF Community Partners section of the fictional Sunridge Valley Comets public fundraising page: cards with the logo and name of each local business"
+                  width={1196}
+                  height={1368}
+                  priority
+                  sizes="(max-width: 900px) 70vw, 34vw"
+                />
+              </div>
+              <div className="mk-phone-frame mk-spn-phone">
+                <Image
+                  src="/marketing/partners-team-app.png"
+                  alt="The ELF Community Partners screen in the ELF Team App for the same team, listing the same local businesses"
+                  width={780}
+                  height={1688}
+                  priority
+                  sizes="(max-width: 900px) 40vw, 15vw"
+                />
+              </div>
+            </div>
+            <figcaption className="mk-fhero-caption">
+              The Team App and a public fundraising page. Sample team; every business shown is fictional.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section className="mk-fbenefits mk-spn-benefits" aria-labelledby="mk-spn-why">
         <div className="mk-container">
-          <div className="mk-home-head">
+          <div className="mk-fbenefits-head">
             <span className="mk-eyebrow">Why partner with ELF</span>
-            <h2 id="mk-partner-value" className="mk-display mk-home-title">Local business. Local teams.</h2>
+            <h2 id="mk-spn-why" className="mk-fbenefits-title mk-spn-title">Good for your business. Great for your community.</h2>
           </div>
-          <ul className="mk-benefit-grid mk-benefit-grid-4">
-            {VALUE.map((v) => (
-              <li key={v.title} className="mk-benefit">
-                <h3>{v.title}</h3>
-                <p>{v.copy}</p>
+          <ol className="mk-fbenefit-grid">
+            {BENEFITS.map((b, i) => (
+              <li key={b.title} className="mk-fbenefit">
+                <span className="mk-fbenefit-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mk-fbenefit-rule" aria-hidden="true" />
+                <div>
+                  <h3>{b.title}</h3>
+                  <p>{b.copy}</p>
+                </div>
               </li>
             ))}
+          </ol>
+        </div>
+      </section>
+
+      <section id="placements" className="mk-spn-proof" aria-labelledby="mk-spn-proof-title">
+        <div className="mk-container">
+          <div className="mk-spn-head">
+            <span className="mk-eyebrow">See your business in ELF</span>
+            <h2 id="mk-spn-proof-title" className="mk-va-title mk-spn-title">Real placement. Real community visibility.</h2>
+          </div>
+
+          <div className="mk-spn-shots">
+            <figure className="mk-spn-shot-wide">
+              <div className="mk-fhero-frame">
+                <Image
+                  src="/marketing/partners-fundraising-page.png"
+                  alt="A public ELF fundraising page for the fictional Sunridge Valley Comets: recent support on the left and the ELF Community Partners grid of local business logos on the right"
+                  width={2560}
+                  height={1630}
+                  sizes="(max-width: 900px) 92vw, 62vw"
+                />
+              </div>
+              <figcaption className="mk-fhero-caption">On a team&rsquo;s public fundraising page.</figcaption>
+            </figure>
+            <figure className="mk-spn-shot-phone">
+              <div className="mk-phone-frame">
+                <Image
+                  src="/marketing/partners-team-app.png"
+                  alt="ELF Community Partners in the ELF Team App: a grid of local business cards above the app's bottom navigation"
+                  width={780}
+                  height={1688}
+                  sizes="(max-width: 900px) 60vw, 260px"
+                />
+              </div>
+              <figcaption className="mk-fhero-caption">In the ELF Team App.</figcaption>
+            </figure>
+          </div>
+
+          <ol className="mk-spn-placements">
+            {PLACEMENTS.map((p) => (
+              <li key={p.title}>
+                <h3>{p.title}</h3>
+                <p>{p.copy}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mk-spn-notes">
+            <p>
+              Each partner card shows your logo and business name and links to your website. Placements
+              depend on the participating teams, your partnership option and each school&rsquo;s settings,
+              and positions may rotate &mdash; we confirm exactly where your business will appear before
+              your partnership begins.
+            </p>
+            <p>
+              ELF Community Partners are arranged with ELF and are separate from the sponsors a team
+              manages itself, which teams list under Team Sponsors.
+            </p>
+            <p className="mk-spn-disclosure">
+              Sunridge Valley High School and every business shown on this page are fictional samples.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mk-spn-offer" aria-labelledby="mk-spn-offer-title">
+        <div className="mk-container mk-spn-offer-grid">
+          <div>
+            <span className="mk-eyebrow">Monthly partnerships</span>
+            <h2 id="mk-spn-offer-title" className="mk-va-title mk-spn-title">Local advertising that fits your business.</h2>
+            <p>
+              Choose an affordable monthly partnership that fits your goals. We&rsquo;ll walk you through
+              available teams, placement options and how your business can participate.
+            </p>
+            <LinkButton href="#inquire" size="lg">Ask About Monthly Options</LinkButton>
+          </div>
+          <ul className="mk-spn-offer-list">
+            {OFFER.map((o) => <li key={o}>{o}</li>)}
           </ul>
         </div>
       </section>
 
-      <section id="placements" className="mk-home-section mk-home-alt" aria-labelledby="mk-partner-placements">
-        <div className="mk-container">
-          <div className="mk-home-head">
-            <span className="mk-eyebrow">Where partners appear</span>
-            <h2 id="mk-partner-placements" className="mk-display mk-home-title">Seen where the team gathers.</h2>
-            <p>
-              Your partner card shows your logo, business name and a link to your website. Placements
-              depend on the teams you support and each school&rsquo;s settings &mdash; we confirm exactly
-              where you&rsquo;ll appear before your partnership begins.
-            </p>
-          </div>
-          <ol className="mk-placement-list">
-            {PLACEMENTS.map((p, i) => (
-              <li key={p.title}>
-                <span className="mk-three-num" aria-hidden="true">{i + 1}</span>
-                <div>
-                  <h3>{p.title}</h3>
-                  <p>{p.copy}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-
-          <div className="mk-partner-examples">
-            <figure className="mk-partner-example">
-              <div className="mk-phone-frame mk-phone-frame-ui">
-                <div className="mk-partner-phone-head">
-                  <span>Sunridge Valley Comets</span>
-                  <strong>Community Partners</strong>
-                </div>
-                <div className="mk-partner-phone-body">
-                  <CommunityPartnerSlots partners={SAMPLE_PARTNERS} variant="app" />
-                </div>
-              </div>
-              <figcaption className="mk-shot-caption">In the Team App &mdash; sample team, fictional businesses.</figcaption>
-            </figure>
-            <figure className="mk-partner-example mk-partner-example-wide">
-              <div className="mk-browser-frame">
-                <div className="mk-browser-bar" aria-hidden="true"><span /><span /><span /></div>
-                <div className="mk-partner-browser-body">
-                  <h3>Our Community Partners</h3>
-                  <p>Thank you to the local businesses supporting the Sunridge Valley Comets this season.</p>
-                  <CommunityPartnerSlots partners={SAMPLE_PARTNERS} variant="public" />
-                </div>
-              </div>
-              <figcaption className="mk-shot-caption">On a public fundraising page &mdash; blank cards are open positions.</figcaption>
-            </figure>
-          </div>
-        </div>
-      </section>
-
-      <section className="mk-home-section" aria-labelledby="mk-partner-steps">
-        <div className="mk-container">
-          <div className="mk-home-head">
-            <span className="mk-eyebrow">How it works</span>
-            <h2 id="mk-partner-steps" className="mk-display mk-home-title">Getting started is simple.</h2>
-          </div>
-          <ol className="mk-three-steps mk-four-steps">
-            {STEPS.map((s) => (
-              <li key={s.num}>
-                <span className="mk-three-num" aria-hidden="true">{s.num}</span>
-                <h3>{s.title}</h3>
-                <p>{s.copy}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section id="inquire" className="mk-home-section mk-home-alt mk-inquire" aria-labelledby="mk-partner-inquire">
-        <div className="mk-container mk-inquire-grid">
+      <section id="inquire" className="mk-spn-inquire" aria-labelledby="mk-spn-inquire-title">
+        <div className="mk-container mk-spn-inquire-grid">
           <div>
-            <span className="mk-eyebrow">Monthly partnership options</span>
-            <h2 id="mk-partner-inquire" className="mk-home-title-sm">Contact us for monthly partnership options.</h2>
+            <span className="mk-eyebrow">Become a Community Partner</span>
+            <h2 id="mk-spn-inquire-title" className="mk-va-title mk-spn-title">Let&rsquo;s put your business on the team.</h2>
             <p>
-              Partnerships are arranged directly with ELF. Tell us about your business and the teams
-              you&rsquo;d like to support, and we&rsquo;ll reach out to walk through the options that fit.
+              Tell us a little about your business. We&rsquo;ll help you explore available monthly
+              partnerships and the communities you&rsquo;d like to support.
             </p>
-            <p className="mk-inquire-alt">
+            <p className="mk-spn-alt">
               Prefer email? Write to <a href="mailto:info@elitelevelfundraising.com">info@elitelevelfundraising.com</a>.
             </p>
           </div>
@@ -190,30 +224,7 @@ export default function SponsorsPage() {
             <PartnerInquiryForm />
           </div>
         </div>
-      </section>
-
-      <section className="mk-home-section" aria-labelledby="mk-partner-schools">
-        <div className="mk-container mk-schools-note">
-          <div>
-            <span className="mk-eyebrow">For schools and programs</span>
-            <h2 id="mk-partner-schools" className="mk-home-title-sm">Your own sponsors, organized too.</h2>
-          </div>
-          <div>
-            <p>
-              Programs keep their own sponsor relationships in ELF as records &mdash; contact info,
-              conversations, renewal dates and sponsorship history &mdash; so goodwill survives a coaching
-              change or a busy season, and coaches, ADs and booster leaders can see where things stand.
-            </p>
-            <ul className="mk-check-list">
-              <li>Sponsor records with contact info and history</li>
-              <li>Renewal tracking, so relationships don&rsquo;t lapse quietly</li>
-              <li>Visibility for coaches, ADs and booster leadership</li>
-            </ul>
-            <div className="mk-offer-actions">
-              <LinkButton href="/demo" variant="dark">Book a Demo for Your Program</LinkButton>
-            </div>
-          </div>
-        </div>
+        <p className="mk-spn-closing">Your business grows with the community. Let&rsquo;s support both.</p>
       </section>
     </>
   );
