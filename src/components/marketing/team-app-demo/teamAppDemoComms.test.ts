@@ -274,3 +274,16 @@ test("fidelity: the real messaging labels and safety copy are unchanged in the t
     assert.ok(demo.includes(s), `demo: ${s}`);
   }
 });
+
+test("phones: no device bezel — the demo runs full width (rule placed after the base frame rules so it wins)", () => {
+  const css = read("src/app/marketing-product.css");
+  const phoneBlock = css.indexOf("@media (max-width: 640px) {\n  .mk-sim-device");
+  assert.ok(phoneBlock > 0);
+  for (const base of [".mk-sim-phone {", ".mk-sim-status {", ".mk-sim-frame {"]) assert.ok(css.indexOf(base) < phoneBlock, `${base} comes first`);
+  const block = css.slice(phoneBlock, css.indexOf("\n}\n", phoneBlock));
+  assert.match(block, /\.mk-sim-device \{ margin: 0 calc\(-1 \* var\(--mk-space-6\)\); \}/);
+  assert.match(block, /\.mk-sim-phone \{ width: 100%;[^}]*border: 0;[^}]*border-radius: 0; box-shadow: none; \}/);
+  assert.match(block, /\.mk-sim-status \{ display: none; \}/);
+  // The desktop frame (12px bezel around a 390px screen) is unchanged.
+  assert.match(css, /\.mk-sim-phone \{\n  position: relative;\n  \/\* 414px - 2 x 12px border = a 390px screen, the width of a typical phone\. \*\/\n  width: 414px;/);
+});
