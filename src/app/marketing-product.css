@@ -752,7 +752,7 @@
 .mk-root .mk-prc-hero .mk-fhero-copy .mk-prc-trust { margin-top: var(--mk-space-6); font-size: var(--mk-text-sm); font-weight: 600; color: var(--mk-ink); }
 .mk-root .mk-prc-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
 
-/* Two options: side by side on desktop, stacked below 900px. */
+/* Two options: side by side down to tablets, stacked on phones. */
 .mk-prc-options { background: #FBF8F2; padding: var(--mk-space-12) 0; }
 .mk-root .mk-prc-options .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
 .mk-prc-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-space-8); }
@@ -768,12 +768,10 @@
 .mk-root .mk-prc-note { margin: var(--mk-space-5) 0 var(--mk-space-6); font-size: var(--mk-text-base); font-weight: 700; color: var(--mk-ink); }
 .mk-prc-card .mk-prc-cta { margin-top: auto; }
 @media (max-width: 900px) {
-  .mk-prc-hero { padding: var(--mk-space-12) 0; }
-  .mk-prc-options { padding: var(--mk-space-12) 0; }
-  .mk-prc-options-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-6); }
-}
-@media (max-width: 640px) {
-  .mk-prc-card { padding: var(--mk-space-8) var(--mk-space-6); }
+  .mk-prc-hero { padding: var(--mk-space-12) 0 var(--mk-space-10); }
+  .mk-prc-options { padding: var(--mk-space-10) 0; }
+  .mk-prc-options-grid { gap: var(--mk-space-5); }
+  .mk-prc-card { padding: var(--mk-space-6); }
 }
 
 /* Benefits: the /fundraising numbered style on white (cream either side). */
@@ -784,7 +782,47 @@
 .mk-root .mk-prc-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); letter-spacing: -0.04em; line-height: 1.05; }
 .mk-prc-close { padding: var(--mk-space-16) 0; }
 .mk-home-section.mk-prc-faq { padding: var(--mk-space-12) 0; }
+.mk-root .mk-prc-close p { max-width: 60ch; }
+.mk-root .mk-prc-close .mk-container-narrow { max-width: 920px; }
+
+/* Phones: the same content, tighter. Cards stack with compact padding and
+   a tight feature list; sections share one shorter rhythm. */
+@media (max-width: 700px) {
+  .mk-prc-options-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-4); }
+}
 @media (max-width: 640px) {
-  .mk-prc-close { padding: var(--mk-space-16) 0; }
+  .mk-prc-hero { padding: var(--mk-space-8) 0; }
+  .mk-root .mk-prc-hero .mk-fhero-rule { margin: var(--mk-space-4) 0; }
+  .mk-root .mk-prc-hero .mk-fhero-actions { margin-top: var(--mk-space-6); gap: var(--mk-space-4); }
+  .mk-root .mk-prc-hero .mk-fhero-actions .mk-btn-lg { min-height: 54px; }
+  .mk-root .mk-prc-hero .mk-fhero-copy .mk-prc-trust { margin-top: var(--mk-space-4); }
+
+  .mk-prc-options { padding: var(--mk-space-6) 0; }
+  .mk-prc-card { padding: var(--mk-space-5) var(--mk-space-5) var(--mk-space-5); border-radius: 10px; }
+  .mk-root .mk-prc-card-name { font-size: var(--mk-text-base); margin-bottom: var(--mk-space-2); }
+  .mk-root .mk-prc-price { font-size: 2.75rem; }
+  .mk-root .mk-prc-price-text { font-size: 1.75rem; }
+  .mk-root .mk-prc-for { font-size: var(--mk-text-sm); margin-top: var(--mk-space-2); }
+  .mk-prc-list { gap: 6px; margin-top: var(--mk-space-4); padding-top: var(--mk-space-4); }
+  .mk-prc-list li { gap: var(--mk-space-2); font-size: var(--mk-text-sm); line-height: 1.35; }
+  .mk-prc-list li::before { width: 10px; }
+  .mk-root .mk-prc-note { margin: var(--mk-space-4) 0; font-size: var(--mk-text-sm); }
+  .mk-prc-card .mk-prc-cta { min-height: 48px; }
+
+  .mk-prc-benefits { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-benefits .mk-fbenefits-head { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-prc-benefits .mk-fbenefit-grid { gap: var(--mk-space-6); }
+  .mk-root .mk-prc-benefits .mk-fbenefit-num { font-size: 2.25rem; }
+  .mk-root .mk-prc-benefits .mk-fbenefit-rule { margin-top: 1rem; }
+  .mk-root .mk-prc-benefits .mk-fbenefit h3 { margin-top: 0; }
+  .mk-root .mk-prc-benefits .mk-fbenefit p { max-width: none; }
+
+  .mk-root .mk-home-section.mk-prc-faq { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-faq .mk-home-head { margin-bottom: var(--mk-space-4); }
+  .mk-root .mk-prc-faq .mk-faq-item summary { padding: 16px 0; }
+
+  .mk-prc-close { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-close p { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-prc-close .mk-final-actions { gap: var(--mk-space-3); }
   .mk-prc-close .mk-prc-close-btn { width: 100%; }
 }
