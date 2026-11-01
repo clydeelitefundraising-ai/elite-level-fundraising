@@ -231,12 +231,12 @@ test("sponsors page: the approved structure and copy, approved type, real captur
   assert.match(page, /<span className="mk-eyebrow">ELF Community Partners<\/span>/);
   assert.match(page, /Your next customers are cheering from the sidelines\./);
   assert.match(page, /Put your business in front of local sports families through the ELF Team App and team\s+fundraising pages\. Build recognition in your community while helping youth programs thrive\./);
-  assert.match(page, /Affordable monthly partnerships\. Cancel anytime\./);
+  assert.match(page, /Flexible monthly partnerships\. No long-term commitment\./);
   assert.match(page, /<LinkButton href="#inquire" size="lg">Become a Community Partner<\/LinkButton>/);
   assert.match(page, /<a href="#placements" className="mk-fhero-link">See where your business appears/);
   for (const t of ["Good for your business. Great for your community.", "Reach local families.", "Stay part of the conversation.", "Support something that matters.",
     "Real placement. Real community visibility.", "Local advertising that fits your business.", "Monthly partnership options.",
-    "Cancel anytime, subject to the agreed terms.", "Clear placement details before you begin."]) assert.ok(raw.includes(t), t);
+    "No long-term commitment.", "Clear placement details before you begin."]) assert.ok(raw.includes(t), t);
   assert.match(page, /<LinkButton href="#inquire" size="lg">Ask About Monthly Options<\/LinkButton>/);
   assert.match(page, /Let&rsquo;s put your business on the team\./);
   assert.match(page, /Your business grows with the community\. Let&rsquo;s support both\./);
@@ -255,19 +255,33 @@ test("sponsors page: the approved structure and copy, approved type, real captur
 test("sponsors page: accurate — no prices, numbers or promises; placements confirmed; partners distinct from team sponsors", () => {
   const page = code(read(`${MK}/sponsors/page.tsx`));
   assert.ok(!/\$\s?\d/.test(page), "no dollar amounts");
-  for (const word of [/impressions?/i, /exclusiv/i, /guarantee/i, /\breach(es)?\s+(of\s+)?[\d,]+/i, /\breaches\b/i, /conversion/i, /\bROI\b/, /\d[\d,]*\+?\s*(views|families|parents|users|people|visitors|teams|schools)/i, /per month/i, /fee[- ]free|no (service )?fees?/i, /testimonial/i]) {
-    assert.ok(!word.test(page), `forbidden claim ${word}`);
+  // "Guarantee" only ever appears negated ("don't guarantee placement").
+  for (const word of [/impressions?/i, /exclusiv/i, /(?<!don(?:&rsquo;|')t )guarantee/i, /\breach(es)?\s+(of\s+)?[\d,]+/i, /\breaches\b/i, /conversion/i, /\bROI\b/, /\d[\d,]*\+?\s*(views|families|parents|users|people|visitors|teams|schools)/i, /per month/i, /fee[- ]free|no (service )?fees?/i, /testimonial/i]) {
+    assert.ok(!word.test(page.replace(/\s+/g, " ")), `forbidden claim ${word}`);
   }
-  assert.match(page, /Placements\s+depend on the participating teams, your partnership option and each school&rsquo;s settings/);
-  assert.match(page, /we confirm exactly\s+where your business will appear before\s+your partnership begins/);
+  // Platform-wide rotation: no school, team or area targeting; preferences never guaranteed.
+  assert.match(page, /ELF\s+Community Partners rotate across participating schools &mdash; placement isn&rsquo;t tied to\s+a particular school, team or area\./);
+  assert.match(page, /Preferences help us plan, but they don&rsquo;t\s+guarantee placement in a specific area or at a specific school\./);
+  assert.match(page, /we confirm the placements included in your\s+partnership before it begins/);
+  assert.match(page, /walk you through\s+available partnership options and where your business can appear\./);
+  assert.ok(!/available teams|teams you&rsquo;d like to support|communities you&rsquo;d like to support|select (your )?(teams|schools)/i.test(page), "no team selection");
+  // Until the cancellation agreement is final: no cancellation or refund mechanics.
+  assert.ok(!/cancel|refund|month-to-month/i.test(page), "no cancellation or refund wording");
   assert.match(page, /separate from the sponsors a team\s+manages itself, which teams list under Team Sponsors/);
   assert.match(page, /Featured placement may also be available\./);
-  // The working inquiry form, unchanged: same component, endpoint and type.
+  // The working inquiry form: same component, field mapping, endpoint and
+  // validation — only the reused field's label/placeholder and the thank-you
+  // copy changed (community preference, not team selection).
   assert.match(page, /<PartnerInquiryForm \/>/);
   const form = read("src/components/marketing/PartnerInquiryForm.tsx");
   assert.match(form, /inquiryType: "partner"/);
   assert.match(form, /fetch\("\/api\/marketing\/demo-request"/);
-  assert.equal(execSync(`git diff --stat 51f5652 -- src/components/marketing/PartnerInquiryForm.tsx "src/app/api/marketing"`, { cwd: ROOT }).toString().trim(), "", "form and endpoint unchanged");
+  assert.match(form, /sportProgram: String\(data\.get\("teams"\) \|\| ""\),/);
+  assert.match(form, /\{field\("teams", "Preferred community or area \(optional\)", \{ placeholder: "e\.g\. North Phoenix" \}\)\}/);
+  assert.ok(!/School or team you'd like to support|teams you&rsquo;d like to support/.test(form));
+  const required = [...form.matchAll(/field\("(\w+)"[^)]*required: true/g)].map((m) => m[1]);
+  assert.deepEqual(required, ["businessName", "firstName", "lastName", "email"], "required fields unchanged");
+  assert.equal(execSync(`git diff --stat 51f5652 -- "src/app/api/marketing" src/lib/email.ts src/lib/platform/marketingDemoRequests.ts`, { cwd: ROOT }).toString().trim(), "", "endpoint, email and CRM unchanged");
 });
 
 test("no invented testimonials, customer counts or results on the redesigned pages", () => {

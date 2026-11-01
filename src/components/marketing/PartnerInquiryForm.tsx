@@ -60,7 +60,7 @@ export function PartnerInquiryForm() {
     return (
       <div className="mk-form-status mk-status-success" role="status" tabIndex={-1} ref={statusRef}>
         <strong>Thanks — we received your inquiry.</strong> Someone from ELF will reach out to talk
-        through monthly partnership options and the teams you&rsquo;d like to support.
+        through monthly partnership options and where your business can appear.
       </div>
     );
   }
@@ -105,7 +105,7 @@ export function PartnerInquiryForm() {
 
       <div className="mk-form-grid">
         {field("businessName", "Business name", { required: true, autoComplete: "organization", key: "schoolName" })}
-        {field("teams", "School or team you'd like to support", { placeholder: "e.g. Sunridge Valley football" })}
+        {field("teams", "Preferred community or area (optional)", { placeholder: "e.g. North Phoenix" })}
         {field("firstName", "First name", { required: true, autoComplete: "given-name" })}
         {field("lastName", "Last name", { required: true, autoComplete: "family-name" })}
         {field("email", "Email address", { required: true, type: "email", autoComplete: "email" })}

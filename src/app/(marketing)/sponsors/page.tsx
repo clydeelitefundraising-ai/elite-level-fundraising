@@ -15,9 +15,13 @@ import { PartnerInquiryForm } from "@/components/marketing/PartnerInquiryForm";
 //    area, in a Community Partners section on the team's Home screen, and on
 //    the team's public fundraising page. Each depends on the school's
 //    settings (in-app and public placements are separate switches), and
-//    positions rotate, so nothing promises a placement — ELF confirms it.
-//  • No prices, reach, impressions, results or guarantees. The monthly /
-//    cancel-anytime wording is "subject to the agreed terms".
+//    positions rotate across participating schools (no school, team or
+//    area targeting), so nothing promises a placement — ELF confirms the
+//    placements a partnership includes. A sponsor may share a community
+//    preference, which never guarantees placement.
+//  • No prices, reach, impressions, results or guarantees. Until the
+//    cancellation agreement is final: "No long-term commitment" only — no
+//    cancellation or refund mechanics.
 //  • Community Partners are distinct from the sponsors a team manages
 //    itself (the Team Sponsors list).
 //
@@ -52,7 +56,7 @@ const PLACEMENTS = [
 
 const OFFER = [
   "Monthly partnership options.",
-  "Cancel anytime, subject to the agreed terms.",
+  "No long-term commitment.",
   "Clear placement details before you begin.",
 ];
 
@@ -71,7 +75,7 @@ export default function SponsorsPage() {
               Put your business in front of local sports families through the ELF Team App and team
               fundraising pages. Build recognition in your community while helping youth programs thrive.
             </p>
-            <p className="mk-spn-terms">Affordable monthly partnerships. Cancel anytime.</p>
+            <p className="mk-spn-terms">Flexible monthly partnerships. No long-term commitment.</p>
             <div className="mk-fhero-actions">
               <LinkButton href="#inquire" size="lg">Become a Community Partner</LinkButton>
               <a href="#placements" className="mk-fhero-link">See where your business appears <span aria-hidden="true">&rarr;</span></a>
@@ -174,10 +178,11 @@ export default function SponsorsPage() {
 
           <div className="mk-spn-notes">
             <p>
-              Each partner card shows your logo and business name and links to your website. Placements
-              depend on the participating teams, your partnership option and each school&rsquo;s settings,
-              and positions may rotate &mdash; we confirm exactly where your business will appear before
-              your partnership begins.
+              Each partner card shows your logo and business name and links to your website. ELF
+              Community Partners rotate across participating schools &mdash; placement isn&rsquo;t tied to
+              a particular school, team or area. Where your business appears depends on your partnership
+              option and each school&rsquo;s settings, and we confirm the placements included in your
+              partnership before it begins.
             </p>
             <p>
               ELF Community Partners are arranged with ELF and are separate from the sponsors a team
@@ -197,7 +202,7 @@ export default function SponsorsPage() {
             <h2 id="mk-spn-offer-title" className="mk-va-title mk-spn-title">Local advertising that fits your business.</h2>
             <p>
               Choose an affordable monthly partnership that fits your goals. We&rsquo;ll walk you through
-              available teams, placement options and how your business can participate.
+              available partnership options and where your business can appear.
             </p>
             <LinkButton href="#inquire" size="lg">Ask About Monthly Options</LinkButton>
           </div>
@@ -214,7 +219,11 @@ export default function SponsorsPage() {
             <h2 id="mk-spn-inquire-title" className="mk-va-title mk-spn-title">Let&rsquo;s put your business on the team.</h2>
             <p>
               Tell us a little about your business. We&rsquo;ll help you explore available monthly
-              partnerships and the communities you&rsquo;d like to support.
+              partnerships and where your business can appear.
+            </p>
+            <p className="mk-spn-alt">
+              You can share a preferred community or area. Preferences help us plan, but they don&rsquo;t
+              guarantee placement in a specific area or at a specific school.
             </p>
             <p className="mk-spn-alt">
               Prefer email? Write to <a href="mailto:info@elitelevelfundraising.com">info@elitelevelfundraising.com</a>.
