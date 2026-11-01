@@ -83,6 +83,58 @@ test("/how-it-works: signup goes to the same Team App (and environment) as the n
   assert.ok(existsSync(join(ROOT, "src/app/signup/page.tsx")), "the Team App's self-service signup exists");
 });
 
+test("/pricing: five short sections — hero, two options, three benefits, three-question FAQ, black closing band", () => {
+  const page = read(`${MK}/pricing/page.tsx`);
+  const copy = code(page);
+  assert.match(page, /alternates: \{ canonical: "\/pricing" \}/);
+  assert.equal((copy.match(/<section /g) ?? []).length, 5, "five sections");
+  // Hero.
+  assert.match(copy, /<span className="mk-eyebrow">Simple pricing\. More for your program\.<\/span>/);
+  assert.match(copy, /Your team app is free\. Your fundraising works harder\./);
+  assert.match(copy, /Give your coaches, athletes and parents one place to stay connected &mdash; completely\s+free\. When you&rsquo;re ready to fundraise, ELF helps you build a campaign designed around\s+your program\./);
+  assert.match(copy, /No subscription required for the Team App\. No fundraising obligation\./);
+  // Two options.
+  for (const s of ["ELF Team App", ">$0<", "For every team", "No fundraiser required.", "ELF Fundraising", "Custom campaign plan",
+    "Pricing discussed before launch", "Know the terms before committing."]) assert.ok(copy.includes(s), s);
+  assert.deepEqual(JSON.parse(`[${copy.match(/const APP_FEATURES = \[(.*)\];/)![1]}]`), ["Announcements and messaging", "Team calendar", "Attendance", "Rosters"]);
+  assert.deepEqual(JSON.parse(`[${copy.match(/const FUNDRAISING_FEATURES = \[(.*)\];/)![1]}]`), ["Athlete fundraising pages", "Donation tracking", "Campaign reporting", "Support from ELF"]);
+  // Three numbered benefits in the /fundraising style.
+  for (const [t, c] of [["More money for your goals.", "Give supporters an easy way to contribute to what your athletes need."],
+    ["Less work for your coaches.", "Keep campaign progress, athlete participation and donations organized in one place."],
+    ["One platform beyond fundraising.", "Your team can keep using ELF for free after the campaign ends."]]) assert.ok(page.includes(`{ title: "${t}", copy: "${c}" }`), t);
+  assert.match(page, /<ol className="mk-fbenefit-grid">[\s\S]*?className="mk-fbenefit-num"[\s\S]*?className="mk-fbenefit-rule"/);
+  // Exactly the three approved questions.
+  assert.deepEqual([...page.matchAll(/q: "([^"]+)"/g)].map((m) => m[1]),
+    ["Is the Team App really free?", "How much does fundraising cost?", "Do I have to use ELF Fundraising to use the app?"]);
+  // Closing.
+  assert.match(copy, /className="mk-section mk-cta-band mk-prc-close"/);
+  assert.match(copy, /Ready to give your team more\?/);
+  assert.match(copy, /Start with the free app today\. Explore fundraising whenever you&rsquo;re ready\./);
+  // CTAs: free team → self-service signup (same as /how-it-works); fundraising → the demo request page.
+  assert.match(page, /const SIGNUP_URL = teamAppLoginUrl\([\s\S]*?\.replace\(\/\\\/login\$\/, "\/signup"\);/);
+  assert.match(page, /const DEMO_URL = "\/demo";/);
+  assert.equal((copy.match(/href=\{SIGNUP_URL\}[^>]*>Create Your Free Team</g) ?? []).length, 3);
+  assert.equal((copy.match(/href=\{DEMO_URL\}[^>]*>Discuss Fundraising/g) ?? []).length, 2);
+  assert.match(copy, /href=\{DEMO_URL\}[^>]*>Book a Fundraising Demo</);
+  // Approved type; the old layout, factor list and apologetic copy are gone.
+  assert.match(page, /className="mk-fhero-title"/);
+  assert.ok(!/mk-page-hero|mk-display|mk-capability-list|mk-concern|mk-pricing-free|mk-marker-underline/.test(copy), "no legacy layout");
+  assert.ok(!/What influences pricing|price list|placeholder|sales pitch|straight answer|hidden fees|can.t stand behind/i.test(copy), "no legacy pricing copy");
+  assert.ok(!existsSync(join(ROOT, "public/marketing/pricing")) && !/<Image|src="/.test(copy), "no images");
+});
+
+test("/pricing accuracy: free app with no fundraiser required; no fee, percentage, saving, result or guarantee claims", () => {
+  const copy = code(read(`${MK}/pricing/page.tsx`)).replace(/className="[^"]*"/g, "");
+  const text = copy.slice(copy.indexOf("const APP_FEATURES")); // page copy (not the metadata or imports)
+  assert.ok(!/\d+(\.\d+)?\s*%|percent|\$\s*[1-9]|platform fee|donor fee|processing fee/i.test(text), "no fee figures");
+  assert.ok(!/fee[- ]free|no fees|zero fees|free to fundraise|save|savings|guarantee|testimonial|trusted by|raise (up to|more than)|\d{2,}\+?\s*(schools|teams|programs|customers)/i.test(text), "no claims");
+  assert.ok(text.includes("We’ll go over the terms, including any applicable fees, before launch"), "fees are discussed before launch");
+  assert.ok(text.includes("you never have to run a fundraiser to use it"));
+  assert.ok(text.includes("Your team can use the Team App for free without ever running an ELF fundraiser."));
+  // The only $ figure on the page is the free Team App.
+  assert.deepEqual(text.match(/\$\d+/g), ["$0"]);
+});
+
 test("/fundraising: current campaign screenshot up top; the 'Every dollar, visible.' section is gone", () => {
   const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /src="\/marketing\/fundraiser-campaign-current\.png"/);
@@ -328,7 +380,7 @@ test("sponsor inquiry notification: ELF's internal email labels the field 'Prefe
 });
 
 test("no invented testimonials, customer counts or results on the redesigned pages", () => {
-  for (const f of ["src/app/MarketingPage.tsx", `${MK}/fundraising/page.tsx`, `${MK}/product/page.tsx`, `${MK}/sponsors/page.tsx`]) {
+  for (const f of ["src/app/MarketingPage.tsx", `${MK}/fundraising/page.tsx`, `${MK}/product/page.tsx`, `${MK}/sponsors/page.tsx`, `${MK}/pricing/page.tsx`]) {
     const src = code(read(f)).replace(/className="[^"]*"/g, ""); // class names aren't copy
     assert.ok(!/testimonial|5[- ]star|trusted by|\d{2,}\+?\s*(schools|teams|programs|customers)|raised over|\d+%\s*(more|increase)/i.test(src), f);
   }

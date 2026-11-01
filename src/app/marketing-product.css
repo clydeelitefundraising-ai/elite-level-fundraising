@@ -374,10 +374,6 @@
 
 .mk-sim :focus-visible { outline: 2px solid #F2B705; outline-offset: 2px; }
 
-/* Pricing page: the free Team App note under the hero heading. */
-.mk-page-hero p.mk-pricing-free { color: var(--mk-ink); font-size: var(--mk-text-base); background: var(--mk-yellow); padding: var(--mk-space-3) var(--mk-space-4); border-radius: 4px; margin-bottom: var(--mk-space-4); display: inline-block; max-width: none; }
-.mk-pricing-free a { text-decoration: underline; font-weight: 700; white-space: nowrap; }
-
 /* ── /fundraising: "How ELF fundraising works" editorial timeline ──
    Clean athletic editorial: big display numerals, a hairline connector with
    small orange markers, concise text — no cards, icons or shadows.
@@ -745,4 +741,50 @@
 /* Phones: the public page shows its Community Partners column, readable. */
 @media (max-width: 640px) {
   .mk-spn-shot-wide img { aspect-ratio: 1 / 1.12; object-fit: cover; object-position: 92% 0; }
+}
+
+/* ── /pricing — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles and the compact
+   /fundraising FAQ; only what differs for this page is here (.mk-prc-*). */
+.mk-prc-hero { padding: var(--mk-space-16) 0 var(--mk-space-12); }
+.mk-root .mk-prc-hero .mk-fhero-title { max-width: 19ch; }
+.mk-root .mk-prc-hero .mk-fhero-copy p { max-width: 36em; }
+.mk-root .mk-prc-hero .mk-fhero-copy .mk-prc-trust { margin-top: var(--mk-space-6); font-size: var(--mk-text-sm); font-weight: 600; color: var(--mk-ink); }
+.mk-root .mk-prc-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+
+/* Two options: side by side on desktop, stacked below 900px. */
+.mk-prc-options { background: #FBF8F2; padding: var(--mk-space-12) 0; }
+.mk-root .mk-prc-options .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-prc-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-space-8); }
+.mk-prc-card { display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #ECE6DC; border-radius: 12px; padding: var(--mk-space-8) var(--mk-space-10); box-shadow: 0 18px 40px -26px rgba(18,17,16,0.18); }
+.mk-prc-card:first-child { border-top: 4px solid var(--mk-orange); }
+.mk-root .mk-prc-card-name { font-size: var(--mk-text-lg); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--mk-space-4); }
+.mk-root .mk-prc-price { font-size: clamp(3rem, 5vw, 4.25rem); font-weight: 700; letter-spacing: -0.045em; line-height: 1; color: var(--mk-ink); margin: 0; }
+.mk-root .mk-prc-price-text { font-size: clamp(2rem, 3vw, 2.6rem); letter-spacing: -0.035em; line-height: 1.05; }
+.mk-root .mk-prc-for { font-size: var(--mk-text-base); color: var(--mk-muted); margin: var(--mk-space-3) 0 0; }
+.mk-prc-list { list-style: none; margin: var(--mk-space-6) 0 0; padding: var(--mk-space-5) 0 0; border-top: 1px solid var(--mk-line); display: grid; gap: var(--mk-space-2); }
+.mk-prc-list li { display: flex; align-items: center; gap: var(--mk-space-3); font-size: var(--mk-text-base); color: var(--mk-ink); }
+.mk-prc-list li::before { content: ""; flex: 0 0 auto; width: 14px; height: 2px; background: var(--mk-orange); }
+.mk-root .mk-prc-note { margin: var(--mk-space-5) 0 var(--mk-space-6); font-size: var(--mk-text-base); font-weight: 700; color: var(--mk-ink); }
+.mk-prc-card .mk-prc-cta { margin-top: auto; }
+@media (max-width: 900px) {
+  .mk-prc-hero { padding: var(--mk-space-12) 0; }
+  .mk-prc-options { padding: var(--mk-space-12) 0; }
+  .mk-prc-options-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-6); }
+}
+@media (max-width: 640px) {
+  .mk-prc-card { padding: var(--mk-space-8) var(--mk-space-6); }
+}
+
+/* Benefits: the /fundraising numbered style on white (cream either side). */
+.mk-prc-benefits { background: #FFFFFF; padding: var(--mk-space-16) 0; }
+.mk-prc-benefits .mk-fbenefits-head { margin-bottom: var(--mk-space-10); }
+
+/* Closing: black band with a Variation A headline. */
+.mk-root .mk-prc-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); letter-spacing: -0.04em; line-height: 1.05; }
+.mk-prc-close { padding: var(--mk-space-16) 0; }
+.mk-home-section.mk-prc-faq { padding: var(--mk-space-12) 0; }
+@media (max-width: 640px) {
+  .mk-prc-close { padding: var(--mk-space-16) 0; }
+  .mk-prc-close .mk-prc-close-btn { width: 100%; }
 }
