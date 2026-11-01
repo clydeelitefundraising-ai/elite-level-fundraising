@@ -135,6 +135,55 @@ test("/pricing accuracy: free app with no fundraiser required; no fee, percentag
   assert.deepEqual(text.match(/\$\d+/g), ["$0"]);
 });
 
+test("homepage: five sections — photo hero, two solutions, product proof, three steps, black closing band", () => {
+  const page = read("src/app/MarketingPage.tsx");
+  const copy = code(page);
+  assert.equal((copy.match(/<section /g) ?? []).length, 5, "five sections");
+  // Hero.
+  assert.match(copy, /<span className="mk-hm-line">More for your team\.<\/span>\{" "\}\s*<span className="mk-hm-line">Less on your plate\.<\/span>/);
+  assert.match(copy, /Raise more for your program and keep coaches, athletes and parents connected\. ELF\s+combines powerful fundraising with a free team management app\./);
+  assert.match(copy, /<span className="mk-hm-signature">Fund the season<\/span>/);
+  // Two solutions.
+  assert.match(copy, /One mission\. Two ways to move your program forward\./);
+  assert.match(copy, /Raise more\. Give every athlete a role\./);
+  assert.match(copy, /Run your team\. Completely free\./);
+  assert.match(copy, /<LinkButton href="\/product" variant="dark" size="lg">Explore the Team App<\/LinkButton>/);
+  // Product proof: the approved real captures (fictional sample, disclosed), linked to the product pages.
+  assert.match(copy, /Built for the way teams actually work\./);
+  const images = [...page.matchAll(/src="([^"]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(images, ["/marketing/brand/hero.png", "/marketing/fundraiser-campaign-current.png", "/marketing/team-app-coach-home.png"]);
+  for (const img of images) assert.ok(existsSync(join(ROOT, "public", img)), img);
+  assert.match(copy, /href="\/fundraising#preview"/);
+  assert.match(copy, /href="\/product#simulator"/);
+  assert.match(copy, /Sunridge Valley High School is a fictional sample team\./);
+  // How it works.
+  assert.match(copy, /Getting started is simple\./);
+  for (const t of ["Choose your starting point.", "Get your team connected.", "Make the season count."]) assert.ok(page.includes(`title: "${t}"`), t);
+  // Closing: demo and the same verified signup destination as /pricing.
+  assert.match(copy, /className="mk-section mk-cta-band mk-hm-close"/);
+  assert.match(copy, /Your next great season starts here\./);
+  assert.match(copy, /Better fundraising\. Simpler team management\. More opportunities for athletes\./);
+  assert.match(copy, /<LinkButton href="\/demo"[^>]*>Book a Fundraising Demo<\/LinkButton>/);
+  assert.match(copy, /<LinkButton href=\{SIGNUP_URL\}[^>]*>Create Your Free Team<\/LinkButton>/);
+  const signup = (f: string) => read(f).match(/const SIGNUP_URL = [\s\S]*?;/)![0];
+  assert.equal(signup("src/app/MarketingPage.tsx"), signup(`${MK}/pricing/page.tsx`));
+  // Removed: audience grid, partners pitch, spotlights, collage, condensed display headings, hand-lettering.
+  assert.ok(!/mk-audience|mk-home-partners|mk-mosaic|mk-row3|mk-role-card|mk-shot-stack|mk-display|mk-hand|mk-marker-underline|mk-hero\b/.test(copy), "old sections gone");
+  assert.ok(!/Built for the whole program|athletics-build-better-people|give-them-the-season|Riverside/.test(copy));
+  assert.ok(!copy.includes("/sponsors"), "Community Partners reached through the nav and footer only");
+  assert.match(read("src/components/marketing/MarketingNav.tsx"), /href: "\/sponsors"/);
+});
+
+test("homepage accuracy: free team self-service, fundraising activated with ELF; no invented numbers or claims", () => {
+  const copy = code(read("src/app/MarketingPage.tsx")).replace(/className="[^"]*"/g, "");
+  const text = copy.slice(copy.indexOf("export default"));
+  assert.ok(text.includes("We set up your campaign with") && copy.includes("launch fundraising with ELF"), "fundraising goes through ELF");
+  assert.ok(!/start (a|your) fundraiser (yourself|on your own|instantly)|self-serve fundrais|launch (a|your) fundraiser in minutes/i.test(text));
+  assert.ok(!/fee[- ]free|no fees|guarantee|testimonial|trusted by|\d+\s*%|\d{2,}\+?\s*(schools|teams|programs|customers)/i.test(text));
+  // The only figures are inside the real screenshot's description.
+  assert.deepEqual((text.replace(/alt="[^"]*"/g, "").match(/\$\s*\d[\d,]*/g) ?? []), []);
+});
+
 test("/fundraising: current campaign screenshot up top; the 'Every dollar, visible.' section is gone", () => {
   const page = read(`${MK}/fundraising/page.tsx`) + read("src/components/marketing/fundraising/FundraisingTop.tsx");
   assert.match(page, /src="\/marketing\/fundraiser-campaign-current\.png"/);

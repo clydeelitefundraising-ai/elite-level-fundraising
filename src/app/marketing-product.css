@@ -826,3 +826,99 @@
   .mk-root .mk-prc-close .mk-final-actions { gap: var(--mk-space-3); }
   .mk-prc-close .mk-prc-close-btn { width: 100%; }
 }
+
+/* ── Homepage (/) — approved /fundraising direction ──
+   Five sections: photo hero, two solutions, product proof, three steps and
+   a black closing band. Reuses Variation A titles, .mk-fbenefit steps and
+   the phone/browser frames; only what differs for this page is here
+   (.mk-hm-*). The old homepage rules in the shared stylesheet are left as
+   they are. */
+.mk-root .mk-hm-title { font-size: clamp(2.5rem, 4vw, 3.75rem); max-width: 17ch; margin: var(--mk-space-2) 0 0; }
+.mk-hm-head { margin-bottom: var(--mk-space-12); }
+.mk-root .mk-hm-hero .mk-container,
+.mk-root .mk-hm-solutions .mk-container,
+.mk-root .mk-hm-proof .mk-container,
+.mk-root .mk-hm-steps .mk-container { max-width: 1600px; padding-left: clamp(24px, 5.5vw, 84px); padding-right: clamp(24px, 5.5vw, 84px); }
+
+/* Hero: the football sunset photograph, full width, copy bottom-left. */
+.mk-hm-hero { position: relative; display: flex; min-height: clamp(640px, 92vh, 860px); padding: 0; background: #121110; color: #fff; overflow: hidden; }
+.mk-hm-hero-media { position: absolute; inset: 0; }
+.mk-hm-hero-img { object-fit: cover; object-position: center 30%; }
+.mk-hm-hero-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(10,9,8,0.72) 0%, rgba(10,9,8,0.5) 30%, rgba(10,9,8,0.18) 55%, transparent 72%),
+    linear-gradient(0deg, rgba(10,9,8,0.55) 0%, transparent 45%);
+}
+.mk-hm-hero-inner { position: relative; z-index: 2; width: 100%; display: flex; align-items: flex-end; padding-top: calc(var(--mk-nav-height) + var(--mk-space-16)); padding-bottom: var(--mk-space-20); }
+.mk-hm-hero-copy { max-width: 920px; }
+.mk-hm-signature { display: inline-flex; align-items: center; gap: var(--mk-space-3); font-size: var(--mk-text-xs); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.86); }
+.mk-hm-signature::before { content: ""; width: 22px; height: 2px; background: var(--mk-orange); }
+.mk-root .mk-hm-hero-title { font-family: inherit; font-size: clamp(2.75rem, 5vw, 5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; text-transform: none; color: #fff; margin: var(--mk-space-4) 0 0; }
+.mk-hm-line { display: block; }
+.mk-hm-hero-rule { display: block; width: 68px; height: 7px; background: var(--mk-orange); margin: var(--mk-space-6) 0; }
+.mk-root .mk-hm-hero-copy p { font-size: 1.25rem; line-height: 1.5; color: rgba(255,255,255,0.88); max-width: 34em; margin: 0; }
+.mk-hm-hero-actions { display: flex; flex-wrap: wrap; gap: var(--mk-space-4); margin-top: var(--mk-space-8); }
+.mk-root .mk-hm-hero-actions .mk-btn-lg { min-height: 58px; padding: 0 var(--mk-space-10); font-size: var(--mk-text-lg); font-weight: 600; }
+
+/* Two solutions: editorial panels on warm cream, no cards. */
+.mk-hm-solutions { background: #FBF8F2; padding: var(--mk-space-24) 0; }
+.mk-hm-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-space-16); }
+.mk-hm-panel { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding-top: var(--mk-space-8); border-top: 1px solid var(--mk-line); }
+.mk-hm-panel::before { content: ""; position: absolute; top: -1px; left: 0; width: 56px; height: 3px; background: var(--mk-orange); }
+.mk-hm-panel-tag { font-size: var(--mk-text-xs); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mk-accent-ink); }
+.mk-root .mk-hm-panel h3 { font-size: clamp(1.9rem, 2.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.035em; line-height: 1.08; max-width: 15ch; margin: var(--mk-space-3) 0 var(--mk-space-5); }
+.mk-root .mk-hm-panel p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 40ch; margin: 0 0 var(--mk-space-8); }
+.mk-root .mk-hm-panel .mk-store-badges { margin-top: var(--mk-space-6); }
+
+/* Product proof: the real fundraising page beside the real Coach Home. */
+.mk-hm-proof { background: #FFFFFF; padding: var(--mk-space-24) 0; }
+.mk-hm-shots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: var(--mk-space-16); align-items: end; }
+.mk-hm-shot-wide, .mk-hm-shot-phone { margin: 0; min-width: 0; }
+.mk-root .mk-hm-shot-phone .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-hm-shots figcaption { margin-top: var(--mk-space-5); font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); max-width: 60ch; }
+.mk-hm-shots figcaption strong { color: var(--mk-ink); }
+.mk-hm-link { color: var(--mk-accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.mk-root .mk-hm-disclosure { margin: var(--mk-space-10) 0 0; font-size: var(--mk-text-xs); color: var(--mk-muted); }
+
+/* How it works: three numbered steps on cream, walkthrough link beside the title. */
+.mk-hm-steps { background: #F7F4EF; padding: var(--mk-space-24) 0; }
+.mk-hm-steps-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--mk-space-4) var(--mk-space-10); }
+
+/* Closing: black band with a Variation A headline. */
+.mk-hm-close { padding: var(--mk-space-20) 0; }
+.mk-root .mk-hm-close .mk-container-narrow { max-width: 1040px; }
+.mk-root .mk-hm-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); letter-spacing: -0.04em; line-height: 1.05; }
+.mk-root .mk-hm-close p { max-width: 60ch; }
+
+@media (max-width: 900px) {
+  .mk-hm-hero { min-height: 0; }
+  .mk-hm-hero-inner { padding-top: calc(var(--mk-nav-height) + 220px); padding-bottom: var(--mk-space-12); }
+  .mk-hm-hero-scrim { background: linear-gradient(180deg, rgba(10,9,8,0.35) 0%, rgba(10,9,8,0.2) 22%, rgba(10,9,8,0.62) 50%, rgba(10,9,8,0.9) 100%); }
+  .mk-hm-solutions, .mk-hm-proof, .mk-hm-steps { padding: var(--mk-space-16) 0; }
+  .mk-hm-head { margin-bottom: var(--mk-space-10); }
+  .mk-hm-panels { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-12); }
+  .mk-hm-shots { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-12); }
+  .mk-hm-shot-phone { justify-self: center; width: 100%; max-width: 280px; }
+  .mk-hm-close { padding: var(--mk-space-16) 0; }
+}
+@media (max-width: 640px) {
+  /* Phones: the photo as a band under the nav, the copy below it on black. */
+  .mk-hm-hero { display: block; }
+  .mk-hm-hero-media { position: relative; height: calc(var(--mk-nav-height) + 230px); }
+  .mk-hm-hero-img { object-position: 62% 45%; }
+  .mk-hm-hero-scrim { background: linear-gradient(180deg, rgba(10,9,8,0.45) 0%, rgba(10,9,8,0) 34%, rgba(10,9,8,0) 62%, #121110 100%); }
+  .mk-hm-hero-inner { margin-top: calc(-1 * var(--mk-space-6)); padding-top: 0; padding-bottom: var(--mk-space-10); }
+  .mk-hm-line { display: inline; }
+  .mk-hm-hero-rule { margin: var(--mk-space-5) 0; }
+  .mk-root .mk-hm-hero-copy p { font-size: var(--mk-text-lg); }
+  .mk-hm-hero-actions { margin-top: var(--mk-space-6); gap: var(--mk-space-3); }
+  .mk-root .mk-hm-hero-actions .mk-btn-lg { width: 100%; min-height: 54px; font-size: var(--mk-text-base); }
+  .mk-hm-solutions, .mk-hm-proof, .mk-hm-steps { padding: var(--mk-space-12) 0; }
+  .mk-hm-head { margin-bottom: var(--mk-space-8); }
+  .mk-root .mk-hm-panel p { font-size: var(--mk-text-base); margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-hm-panel .mk-btn-lg { width: 100%; }
+  .mk-hm-shot-phone { max-width: 240px; }
+  .mk-hm-close { padding: var(--mk-space-12) 0; }
+  .mk-root .mk-hm-close .mk-hm-close-btn { width: 100%; }
+}

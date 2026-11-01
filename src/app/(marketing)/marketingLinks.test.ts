@@ -56,17 +56,13 @@ test("How It Works points to the /how-it-works walkthrough everywhere (no /#how 
   assert.match(read("src/components/marketing/MarketingNav.tsx"), /\{ href: "\/how-it-works", label: "How It Works" \}/);
 });
 
-test("hero is unchanged apart from its secondary action now opening /how-it-works", () => {
+test("homepage hero keeps the football sunset photo and leads to /fundraising and /product; the walkthrough is linked", () => {
   const page = read("src/app/MarketingPage.tsx");
   assert.ok(!/Watch video/i.test(page.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")), "no video claim");
-  assert.ok(!page.includes(`d="M6 4l14 8-14 8z"`), "play icon removed");
-  assert.match(page, /<a href="\/how-it-works" className="mk-hero-watch">[\s\S]*?See how it works\s*<\/a>/);
-  // Hero headline, image, callout and primary CTA unchanged.
   assert.match(page, /src="\/marketing\/brand\/hero\.png"/);
-  assert.match(page, /Fund<br \/>\s*the<br \/>\s*<span className="mk-marker-underline">season\.<\/span>/);
-  assert.match(page, /<LinkButton href="\/demo" variant="yellow" size="lg">Get Started &rarr;<\/LinkButton>/);
-  assert.match(page, /Same grind\. Bigger opportunities\./);
-  assert.match(page, /Better gear\.<br \/>More travel\.<br \/>Unforgettable experiences\./);
+  assert.match(page, /<LinkButton href="\/fundraising" size="lg">Explore Fundraising<\/LinkButton>/);
+  assert.match(page, /<LinkButton href="\/product" variant="outline" size="lg" className="mk-btn-on-dark">Get the Free Team App<\/LinkButton>/);
+  assert.match(page, /<a href="\/how-it-works" className="mk-fhero-link">See the full walkthrough/);
 });
 
 test("the flat promotional composites are gone from the homepage (no baked-in buttons such as 'Explore Stories')", () => {
