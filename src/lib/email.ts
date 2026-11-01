@@ -347,7 +347,7 @@ export interface DemoRequestNotificationParams {
   role:          string;
   message:       string | null;
   /** "partner" = a Community Partner inquiry from /sponsors (business name
-   *  arrives in schoolName, teams to support in sportProgram). */
+   *  arrives in schoolName, the preferred community or area in sportProgram). */
   kind?:         "demo" | "partner";
 }
 
@@ -356,7 +356,7 @@ export async function sendDemoRequestNotification(p: DemoRequestNotificationPara
   const rows: Array<[string, string]> = [
     ["Name", `${p.firstName} ${p.lastName}`],
     [partner ? "Business" : "School", p.schoolName],
-    [partner ? "Team(s) to support" : "Sport / Program", p.sportProgram || "—"],
+    [partner ? "Preferred community or area" : "Sport / Program", p.sportProgram || "—"],
     ["Role", p.role],
     ["Email", p.email],
   ];

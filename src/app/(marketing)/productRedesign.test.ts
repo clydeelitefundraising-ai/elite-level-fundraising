@@ -281,7 +281,50 @@ test("sponsors page: accurate — no prices, numbers or promises; placements con
   assert.ok(!/School or team you'd like to support|teams you&rsquo;d like to support/.test(form));
   const required = [...form.matchAll(/field\("(\w+)"[^)]*required: true/g)].map((m) => m[1]);
   assert.deepEqual(required, ["businessName", "firstName", "lastName", "email"], "required fields unchanged");
-  assert.equal(execSync(`git diff --stat 51f5652 -- "src/app/api/marketing" src/lib/email.ts src/lib/platform/marketingDemoRequests.ts`, { cwd: ROOT }).toString().trim(), "", "endpoint, email and CRM unchanged");
+  assert.equal(execSync(`git diff --stat 51f5652 -- "src/app/api/marketing" src/lib/platform/marketingDemoRequests.ts`, { cwd: ROOT }).toString().trim(), "", "endpoint and CRM unchanged");
+  // lib/email.ts: only the partner inquiry's label (and its doc comment) changed.
+  const emailDiff = execSync(`git diff -U0 51f5652 -- src/lib/email.ts`, { cwd: ROOT }).toString().split("\n")
+    .filter((l) => /^[-+](?![-+])/.test(l));
+  assert.deepEqual(emailDiff, [
+    "-   *  arrives in schoolName, teams to support in sportProgram). */",
+    "+   *  arrives in schoolName, the preferred community or area in sportProgram). */",
+    `-    [partner ? "Team(s) to support" : "Sport / Program", p.sportProgram || "—"],`,
+    `+    [partner ? "Preferred community or area" : "Sport / Program", p.sportProgram || "—"],`,
+  ]);
+});
+
+test("sponsor inquiry notification: ELF's internal email labels the field 'Preferred community or area' (value, recipient and format unchanged)", async () => {
+  const { sendDemoRequestNotification } = await import("../../lib/email.ts");
+  const sent: { url: string; body: { from: string; to: string; subject: string; html: string } }[] = [];
+  const realFetch = globalThis.fetch;
+  const realKey = process.env.RESEND_API_KEY;
+  process.env.RESEND_API_KEY = "test-key-not-real";
+  // Captured locally — nothing is sent.
+  globalThis.fetch = (async (url: string, init: { body: string }) => {
+    sent.push({ url, body: JSON.parse(init.body) });
+    return new Response("{}", { status: 200 });
+  }) as unknown as typeof fetch;
+  try {
+    const base = { to: "inbox@example.com", firstName: "Pat", lastName: "Lee", schoolName: "Comet Coffee Co.", email: "pat@example.com", role: "Business owner", message: null };
+    await sendDemoRequestNotification({ ...base, sportProgram: "North Phoenix", kind: "partner" });
+    await sendDemoRequestNotification({ ...base, schoolName: "Sunridge Valley High School", sportProgram: "Football", kind: "demo" });
+    await sendDemoRequestNotification({ ...base, sportProgram: null, kind: "partner" });
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realKey === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = realKey;
+  }
+  assert.equal(sent.length, 3);
+  const [partner, demo, blank] = sent;
+  assert.equal(partner.url, "https://api.resend.com/emails");
+  assert.equal(partner.body.to, "inbox@example.com", "same recipient");
+  assert.equal(partner.body.subject, "New Community Partner inquiry — Comet Coffee Co.");
+  const row = (html: string, label: string) => html.match(new RegExp(`>${label.replace(/[()/]/g, "\\$&")}<[\\s\\S]*?<td[^>]*>([^<]*)</td>`))?.[1];
+  assert.equal(row(partner.body.html, "Preferred community or area"), "North Phoenix", "corrected label, same submitted value");
+  assert.ok(!partner.body.html.includes("Team(s) to support"));
+  assert.equal(row(blank.body.html, "Preferred community or area"), "—", "blank still shows a dash");
+  // Demo requests are unchanged.
+  assert.equal(row(demo.body.html, "Sport / Program"), "Football");
+  assert.ok(!demo.body.html.includes("Preferred community or area"));
 });
 
 test("no invented testimonials, customer counts or results on the redesigned pages", () => {
