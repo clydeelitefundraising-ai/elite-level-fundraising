@@ -528,6 +528,7 @@ export default function CoachAthleteView({
   athlete,
   members,
   fundraisingActive,
+  messagesHref,
   raisedCents,
   goalCents,
   donorCount,
@@ -549,6 +550,9 @@ export default function CoachAthleteView({
   // Outreach sections below; the header card, Messages action, and
   // Linked Members always render regardless.
   fundraisingActive: boolean;
+  /** Server-resolved (page.tsx): this athlete's existing conversation, or
+   *  the composer with the athlete preselected — see athleteMessagesLink. */
+  messagesHref: string;
   raisedCents: number;
   goalCents: number;
   donorCount: number;
@@ -638,7 +642,7 @@ export default function CoachAthleteView({
         {/* Quick actions */}
         <div style={{ display: "flex", gap: ".5rem", marginTop: ".9rem" }}>
           <a
-            href={`/team/${slug}/communications?tab=messages`}
+            href={messagesHref}
             style={{ flex: 1, textAlign: "center", padding: ".42rem", background: primaryColor, color: "#fff", borderRadius: 8, fontSize: ".78rem", fontWeight: 700, textDecoration: "none" }}
           >
             Messages

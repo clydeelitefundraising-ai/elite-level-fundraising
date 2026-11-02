@@ -8,6 +8,9 @@ import { taskViewerFor } from "@/lib/teamTasks";
 import { canViewCompletion } from "@/lib/teamTaskCompletion";
 import { canViewAthleteAttendance, type AthleteAttendanceState } from "@/lib/athleteAttendance";
 import { getAthleteAbsences } from "@/lib/teamAttendanceStore";
+import { findExistingDirectThread, type ActorKey } from "@/lib/messages";
+import { isSeasonCompleted } from "@/lib/seasonState";
+import { athleteMessagesHref } from "@/lib/athleteMessagesLink";
 import CoachAthleteView from "./CoachAthleteView";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +78,27 @@ export default async function CoachAthletePage({
   // no second definition of "active" introduced here.
   const fundraisingActive = isAthleteFundraisingVisible(settings);
 
+  // "Messages" opens this athlete's existing conversation with the viewing
+  // staff member — the same canonical thread the composer would reuse
+  // (athlete + required parents/guardians; Head Coach oversight as
+  // observers) — or, when there is none yet, the New Message composer
+  // with the athlete preselected. Read-only: nothing is created here; a
+  // thread is only ever created by sending through the existing composer.
+  const athleteAccount = members.ok ? members.members.find(m => m.role === "athlete") : undefined;
+  const actorKey: ActorKey | null =
+    actor.kind === "coach"          ? { kind: "coach",          id: actor.session.id } :
+    actor.kind === "platform_admin" ? { kind: "platform_admin", id: actor.session.platformAdminId } :
+    null;
+  const existingThread = athleteAccount && actorKey
+    ? await findExistingDirectThread({ slug, actor: actorKey, recipientActorType: "member", recipientId: athleteAccount.id }).catch(() => null)
+    : null;
+  const messagesHref = athleteMessagesHref({
+    slug,
+    athleteId: athlete.id,
+    existingThreadId: existingThread?.id ?? null,
+    seasonReadOnly: isSeasonCompleted(settings),
+  });
+
   return (
     <CoachAthleteView
       slug={slug}
@@ -82,6 +106,7 @@ export default async function CoachAthletePage({
       members={members.ok ? members.members : []}
       membersUnavailable={!members.ok}
       fundraisingActive={fundraisingActive}
+      messagesHref={messagesHref}
       raisedCents={raisedCents}
       goalCents={goalCents}
       donorCount={donorCount}

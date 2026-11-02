@@ -10,16 +10,23 @@ import {
   type ActorKey,
 } from "@/lib/messages";
 import { isSeasonCompleted } from "@/lib/seasonState";
+import { athleteParam, athleteProfilePath } from "@/lib/athleteMessagesLink";
 import ThreadView from "./ThreadView";
 
 export const dynamic = "force-dynamic";
 
 export default async function ThreadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; threadId: string }>;
+  searchParams: Promise<{ athlete?: string | string[] }>;
 }) {
   const { slug, threadId } = await params;
+  // Opened from a coach's athlete profile ("Messages"): the back button
+  // returns there instead of the inbox.
+  const { athlete } = await searchParams;
+  const backToProfile = athleteProfilePath(slug, athleteParam(typeof athlete === "string" ? athlete : null));
 
   const [settings, actor] = await Promise.all([
     getCampaignSettings(slug),
@@ -76,6 +83,7 @@ export default async function ThreadPage({
       canManageGroup={canManageGroup}
       canArchiveGroup={canArchiveGroup}
       seasonReadOnly={seasonReadOnly}
+      backHref={backToProfile}
     />
   );
 }

@@ -174,6 +174,7 @@ export default function ThreadView({
   canManageGroup = false,
   canArchiveGroup = false,
   seasonReadOnly = false,
+  backHref = null,
 }: {
   slug: string;
   thread: MessageThread;
@@ -194,6 +195,9 @@ export default function ThreadView({
   // can't be replied to (no composer, no attachments). The server and the
   // database refuse sends regardless of this prop.
   seasonReadOnly?: boolean;
+  /** Where the back button goes when this conversation was opened from a
+   *  coach's athlete profile (page.tsx validates it); the inbox otherwise. */
+  backHref?: string | null;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ResolvedMessage[]>(initialMessages);
@@ -551,8 +555,8 @@ export default function ThreadView({
         borderBottom: "1px solid #e5e7eb",
       }}>
         <button
-          onClick={() => router.push(`/team/${slug}/communications?tab=messages`)}
-          aria-label="Back to messages"
+          onClick={() => router.push(backHref ?? `/team/${slug}/communications?tab=messages`)}
+          aria-label={backHref ? "Back to athlete profile" : "Back to messages"}
           style={{
             background: "none", border: "none", cursor: "pointer",
             fontSize: "1.2rem", color: "#6b7280", padding: ".2rem .3rem",

@@ -55,7 +55,9 @@ test("messaging: athletes and parents can only start a conversation with a coach
   const msgs = read(`${D}/DemoMessages.tsx`);
   assert.match(msgs, /useState<RecipientType \| null>\(isStaff \? null : "coach"\)/);
   assert.match(msgs, /\{isStaff \? "Choose recipient" : "Choose coach"\}/);
-  assert.match(read(`${T}/messages/MessagesView.tsx`), /useState<RecipientType \| null>\(\s*isStaff \? null : "coach",\s*\)/);
+  // (Staff may open the composer on the Athlete tab from an athlete
+  // profile; members still only ever get "coach".)
+  assert.match(read(`${T}/messages/MessagesView.tsx`), /useState<RecipientType \| null>\(\s*isStaff \? (?:\(preselectAthleteId \? "athlete" : null\)|null) : "coach",\s*\)/);
 });
 
 test("messaging: the same people reuse the same conversation, in either direction", () => {

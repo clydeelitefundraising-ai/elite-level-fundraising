@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeamActor } from "@/lib/permissions.server";
+import { isStaff } from "@/lib/permissions";
+import { isMessageCapableParent } from "@/lib/messageRecipients";
 import { resolvePhotoUrl, linkAthleteRosterToMembers, type RawCoachInfo, type RawMemberInfo } from "@/lib/messages";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -11,15 +13,15 @@ function h() {
 
 type RouteCtx = { params: Promise<{ slug: string }> };
 
-const COACH_SELECT  = "id,name,role,elf_accounts!account_id(profile_photo_url)";
+const COACH_SELECT  = "id,name,role,account_id,elf_accounts!account_id(profile_photo_url)";
 const MEMBER_SELECT = "id,name,role,athlete_id,athletes!athlete_id(profile_photo),elf_accounts!account_id(profile_photo_url)";
 // G3C bugfix — athlete entries are now built from the FULL athletes roster
 // (campaign-scoped), not from team_members at all; this select is unrelated
 // to MEMBER_SELECT's joined-only shape.
 const ATHLETE_ROSTER_SELECT = "id,name,event,class_year,profile_photo";
 
-type RawCoachRow   = RawCoachInfo  & { id: string };
-type RawMemberRow  = RawMemberInfo & { id: string };
+type RawCoachRow   = RawCoachInfo  & { id: string; account_id?: string | null };
+type RawMemberRow  = RawMemberInfo & { id: string; account_id?: string | null; created_at?: string | null };
 type RawAthleteMemberRow = { id: string; athlete_id: string | null; role: string; campaign_slug: string };
 type RawRosterAthleteRow = { id: string; name: string; event: string | null; class_year: string | null; profile_photo: string | null };
 
@@ -57,7 +59,7 @@ export async function GET(
       { headers: h(), cache: "no-store" },
     ),
     fetch(
-      `${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&role=eq.parent&select=${MEMBER_SELECT}&order=name.asc`,
+      `${BASE}/rest/v1/team_members?campaign_slug=eq.${encodeURIComponent(slug)}&role=eq.parent&select=${MEMBER_SELECT},account_id,created_at&order=name.asc`,
       { headers: h(), cache: "no-store" },
     ),
   ]);
@@ -70,7 +72,12 @@ export async function GET(
   const coaches = coachRows
     .filter(c => c.id !== actorCoachId)
     .map(c => ({ id: c.id, name: c.name, role: c.role, photo_url: resolvePhotoUrl(c, null) }));
-  const parents = parentRows.map(m => ({ id: m.id, name: m.name, role: m.role, athlete_id: m.athlete_id, photo_url: resolvePhotoUrl(null, m) }));
+  // messageable: the server's own rule for starting a conversation with a
+  // parent (messageRecipients.ts) — the Parent tab shows the others as
+  // unavailable, and the server refuses them anyway.
+  const now = new Date();
+  const parentMessageable = new Map(parentRows.map(m => [m.id, isMessageCapableParent({ role: m.role, account_id: m.account_id, created_at: m.created_at }, now)]));
+  const parents = parentRows.map(m => ({ id: m.id, name: m.name, role: m.role, athlete_id: m.athlete_id, photo_url: resolvePhotoUrl(null, m), messageable: parentMessageable.get(m.id) === true }));
 
   // athlete_id is already guaranteed non-null for an athlete-role
   // team_members row by createLinkedAthleteMember() (src/lib/platform/athletes.ts)
@@ -84,6 +91,37 @@ export async function GET(
       .map(link => [link.athleteId, link]),
   );
   const athleteMemberByAthleteId = new Map(athleteMemberRows.filter(m => m.athlete_id).map(m => [m.athlete_id as string, m]));
+
+  // Roster athlete → linked parents/guardians, for the composer's "Message
+  // Parent/Guardian" fallback when the athlete hasn't joined. Staff only
+  // (the only actors who can message a parent). Same relationship sources
+  // as familyRelationships.ts — the legacy team_members.athlete_id column
+  // plus team_member_athletes — on this campaign, never the viewer
+  // themselves (a coach who is also the athlete's parent). Each carries
+  // the same messageable flag as the Parent tab, so the composer offers
+  // only those and explains the rest.
+  const guardiansByAthleteId = new Map<string, { id: string; name: string; messageable: boolean }[]>();
+  if (isStaff(actor)) {
+    const actorAccountId = actorCoachId ? coachRows.find(c => c.id === actorCoachId)?.account_id ?? null : null;
+    const actorMemberId = actor.kind === "member" ? actor.session.id : null;
+    const candidates = parentRows.filter(p =>
+      p.id !== actorMemberId && (!actorAccountId || p.account_id !== actorAccountId));
+    const linkRows: { team_member_id: string; athlete_id: string }[] = candidates.length
+      ? await fetch(
+          `${BASE}/rest/v1/team_member_athletes?team_member_id=in.(${candidates.map(p => encodeURIComponent(p.id)).join(",")})&select=team_member_id,athlete_id`,
+          { headers: h(), cache: "no-store" },
+        ).then(r => (r.ok ? r.json() : []))
+      : [];
+    for (const p of candidates) {
+      const linked = new Set(linkRows.filter(l => l.team_member_id === p.id).map(l => l.athlete_id));
+      if (p.athlete_id) linked.add(p.athlete_id);
+      for (const athleteId of linked) {
+        const list = guardiansByAthleteId.get(athleteId) ?? [];
+        list.push({ id: p.id, name: p.name, messageable: parentMessageable.get(p.id) === true });
+        guardiansByAthleteId.set(athleteId, list);
+      }
+    }
+  }
 
   const athletes = rosterRows.map(r => {
     const link = membershipByAthleteId.get(r.id);
@@ -104,6 +142,7 @@ export async function GET(
       classYear:    r.class_year,
       joined,
       photo_url,
+      guardians: guardiansByAthleteId.get(r.id) ?? [],
     };
   });
 
