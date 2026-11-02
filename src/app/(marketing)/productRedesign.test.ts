@@ -282,6 +282,14 @@ test("/fundraising sample-fundraiser intro: new copy, sans-serif sentence-case h
   assert.match(read("src/app/preview/fundraiser/page.tsx"), /Preview · \{SAMPLE_NOTICE\} Donations are turned off\./);
 });
 
+test("/fundraising hydration (React #418): the space after the sample notice is explicit, so server and client render the same text", () => {
+  const ui = read("src/components/marketing/demo/FundraisingPreview.tsx");
+  // Written as `{SAMPLE_NOTICE} Try…`, the server build dropped the leading
+  // space of " Try…" while the client build kept it.
+  assert.match(ui, /<p className="mk-fp-note">\s*\{SAMPLE_NOTICE\}\{" "\}Try the leaderboard filters, search, the athlete page and the donation form &mdash;\s*donations are turned off, so nothing is charged\.\s*<\/p>/);
+  assert.doesNotMatch(ui, /\{SAMPLE_NOTICE\} Try/);
+});
+
 test("/product is now the free Team App page with the simulator", () => {
   const page = read(`${MK}/product/page.tsx`);
   assert.match(page, /<h1 id="mk-phero-title" className="mk-fhero-title">\s*One team\. One app\.<br \/> Everything connected\.\s*<\/h1>/);

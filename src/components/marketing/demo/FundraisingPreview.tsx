@@ -75,8 +75,11 @@ export function FundraisingPreview({ gateEnabled }: { gateEnabled: boolean }) {
           <PreviewGate onUnlocked={() => { rememberUnlocked(); setUnlocked(true); }} />
         )}
       </div>
+      {/* Explicit {" "} after {SAMPLE_NOTICE}: written as " Try…", the
+          server build dropped that leading space while the client build
+          kept it — a hydration mismatch on /fundraising (React #418). */}
       <p className="mk-fp-note">
-        {SAMPLE_NOTICE} Try the leaderboard filters, search, the athlete page and the donation form &mdash;
+        {SAMPLE_NOTICE}{" "}Try the leaderboard filters, search, the athlete page and the donation form &mdash;
         donations are turned off, so nothing is charged.
       </p>
     </div>
