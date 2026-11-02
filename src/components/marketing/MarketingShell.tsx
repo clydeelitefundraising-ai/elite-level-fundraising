@@ -1,5 +1,6 @@
 import "../../app/marketing-tokens.css";
 import "../../app/marketing.css";
+import "../../app/marketing-product.css";
 import type { ReactNode } from "react";
 import { marketingFont, marketingDisplayFont, marketingHandFont, marketingHeroFont } from "./fonts";
 import { MarketingNav, type NavLink } from "./MarketingNav";

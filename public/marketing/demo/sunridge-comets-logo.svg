@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Sunridge Valley Comets crest (fictional)">
+  <title>Sunridge Valley Comets (fictional)</title>
+  <circle cx="120" cy="120" r="116" fill="#1D3E8A"/>
+  <circle cx="120" cy="120" r="104" fill="none" stroke="#F2B705" stroke-width="6"/>
+  <circle cx="120" cy="120" r="92" fill="#16306D"/>
+  <!-- comet tail -->
+  <path d="M42 150 C 80 120, 118 104, 150 92 L 158 106 C 124 116, 88 132, 50 164 Z" fill="#F2B705" opacity=".55"/>
+  <path d="M56 170 C 92 140, 126 124, 154 112 L 160 124 C 132 134, 100 150, 64 180 Z" fill="#F2B705" opacity=".85"/>
+  <path d="M36 128 C 78 104, 116 92, 146 84 L 150 96 C 118 102, 80 114, 40 140 Z" fill="#FFFFFF" opacity=".35"/>
+  <!-- comet head (star) -->
+  <path d="M168 66 L178 92 L206 94 L184 111 L192 138 L168 122 L144 138 L152 111 L130 94 L158 92 Z" fill="#F2B705" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round"/>
+  <text x="120" y="176" text-anchor="middle" font-family="'Arial Black', Impact, 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="29" letter-spacing="2" fill="#FFFFFF">COMETS</text>
+  <text x="120" y="195" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="#F2B705">SUNRIDGE VALLEY</text>
+</svg>

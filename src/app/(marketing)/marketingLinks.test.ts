@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
+import { TWINS } from "../../../scripts/marketing/generate-team-app-demo-twins.mjs";
 
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
@@ -48,45 +49,47 @@ test("/support is a public marketing page that only uses contact routes already 
   assert.ok(read("src/app/sitemap.ts").includes(`"/support",`));
 });
 
-test("How It Works points to the real /product page everywhere (no /#how anchor remains)", () => {
+test("How It Works points to the /how-it-works walkthrough everywhere (no /#how anchor remains)", () => {
   const files = execSync("git ls-files src", { cwd: ROOT }).toString().trim().split("\n").filter(f => /\.tsx?$/.test(f) && !/\.test\./.test(f));
   for (const f of files) assert.ok(!read(f).includes(`"/#how"`), `${f} still links to /#how`);
-  assert.match(read("src/components/marketing/MarketingFooter.tsx"), /<Link href="\/product">How It Works<\/Link>/);
-  assert.match(read("src/components/marketing/MarketingNav.tsx"), /\{ href: "\/product", label: "How It Works" \}/);
+  assert.match(read("src/components/marketing/MarketingFooter.tsx"), /<Link href="\/how-it-works">How It Works<\/Link>/);
+  assert.match(read("src/components/marketing/MarketingNav.tsx"), /\{ href: "\/how-it-works", label: "How It Works" \}/);
 });
 
-test("hero secondary action is honest: See how it works, arrow icon, same element and destination", () => {
+test("homepage hero keeps the football sunset photo and leads to /fundraising and /product; the walkthrough is linked", () => {
   const page = read("src/app/MarketingPage.tsx");
   assert.ok(!/Watch video/i.test(page.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")), "no video claim");
-  assert.ok(!page.includes(`d="M6 4l14 8-14 8z"`), "play icon removed");
-  assert.match(page, /<a href="\/product" className="mk-hero-watch">[\s\S]*?See how it works\s*<\/a>/);
-  // Hero headline, image and primary CTA unchanged.
   assert.match(page, /src="\/marketing\/brand\/hero\.png"/);
-  assert.match(page, /Fund<br \/>\s*the<br \/>\s*<span className="mk-marker-underline">season\.<\/span>/);
-  assert.match(page, /<LinkButton href="\/demo" variant="yellow" size="lg">Get Started &rarr;<\/LinkButton>/);
+  assert.match(page, /<LinkButton href="\/fundraising" size="lg">Explore Fundraising<\/LinkButton>/);
+  assert.match(page, /<LinkButton href="\/product" variant="outline" size="lg" className="mk-btn-on-dark">Get the Free Team App<\/LinkButton>/);
+  assert.match(page, /<a href="\/how-it-works" className="mk-fhero-link">See the full walkthrough/);
 });
 
-test("Explore Stories hotspots link to the Fundraising page and are announced accurately", () => {
+test("the flat promotional composites are gone from the homepage (no baked-in buttons such as 'Explore Stories')", () => {
   const page = read("src/app/MarketingPage.tsx");
-  assert.ok(!/aria-label="Explore Stories"/.test(page), "no claim of a stories page");
-  assert.ok(!/<button[^>]*mk-row2-banner-link/.test(page), "no inert button");
-  const links = page.match(/<a\s+href="\/fundraising"\s+className="mk-row2-banner-link[^"]*"\s+aria-label="Explore ELF Fundraising"/g) ?? [];
-  assert.equal(links.length, 2, "desktop and mobile hotspots");
-  assert.match(read("src/app/marketing.css"), /a\.mk-row2-banner-link:focus-visible \{ outline-color: #fff; outline-offset: 2px; \}/);
+  for (const img of ["raise-more-do-more.png", "real-opportunities-banner.png"]) assert.ok(!page.includes(img), `${img} still on the homepage`);
+  assert.ok(!/mk-row1-banner-link|mk-row2-banner-link/.test(page), "no hit-areas over baked-in artwork buttons");
+  assert.ok(!/Explore Stories/.test(page), "no claim of a stories page");
 });
 
-test("homepage footer includes Privacy Policy; existing legal and trust links are all kept", () => {
+test("footers keep every legal, trust and support link; Platform column follows the new product pages", () => {
   const footer = read("src/components/marketing/MarketingFooter.tsx");
   for (const [href, label] of [["/trust", "Trust Center"], ["/trust/privacy", "Privacy Policy"], ["/legal/terms", "Terms"], ["/legal/cookies", "Cookie Policy"],
-    ["/trust/accessibility", "Accessibility"], ["/trust/status", "System Status"], ["/about", "About"], ["/pricing", "Pricing"], ["/faq", "Resources"], ["/contact", "Contact"]]) {
+    ["/trust/accessibility", "Accessibility"], ["/trust/status", "System Status"], ["/support", "Support"], ["/about", "About"], ["/pricing", "Pricing"], ["/faq", "Resources"], ["/contact", "Contact"],
+    ["/fundraising", "Fundraising"], ["/product", "Team App"], ["/how-it-works", "How It Works"], ["/sponsors", "Community Partners"], ["/communication", "Communication"]]) {
     assert.ok(footer.includes(`<Link href="${href}">${label}</Link>`), `${href} ${label}`);
   }
+  assert.equal(footer.split(`<Link href="/support">Support</Link>`).length - 1, 2, "Support in both footers");
   for (const href of ["/trust/security", "/trust/privacy", "/trust/compliance", "/trust/data-protection"]) assert.ok(footer.includes(`href="${href}"`), href);
 });
 
 test("internal link audit: every internal href on the marketing site resolves to a page or redirect", () => {
+  // The Team App demo's generated twins are verbatim copies of Team App
+  // components: their /team/… and /api/… paths are app routes the demo
+  // intercepts (teamAppDemo*.test.ts), not marketing-site links.
+  const twins = new Set(TWINS.map((t: { to: string }) => t.to));
   const files = execSync(`git ls-files "${MK}" src/components/marketing src/app/MarketingPage.tsx`, { cwd: ROOT }).toString().trim().split("\n")
-    .filter(f => f.endsWith(".tsx"));
+    .filter(f => f.endsWith(".tsx") && !twins.has(f));
   const broken: string[] = [];
   let checked = 0;
   for (const f of files) {

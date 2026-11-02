@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" role="img" aria-label="team hoodie (fictional product)">
+  <rect width="360" height="300" fill="#F1F4F9"/>
+  <ellipse cx="180" cy="262" rx="104" ry="12" fill="#DFE4EC"/>
+  <path d="M124 82 Q 180 30 236 82 L 276 120 L 252 150 L 232 134 L 232 244 L 128 244 L 128 134 L 108 150 L 84 120 Z" fill="#1D3E8A"/><path d="M150 82 Q 180 46 210 82 Q 180 104 150 82 Z" fill="#132B63"/><path d="M168 92 v28 M192 92 v28" stroke="#F2B705" stroke-width="3" stroke-linecap="round"/><path d="M146 196 h68 l-8 38 h-52 Z" fill="#163474"/><circle cx="180" cy="160" r="22" fill="#1D3E8A" stroke="#F2B705" stroke-width="2.6399999999999997"/><polygon points="183.3,148.1 185.7,154.0 192.1,154.5 187.3,158.6 188.7,164.8 183.3,161.5 177.9,164.8 179.3,158.6 174.5,154.5 180.9,154.0" fill="#F2B705"/><path d="M163.5 168.8 Q 177.8 161.1 181.1 158.9" stroke="#F2B705" stroke-width="3.08" fill="none" stroke-linecap="round"/>
+</svg>

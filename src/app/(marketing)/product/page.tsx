@@ -1,221 +1,131 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { LinkButton } from "@/components/marketing/Button";
-import { ProductPreview } from "@/components/marketing/ProductPreview";
+import { StoreBadges } from "@/components/marketing/StoreBadges";
+import { TeamAppSimulator } from "@/components/marketing/demo/TeamAppSimulator";
+
+// /product is the free ELF Team App page (the season walkthrough that used
+// to live here moved, unchanged, to /how-it-works). Every feature listed
+// exists in the production app; the simulator runs on fictional data in the
+// visitor's browser only (see TeamAppSimulator.tsx).
+//
+// Layout and type follow the approved /fundraising direction (Variation A
+// Inter headings, .mk-fhero hero, numbered .mk-fbenefit grid, 12px buttons).
 
 export const metadata: Metadata = {
-  title: "Product | Elite Level Fundraising",
+  title: "The Free ELF Team App | Elite Level Fundraising",
   description:
-    "A guided walkthrough of how Elite Level Fundraising supports an athletic program from setup through reporting — fundraising, communication, sponsors, and team management in one platform.",
+    "The free ELF Team App for coaches, athletes and parents: announcements, direct messages, calendar, attendance and roster — free for every team, no fundraiser required. Try the interactive demo.",
   alternates: { canonical: "/product" },
   openGraph: {
-    title: "Product | Elite Level Fundraising",
-    description: "How ELF supports an athletic program across the full season, stage by stage.",
+    title: "The Free ELF Team App",
+    description: "Announcements, messages, calendar, attendance and roster for your whole program — free for every team.",
     type: "website",
   },
 };
 
-const STAGES = [
-  {
-    id: "setup",
-    num: "01",
-    eyebrow: "Program setup",
-    title: "Start with your program, not a blank template.",
-    copy: "Tell us about your team, sport, and goals. We set up your branded page, add your coach account, and configure your team hub before you touch anything.",
-    list: [
-      "Branded team page, no design work required",
-      "Coach account created and ready on day one",
-      "Athletes and roster imported to start",
-    ],
-    preview: null,
-  },
-  {
-    id: "campaign",
-    num: "02",
-    eyebrow: "Fundraising campaign creation",
-    title: "Set a goal, and let the page do the asking.",
-    copy: "A campaign goal, a deadline, and a clear breakdown of what the funds are for — published as a single page you can share anywhere.",
-    list: [
-      "Goal amount and season deadline",
-      "Fund-use breakdown parents can see",
-      "One shareable campaign page per team",
-    ],
-    preview: (
-      <ProductPreview
-        label="Live campaign page"
-        image={{ src: "/marketing/campaign-hero.png", alt: "A real Elite Level Fundraising campaign page for a demo football program, showing the goal, days left, and donor count", width: 1440, height: 620 }}
-        demoNote="Demo data — Riverside High School is a sample program, not a real customer."
-      />
-    ),
-  },
-  {
-    id: "participation",
-    num: "03",
-    eyebrow: "Athlete & parent participation",
-    title: "Every athlete gets their own page to share.",
-    copy: "Athletes get a personal fundraising page and share link. Parents and boosters join with a code — no separate accounts to manage by hand.",
-    list: [
-      "Personal athlete share links",
-      "Simple join-code flow for parents and boosters",
-      "No spreadsheet of usernames and passwords",
-    ],
-    preview: null,
-  },
-  {
-    id: "donations",
-    num: "04",
-    eyebrow: "Donations & live progress",
-    title: "Donations feel like momentum, not a cold ask.",
-    copy: "Every gift runs through Stripe and shows up on a live leaderboard in real time, so the whole team can see the campaign move.",
-    list: [
-      "Stripe-secured checkout, no card data touches our servers",
-      "Live leaderboard by athlete",
-      "Real-time progress toward the campaign goal",
-    ],
-    preview: (
-      <ProductPreview
-        label="Athlete leaderboard"
-        image={{ src: "/marketing/leaderboard.png", alt: "Real athlete leaderboard and donation form from a demo Elite Level Fundraising campaign page, ranked by amount raised", width: 1002, height: 660 }}
-        demoNote="Demo data — Riverside High School is a sample program, not a real customer."
-      />
-    ),
-  },
-  {
-    id: "communication",
-    num: "05",
-    eyebrow: "Communication & announcements",
-    title: "One thread the whole team already checks.",
-    copy: "Announcements and direct messages live in the same hub as the campaign — the place coaches and parents are already looking for donation updates.",
-    list: [
-      "Team-wide announcements",
-      "Direct messages between coaches, parents, and athletes",
-      "Push notifications, so nothing gets missed in a group text",
-    ],
-    preview: (
-      <ProductPreview
-        label="Team communications"
-        image={{ src: "/marketing/communications.png", alt: "Real Team Communications view in the Elite Level Fundraising Team App, showing coach announcements about practice and an away game", width: 720, height: 900 }}
-      />
-    ),
-  },
-  {
-    id: "sponsors",
-    num: "06",
-    eyebrow: "Sponsor management",
-    title: "Sponsor relationships that live in one place.",
-    copy: "Track every sponsor conversation instead of relying on memory, and place sponsor logos directly on your campaign page.",
-    list: [
-      "Sponsor CRM with activity history and renewal tracking",
-      "Sponsor logos on the public campaign page",
-      "Nothing depends on one person's inbox",
-    ],
-    preview: (
-      <ProductPreview
-        label="Sponsor placement"
-        image={{ src: "/marketing/sponsors.png", alt: "Real sponsor tier display on a demo Elite Level Fundraising campaign page, showing gold, silver, and bronze sponsor placements", width: 1000, height: 624 }}
-      />
-    ),
-  },
-  {
-    id: "team",
-    num: "07",
-    eyebrow: "Team organization",
-    title: "A roster and calendar that stay current.",
-    copy: "Roster, class year, and contact info live in one shared record — along with a team calendar and an optional team shop.",
-    list: [
-      "Shared roster, not five different copies",
-      "Team calendar for practices, games, and deadlines",
-      "Optional team shop for gear",
-    ],
-    preview: null,
-  },
-  {
-    id: "reporting",
-    num: "08",
-    eyebrow: "Reporting & administration",
-    title: "Coaches and ADs always know where things stand.",
-    copy: "Campaign progress, participation, and sponsor status roll up into reporting built for the people who have to answer for it — coaches, athletic directors, and booster leadership.",
-    list: [
-      "Campaign-level progress reporting",
-      "Participation visibility across the roster",
-      "Built for the questions ADs and boosters actually ask",
-    ],
-    preview: null,
-  },
-  {
-    id: "multi-team",
-    num: "09",
-    eyebrow: "Multi-team support",
-    title: "Coach two sports? Have a kid on two teams? One account.",
-    copy: "Coaches, parents, and athletes who touch more than one team switch between them from a single account instead of juggling logins.",
-    list: [
-      "One account, multiple teams",
-      "A team switcher instead of separate logins",
-      "Built for programs where roles overlap across sports",
-    ],
-    preview: (
-      <ProductPreview label="Your Teams">
-        <div className="mk-pipeline">
-          <div className="mk-pipeline-row">
-            <span className="mk-pipeline-name">Varsity Football</span>
-            <span className="mk-pipeline-status mk-pipeline-status-active">Head Coach</span>
-          </div>
-          <div className="mk-pipeline-row">
-            <span className="mk-pipeline-name">Track &amp; Field</span>
-            <span className="mk-pipeline-status mk-pipeline-status-prospect">Assistant Coach</span>
-          </div>
-        </div>
-      </ProductPreview>
-    ),
-  },
+const FEATURES = [
+  { title: "Team announcements", copy: "Post to the whole team, or target parents, athletes or a specific group. Team members can comment." },
+  { title: "Direct messages", copy: "Coaches, athletes and parents message each other inside the app instead of personal phone numbers." },
+  { title: "Parents included", copy: "When a coach messages an athlete, the athlete's parent or guardian is included automatically." },
+  { title: "Head coach oversight", copy: "Conversations between staff and athletes stay visible to the head coach, by design." },
+  { title: "Calendar and events", copy: "Practices, games and meetings in one team calendar that families can subscribe to on their phones." },
+  { title: "Attendance", copy: "Coaches take attendance in a few taps and record a reason for each absence. Athletes and parents can see their own absences on the athlete's profile." },
+  { title: "Roster and team management", copy: "One shared roster. Parents and athletes join with a team code — no spreadsheet of logins." },
+  { title: "Multiple teams, one account", copy: "Coach two sports or have kids on two teams? Switch between teams from a single account." },
+  { title: "Fundraising when you want it", copy: "Teams that choose to fundraise get athlete pages, share links and a live leaderboard, built in." },
+  { title: "Notifications and permissions", copy: "Push notifications with per-person settings, and each role sees what it should — coach, athlete or parent." },
 ];
 
-export default function ProductPage() {
+export default function TeamAppPage() {
   return (
     <>
-      <div className="mk-page-hero">
-        <div className="mk-container-narrow">
-          <span className="mk-eyebrow">The product</span>
-          <h1 className="mk-display">
-            How ELF <span className="mk-marker-underline">works.</span>
-          </h1>
-          <p>
-            One platform, from the first setup call to the last donation of the season.
-            Here&rsquo;s what actually happens at each stage.
-          </p>
-        </div>
-      </div>
-
-      {STAGES.map((s, i) => (
-        <section
-          className={`mk-section mk-capability ${i % 2 === 1 ? "mk-section-alt" : ""}`}
-          id={s.id}
-          key={s.id}
-        >
-          <div className={`mk-container ${s.preview ? "mk-capability-grid" : ""} ${i % 2 === 1 && s.preview ? "mk-reverse" : ""}`}>
-            <div className="mk-capability-copy">
-              <span className="mk-eyebrow">
-                Stage {s.num} &middot; {s.eyebrow}
-              </span>
-              <h2 style={{ fontSize: "var(--mk-text-2xl)" }}>{s.title}</h2>
-              <p style={{ color: "var(--mk-muted)", marginTop: "var(--mk-space-3)", maxWidth: s.preview ? undefined : "62ch" }}>
-                {s.copy}
-              </p>
-              <ul className="mk-capability-list">
-                {s.list.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+      <section className="mk-fhero mk-phero" aria-labelledby="mk-phero-title">
+        <div className="mk-container mk-fhero-grid">
+          <div className="mk-fhero-copy">
+            <span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team</span>{" "}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;</span>{" "}<span>No fundraiser required</span></span>
+            <h1 id="mk-phero-title" className="mk-fhero-title">
+              One team. One app.<br /> Everything connected.
+            </h1>
+            <span className="mk-fhero-rule" aria-hidden="true" />
+            <p>
+              Bring coaches, athletes and parents together with messaging, schedules, attendance and
+              team updates &mdash; all in one free app.
+            </p>
+            <div className="mk-fhero-actions">
+              <LinkButton href="#simulator" size="lg">Try the Interactive Demo</LinkButton>
+              <a href="/demo" className="mk-fhero-link">Get your team set up <span aria-hidden="true">&rarr;</span></a>
             </div>
-            {s.preview}
+            <StoreBadges />
           </div>
-        </section>
-      ))}
+          <figure className="mk-phero-shot">
+            <div className="mk-phone-frame">
+              {/* Captured at phone width (390px, 2x) from the real Coach Home
+                  of the fictional Sunridge Valley Comets QA team — not a mock-up. */}
+              <Image
+                src="/marketing/team-app-coach-home.png"
+                alt="The real ELF Team App Coach Home for the fictional Sunridge Valley Comets varsity football team: quick actions to post an announcement, add an event, send a message or manage the team, and the next practices and team meeting"
+                width={780}
+                height={1560}
+                priority
+                sizes="(max-width: 900px) 70vw, 320px"
+              />
+            </div>
+            <figcaption className="mk-fhero-caption">The real ELF Team App. Sunridge Valley High School is a fictional sample team.</figcaption>
+          </figure>
+        </div>
+      </section>
 
-      <section className="mk-section mk-cta-band">
+      <section id="simulator" className="mk-home-section mk-home-alt mk-sim-section" aria-labelledby="mk-sim-title">
+        <div className="mk-container">
+          <div className="mk-home-head">
+            <span className="mk-eyebrow">Interactive demo</span>
+            <h2 id="mk-sim-title" className="mk-va-title">See how your team stays connected.</h2>
+            <p>
+              Pick a role and tap around. It runs on a fictional team, right in your browser &mdash;
+              nothing is sent or saved.
+            </p>
+          </div>
+          <TeamAppSimulator />
+        </div>
+      </section>
+
+      <section className="mk-fbenefits mk-pfeatures" aria-labelledby="mk-app-features">
+        <div className="mk-container">
+          <div className="mk-fbenefits-head">
+            <span className="mk-eyebrow">What&rsquo;s inside</span>
+            <h2 id="mk-app-features" className="mk-fbenefits-title">Everything your team needs, in one place.</h2>
+          </div>
+          {/* Ten features: two even columns (five rows) on desktop,
+              one column on tablets and phones — never a lone item on a last row. */}
+          <ol className="mk-fbenefit-grid mk-fbenefit-grid-2">
+            {FEATURES.map((f, i) => (
+              <li key={f.title} className="mk-fbenefit">
+                <span className="mk-fbenefit-num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <span className="mk-fbenefit-rule" aria-hidden="true" />
+                <div>
+                  <h3>{f.title}</h3>
+                  <p>{f.copy}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="mk-section mk-cta-band mk-pclose" aria-labelledby="mk-app-close">
         <div className="mk-container-narrow">
-          <h2>See your own program on this page.</h2>
-          <p>No commitment. We&rsquo;ll walk through the platform using your sport as the example.</p>
-          <LinkButton href="/demo" size="lg">Book a Free Demo</LinkButton>
+          <span className="mk-eyebrow mk-eyebrow-on-dark">Free for every team</span>
+          <h2 id="mk-app-close">Your team deserves a better way to stay connected.</h2>
+          <p>
+            The ELF Team App is free for every team &mdash; no fundraiser required. If your program
+            decides to raise money, ELF Fundraising plugs right into the same app.
+          </p>
+          <div className="mk-final-actions">
+            <LinkButton href="/demo" variant="yellow" size="lg">Get Started Free</LinkButton>
+            <LinkButton href="/fundraising" variant="outline" size="lg" className="mk-btn-on-dark">Learn About ELF Fundraising</LinkButton>
+          </div>
+          <StoreBadges tone="light" className="mk-pclose-badges" />
         </div>
       </section>
     </>

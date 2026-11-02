@@ -7,6 +7,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_MARKETING_URL ?? "https://www.eliteleve
 const MARKETING_ROUTES = [
   "",
   "/product",
+  "/how-it-works",
   "/fundraising",
   "/communication",
   "/sponsors",

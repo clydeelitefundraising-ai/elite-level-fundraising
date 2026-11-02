@@ -1,0 +1,970 @@
+/*
+ * Product-focused marketing redesign — homepage sections, product pages,
+ * the Team App simulator and the fundraising preview frame. Loaded by
+ * MarketingShell next to marketing.css; every selector is inside the .mk-
+ * scope (enforced by cssIsolation.test.ts), so nothing here can reach the
+ * Team App, the admin portal or the public campaign pages.
+ */
+
+/* ── Shared building blocks ── */
+.mk-home-section { padding: var(--mk-space-24) 0; }
+.mk-home-alt { background: var(--mk-paper-2); }
+@media (max-width: 640px) { .mk-home-section { padding: var(--mk-space-16) 0; } }
+
+.mk-home-head { max-width: 760px; margin-bottom: var(--mk-space-10); }
+.mk-home-head p { margin-top: var(--mk-space-3); color: var(--mk-muted); font-size: var(--mk-text-lg); }
+.mk-home-title { font-size: var(--mk-text-5xl); }
+.mk-home-title-sm { font-size: var(--mk-text-3xl); margin-bottom: var(--mk-space-4); }
+@media (max-width: 640px) { .mk-home-title-sm { font-size: var(--mk-text-2xl); } }
+
+.mk-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mk-space-1);
+  font-size: var(--mk-text-sm);
+  font-weight: 700;
+  color: var(--mk-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+.mk-text-link:hover { color: var(--mk-ink); }
+.mk-text-link-on-dark { color: var(--mk-yellow); }
+.mk-text-link-on-dark:hover { color: #fff; }
+.mk-eyebrow-on-dark { color: var(--mk-yellow); }
+
+.mk-check-list { list-style: none; margin: var(--mk-space-5) 0 0; padding: 0; display: grid; gap: var(--mk-space-3); }
+.mk-check-list li { position: relative; padding-left: 28px; font-size: var(--mk-text-sm); line-height: var(--mk-leading-snug); }
+.mk-check-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mk-orange) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23121110' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.mk-offer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-5); margin-top: var(--mk-space-8); }
+
+/* Official store badges: Apple's SVG is the badge itself (40px tall); the
+   Google PNG carries transparent padding around its badge, cropped here
+   with negative margins so both read at the same 40px height. */
+.mk-store-badges { list-style: none; margin: var(--mk-space-6) 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-3); }
+.mk-store-badges a { display: block; line-height: 0; border-radius: 8px; }
+.mk-store-badge-apple { width: auto; height: 40px; }
+.mk-store-badge-google { width: auto; height: 59.5px; margin: -9.75px -11.5px; max-width: none; }
+.mk-store-badges-light .mk-store-badge-apple { outline: 1px solid rgba(255,255,255,0.45); border-radius: 7px; }
+
+/* ── Homepage: two offerings ── */
+.mk-offer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--mk-space-6); }
+@media (max-width: 900px) { .mk-offer-grid { grid-template-columns: 1fr; } }
+.mk-offer-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--mk-space-10);
+  border: var(--mk-border-width) solid var(--mk-line);
+  border-radius: 6px;
+  background: var(--mk-paper);
+}
+@media (max-width: 640px) { .mk-offer-card { padding: var(--mk-space-6); } }
+.mk-offer-fundraising { border-top: 6px solid var(--mk-orange); }
+.mk-offer-app { border-top: 6px solid var(--mk-ink); }
+.mk-offer-card h3 { font-size: var(--mk-text-3xl); margin: var(--mk-space-4) 0 var(--mk-space-3); }
+@media (max-width: 640px) { .mk-offer-card h3 { font-size: var(--mk-text-2xl); } }
+.mk-offer-card > p { color: var(--mk-muted); }
+.mk-offer-card .mk-offer-actions { margin-top: auto; padding-top: var(--mk-space-8); }
+.mk-offer-tag {
+  align-self: flex-start;
+  font-size: var(--mk-text-xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: var(--mk-orange-soft);
+  color: var(--mk-accent-ink);
+}
+.mk-offer-tag-free { background: var(--mk-yellow); color: var(--mk-yellow-ink); }
+
+/* ── Homepage: spotlights ── */
+.mk-spotlight-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: var(--mk-space-16); align-items: center; }
+.mk-spotlight-reverse { grid-template-columns: 1.1fr 0.9fr; }
+.mk-spotlight-reverse .mk-spotlight-copy { order: 1; }
+.mk-spotlight-reverse figure { order: 2; }
+@media (max-width: 900px) {
+  .mk-spotlight-grid, .mk-spotlight-reverse { grid-template-columns: 1fr; gap: var(--mk-space-10); }
+}
+.mk-spotlight-copy > p { color: var(--mk-muted); }
+
+.mk-shot-stack { position: relative; margin: 0; padding-bottom: var(--mk-space-16); }
+.mk-shot { border-radius: 8px; overflow: hidden; box-shadow: 0 24px 60px rgba(18,17,16,0.18), 0 2px 6px rgba(18,17,16,0.08); background: #fff; }
+.mk-shot img { width: 100%; height: auto; }
+.mk-shot-inset { position: absolute; right: 0; bottom: 28px; width: 56%; border: 4px solid #fff; }
+@media (max-width: 640px) { .mk-shot-inset { right: 0; width: 62%; } }
+.mk-shot-caption { margin-top: var(--mk-space-3); font-size: var(--mk-text-xs); color: var(--mk-muted); }
+.mk-shot-stack .mk-shot-caption { position: absolute; left: 0; bottom: 0; max-width: 40%; }
+@media (max-width: 640px) { .mk-shot-stack .mk-shot-caption { position: static; max-width: none; } .mk-shot-stack { padding-bottom: 0; } .mk-shot-inset { position: relative; right: auto; bottom: auto; margin: -40px 0 0 auto; } }
+
+.mk-phone-shot { margin: 0 auto; max-width: 320px; width: 100%; text-align: center; }
+.mk-phone-frame {
+  border-radius: 34px;
+  padding: 10px;
+  background: #121110;
+  box-shadow: 0 28px 70px rgba(18,17,16,0.28);
+  overflow: hidden;
+}
+.mk-phone-frame img { border-radius: 26px; width: 100%; height: auto; }
+/* communications.png is a phone-width capture with page background on both
+   sides — crop to the app column at a phone aspect ratio. */
+.mk-phone-shot { max-width: 300px; }
+.mk-phone-shot .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+
+.mk-role-cards { list-style: none; margin: var(--mk-space-6) 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-4); }
+@media (max-width: 1080px) { .mk-role-cards { grid-template-columns: 1fr; } }
+.mk-role-card { padding: var(--mk-space-5); border: var(--mk-border-width) solid var(--mk-line); border-radius: 6px; background: var(--mk-paper); display: flex; flex-direction: column; gap: var(--mk-space-3); }
+.mk-role-card h3 { font-size: var(--mk-text-lg); }
+.mk-role-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: var(--mk-text-sm); color: var(--mk-muted); }
+.mk-role-card ul li::before { content: "— "; color: var(--mk-accent-ink); }
+.mk-role-card .mk-text-link { margin-top: auto; }
+
+/* ── Homepage: how ELF works ── */
+.mk-three-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-6); counter-reset: none; }
+@media (max-width: 900px) { .mk-three-steps { grid-template-columns: 1fr; } }
+.mk-three-steps li { padding: var(--mk-space-8); background: var(--mk-paper); border-radius: 6px; border: var(--mk-border-width) solid var(--mk-line); }
+.mk-three-steps h3 { font-size: var(--mk-text-xl); margin: var(--mk-space-4) 0 var(--mk-space-2); }
+.mk-three-steps p { color: var(--mk-muted); font-size: var(--mk-text-sm); }
+.mk-three-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--mk-ink);
+  color: var(--mk-yellow);
+  font-family: var(--mk-font-display);
+  font-size: 1.5rem;
+}
+.mk-root .mk-home-more { margin-top: var(--mk-space-8); }
+
+/* ── Homepage: Community Partners band ── */
+.mk-home-partners { background: var(--mk-ink); color: #fff; }
+.mk-home-partners :focus-visible { outline-color: #fff; }
+.mk-partners-band { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--mk-space-12); align-items: center; }
+@media (max-width: 900px) { .mk-partners-band { grid-template-columns: 1fr; gap: var(--mk-space-8); } }
+.mk-partners-band h2 { color: #fff; }
+.mk-partners-band p { color: rgba(255,255,255,0.78); }
+.mk-partners-actions { display: flex; flex-direction: column; align-items: flex-start; gap: var(--mk-space-5); }
+
+/* ── Homepage: who ELF is for ── */
+.mk-audience-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-5); }
+@media (max-width: 900px) { .mk-audience-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .mk-audience-grid { grid-template-columns: 1fr; } }
+.mk-audience-card { padding: var(--mk-space-6); border: var(--mk-border-width) solid var(--mk-line); border-left: 4px solid var(--mk-orange); border-radius: 4px; display: flex; flex-direction: column; gap: var(--mk-space-3); }
+.mk-audience-card h3 { font-size: var(--mk-text-lg); }
+.mk-audience-card p { color: var(--mk-muted); font-size: var(--mk-text-sm); }
+.mk-audience-card .mk-text-link { margin-top: auto; }
+
+/* ── Final CTA ── */
+.mk-final-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--mk-space-4); }
+.mk-btn-on-dark.mk-btn-outline { color: #fff; border-color: rgba(255,255,255,0.7); }
+.mk-btn-on-dark.mk-btn-outline:hover { background: #fff; color: var(--mk-ink); }
+
+/* ── Product page heroes (/fundraising, /product, /sponsors) ── */
+.mk-product-hero { padding: var(--mk-space-16) 0 var(--mk-space-16); }
+.mk-product-hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: var(--mk-space-12); align-items: center; }
+@media (max-width: 900px) { .mk-product-hero-grid { grid-template-columns: 1fr; gap: var(--mk-space-10); } }
+.mk-product-hero h1 { font-size: var(--mk-text-5xl); }
+.mk-product-hero .mk-store-badges { margin-top: var(--mk-space-8); }
+.mk-hero-shot { margin: 0; }
+/* Dash eyebrow — the shared marketing label: a short orange dash, then
+   small Inter 700 uppercase text with wide tracking (the homepage's "Fund
+   the season"). Dark text on white/cream; .mk-dash-eyebrow-on-dark for
+   photo and black backgrounds. Kept on one line. */
+.mk-dash-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mk-space-3);
+  margin-bottom: var(--mk-space-2);
+  font-size: var(--mk-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--mk-ink);
+}
+.mk-dash-eyebrow::before { content: ""; flex: 0 0 22px; height: 2px; background: var(--mk-orange); }
+.mk-dash-eyebrow-on-dark { color: rgba(255,255,255,0.86); }
+/* Two-part labels ("Free for every team · No fundraiser required") stay on
+   one line where they fit; on narrow phones the parts stack as two clean
+   lines, the dash beside the first, instead of overflowing. */
+@media (max-width: 540px) {
+  .mk-dash-eyebrow-split { display: inline-grid; grid-template-columns: 22px auto; gap: 4px var(--mk-space-3); align-items: start; }
+  .mk-dash-eyebrow-split::before { margin-top: 0.6em; }
+  .mk-dash-eyebrow-split > span { grid-column: 2; }
+  .mk-dash-eyebrow-split .mk-dash-eyebrow-sep { display: none; }
+}
+.mk-app-hero-points { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--mk-space-4); }
+.mk-app-hero-points li { display: grid; gap: 2px; padding: var(--mk-space-5) var(--mk-space-6); background: var(--mk-ink); color: #fff; border-radius: 6px; border-left: 6px solid var(--mk-orange); }
+.mk-app-hero-points strong { font-family: var(--mk-font-display); font-weight: 400; font-size: var(--mk-text-2xl); text-transform: uppercase; letter-spacing: 0.02em; }
+.mk-app-hero-points span { color: rgba(255,255,255,0.78); font-size: var(--mk-text-sm); }
+
+/* ── Benefit grids ── */
+.mk-benefit-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-5); }
+.mk-benefit-grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1080px) { .mk-benefit-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .mk-benefit-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .mk-benefit-grid, .mk-benefit-grid-4 { grid-template-columns: 1fr; } }
+.mk-benefit { padding: var(--mk-space-6); border: var(--mk-border-width) solid var(--mk-line); border-top: 4px solid var(--mk-orange); background: var(--mk-paper); border-radius: 0 0 6px 6px; }
+.mk-benefit h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-2); }
+.mk-benefit p { color: var(--mk-muted); font-size: var(--mk-text-sm); }
+
+.mk-four-steps { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1080px) { .mk-four-steps { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .mk-four-steps { grid-template-columns: 1fr; } }
+
+/* ── Frames ── */
+.mk-browser-frame { border-radius: 10px; overflow: hidden; border: 1px solid var(--mk-line-strong); background: #fff; box-shadow: 0 24px 60px rgba(18,17,16,0.16); }
+.mk-browser-bar { display: flex; gap: 6px; padding: 10px 12px; background: #EDE7DA; border-bottom: 1px solid var(--mk-line); }
+.mk-browser-bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--mk-line-strong); }
+
+/* ── Fundraising preview ── */
+.mk-fp-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-3); margin-bottom: var(--mk-space-5); }
+.mk-fp-badge { font-size: var(--mk-text-xs); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 10px; border-radius: 3px; background: var(--mk-ink); color: var(--mk-yellow); margin-right: auto; }
+.mk-seg { display: inline-flex; border: var(--mk-border-width) solid var(--mk-ink); border-radius: 12px; overflow: hidden; background: var(--mk-paper); }
+.mk-seg button { border: 0; background: transparent; padding: 8px 14px; min-height: 40px; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; transition: background-color var(--mk-duration) var(--mk-ease); }
+.mk-seg button[aria-pressed="false"]:hover { background: var(--mk-paper-2); }
+/* The rounded group clips outside rings, so the focus ring sits inside the
+   button (white on the selected black segment). */
+.mk-root .mk-seg button:focus-visible { outline: 2px solid var(--mk-ink); outline-offset: -5px; border-radius: 8px; }
+.mk-root .mk-seg button[aria-pressed="true"]:focus-visible { outline-color: #fff; }
+.mk-seg button + button { border-left: var(--mk-border-width) solid var(--mk-ink); }
+.mk-seg button[aria-pressed="true"] { background: var(--mk-ink); color: #fff; }
+@media (max-width: 640px) { .mk-seg-device { display: none; } .mk-fp-badge { margin-right: 0; width: 100%; text-align: center; } }
+
+.mk-fp-stage { display: flex; justify-content: center; }
+.mk-fp-phone { width: 390px; max-width: 100%; height: 780px; border-radius: 40px; padding: 12px; background: #121110; box-shadow: 0 30px 80px rgba(18,17,16,0.3); }
+.mk-fp-phone .mk-fp-frame { border-radius: 30px; }
+.mk-fp-browser { width: 100%; height: 760px; display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; border: 1px solid var(--mk-line-strong); background: #fff; box-shadow: 0 24px 60px rgba(18,17,16,0.16); }
+.mk-fp-frame { display: block; width: 100%; height: 100%; flex: 1; border: 0; background: #fff; }
+@media (max-width: 640px) {
+  .mk-fp-phone { width: 100%; height: 680px; padding: 8px; border-radius: 28px; }
+  .mk-fp-phone .mk-fp-frame { border-radius: 22px; }
+  .mk-fp-stage-desktop .mk-fp-browser { height: 680px; }
+}
+.mk-root .mk-fp-note { margin: var(--mk-space-4) auto 0; font-size: var(--mk-text-xs); color: var(--mk-muted); text-align: center; max-width: 70ch; }
+
+.mk-gate {
+  width: 100%;
+  min-height: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mk-space-8) var(--mk-space-4);
+  border-radius: 10px;
+  background:
+    linear-gradient(rgba(18,17,16,0.72), rgba(18,17,16,0.86)),
+    url("/marketing/campaign-hero.png") center top / cover no-repeat;
+}
+.mk-gate-card { width: 100%; max-width: 440px; background: var(--mk-paper); border-radius: 8px; padding: var(--mk-space-8); box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+@media (max-width: 640px) { .mk-gate-card { padding: var(--mk-space-6); } }
+.mk-gate-card h3 { font-size: var(--mk-text-2xl); margin-bottom: var(--mk-space-2); }
+.mk-gate-card > p { color: var(--mk-muted); font-size: var(--mk-text-sm); margin-bottom: var(--mk-space-5); }
+.mk-gate-card .mk-field { margin-bottom: var(--mk-space-4); }
+.mk-consent { display: flex; gap: var(--mk-space-3); align-items: flex-start; margin: var(--mk-space-2) 0 var(--mk-space-5); font-size: var(--mk-text-sm); color: var(--mk-ink-2); cursor: pointer; }
+.mk-consent input { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; accent-color: var(--mk-orange); }
+.mk-consent em { color: var(--mk-muted); font-style: normal; }
+
+/* ── Sponsors / Community Partners ── */
+.mk-partner-hero-card { background: var(--mk-ink); color: #fff; border-radius: 10px; padding: var(--mk-space-6); box-shadow: 0 24px 60px rgba(18,17,16,0.25); }
+.mk-partner-hero-label { display: block; font-family: var(--mk-font-display); font-size: var(--mk-text-2xl); text-transform: uppercase; color: var(--mk-yellow); margin-bottom: var(--mk-space-4); }
+.mk-partner-hero-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-3); }
+@media (max-width: 480px) { .mk-partner-hero-tiles { grid-template-columns: repeat(2, 1fr); } }
+.mk-partner-hero-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: var(--mk-space-4) var(--mk-space-2); background: rgba(255,255,255,0.08); border-radius: 6px; font-size: var(--mk-text-xs); font-weight: 700; line-height: 1.25; }
+.mk-partner-hero-initial { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--mk-orange); color: var(--mk-ink); font-weight: 800; font-size: 1rem; }
+.mk-partner-hero-note { display: block; margin-top: var(--mk-space-4); font-size: var(--mk-text-xs); color: rgba(255,255,255,0.6); }
+
+.mk-placement-list { list-style: none; margin: 0 0 var(--mk-space-12); padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--mk-space-5); }
+@media (max-width: 900px) { .mk-placement-list { grid-template-columns: 1fr; } }
+.mk-placement-list li { display: flex; gap: var(--mk-space-4); align-items: flex-start; padding: var(--mk-space-6); background: var(--mk-paper); border: var(--mk-border-width) solid var(--mk-line); border-radius: 6px; }
+.mk-placement-list .mk-three-num { flex-shrink: 0; }
+.mk-placement-list h3 { font-size: var(--mk-text-lg); margin-bottom: var(--mk-space-1); }
+.mk-placement-list p { color: var(--mk-muted); font-size: var(--mk-text-sm); }
+
+.mk-partner-examples { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: var(--mk-space-10); align-items: start; }
+@media (max-width: 900px) { .mk-partner-examples { grid-template-columns: minmax(0, 1fr); } }
+.mk-partner-example { margin: 0; min-width: 0; }
+.mk-phone-frame-ui { max-width: 340px; margin: 0 auto; padding: 10px; }
+.mk-partner-phone-head { background: #0B1E3D; color: #fff; border-radius: 26px 26px 0 0; padding: 18px 16px 12px; display: grid; gap: 2px; }
+.mk-partner-phone-head span { font-size: var(--mk-text-xs); opacity: 0.75; }
+.mk-partner-phone-head strong { font-size: var(--mk-text-base); }
+.mk-partner-phone-body { background: #F4F5F8; border-radius: 0 0 26px 26px; padding: 12px; max-height: 470px; overflow: hidden; }
+/* The app grid widens with the *viewport*; inside this phone mock-up keep
+   the real phone layout (three across), whatever the page width. */
+.mk-partner-phone-body ul { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mk-partner-browser-body { padding: var(--mk-space-6); max-height: 520px; overflow: hidden; }
+.mk-partner-browser-body h3 { font-size: var(--mk-text-xl); margin-bottom: var(--mk-space-1); }
+.mk-partner-browser-body > p { color: var(--mk-muted); font-size: var(--mk-text-sm); margin-bottom: var(--mk-space-5); }
+
+.mk-inquire-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: var(--mk-space-12); align-items: start; }
+@media (max-width: 1080px) { .mk-inquire-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); } }
+.mk-form-card .mk-form-grid > * { min-width: 0; }
+.mk-form-card .mk-field input, .mk-form-card .mk-field textarea { min-width: 0; width: 100%; }
+.mk-inquire-grid > div > p { color: var(--mk-muted); }
+.mk-root .mk-inquire-alt { margin-top: var(--mk-space-4); font-size: var(--mk-text-sm); }
+.mk-inquire-alt a { color: var(--mk-accent-ink); text-decoration: underline; }
+.mk-form-card { background: var(--mk-paper); border: var(--mk-border-width) solid var(--mk-line); border-radius: 8px; padding: var(--mk-space-8); min-width: 0; }
+@media (max-width: 640px) { .mk-form-card { padding: var(--mk-space-5); } }
+.mk-schools-note { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: var(--mk-space-12); }
+@media (max-width: 900px) { .mk-schools-note { grid-template-columns: 1fr; gap: var(--mk-space-4); } }
+.mk-schools-note p { color: var(--mk-muted); }
+
+/* ── Team App simulator ──
+   The phone uses the Team App's own system font and navy/blue palette so
+   it reads as the app, not as the marketing site around it. */
+.mk-sim { display: grid; grid-template-columns: minmax(0, 1fr) 414px; gap: var(--mk-space-12); align-items: start; }
+@media (min-width: 901px) { .mk-sim-controls { position: sticky; top: calc(var(--mk-nav-height) + var(--mk-space-8)); padding-top: var(--mk-space-10); } }
+@media (max-width: 900px) { .mk-sim { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); } }
+.mk-sim-controls { display: flex; flex-direction: column; align-items: flex-start; gap: var(--mk-space-4); }
+.mk-sim-roles { display: inline-flex; flex-wrap: wrap; gap: var(--mk-space-2); }
+.mk-sim-roles button {
+  min-height: 48px;
+  padding: 0 var(--mk-space-6);
+  border-radius: 999px;
+  border: var(--mk-border-width-strong) solid var(--mk-ink);
+  background: var(--mk-paper);
+  color: var(--mk-ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mk-sim-roles button[aria-selected="true"] { background: var(--mk-orange); border-color: var(--mk-orange); }
+.mk-sim-blurb { font-size: var(--mk-text-lg); color: var(--mk-ink-2); max-width: 46ch; }
+.mk-sim-try { font-size: var(--mk-text-sm); color: var(--mk-muted); padding: var(--mk-space-3) var(--mk-space-4); border-left: 3px solid var(--mk-orange); background: var(--mk-paper); max-width: 46ch; }
+.mk-sim-try strong { color: var(--mk-ink); }
+.mk-sim-reset { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 var(--mk-space-4); border: var(--mk-border-width) solid var(--mk-line-strong); border-radius: var(--mk-btn-radius); background: transparent; font: inherit; font-size: var(--mk-text-sm); font-weight: 700; color: var(--mk-ink); cursor: pointer; }
+.mk-sim-reset:hover { border-color: var(--mk-ink); }
+.mk-sim-fine { font-size: var(--mk-text-xs); color: var(--mk-muted); max-width: 46ch; }
+@media (max-width: 900px) {
+  .mk-sim-controls { align-items: stretch; }
+  .mk-sim-roles { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .mk-sim-roles button { padding: 0 var(--mk-space-2); }
+  .mk-sim-reset { align-self: flex-start; }
+}
+
+.mk-sim-device { display: flex; justify-content: center; min-width: 0; }
+.mk-sim-phone {
+  position: relative;
+  /* 414px - 2 x 12px border = a 390px screen, the width of a typical phone. */
+  width: 414px;
+  max-width: 100%;
+  height: 820px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 46px;
+  border: 12px solid #121110;
+  background: #F4F5F8;
+  box-shadow: 0 30px 80px rgba(18,17,16,0.3);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #12151C;
+  line-height: 1.4;
+}
+/* Device status strip above the demo: same white canvas as the app header below it. */
+.mk-sim-status { display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; padding: 6px 22px 4px; font-size: 12px; font-weight: 700; background: #FFFFFF; color: #12151C; }
+.mk-sim-notch { width: 90px; height: 20px; border-radius: 0 0 14px 14px; background: #121110; margin-top: -6px; }
+/* The isolated demo page (/preview/team-app) fills the rest of the phone. */
+.mk-sim-frame { display: block; flex: 1; width: 100%; min-height: 0; border: 0; background: #F5F6F8; }
+/* Phones: no decorative device bezel — the demo runs edge to edge at the
+   page's full width (cancelling the container gutter), keeping the real
+   Team App header and bottom nav inside it. The phone frame stays on
+   tablets and desktop. */
+@media (max-width: 640px) {
+  .mk-sim-device { margin: 0 calc(-1 * var(--mk-space-6)); }
+  .mk-sim-phone { width: 100%; height: min(760px, 88svh); border: 0; border-top: 1px solid var(--mk-line); border-bottom: 1px solid var(--mk-line); border-radius: 0; box-shadow: none; }
+  .mk-sim-status { display: none; }
+}
+
+.mk-sim :focus-visible { outline: 2px solid #F2B705; outline-offset: 2px; }
+
+/* ── /fundraising: "How ELF fundraising works" editorial timeline ──
+   Clean athletic editorial: big display numerals, a hairline connector with
+   small orange markers, concise text — no cards, icons or shadows.
+   Desktop: one row of four. Below 900px: a vertical timeline. */
+.mk-timeline-section { background: #FBF8F2; }
+.mk-timeline { list-style: none; margin: var(--mk-space-12) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mk-space-10); }
+.mk-timeline-step { position: relative; padding-top: var(--mk-space-8); }
+/* Connector: runs from this step's marker to the next step's. */
+.mk-timeline-step::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 0;
+  right: calc(-1 * var(--mk-space-10));
+  height: 1px;
+  background: var(--mk-line-strong);
+}
+.mk-timeline-step:last-child::before { right: 0; background: linear-gradient(90deg, var(--mk-line-strong), transparent); }
+.mk-timeline-step::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  background: var(--mk-orange);
+}
+.mk-timeline-num {
+  display: block;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: clamp(2.75rem, 4.2vw, 3.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--mk-ink);
+  margin-bottom: var(--mk-space-4);
+}
+.mk-timeline-step h3 { font-size: var(--mk-text-lg); letter-spacing: -0.005em; margin-bottom: var(--mk-space-2); }
+.mk-timeline-step p { color: var(--mk-muted); font-size: var(--mk-text-sm); line-height: var(--mk-leading-body); max-width: 30ch; margin: 0; }
+
+@media (max-width: 900px) {
+  .mk-timeline { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: var(--mk-space-8); }
+  .mk-timeline-step { padding: 0 0 var(--mk-space-8) var(--mk-space-12); }
+  .mk-timeline-step:last-child { padding-bottom: 0; }
+  .mk-timeline-step::before { top: 6px; bottom: 0; left: 5px; right: auto; width: 1px; height: auto; }
+  .mk-timeline-step:last-child::before { display: none; }
+  .mk-timeline-step::after { top: 6px; }
+  .mk-timeline-num { font-size: 2.75rem; margin-bottom: var(--mk-space-2); }
+  .mk-timeline-step p { max-width: 52ch; }
+}
+
+/* Optional, subtle: markers settle in as the section scrolls into view
+   (CSS scroll-driven, so no JavaScript); off for reduced motion and in
+   browsers without support. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .mk-timeline-step::after { animation: mk-timeline-mark linear both; animation-timeline: view(); animation-range: entry 10% cover 30%; }
+  }
+}
+@keyframes mk-timeline-mark { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* ── /fundraising: sample fundraiser introduction ("See ELF in action") ──
+   Clean athletic editorial: the site's own Inter at 800, sentence case and
+   tight tracking instead of the condensed display face. Only the intro —
+   the preview controls and frames below are untouched. */
+.mk-fp-intro { max-width: 720px; margin-bottom: var(--mk-space-12); }
+.mk-root .mk-fp-title {
+  font-family: inherit;
+  font-size: clamp(2.25rem, 4.4vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-transform: none;
+  color: var(--mk-ink);
+  margin: var(--mk-space-1) 0 var(--mk-space-5);
+}
+.mk-root .mk-fp-intro p { max-width: 56ch; font-size: var(--mk-text-lg); line-height: var(--mk-leading-body); color: var(--mk-muted); margin: 0; }
+@media (max-width: 640px) {
+  .mk-fp-intro { margin-bottom: var(--mk-space-8); }
+  .mk-root .mk-fp-intro p { font-size: var(--mk-text-base); }
+}
+
+/* ── /fundraising hero + benefits — approved "Minimal Fundraising Website"
+   mockup (clean athletic editorial). ── */
+.mk-fhero { background: #FFFFFF; padding: var(--mk-space-16) 0 var(--mk-space-16); }
+.mk-fhero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: var(--mk-space-16); align-items: start; }
+/* Approved typography (Variation A — Modern Athletic): Inter 700, sentence
+   case, tight tracking. One size scale for every /fundraising section
+   headline (.mk-va-title: timeline and FAQ). */
+.mk-root .mk-fhero-title,
+.mk-root .mk-fbenefits-title,
+.mk-root .mk-va-title {
+  font-family: inherit;
+  font-size: clamp(2.75rem, 4.7vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+  text-transform: none;
+  color: var(--mk-ink);
+}
+.mk-root .mk-fhero-title { margin: var(--mk-space-2) 0 0; }
+.mk-fhero-rule { display: block; width: 68px; height: 7px; background: var(--mk-orange); margin: var(--mk-space-6) 0 var(--mk-space-6); }
+.mk-root .mk-fhero-copy p { font-size: 1.25rem; line-height: 1.5; color: var(--mk-muted); max-width: 31em; margin: 0; }
+.mk-fhero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mk-space-4) var(--mk-space-8); margin-top: var(--mk-space-8); }
+.mk-fhero-actions .mk-btn-lg { min-height: 60px; padding: 0 var(--mk-space-12); font-size: var(--mk-text-lg); font-weight: 600; }
+.mk-fhero-link {
+  font-size: var(--mk-text-lg);
+  font-weight: 500;
+  color: var(--mk-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+.mk-fhero-link span { display: inline-block; margin-left: 6px; transition: transform var(--mk-duration) var(--mk-ease); }
+.mk-fhero-link:hover span { transform: translateX(3px); }
+@media (prefers-reduced-motion: reduce) { .mk-fhero-link span { transition: none; } }
+.mk-fhero-shot { margin: var(--mk-space-4) 0 0; min-width: 0; }
+.mk-fhero-frame { background: #FFFFFF; border: 1px solid #EEEAE3; border-radius: 6px; overflow: hidden; box-shadow: 0 22px 50px -18px rgba(18,17,16,0.18), 0 2px 8px rgba(18,17,16,0.05); }
+.mk-fhero-frame img { display: block; width: 100%; height: auto; }
+.mk-root .mk-fhero-caption { margin-top: var(--mk-space-4); font-size: var(--mk-text-sm); color: var(--mk-muted); }
+@media (max-width: 1080px) {
+  .mk-fhero-grid { gap: var(--mk-space-10); }
+}
+@media (max-width: 900px) {
+  .mk-fhero { padding: var(--mk-space-12) 0; }
+  .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-fhero-shot { margin-top: 0; }
+}
+@media (max-width: 640px) {
+  .mk-root .mk-fhero-copy p { font-size: var(--mk-text-lg); }
+  .mk-fhero-actions .mk-btn-lg { width: 100%; }
+}
+
+.mk-fbenefits { background: #F7F4EF; padding: var(--mk-space-20) 0 var(--mk-space-24); }
+.mk-fbenefits-head { margin-bottom: var(--mk-space-16); }
+.mk-root .mk-fbenefits-title { margin: var(--mk-space-2) 0 var(--mk-space-4); }
+.mk-root .mk-fbenefits-head p { font-size: var(--mk-text-xl); color: var(--mk-muted); margin: 0; }
+.mk-fbenefit-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-space-16) var(--mk-space-12); }
+.mk-fbenefit { display: grid; grid-template-columns: auto 28px minmax(0, 1fr); column-gap: var(--mk-space-5); align-items: start; }
+.mk-fbenefit-num { font-family: inherit; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; font-size: 3.5rem; line-height: 0.9; color: #CFC9C0; min-width: 2ch; }
+.mk-fbenefit-rule { display: block; height: 2px; background: var(--mk-orange); margin-top: 1.55rem; }
+.mk-root .mk-fbenefit h3 { font-size: 1.175rem; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; margin: 0.2rem 0 var(--mk-space-2); }
+.mk-root .mk-fbenefit p { font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); max-width: 36ch; margin: 0; }
+@media (max-width: 1080px) {
+  .mk-fbenefit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .mk-fbenefits { padding: var(--mk-space-16) 0; }
+  .mk-fbenefits-head { margin-bottom: var(--mk-space-10); }
+  .mk-root .mk-fbenefits-head p { font-size: var(--mk-text-lg); }
+  .mk-fbenefit-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-fbenefit { grid-template-columns: auto 22px minmax(0, 1fr); column-gap: var(--mk-space-4); }
+  .mk-fbenefit-num { font-size: 2.75rem; }
+  .mk-fbenefit-rule { margin-top: 1.2rem; }
+}
+/* The mockup runs edge-to-edge with ~5.5% side margins rather than the
+   1120px content column the rest of the site uses. */
+.mk-fhero .mk-container,
+.mk-fbenefits .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+/* Keep "Book a Free Demo" and "Explore a Sample Fundraiser" side by side on
+   common laptop widths (as in the mockup): equal columns and one step
+   smaller button/link text below 1500px. They stack naturally on tablets. */
+@media (max-width: 1500px) and (min-width: 901px) {
+  .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .mk-fhero-actions { column-gap: var(--mk-space-6); }
+  .mk-fhero-actions .mk-btn-lg { padding: 0 var(--mk-space-8); font-size: var(--mk-text-base); }
+  .mk-fhero-link { font-size: var(--mk-text-base); }
+}
+
+/* Laptop widths: slightly smaller 01–06 numerals (48px) give the benefit
+   headings more room; the dash stays centred on the numeral. 56px above
+   1500px, mobile sizes unchanged. */
+@media (min-width: 901px) and (max-width: 1500px) {
+  .mk-fbenefit-num { font-size: 3rem; }
+  .mk-fbenefit-rule { margin-top: 1.33rem; }
+}
+
+/* ── Buttons: 12px radius across the marketing site (approved premium
+   minimalist direction). Every marketing CTA and form submit is the shared
+   .mk-btn (LinkButton / SubmitButton / nav Get Started). The site-wide
+   focus ring otherwise forces 2px corners, so it keeps 12px too; colors,
+   type, padding and hover fills are the existing ones. Text links
+   (.mk-text-link, .mk-fhero-link) are not buttons and are unaffected. */
+.mk-root { --mk-btn-radius: 12px; }
+.mk-root .mk-btn:focus-visible { border-radius: var(--mk-btn-radius); }
+.mk-root .mk-btn-primary:active,
+.mk-root .mk-btn-yellow:active,
+.mk-root .mk-btn-dark:active { filter: brightness(0.96); }
+
+/* ── /fundraising FAQ: compact (scoped — the shared FaqList on /faq is
+   unchanged). ~33% less section padding, a slightly smaller headline, ~20%
+   tighter question rows; answers keep their own breathing room. ── */
+.mk-home-section.mk-fund-faq { padding: var(--mk-space-16) 0; }
+.mk-fund-faq .mk-home-head { margin-bottom: var(--mk-space-8); }
+.mk-root .mk-fund-faq .mk-va-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+.mk-fund-faq .mk-faq-item summary { padding: 19px 0; }
+.mk-root .mk-fund-faq .mk-faq-item p { padding: 2px 0 var(--mk-space-6); line-height: 1.65; }
+@media (max-width: 640px) {
+  .mk-home-section.mk-fund-faq { padding: 44px 0; }
+  .mk-fund-faq .mk-home-head { margin-bottom: var(--mk-space-6); }
+}
+
+/* ── /product (free Team App) — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here. */
+/* Hero: the visual is a phone, so the headline column gets more room. */
+.mk-phero .mk-fhero-grid { grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.75fr); align-items: center; }
+.mk-phero .mk-store-badges { margin-top: var(--mk-space-8); }
+.mk-phero-shot { margin: 0; justify-self: center; width: 100%; max-width: 320px; min-width: 0; }
+.mk-phero-shot .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-phero-shot .mk-fhero-caption { text-align: center; }
+@media (max-width: 900px) {
+  .mk-phero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-phero-shot { max-width: 280px; }
+}
+/* Features: ten items in two even columns (five rows) on desktop, one
+   column on tablets and phones. */
+.mk-pfeatures { background: #FFFFFF; }
+.mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--mk-space-16); row-gap: var(--mk-space-12); }
+.mk-root .mk-fbenefit-grid-2 .mk-fbenefit p { max-width: 52ch; }
+@media (max-width: 900px) {
+  .mk-fbenefit-grid.mk-fbenefit-grid-2 { grid-template-columns: minmax(0, 1fr); row-gap: var(--mk-space-10); }
+}
+/* Closing: one black band — free-for-every-team message, CTAs and badges. */
+.mk-pclose .mk-eyebrow { margin-bottom: var(--mk-space-3); }
+.mk-pclose .mk-store-badges { justify-content: center; margin-top: var(--mk-space-8); }
+
+/* ── /how-it-works — approved /fundraising + /product direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here (.mk-hiw-*). */
+/* Hero: the real fundraising page with the real Coach Home in front of it. */
+.mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; }
+.mk-root .mk-hiw-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 13ch; }
+.mk-hiw-visual { margin: 0; min-width: 0; }
+.mk-hiw-stage { position: relative; padding: 0 0 20% 0; }
+.mk-hiw-browser { width: 90%; }
+.mk-hiw-browser img { aspect-ratio: 16 / 10.4; object-fit: cover; object-position: 0 0; }
+.mk-hiw-phone { position: absolute; right: 0; bottom: 0; width: 29%; padding: 7px; border-radius: 26px; }
+.mk-hiw-phone img { border-radius: 20px; aspect-ratio: 9 / 17; object-fit: cover; object-position: 50% 0; }
+.mk-hiw-visual .mk-fhero-caption { margin-top: var(--mk-space-5); }
+@media (max-width: 900px) {
+  .mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-root .mk-hiw-hero .mk-fhero-title { max-width: 15ch; }
+  .mk-hiw-phone { width: 32%; }
+}
+
+/* Three steps beside the real Team Communications screen. */
+.mk-hiw-steps { background: #F7F4EF; padding: var(--mk-space-20) 0; }
+.mk-root .mk-hiw-steps .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-hiw-steps-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); gap: var(--mk-space-16); align-items: center; }
+.mk-root .mk-hiw-steps-title { font-size: clamp(2.5rem, 4vw, 3.75rem); margin: var(--mk-space-2) 0 var(--mk-space-12); max-width: 16ch; }
+.mk-hiw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--mk-space-10); max-width: 640px; }
+.mk-root .mk-hiw-list .mk-fbenefit h3 { font-size: 1.35rem; }
+.mk-root .mk-hiw-list .mk-fbenefit p { font-size: var(--mk-text-base); max-width: 48ch; }
+.mk-hiw-steps-shot { margin: 0; justify-self: center; width: 100%; }
+.mk-hiw-steps-shot .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-hiw-steps-shot .mk-fhero-caption { text-align: center; }
+@media (max-width: 900px) {
+  .mk-hiw-steps { padding: var(--mk-space-16) 0; }
+  .mk-hiw-steps-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-12); }
+  .mk-root .mk-hiw-steps-title { margin-bottom: var(--mk-space-10); }
+  .mk-hiw-steps-shot { max-width: 260px; }
+}
+@media (max-width: 640px) {
+  .mk-root .mk-hiw-list .mk-fbenefit h3 { font-size: 1.2rem; }
+}
+
+/* Closing: warm white, centered. */
+.mk-hiw-close { background: #FFFFFF; padding: var(--mk-space-20) 0; text-align: center; }
+.mk-root .mk-hiw-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); margin: 0 auto var(--mk-space-5); }
+.mk-root .mk-hiw-close p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 42em; margin: 0 auto var(--mk-space-8); }
+.mk-root .mk-hiw-close .mk-hiw-close-note { font-size: var(--mk-text-sm); margin: var(--mk-space-6) auto 0; }
+.mk-hiw-close-note a { color: var(--mk-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .mk-hiw-close { padding: var(--mk-space-16) 0; }
+  .mk-root .mk-hiw-close .mk-final-actions .mk-btn { width: 100%; }
+}
+/* Phones: show the readable left part of the fundraising page (team name
+   and the $9,840 progress) at a larger scale, with the app in front. */
+@media (max-width: 640px) {
+  .mk-hiw-browser { width: 100%; }
+  .mk-hiw-browser img { aspect-ratio: 1 / 0.9; }
+  .mk-hiw-stage { padding-bottom: 30%; }
+  .mk-hiw-phone { width: 38%; right: -2%; }
+}
+
+/* ── /sponsors (ELF Community Partners) — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles; only what differs
+   for this page is here (.mk-spn-*). */
+.mk-root .mk-spn-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+.mk-root .mk-spn-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 14ch; margin-top: var(--mk-space-3); }
+.mk-spn-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr); align-items: center; }
+.mk-root .mk-spn-hero .mk-fhero-copy .mk-spn-terms { margin-top: var(--mk-space-5); font-size: var(--mk-text-base); font-weight: 700; color: var(--mk-ink); }
+/* Hero visual: the public Community Partners section with the Team App screen in front. */
+.mk-spn-visual { margin: 0; min-width: 0; }
+.mk-spn-stage { position: relative; padding: 0 26% 0 0; }
+.mk-spn-public img { aspect-ratio: 1196 / 1100; object-fit: cover; object-position: 0 0; }
+.mk-spn-phone { position: absolute; right: 0; bottom: -6%; width: 38%; padding: 7px; border-radius: 26px; }
+.mk-spn-phone img { border-radius: 20px; aspect-ratio: 9 / 17; object-fit: cover; object-position: 50% 0; }
+.mk-spn-visual .mk-fhero-caption { margin-top: calc(var(--mk-space-5) + 6%); }
+@media (max-width: 900px) {
+  .mk-spn-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr); }
+  .mk-spn-stage { padding-right: 22%; }
+  .mk-spn-phone { width: 40%; }
+}
+
+/* Benefits: the /fundraising numbered style on cream. */
+.mk-spn-benefits { padding-bottom: var(--mk-space-20); }
+
+/* Proof: real captures, then where partners appear. */
+.mk-spn-proof { background: #FFFFFF; padding: var(--mk-space-20) 0; }
+.mk-root .mk-spn-proof .mk-container,
+.mk-root .mk-spn-offer .mk-container,
+.mk-root .mk-spn-inquire .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-spn-head { max-width: 760px; margin-bottom: var(--mk-space-12); }
+.mk-root .mk-spn-head .mk-spn-title { margin: var(--mk-space-2) 0 0; }
+.mk-spn-shots { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: var(--mk-space-12); align-items: end; }
+.mk-spn-shot-wide, .mk-spn-shot-phone { margin: 0; min-width: 0; }
+.mk-spn-shot-phone .mk-phone-frame img { aspect-ratio: 9 / 18; object-fit: cover; object-position: 50% 0; }
+.mk-spn-shot-phone .mk-fhero-caption { text-align: center; }
+.mk-spn-placements { list-style: none; margin: var(--mk-space-16) 0 0; padding: var(--mk-space-10) 0 0; border-top: 1px solid var(--mk-line); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-space-10); }
+.mk-spn-placements li { position: relative; padding-top: var(--mk-space-5); }
+.mk-spn-placements li::before { content: ""; position: absolute; top: 0; left: 0; width: 28px; height: 2px; background: var(--mk-orange); }
+.mk-root .mk-spn-placements h3 { font-size: 1.175rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--mk-space-2); }
+.mk-root .mk-spn-placements p { font-size: var(--mk-text-sm); line-height: 1.6; color: var(--mk-muted); margin: 0; max-width: 38ch; }
+.mk-spn-notes { margin-top: var(--mk-space-10); max-width: 72ch; }
+.mk-root .mk-spn-notes p { font-size: var(--mk-text-base); line-height: 1.6; color: var(--mk-muted); margin: 0 0 var(--mk-space-3); }
+.mk-root .mk-spn-notes .mk-spn-disclosure { font-size: var(--mk-text-sm); margin-top: var(--mk-space-5); }
+@media (max-width: 900px) {
+  .mk-spn-proof { padding: var(--mk-space-16) 0; }
+  .mk-spn-shots { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-spn-shot-phone { justify-self: center; width: 100%; max-width: 260px; }
+  .mk-spn-placements { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); margin-top: var(--mk-space-12); }
+}
+
+/* Monthly offer: warm cream, copy and three short points. */
+.mk-spn-offer { background: #FBF8F2; padding: var(--mk-space-20) 0; }
+.mk-spn-offer-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: var(--mk-space-16); align-items: center; }
+.mk-root .mk-spn-offer .mk-spn-title { margin: var(--mk-space-2) 0 var(--mk-space-5); max-width: 16ch; }
+.mk-root .mk-spn-offer p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 46ch; margin: 0 0 var(--mk-space-8); }
+.mk-spn-offer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.mk-spn-offer-list li { display: flex; align-items: center; gap: var(--mk-space-4); padding: var(--mk-space-6) 0; border-bottom: 1px solid var(--mk-line); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; color: var(--mk-ink); }
+.mk-spn-offer-list li:first-child { border-top: 1px solid var(--mk-line); }
+.mk-spn-offer-list li::before { content: ""; flex: 0 0 auto; width: 10px; height: 10px; background: var(--mk-orange); }
+@media (max-width: 900px) {
+  .mk-spn-offer { padding: var(--mk-space-16) 0; }
+  .mk-spn-offer-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+}
+
+/* Inquiry: the existing form, unchanged, beside the invitation. */
+.mk-spn-inquire { background: #FFFFFF; padding: var(--mk-space-20) 0 var(--mk-space-16); scroll-margin-top: 72px; }
+.mk-spn-inquire-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: var(--mk-space-16); align-items: start; }
+.mk-root .mk-spn-inquire .mk-spn-title { margin: var(--mk-space-2) 0 var(--mk-space-5); max-width: 14ch; }
+.mk-root .mk-spn-inquire-grid > div:first-child p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 40ch; margin: 0; }
+.mk-root .mk-spn-inquire-grid > div:first-child .mk-spn-alt { font-size: var(--mk-text-sm); margin-top: var(--mk-space-6); }
+.mk-spn-alt a { color: var(--mk-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+.mk-root .mk-spn-inquire .mk-spn-closing { max-width: none; margin: var(--mk-space-16) auto 0; padding: 0 24px; text-align: center; font-size: var(--mk-text-lg); font-weight: 600; letter-spacing: -0.01em; color: var(--mk-ink); }
+.mk-spn-proof { scroll-margin-top: 72px; }
+@media (max-width: 900px) {
+  .mk-spn-inquire { padding: var(--mk-space-16) 0 var(--mk-space-12); }
+  .mk-spn-inquire-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-10); }
+  .mk-root .mk-spn-inquire .mk-spn-closing { margin-top: var(--mk-space-12); }
+}
+/* Phones: the public page shows its Community Partners column, readable. */
+@media (max-width: 640px) {
+  .mk-spn-shot-wide img { aspect-ratio: 1 / 1.12; object-fit: cover; object-position: 92% 0; }
+}
+
+/* ── /pricing — approved /fundraising direction ──
+   Reuses .mk-fhero / .mk-fbenefit / Variation A titles and the compact
+   /fundraising FAQ; only what differs for this page is here (.mk-prc-*). */
+.mk-prc-hero { padding: var(--mk-space-16) 0 var(--mk-space-12); }
+.mk-root .mk-prc-hero .mk-fhero-title { max-width: 19ch; }
+.mk-root .mk-prc-hero .mk-fhero-copy p { max-width: 36em; }
+.mk-root .mk-prc-hero .mk-fhero-copy .mk-prc-trust { margin-top: var(--mk-space-6); font-size: var(--mk-text-sm); font-weight: 600; color: var(--mk-ink); }
+.mk-root .mk-prc-title { font-size: clamp(2.5rem, 4vw, 3.75rem); }
+
+/* Two options: side by side down to tablets, stacked on phones. */
+.mk-prc-options { background: #FBF8F2; padding: var(--mk-space-12) 0; }
+.mk-root .mk-prc-options .mk-container { max-width: 1600px; padding: 0 clamp(24px, 5.5vw, 84px); }
+.mk-prc-options-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-space-8); }
+.mk-prc-card { display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #ECE6DC; border-radius: 12px; padding: var(--mk-space-8) var(--mk-space-10); box-shadow: 0 18px 40px -26px rgba(18,17,16,0.18); }
+.mk-prc-card:first-child { border-top: 4px solid var(--mk-orange); }
+.mk-root .mk-prc-card-name { font-size: var(--mk-text-lg); font-weight: 700; letter-spacing: -0.01em; margin: 0 0 var(--mk-space-4); }
+.mk-root .mk-prc-price { font-size: clamp(3rem, 5vw, 4.25rem); font-weight: 700; letter-spacing: -0.045em; line-height: 1; color: var(--mk-ink); margin: 0; }
+.mk-root .mk-prc-price-text { font-size: clamp(2rem, 3vw, 2.6rem); letter-spacing: -0.035em; line-height: 1.05; }
+.mk-root .mk-prc-for { font-size: var(--mk-text-base); color: var(--mk-muted); margin: var(--mk-space-3) 0 0; }
+.mk-prc-list { list-style: none; margin: var(--mk-space-6) 0 0; padding: var(--mk-space-5) 0 0; border-top: 1px solid var(--mk-line); display: grid; gap: var(--mk-space-2); }
+.mk-prc-list li { display: flex; align-items: center; gap: var(--mk-space-3); font-size: var(--mk-text-base); color: var(--mk-ink); }
+.mk-prc-list li::before { content: ""; flex: 0 0 auto; width: 14px; height: 2px; background: var(--mk-orange); }
+.mk-root .mk-prc-note { margin: var(--mk-space-5) 0 var(--mk-space-6); font-size: var(--mk-text-base); font-weight: 700; color: var(--mk-ink); }
+.mk-prc-card .mk-prc-cta { margin-top: auto; }
+@media (max-width: 900px) {
+  .mk-prc-hero { padding: var(--mk-space-12) 0 var(--mk-space-10); }
+  .mk-prc-options { padding: var(--mk-space-10) 0; }
+  .mk-prc-options-grid { gap: var(--mk-space-5); }
+  .mk-prc-card { padding: var(--mk-space-6); }
+}
+
+/* Benefits: the /fundraising numbered style on white (cream either side). */
+.mk-prc-benefits { background: #FFFFFF; padding: var(--mk-space-16) 0; }
+.mk-prc-benefits .mk-fbenefits-head { margin-bottom: var(--mk-space-10); }
+
+/* Closing: black band with a Variation A headline. */
+.mk-root .mk-prc-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); letter-spacing: -0.04em; line-height: 1.05; }
+.mk-prc-close { padding: var(--mk-space-16) 0; }
+.mk-home-section.mk-prc-faq { padding: var(--mk-space-12) 0; }
+.mk-root .mk-prc-close p { max-width: 60ch; }
+.mk-root .mk-prc-close .mk-container-narrow { max-width: 920px; }
+
+/* Phones: the same content, tighter. Cards stack with compact padding and
+   a tight feature list; sections share one shorter rhythm. */
+@media (max-width: 700px) {
+  .mk-prc-options-grid { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-4); }
+}
+@media (max-width: 640px) {
+  .mk-prc-hero { padding: var(--mk-space-8) 0; }
+  .mk-root .mk-prc-hero .mk-fhero-rule { margin: var(--mk-space-4) 0; }
+  .mk-root .mk-prc-hero .mk-fhero-actions { margin-top: var(--mk-space-6); gap: var(--mk-space-4); }
+  .mk-root .mk-prc-hero .mk-fhero-actions .mk-btn-lg { min-height: 54px; }
+  .mk-root .mk-prc-hero .mk-fhero-copy .mk-prc-trust { margin-top: var(--mk-space-4); }
+
+  .mk-prc-options { padding: var(--mk-space-6) 0; }
+  .mk-prc-card { padding: var(--mk-space-5) var(--mk-space-5) var(--mk-space-5); border-radius: 10px; }
+  .mk-root .mk-prc-card-name { font-size: var(--mk-text-base); margin-bottom: var(--mk-space-2); }
+  .mk-root .mk-prc-price { font-size: 2.75rem; }
+  .mk-root .mk-prc-price-text { font-size: 1.75rem; }
+  .mk-root .mk-prc-for { font-size: var(--mk-text-sm); margin-top: var(--mk-space-2); }
+  .mk-prc-list { gap: 6px; margin-top: var(--mk-space-4); padding-top: var(--mk-space-4); }
+  .mk-prc-list li { gap: var(--mk-space-2); font-size: var(--mk-text-sm); line-height: 1.35; }
+  .mk-prc-list li::before { width: 10px; }
+  .mk-root .mk-prc-note { margin: var(--mk-space-4) 0; font-size: var(--mk-text-sm); }
+  .mk-prc-card .mk-prc-cta { min-height: 48px; }
+
+  .mk-prc-benefits { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-benefits .mk-fbenefits-head { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-prc-benefits .mk-fbenefit-grid { gap: var(--mk-space-6); }
+  .mk-root .mk-prc-benefits .mk-fbenefit-num { font-size: 2.25rem; }
+  .mk-root .mk-prc-benefits .mk-fbenefit-rule { margin-top: 1rem; }
+  .mk-root .mk-prc-benefits .mk-fbenefit h3 { margin-top: 0; }
+  .mk-root .mk-prc-benefits .mk-fbenefit p { max-width: none; }
+
+  .mk-root .mk-home-section.mk-prc-faq { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-faq .mk-home-head { margin-bottom: var(--mk-space-4); }
+  .mk-root .mk-prc-faq .mk-faq-item summary { padding: 16px 0; }
+
+  .mk-prc-close { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-prc-close p { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-prc-close .mk-final-actions { gap: var(--mk-space-3); }
+  .mk-prc-close .mk-prc-close-btn { width: 100%; }
+}
+
+/* ── Homepage (/) — approved /fundraising direction ──
+   Five sections: photo hero, two solutions, product proof, three steps and
+   a black closing band. Reuses Variation A titles, .mk-fbenefit steps and
+   the phone/browser frames; only what differs for this page is here
+   (.mk-hm-*). The old homepage rules in the shared stylesheet are left as
+   they are. */
+.mk-root .mk-hm-title { font-size: clamp(2.5rem, 4vw, 3.75rem); max-width: 17ch; margin: var(--mk-space-2) 0 0; }
+.mk-hm-head { margin-bottom: var(--mk-space-12); }
+.mk-root .mk-hm-hero .mk-container,
+.mk-root .mk-hm-solutions .mk-container,
+.mk-root .mk-hm-proof .mk-container,
+.mk-root .mk-hm-steps .mk-container { max-width: 1600px; padding-left: clamp(24px, 5.5vw, 84px); padding-right: clamp(24px, 5.5vw, 84px); }
+
+/* Hero: the football sunset photograph, full width, copy bottom-left. */
+.mk-hm-hero { position: relative; display: flex; min-height: clamp(640px, 88vh, 820px); padding: 0; background: #121110; color: #fff; overflow: hidden; }
+.mk-hm-hero-media { position: absolute; inset: 0; }
+.mk-hm-hero-img { object-fit: cover; object-position: center 30%; }
+.mk-hm-hero-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(10,9,8,0.72) 0%, rgba(10,9,8,0.5) 30%, rgba(10,9,8,0.18) 55%, transparent 72%),
+    linear-gradient(0deg, rgba(10,9,8,0.55) 0%, transparent 45%);
+}
+.mk-hm-hero-inner { position: relative; z-index: 2; width: 100%; display: flex; align-items: flex-end; padding-top: calc(var(--mk-nav-height) + var(--mk-space-16)); padding-bottom: var(--mk-space-20); }
+.mk-hm-hero-copy { max-width: 920px; }
+.mk-root .mk-hm-hero-title { font-family: inherit; font-size: clamp(2.75rem, 5vw, 5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; text-transform: none; color: #fff; margin: var(--mk-space-2) 0 0; }
+/* Credibility line: smaller than the headline, Inter 700 uppercase. */
+.mk-root .mk-hm-hero-copy .mk-hm-credibility { font-size: clamp(1rem, 1.35vw, 1.25rem); font-weight: 700; letter-spacing: 0.06em; line-height: 1.3; text-transform: uppercase; color: #fff; margin: var(--mk-space-4) 0 0; max-width: none; }
+.mk-hm-nowrap { white-space: nowrap; }
+.mk-hm-hero-rule { display: block; width: 68px; height: 7px; background: var(--mk-orange); margin: var(--mk-space-6) 0; }
+.mk-root .mk-hm-hero-copy p { font-size: 1.25rem; line-height: 1.5; color: rgba(255,255,255,0.88); max-width: 34em; margin: 0; }
+.mk-hm-hero-actions { display: flex; flex-wrap: wrap; gap: var(--mk-space-4); margin-top: var(--mk-space-8); }
+.mk-root .mk-hm-hero-actions .mk-btn-lg { min-height: 58px; padding: 0 var(--mk-space-10); font-size: var(--mk-text-lg); font-weight: 600; }
+
+/* Two solutions: editorial panels on warm cream, no cards, equal weight. */
+.mk-hm-solutions { background: #FBF8F2; padding: var(--mk-space-16) 0; }
+.mk-hm-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-space-16); }
+.mk-hm-panel { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding-top: var(--mk-space-6); border-top: 1px solid var(--mk-line); }
+.mk-hm-panel::before { content: ""; position: absolute; top: -1px; left: 0; width: 56px; height: 3px; background: var(--mk-orange); }
+.mk-hm-panel-tag { font-size: var(--mk-text-xs); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mk-accent-ink); }
+.mk-root .mk-hm-panel h3 { font-size: clamp(1.9rem, 2.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.035em; line-height: 1.08; max-width: 15ch; margin: var(--mk-space-3) 0 var(--mk-space-4); }
+.mk-root .mk-hm-panel p { font-size: var(--mk-text-lg); line-height: 1.55; color: var(--mk-muted); max-width: 40ch; margin: 0 0 var(--mk-space-6); }
+.mk-root .mk-hm-panel .mk-store-badges { margin-top: var(--mk-space-4); }
+.mk-root .mk-hm-solutions .mk-hm-title { max-width: 22ch; }
+
+/* Product proof: the full fundraising page and the full Coach Home at the
+   same height — column widths follow each capture's proportions (2880×1668
+   beside a 1:2 phone), so neither is cropped. */
+.mk-hm-proof { background: #FFFFFF; padding: var(--mk-space-16) 0; }
+.mk-root .mk-hm-proof .mk-hm-title { max-width: none; }
+.mk-hm-shots { display: grid; grid-template-columns: minmax(0, 3.3fr) minmax(0, 1fr); gap: var(--mk-space-10); align-items: start; max-width: 1080px; }
+.mk-hm-shot-wide, .mk-hm-shot-phone { margin: 0; min-width: 0; }
+.mk-root .mk-hm-shot-phone .mk-phone-frame img { aspect-ratio: 1 / 2; object-fit: cover; object-position: 50% 0; }
+.mk-hm-shots figcaption { margin-top: var(--mk-space-4); font-size: var(--mk-text-sm); line-height: 1.55; color: var(--mk-muted); max-width: 60ch; }
+.mk-hm-shots figcaption strong { color: var(--mk-ink); }
+.mk-hm-link { color: var(--mk-accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.mk-root .mk-hm-disclosure { margin: var(--mk-space-6) 0 0; font-size: var(--mk-text-xs); color: var(--mk-muted); }
+
+/* How it works: three numbered steps in one row, walkthrough link beside the title. */
+.mk-hm-steps { background: #F7F4EF; padding: var(--mk-space-16) 0; }
+.mk-hm-steps-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--mk-space-4) var(--mk-space-10); }
+.mk-hm-steps .mk-hm-head { margin-bottom: var(--mk-space-10); }
+
+/* Closing: black band with a Variation A headline. */
+.mk-hm-close { padding: var(--mk-space-16) 0; }
+.mk-root .mk-hm-close .mk-container-narrow { max-width: 1040px; }
+.mk-root .mk-hm-close-title { font-size: clamp(2.4rem, 4vw, 3.5rem); letter-spacing: -0.04em; line-height: 1.05; }
+.mk-root .mk-hm-close p { max-width: 60ch; margin-bottom: var(--mk-space-6); }
+
+/* Tablets and small laptops: the three steps stay in one row, number above text. */
+@media (max-width: 1080px) and (min-width: 641px) {
+  .mk-root .mk-hm-steps .mk-fbenefit-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-space-8); }
+  .mk-root .mk-hm-steps .mk-fbenefit { grid-template-columns: auto 28px 1fr; row-gap: var(--mk-space-3); }
+  .mk-root .mk-hm-steps .mk-fbenefit > div { grid-column: 1 / -1; }
+  .mk-root .mk-hm-steps .mk-fbenefit-num { font-size: 2.75rem; }
+  .mk-root .mk-hm-steps .mk-fbenefit-rule { margin-top: 1.2rem; }
+}
+@media (max-width: 900px) {
+  .mk-hm-hero { min-height: 0; }
+  .mk-hm-hero-inner { padding-top: calc(var(--mk-nav-height) + 220px); padding-bottom: var(--mk-space-12); }
+  .mk-hm-hero-scrim { background: linear-gradient(180deg, rgba(10,9,8,0.35) 0%, rgba(10,9,8,0.2) 22%, rgba(10,9,8,0.62) 50%, rgba(10,9,8,0.9) 100%); }
+  .mk-hm-solutions, .mk-hm-proof, .mk-hm-steps { padding: var(--mk-space-12) 0; }
+  .mk-hm-head { margin-bottom: var(--mk-space-8); }
+  .mk-hm-panels { gap: var(--mk-space-8); }
+  .mk-root .mk-hm-panel p { font-size: var(--mk-text-base); }
+  .mk-hm-shots { gap: var(--mk-space-6); }
+  .mk-hm-close { padding: var(--mk-space-12) 0; }
+}
+@media (max-width: 640px) {
+  /* Phones: the photo as a band under the nav, the copy below it on black. */
+  .mk-hm-hero { display: block; }
+  .mk-hm-hero-media { position: relative; height: calc(var(--mk-nav-height) + 230px); }
+  .mk-hm-hero-img { object-position: 62% 45%; }
+  .mk-hm-hero-scrim { background: linear-gradient(180deg, rgba(10,9,8,0.45) 0%, rgba(10,9,8,0) 34%, rgba(10,9,8,0) 62%, #121110 100%); }
+  .mk-hm-hero-inner { margin-top: calc(-1 * var(--mk-space-6)); padding-top: 0; padding-bottom: var(--mk-space-10); }
+  .mk-hm-hero-rule { margin: var(--mk-space-5) 0; }
+  .mk-root .mk-hm-hero-copy p { font-size: var(--mk-text-lg); }
+  .mk-hm-hero-actions { margin-top: var(--mk-space-6); gap: var(--mk-space-3); }
+  .mk-root .mk-hm-hero-actions .mk-btn-lg { width: 100%; min-height: 54px; font-size: var(--mk-text-base); }
+
+  .mk-hm-solutions, .mk-hm-proof, .mk-hm-steps { padding: var(--mk-space-10) 0; }
+  .mk-hm-head { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-hm-title { font-size: 2.25rem; }
+  .mk-hm-panels { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); }
+  .mk-hm-panel { padding-top: var(--mk-space-5); }
+  .mk-root .mk-hm-panel h3 { font-size: 1.75rem; margin-bottom: var(--mk-space-3); }
+  .mk-root .mk-hm-panel p { margin-bottom: var(--mk-space-5); }
+  .mk-root .mk-hm-panel .mk-btn-lg { width: 100%; min-height: 50px; }
+
+  /* Proof: the whole fundraising page, then the whole Coach Home, centered. */
+  .mk-hm-shots { grid-template-columns: minmax(0, 1fr); gap: var(--mk-space-8); }
+  .mk-root .mk-hm-shot-phone .mk-phone-frame { max-width: 200px; margin: 0 auto; }
+  .mk-root .mk-hm-disclosure { margin-top: var(--mk-space-5); }
+
+  .mk-hm-steps .mk-hm-head { margin-bottom: var(--mk-space-6); }
+  .mk-root .mk-hm-steps .mk-fbenefit-grid { gap: var(--mk-space-5); }
+  .mk-root .mk-hm-steps .mk-fbenefit-num { font-size: 2.25rem; }
+  .mk-root .mk-hm-steps .mk-fbenefit-rule { margin-top: 1rem; }
+  .mk-root .mk-hm-steps .mk-fbenefit h3 { margin-top: 0; }
+  .mk-root .mk-hm-steps .mk-fbenefit p { max-width: none; }
+
+  .mk-hm-close { padding: var(--mk-space-10) 0; }
+  .mk-root .mk-hm-close p { margin-bottom: var(--mk-space-5); }
+  .mk-root .mk-hm-close .mk-final-actions { gap: var(--mk-space-3); }
+  .mk-root .mk-hm-close .mk-hm-close-btn { width: 100%; }
+}

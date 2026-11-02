@@ -106,6 +106,13 @@ export type PublicCampaignPageProps = {
   // An athlete link whose roster hasn't loaded yet — reserve the spotlight
   // layout instead of flashing the team hero first.
   spotlightPending?: boolean;
+  // Marketing's fictional sample campaign only (every real campaign page
+  // omits both, and is unchanged): its illustrated portraits are static
+  // files, so the athlete photo comes from this resolver instead of the
+  // public photo route, and leaderboard/donation avatars show an image
+  // instead of initials. No request ever reaches the photo API.
+  athletePhotoSrcFor?: (athleteId: string) => string | null;
+  avatarSrcFor?: (person: { id?: string; name: string }) => string | null;
 };
 
 export type SpotlightAthlete = { id: string; name: string; classYear: string | null };
@@ -115,12 +122,13 @@ const LEADERBOARD_PREVIEW_COUNT = 5;
 // The athlete's photo via the public photo route; when there is none (404)
 // or it fails to load, the team's own logo — then the team initials. Never
 // the ELF mark standing in for the team.
-function AthletePhoto({ slug, athlete, logoUrl, schoolName }: { slug: string; athlete: SpotlightAthlete; logoUrl: string; schoolName: string }) {
+function AthletePhoto({ slug, athlete, logoUrl, schoolName, srcFor }: { slug: string; athlete: SpotlightAthlete; logoUrl: string; schoolName: string; srcFor?: (athleteId: string) => string | null }) {
   const [failedFor, setFailedFor] = useState<string | null>(null);
-  if (failedFor !== athlete.id) {
+  const src = srcFor ? srcFor(athlete.id) : athletePhotoSrc(slug, athlete.id);
+  if (src && failedFor !== athlete.id) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- streamed by our own route; next/image adds nothing here
-      <img src={athletePhotoSrc(slug, athlete.id)} alt={athlete.name} className="pc-ath-photo" onError={() => setFailedFor(athlete.id)} />
+      <img src={src} alt={athlete.name} className="pc-ath-photo" onError={() => setFailedFor(athlete.id)} />
     );
   }
   return logoUrl ? (
@@ -150,8 +158,16 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
     donating, donateError, donateLabel, handleDonate,
     searchQuery, setSearchQuery, leaderboardExpanded, setLeaderboardExpanded,
     donationsExpanded, setDonationsExpanded, hasMoreDonations,
-    slug, spotlight = null, spotlightPending = false,
+    slug, spotlight = null, spotlightPending = false, athletePhotoSrcFor, avatarSrcFor,
   } = props;
+  // Leaderboard / donation avatar: initials, unless an image is supplied.
+  const avatar = (person: { id?: string; name: string }) => {
+    const src = avatarSrcFor?.(person);
+    return src
+      // eslint-disable-next-line @next/next/no-img-element -- small static illustration
+      ? <img src={src} alt="" className="pc-lb-avatar" style={{ objectFit: "cover" }} />
+      : <span className="pc-lb-avatar">{initials(person.name)}</span>;
+  };
   const athletePage = !!spotlight || spotlightPending;
 
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -348,7 +364,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                 {spotlight ? (
                   <>
                     <div className="pc-ath-top">
-                      <AthletePhoto slug={slug} athlete={spotlight} logoUrl={logoUrl} schoolName={schoolName} />
+                      <AthletePhoto slug={slug} athlete={spotlight} logoUrl={logoUrl} schoolName={schoolName} srcFor={athletePhotoSrcFor} />
                       <div className="pc-ath-text">
                         <p className="pc-ath-eyebrow">Support our athlete</p>
                         <h1 className="pc-ath-name">{spotlight.name}</h1>
@@ -452,7 +468,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                           <td className="pc-lb-rank">{a.displayRank}</td>
                           <td className="pc-td-athlete">
                             <div className="pc-lb-athlete-cell">
-                              <span className="pc-lb-avatar">{initials(a.name)}</span>
+                              {avatar({ id: a.id, name: a.name })}
                               <span>{a.name}</span>
                               {a.kind === "coach" && <span className="pc-lb-role-pill">{coachRoleLabel(a.role!)}</span>}
                             </div>
@@ -470,7 +486,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                 <div className="pc-lb-cards">
                   {visibleAthletes.map((a) => (
                     <div className="pc-lb-card" key={a.id}>
-                      <span className="pc-lb-avatar">{initials(a.name)}</span>
+                      {avatar({ id: a.id, name: a.name })}
                       <div className="pc-lb-card-body">
                         <div className="pc-lb-card-name">
                           #{a.displayRank} {a.name}
@@ -548,7 +564,7 @@ export default function PublicCampaignPage(props: PublicCampaignPageProps) {
                   <div className="pc-donation-list">
                     {visibleDonations.map((d, i) => (
                       <div className="pc-donation-item" key={i}>
-                        <span className="pc-lb-avatar">{initials(d.name)}</span>
+                        {avatar({ name: d.name })}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div className="pc-donation-top">
                             <span className="pc-donation-name">{d.name}<span className="pc-donation-time">{d.time}</span></span>

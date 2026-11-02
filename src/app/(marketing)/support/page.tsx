@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-const LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE);
+const LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, process.env.NEXT_PUBLIC_ELF_MARKETING_PREVIEW);
 const FORGOT_PASSWORD_URL = LOGIN_URL.replace(/\/login$/, "/forgot-password");
 
 export default function SupportPage() {

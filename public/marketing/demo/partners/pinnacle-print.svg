@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 176" role="img" aria-label="PINNACLE PRINT &amp; SIGN logo (fictional business)">
+  <title>PINNACLE PRINT &amp; SIGN logo (fictional business)</title>
+  <g transform="translate(100 66) scale(1.3) translate(-100 -58)">
+    <rect x="66" y="24" width="68" height="68" rx="10" transform="rotate(45 100 58)" fill="#E06A1B"/>
+    <g transform="translate(70 28) scale(.6)" color="#E06A1B"><rect x="16" y="22" width="68" height="40" rx="5" fill="#fff"/><rect x="46" y="62" width="8" height="22" fill="#fff"/><path d="M28 36 h44 M28 48 h28" stroke="currentColor" stroke-width="6" stroke-linecap="round"/></g>
+  </g>
+  <text x="100" y="166" text-anchor="middle" font-family="'Arial Narrow', 'Roboto Condensed', Arial, sans-serif" font-weight="900" font-size="29" letter-spacing="1" fill="#b35516">PINNACLE</text>
+</svg>

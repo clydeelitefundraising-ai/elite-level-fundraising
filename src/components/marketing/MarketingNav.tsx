@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { teamAppLoginUrl } from "@/lib/teamAppLogin";
 
@@ -12,7 +13,7 @@ export interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { href: "/product", label: "Product" },
-  { href: "/product", label: "How It Works" },
+  { href: "/how-it-works", label: "How It Works" },
   { href: "/why-elf", label: "Why ELF" },
   { href: "/pricing", label: "Pricing" },
   { href: "/trust", label: "Trust Center" },
@@ -22,16 +23,15 @@ const NAV_LINKS: NavLink[] = [
 // Canonical marketing navigation (approved homepage header) — single source
 // of truth for link set/order/wording, consumed by both MarketingPage.tsx
 // (variant="overlay") and the shared (marketing)/layout.tsx (variant="dark")
-// so every public marketing page presents the identical nav. Mapped to the
-// closest existing real route where the approved label has no exact-name
-// match (see the Phase 7 report / marketing header standardization audit
-// for the full rationale):
-//   HOW IT WORKS -> /product       (closest platform-overview page; no
-//                                    dedicated "how it works" route exists)
-//   TEAMS        -> /communication (team management/roster/messaging)
-//   SPONSORS     -> /sponsors      (exact match)
-//   PRICING      -> /pricing       (exact match)
-//   RESOURCES    -> /faq           (closest "resource-ish" existing page)
+// so every public marketing page presents the identical nav. Product-focused
+// redesign set:
+//   FUNDRAISING  -> /fundraising
+//   TEAM APP     -> /product        (the free ELF Team App page)
+//   HOW IT WORKS -> /how-it-works   (the nine-stage season walkthrough)
+//   SPONSORS     -> /sponsors       (Community Partners, for local businesses)
+//   PRICING      -> /pricing
+//   RESOURCES    -> /faq
+// /communication left the top nav but stays public, linked from the footer.
 // The public marketing site's "Log in" must send existing users to the
 // live ELF Team app (a separate deployment/subdomain), never to this
 // marketing site's own /login route — the two are different Next.js
@@ -42,11 +42,12 @@ const NAV_LINKS: NavLink[] = [
 // marketing-site visitor, regardless of which environment the marketing
 // site itself is deployed from — except the isolated QA deployment, which
 // stays on its own /login (src/lib/teamAppLogin.ts).
-const TEAM_APP_LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE);
+const TEAM_APP_LOGIN_URL = teamAppLoginUrl(process.env.NEXT_PUBLIC_ELF_DEPLOYMENT_MODE, process.env.NEXT_PUBLIC_ELF_MARKETING_PREVIEW);
 
 export const MARKETING_NAV_LINKS: NavLink[] = [
-  { href: "/product", label: "How It Works" },
-  { href: "/communication", label: "Teams" },
+  { href: "/fundraising", label: "Fundraising" },
+  { href: "/product", label: "Team App" },
+  { href: "/how-it-works", label: "How It Works" },
   { href: "/sponsors", label: "Sponsors" },
   { href: "/pricing", label: "Pricing" },
   { href: "/faq", label: "Resources" },
@@ -73,7 +74,10 @@ interface MarketingNavProps {
 export function MarketingNav({ variant, links }: MarketingNavProps) {
   const [open, setOpen] = useState(false);
   const [elevated, setElevated] = useState(false);
+  const pathname = usePathname();
   const navLinks = links ?? NAV_LINKS;
+  // The current page's link is announced (and underlined) as the current page.
+  const current = (href: string) => (pathname === href ? ("page" as const) : undefined);
   const isOverlayVariant = variant === "overlay";
   const isDarkVariant = variant === "dark";
   // Both branded variants share the same logo/Log-in/Get-Started treatment —
@@ -145,8 +149,8 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
 
         <ul className="mk-nav-links">
           {navLinks.map((l) => (
-            <li key={l.href}>
-              <Link href={l.href}>{l.label}</Link>
+            <li key={l.label}>
+              <Link href={l.href} aria-current={current(l.href)}>{l.label}</Link>
             </li>
           ))}
         </ul>
@@ -185,8 +189,8 @@ export function MarketingNav({ variant, links }: MarketingNavProps) {
         <div id="mk-mobile-panel" className="mk-mobile-panel" role="dialog" aria-modal="true" aria-label="Menu">
           <ul>
             {navLinks.map((l) => (
-              <li key={l.href}>
-                <Link href={l.href} onClick={() => setOpen(false)}>
+              <li key={l.label}>
+                <Link href={l.href} aria-current={current(l.href)} onClick={() => setOpen(false)}>
                   {l.label}
                 </Link>
               </li>

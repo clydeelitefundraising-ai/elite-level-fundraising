@@ -63,7 +63,7 @@ const TOPICS = [
   {
     title: "Privacy & security",
     items: [
-      { q: "What data do you collect?", a: "For a demo request: name, school or organization, role, email, and anything written in the optional message field. Details are in the Trust Center." },
+      { q: "What data do you collect?", a: "For a demo request: name, school or organization, role, email, and anything written in the optional message field. For a Community Partner inquiry: your business name, contact details and message. If you unlock the sample fundraiser: your name, email and whether you chose to receive product emails. Details are in the Trust Center." },
       { q: "Do you sell or share data with third parties for marketing?", a: "No. Submissions are stored in our database and are not shared with third parties for marketing purposes." },
       { q: "Where can I read your security and privacy practices?", a: "The Trust Center covers security, privacy, accessibility, and data protection in plain language." },
     ],
@@ -71,7 +71,7 @@ const TOPICS = [
   {
     title: "Pricing & demos",
     items: [
-      { q: "What does it cost?", a: "Pricing is tailored to your program and depends on factors like roster size, which modules you use, and whether you're a single team or a full athletic department. The Pricing page has details, and a demo gets you an accurate number." },
+      { q: "What does it cost?", a: "The ELF Team App is free for every team, with no fundraiser required. Pricing for ELF Fundraising is tailored to your program and depends on factors like roster size, which features you use, and whether you're a single team or a full athletic department. The Pricing page has details, and a demo gets you an accurate number." },
       { q: "What happens during a demo?", a: "We walk through the platform using your sport and program as the example, and answer questions before you commit to anything. No commitment, about 20 minutes." },
       { q: "Is there a contract or minimum commitment to book a demo?", a: "No — booking a demo is simply a conversation. Any commitment happens later, and only if it's a fit." },
     ],

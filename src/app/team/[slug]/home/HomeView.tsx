@@ -253,7 +253,7 @@ export function UpcomingEventRow({ ev, onOpen }: { ev: CalendarEventRow; onOpen:
 // a circular module dependency between the two files. Same flat-row
 // treatment (category badge, timestamp, title, author), reusing
 // CATEGORY_STYLE/relativeTime already defined above in this file.
-function MobileActivityRow({ a }: { a: AnnouncementRow }) {
+export function MobileActivityRow({ a }: { a: AnnouncementRow }) {
   const cat = CATEGORY_STYLE[a.category] ?? CATEGORY_STYLE["team"];
   return (
     <div className="elf-list-row">
@@ -284,7 +284,7 @@ function MobileActivityRow({ a }: { a: AnnouncementRow }) {
 // remains discoverable, but drops the alarming red badge when there's
 // nothing pending. Flat list row, not a floating card — an approvals
 // count is a status line, not content that needs its own visual grouping.
-function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
+export function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
   const hasPending = count > 0;
   return (
     <a
@@ -335,7 +335,7 @@ function RequestsEntryCard({ slug, count }: { slug: string; count: number }) {
  *  here — still the exact values page.tsx already computes (including
  *  the dynamic display-goal logic) — and play no part in whether this
  *  component is mounted. */
-function FundraiserSnapshot({
+export function FundraiserSnapshot({
   slug,
   raisedCents,
   goalCents,

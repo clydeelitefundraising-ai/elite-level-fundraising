@@ -11,6 +11,7 @@ import { consumeRateLimit, getClientIp, rateLimitKey } from "@/lib/rateLimit";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_FIELD = 200;
 const MAX_MESSAGE = 2000;
+const PARTNER_ROLE = "Local business (Community Partner inquiry)";
 
 interface DemoRequestRow {
   id: string;
@@ -45,18 +46,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Community Partner inquiries from /sponsors share this endpoint and the
+  // marketing requests inbox: the business name is stored in school_name,
+  // the team(s) to support in sport_program, an optional phone number is
+  // kept with the message, and the role is fixed server-side. No schema
+  // change, and no confirmation email to a visitor-typed address.
+  const isPartner = body.inquiryType === "partner";
+
   const firstName = clean(body.firstName, MAX_FIELD);
   const lastName = clean(body.lastName, MAX_FIELD);
   const schoolName = clean(body.schoolName, MAX_FIELD);
   const sportProgram = clean(body.sportProgram, MAX_FIELD);
   const email = clean(body.email, MAX_FIELD);
-  const role = clean(body.role, MAX_FIELD);
-  const message = clean(body.message, MAX_MESSAGE);
+  const role = isPartner ? PARTNER_ROLE : clean(body.role, MAX_FIELD);
+  const phone = isPartner ? clean(body.phone, 40) : "";
+  const rawMessage = clean(body.message, MAX_MESSAGE);
+  const message = phone ? `Phone: ${phone}${rawMessage ? `\n\n${rawMessage}` : ""}` : rawMessage;
 
   const errors: Record<string, string> = {};
   if (!firstName) errors.firstName = "First name is required.";
   if (!lastName) errors.lastName = "Last name is required.";
-  if (!schoolName) errors.schoolName = "School or organization name is required.";
+  if (!schoolName) errors.schoolName = isPartner ? "Business name is required." : "School or organization name is required.";
   if (!role) errors.role = "Please select your role.";
   if (!email) errors.email = "Email address is required.";
   else if (!EMAIL_RE.test(email)) errors.email = "Enter a valid email address.";
@@ -99,6 +109,7 @@ export async function POST(req: NextRequest) {
         email,
         role,
         message: message || null,
+        kind: isPartner ? "partner" : "demo",
       });
     } catch (err) {
       console.error("[demo-request] notification email failed:", err);
@@ -107,10 +118,12 @@ export async function POST(req: NextRequest) {
     console.error("[demo-request] DEMO_NOTIFICATION_EMAIL is not set — skipping notification email");
   }
 
-  try {
-    await sendDemoRequestConfirmation({ to: email, firstName });
-  } catch (err) {
-    console.error("[demo-request] confirmation email failed:", err);
+  if (!isPartner) {
+    try {
+      await sendDemoRequestConfirmation({ to: email, firstName });
+    } catch (err) {
+      console.error("[demo-request] confirmation email failed:", err);
+    }
   }
 
   return NextResponse.json({ ok: true, id: inserted[0]?.id });

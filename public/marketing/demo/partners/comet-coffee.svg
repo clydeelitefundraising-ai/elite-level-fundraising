@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 176" role="img" aria-label="COMET COFFEE CO. logo (fictional business)">
+  <title>COMET COFFEE CO. logo (fictional business)</title>
+  <g transform="translate(100 66) scale(1.3) translate(-100 -58)">
+    <circle cx="100" cy="58" r="46" fill="#6B3E26"/>
+    <g transform="translate(70 28) scale(.6)" color="#6B3E26"><path d="M30 42 h40 v22 a20 20 0 0 1 -40 0 Z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/><path d="M70 48 a10 10 0 0 1 0 18" fill="none" stroke="#fff" stroke-width="6"/><path d="M40 22 c-6 8 6 10 0 18 M54 22 c-6 8 6 10 0 18" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/></g>
+  </g>
+  <text x="100" y="166" text-anchor="middle" font-family="'Arial Black', Impact, Arial, sans-serif" font-weight="900" font-size="34" letter-spacing="1" fill="#56321e">COMET</text>
+</svg>
