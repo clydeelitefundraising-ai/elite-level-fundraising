@@ -50,9 +50,10 @@ export default function MarketingPage() {
         <div className="mk-container mk-hm-hero-inner">
           <div className="mk-hm-hero-copy">
             <span className="mk-dash-eyebrow mk-dash-eyebrow-on-dark">Fund the season</span>
+            <p className="mk-hm-credibility">Built by coaches. For coaches.</p>
             <h1 id="mk-hm-title" className="mk-hm-hero-title">
-              <span className="mk-hm-line">More for your team.</span>{" "}
-              <span className="mk-hm-line">Less on your plate.</span>
+              Fundraising and team management.{" "}
+              <span className="mk-hm-nowrap">Done right.</span>
             </h1>
             <span className="mk-hm-hero-rule" aria-hidden="true" />
             <p>

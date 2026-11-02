@@ -140,7 +140,7 @@ test("homepage: five sections — photo hero, two solutions, product proof, thre
   const copy = code(page);
   assert.equal((copy.match(/<section /g) ?? []).length, 5, "five sections");
   // Hero.
-  assert.match(copy, /<span className="mk-hm-line">More for your team\.<\/span>\{" "\}\s*<span className="mk-hm-line">Less on your plate\.<\/span>/);
+  assert.match(copy, /<span className="mk-dash-eyebrow mk-dash-eyebrow-on-dark">Fund the season<\/span>\s*<p className="mk-hm-credibility">Built by coaches\. For coaches\.<\/p>\s*<h1 id="mk-hm-title" className="mk-hm-hero-title">\s*Fundraising and team management\.\{" "\}\s*<span className="mk-hm-nowrap">Done right\.<\/span>\s*<\/h1>/);
   assert.match(copy, /Raise more for your program and keep coaches, athletes and parents connected\. ELF\s+combines powerful fundraising with a free team management app\./);
   assert.match(copy, /<span className="mk-dash-eyebrow mk-dash-eyebrow-on-dark">Fund the season<\/span>/);
   // Two solutions.
