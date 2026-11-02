@@ -3,7 +3,7 @@
 // Identical to the real component except its import lines (see that script).
 
 import Link from "./DemoLink";
-import { CalendarCheck } from "lucide-react";
+import { BarChart3, CalendarCheck } from "lucide-react";
 import styles from "@/app/team/[slug]/team/Team.module.css";
 
 // Team Management Phase 5-5 — the roster header's secondary action, next
@@ -15,6 +15,17 @@ export default function TakeAttendanceLink({ href, size = "sm" }: { href: string
     <Link href={href} className={`${styles.takeAttendance} ${size === "md" ? styles.takeAttendanceMd : ""} elf-focus-ring`}>
       <CalendarCheck size={size === "md" ? 16 : 15} aria-hidden="true" />
       Take Attendance
+    </Link>
+  );
+}
+
+// Attendance Reports — beside Take Attendance, same secondary style.
+// "Reports" on the compact (phone) header, spelled out on desktop.
+export function AttendanceReportsLink({ href, size = "sm" }: { href: string; size?: "sm" | "md" }) {
+  return (
+    <Link href={href} aria-label="Attendance Reports" className={`${styles.takeAttendance} ${size === "md" ? styles.takeAttendanceMd : ""} elf-focus-ring`}>
+      <BarChart3 size={size === "md" ? 16 : 15} aria-hidden="true" />
+      {size === "md" ? "Attendance Reports" : "Reports"}
     </Link>
   );
 }

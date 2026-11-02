@@ -14,7 +14,7 @@ import RosterTabs from "./RosterTabs";
 import OverviewView from "./OverviewView";
 import TeamStaffRosterView from "./TeamStaffRosterView";
 import TodoListView from "./TodoListView";
-import { takeAttendanceHref } from "./takeAttendance";
+import { attendanceReportsHref, takeAttendanceHref } from "./takeAttendance";
 import { canPreviewSeason, isSeasonPreviewEnabled } from "@/lib/seasonPreview";
 import CompleteSeasonEntry from "./complete-season/CompleteSeasonEntry";
 import { ActiveSeasonOnly } from "../_components/SeasonStatus";
@@ -104,6 +104,7 @@ export default async function TeamPage({
               outreachMap={outreachMap}
               linkedAthleteIds={linkedAthleteIds}
               attendanceHref={takeAttendanceHref(slug, actor)}
+              reportsHref={attendanceReportsHref(slug, actor)}
             />
           }
           staff={<TeamStaffRosterView slug={slug} />}

@@ -243,9 +243,11 @@ test("Phase 1 adds no attendance functionality", () => {
   assert.doesNotMatch(withoutComments(tabsComponent), /attendance/i);
   // Phase 5-5 added only the Take Attendance link (an href decided on the
   // server, see takeAttendance.ts) — no attendance data, fetches or calls.
+  // Attendance Reports added its link the same way (reportsHref).
   const linkOnly = (code: string) => withoutComments(code)
-    .replace(/import TakeAttendanceLink from "\.\/TakeAttendanceLink";/g, "")
+    .replace(/import TakeAttendanceLink, \{ AttendanceReportsLink \} from "\.\/TakeAttendanceLink";/g, "")
     .replace(/<TakeAttendanceLink href=\{attendanceHref\}( size="md")? \/>/g, "")
+    .replace(/<AttendanceReportsLink href=\{reportsHref\}( size="md")? \/>/g, "")
     .replace(/\battendanceHref\b/g, "");
   for (const code of [mobileGrid, desktopTable]) assert.doesNotMatch(linkOnly(code), /attendance/i);
 });

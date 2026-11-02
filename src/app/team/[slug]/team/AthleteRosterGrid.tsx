@@ -18,7 +18,7 @@ import GradeTabs, { gradeTabId, gradeTabPanelId } from "./GradeTabs";
 import type { TeamActor } from "@/lib/permissions";
 import { canViewAthleteProfile } from "@/lib/athleteAccess";
 import CoachBar from "../_components/CoachBar";
-import TakeAttendanceLink from "./TakeAttendanceLink";
+import TakeAttendanceLink, { AttendanceReportsLink } from "./TakeAttendanceLink";
 import styles from "./Team.module.css";
 import type { AthleteRosterState } from "./useAthleteRoster";
 
@@ -153,12 +153,15 @@ export default function AthleteRosterGrid({
   actor,
   linkedAthleteIds = [],
   attendanceHref = null,
+  reportsHref = null,
 }: {
   slug: string;
   roster: AthleteRosterState;
   // Phase 5-5: Take Attendance (takeAttendanceHref, decided on the server);
   // null hides it.
   attendanceHref?: string | null;
+  // Attendance Reports (attendanceReportsHref, on the server); null hides it.
+  reportsHref?: string | null;
   // The Requests Center (/team/[slug]/requests) is the canonical place to
   // review/approve pending athlete requests — this is only a small
   // contextual pointer, not the approval workflow itself.
@@ -283,6 +286,7 @@ export default function AthleteRosterGrid({
           )}
           <div className={styles.rosterHeaderActions}>
             {attendanceHref && !seasonReadOnly && <TakeAttendanceLink href={attendanceHref} />}
+            {reportsHref && <AttendanceReportsLink href={reportsHref} />}
             <CoachBar show={staffMode} label="Add Athlete" onAdd={openAdd} />
           </div>
         </div>
