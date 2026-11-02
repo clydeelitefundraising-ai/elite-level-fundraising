@@ -27,8 +27,8 @@ const STRIPE = rgb(0.965, 0.97, 0.975);
 type Column = { label: string; width: number; align: "left" | "right"; value: (c: Counts & { name?: string; classYear?: string | null }) => string };
 
 const COLUMNS: Column[] = [
-  { label: "Athlete", width: 150, align: "left", value: c => c.name ?? "" },
-  { label: "Grade", width: 52, align: "left", value: c => c.classYear ?? "" },
+  { label: "Athlete", width: 140, align: "left", value: c => c.name ?? "" },
+  { label: "Grade", width: 62, align: "left", value: c => c.classYear ?? "" },
   { label: "Present", width: 44, align: "right", value: c => String(c.present) },
   { label: "Absent", width: 42, align: "right", value: c => String(c.absent) },
   { label: "Excused", width: 46, align: "right", value: c => String(c.excused) },

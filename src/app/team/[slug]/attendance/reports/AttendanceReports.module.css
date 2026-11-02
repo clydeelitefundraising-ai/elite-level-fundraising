@@ -208,6 +208,19 @@
 }
 .sessionSummary::-webkit-details-marker { display: none; }
 .sessionDate { font-weight: 700; color: #0b1e3d; font-size: .88rem; }
+/* Expand indicator: points right when closed, down when open. */
+.sessionDate::before {
+  content: "";
+  display: inline-block;
+  width: .4rem;
+  height: .4rem;
+  margin: 0 .55rem .1rem .1rem;
+  border-right: 2px solid #9ca3af;
+  border-bottom: 2px solid #9ca3af;
+  transform: rotate(-45deg);
+  transition: transform .15s;
+}
+details[open] > .sessionSummary .sessionDate::before { transform: rotate(45deg); }
 .sessionCounts { display: flex; flex-wrap: wrap; gap: .25rem .7rem; font-size: .8rem; color: var(--text-secondary-app); }
 .cellList { list-style: none; margin: 0 0 .6rem; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
 .cell { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .82rem; }
