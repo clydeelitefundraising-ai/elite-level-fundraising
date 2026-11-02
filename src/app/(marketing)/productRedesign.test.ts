@@ -66,7 +66,7 @@ test("/how-it-works: the short redesign — hero, three steps, closing CTA, appr
   assert.ok(!/Riverside|\/marketing\/(campaign-hero|leaderboard|sponsors|communications)\.png/.test(page));
   // Accuracy: free, self-service team setup; fundraising set up with ELF; a
   // demo is optional, never required; no invented numbers.
-  assert.match(page, /Free for every team &middot; No fundraiser required/);
+  assert.match(page, /<span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team<\/span>\{" "\}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;<\/span>\{" "\}<span>No fundraiser required<\/span><\/span>/);
   assert.match(page, /const SIGNUP_URL = teamAppLoginUrl\([\s\S]*?\.replace\(\/\\\/login\$\/, "\/signup"\);/);
   assert.match(page, /<LinkButton href=\{SIGNUP_URL\} size="lg">Create Your Free Team<\/LinkButton>/);
   assert.match(copy, /Prefer a guided walkthrough\? <a href="\/demo">Book a free demo<\/a>\./);
@@ -142,7 +142,7 @@ test("homepage: five sections — photo hero, two solutions, product proof, thre
   // Hero.
   assert.match(copy, /<span className="mk-hm-line">More for your team\.<\/span>\{" "\}\s*<span className="mk-hm-line">Less on your plate\.<\/span>/);
   assert.match(copy, /Raise more for your program and keep coaches, athletes and parents connected\. ELF\s+combines powerful fundraising with a free team management app\./);
-  assert.match(copy, /<span className="mk-hm-signature">Fund the season<\/span>/);
+  assert.match(copy, /<span className="mk-dash-eyebrow mk-dash-eyebrow-on-dark">Fund the season<\/span>/);
   // Two solutions.
   assert.match(copy, /One mission\. Two ways to move your program forward\./);
   assert.match(copy, /Raise more\. Give every athlete a role\./);
@@ -172,6 +172,22 @@ test("homepage: five sections — photo hero, two solutions, product proof, thre
   assert.ok(!/Built for the whole program|athletics-build-better-people|give-them-the-season|Riverside/.test(copy));
   assert.ok(!copy.includes("/sponsors"), "Community Partners reached through the nav and footer only");
   assert.match(read("src/components/marketing/MarketingNav.tsx"), /href: "\/sponsors"/);
+});
+
+test("eyebrow labels: one shared orange-dash style (the homepage's 'Fund the season'); no yellow pill remains", () => {
+  const css = read("src/app/marketing-product.css");
+  assert.ok(!/mk-free-pill/.test(css) && !/mk-hm-signature/.test(css), "old pill and homepage-only label styles removed");
+  const rule = css.match(/\.mk-dash-eyebrow \{([^}]*)\}/)![1];
+  for (const d of ["font-weight: 700", "letter-spacing: 0.16em", "text-transform: uppercase", "white-space: nowrap", "font-size: var(--mk-text-xs)"]) assert.ok(rule.includes(d), d);
+  assert.ok(!/background|border-radius|padding/.test(rule), "no fill, pill or padding");
+  assert.match(css, /\.mk-dash-eyebrow::before \{ content: ""; flex: 0 0 22px; height: 2px; background: var\(--mk-orange\); \}/);
+  // The two-part label stacks into two lines on narrow phones instead of overflowing.
+  assert.match(css, /@media \(max-width: 540px\) \{\n  \.mk-dash-eyebrow-split \{ display: inline-grid;[\s\S]*?\.mk-dash-eyebrow-split \.mk-dash-eyebrow-sep \{ display: none; \}/);
+  const files = execSync(`git ls-files "${MK}" src/components/marketing src/app/MarketingPage.tsx`, { cwd: ROOT }).toString().trim().split("\n").filter((f) => f.endsWith(".tsx"));
+  for (const f of files) assert.ok(!read(f).includes("mk-free-pill"), f);
+  for (const f of [`${MK}/product/page.tsx`, `${MK}/how-it-works/page.tsx`]) {
+    assert.match(read(f), /<span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team<\/span>\{" "\}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;<\/span>\{" "\}<span>No fundraiser required<\/span><\/span>/, f);
+  }
 });
 
 test("homepage accuracy: free team self-service, fundraising activated with ELF; no invented numbers or claims", () => {
@@ -270,7 +286,7 @@ test("/product is now the free Team App page with the simulator", () => {
   const page = read(`${MK}/product/page.tsx`);
   assert.match(page, /<h1 id="mk-phero-title" className="mk-fhero-title">\s*One team\. One app\.<br \/> Everything connected\.\s*<\/h1>/);
   assert.match(page, /Bring coaches, athletes and parents together with messaging, schedules, attendance and\s+team updates &mdash; all in one free app\./);
-  assert.match(page, /Free for every team &middot; No fundraiser required/);
+  assert.match(page, /<span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team<\/span>\{" "\}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;<\/span>\{" "\}<span>No fundraiser required<\/span><\/span>/);
   assert.match(page, /<section id="simulator"/);
   assert.match(page, /<TeamAppSimulator \/>/);
   assert.match(page, /<StoreBadges \/>/);

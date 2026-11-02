@@ -179,17 +179,33 @@
 .mk-product-hero h1 { font-size: var(--mk-text-5xl); }
 .mk-product-hero .mk-store-badges { margin-top: var(--mk-space-8); }
 .mk-hero-shot { margin: 0; }
-.mk-free-pill {
-  display: inline-block;
-  margin-bottom: var(--mk-space-4);
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--mk-yellow);
-  color: var(--mk-yellow-ink);
+/* Dash eyebrow — the shared marketing label: a short orange dash, then
+   small Inter 700 uppercase text with wide tracking (the homepage's "Fund
+   the season"). Dark text on white/cream; .mk-dash-eyebrow-on-dark for
+   photo and black backgrounds. Kept on one line. */
+.mk-dash-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mk-space-3);
+  margin-bottom: var(--mk-space-2);
   font-size: var(--mk-text-xs);
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
   text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--mk-ink);
+}
+.mk-dash-eyebrow::before { content: ""; flex: 0 0 22px; height: 2px; background: var(--mk-orange); }
+.mk-dash-eyebrow-on-dark { color: rgba(255,255,255,0.86); }
+/* Two-part labels ("Free for every team · No fundraiser required") stay on
+   one line where they fit; on narrow phones the parts stack as two clean
+   lines, the dash beside the first, instead of overflowing. */
+@media (max-width: 540px) {
+  .mk-dash-eyebrow-split { display: inline-grid; grid-template-columns: 22px auto; gap: 4px var(--mk-space-3); align-items: start; }
+  .mk-dash-eyebrow-split::before { margin-top: 0.6em; }
+  .mk-dash-eyebrow-split > span { grid-column: 2; }
+  .mk-dash-eyebrow-split .mk-dash-eyebrow-sep { display: none; }
 }
 .mk-app-hero-points { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--mk-space-4); }
 .mk-app-hero-points li { display: grid; gap: 2px; padding: var(--mk-space-5) var(--mk-space-6); background: var(--mk-ink); color: #fff; border-radius: 6px; border-left: 6px solid var(--mk-orange); }
@@ -607,7 +623,6 @@
 /* Hero: the real fundraising page with the real Coach Home in front of it. */
 .mk-hiw-hero .mk-fhero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); align-items: center; }
 .mk-root .mk-hiw-hero .mk-fhero-title { font-size: clamp(2.6rem, 4.4vw, 4.25rem); max-width: 13ch; }
-.mk-hiw-hero .mk-free-pill { margin-bottom: var(--mk-space-5); }
 .mk-hiw-visual { margin: 0; min-width: 0; }
 .mk-hiw-stage { position: relative; padding: 0 0 20% 0; }
 .mk-hiw-browser { width: 90%; }
@@ -852,9 +867,7 @@
 }
 .mk-hm-hero-inner { position: relative; z-index: 2; width: 100%; display: flex; align-items: flex-end; padding-top: calc(var(--mk-nav-height) + var(--mk-space-16)); padding-bottom: var(--mk-space-20); }
 .mk-hm-hero-copy { max-width: 920px; }
-.mk-hm-signature { display: inline-flex; align-items: center; gap: var(--mk-space-3); font-size: var(--mk-text-xs); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.86); }
-.mk-hm-signature::before { content: ""; width: 22px; height: 2px; background: var(--mk-orange); }
-.mk-root .mk-hm-hero-title { font-family: inherit; font-size: clamp(2.75rem, 5vw, 5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; text-transform: none; color: #fff; margin: var(--mk-space-4) 0 0; }
+.mk-root .mk-hm-hero-title { font-family: inherit; font-size: clamp(2.75rem, 5vw, 5rem); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; text-transform: none; color: #fff; margin: var(--mk-space-2) 0 0; }
 .mk-hm-line { display: block; }
 .mk-hm-hero-rule { display: block; width: 68px; height: 7px; background: var(--mk-orange); margin: var(--mk-space-6) 0; }
 .mk-root .mk-hm-hero-copy p { font-size: 1.25rem; line-height: 1.5; color: rgba(255,255,255,0.88); max-width: 34em; margin: 0; }

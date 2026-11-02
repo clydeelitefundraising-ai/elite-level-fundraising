@@ -55,7 +55,7 @@ export default function HowItWorksPage() {
       <section className="mk-fhero mk-hiw-hero" aria-labelledby="mk-hiw-title">
         <div className="mk-container mk-fhero-grid">
           <div className="mk-fhero-copy">
-            <span className="mk-free-pill">Free for every team &middot; No fundraiser required</span>
+            <span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team</span>{" "}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;</span>{" "}<span>No fundraiser required</span></span>
             <h1 id="mk-hiw-title" className="mk-fhero-title">
               Everything your team needs. Nothing it doesn&rsquo;t.
             </h1>

@@ -43,7 +43,7 @@ export default function TeamAppPage() {
       <section className="mk-fhero mk-phero" aria-labelledby="mk-phero-title">
         <div className="mk-container mk-fhero-grid">
           <div className="mk-fhero-copy">
-            <span className="mk-free-pill">Free for every team &middot; No fundraiser required</span>
+            <span className="mk-dash-eyebrow mk-dash-eyebrow-split"><span>Free for every team</span>{" "}<span className="mk-dash-eyebrow-sep" aria-hidden="true">&middot;</span>{" "}<span>No fundraiser required</span></span>
             <h1 id="mk-phero-title" className="mk-fhero-title">
               One team. One app.<br /> Everything connected.
             </h1>

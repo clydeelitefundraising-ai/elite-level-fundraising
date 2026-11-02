@@ -49,7 +49,7 @@ export default function MarketingPage() {
         </div>
         <div className="mk-container mk-hm-hero-inner">
           <div className="mk-hm-hero-copy">
-            <span className="mk-hm-signature">Fund the season</span>
+            <span className="mk-dash-eyebrow mk-dash-eyebrow-on-dark">Fund the season</span>
             <h1 id="mk-hm-title" className="mk-hm-hero-title">
               <span className="mk-hm-line">More for your team.</span>{" "}
               <span className="mk-hm-line">Less on your plate.</span>
