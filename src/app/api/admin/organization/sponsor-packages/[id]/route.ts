@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/adminAuth";
+import { organizationIdParam } from "@/lib/organizationCenter";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,14 @@ async function authed() {
   return verifyToken(store.get("elf_admin")?.value);
 }
 
+// A package is changed or removed only within the school it belongs to:
+// both the package id AND ?organizationId=<uuid> must match, so a package
+// id can never reach another school's packages.
+function scope(id: string, orgId: string) {
+  return `id=eq.${encodeURIComponent(id)}&organization_id=eq.${orgId}`;
+}
+
+// PUT /api/admin/organization/sponsor-packages/<id>?organizationId=<uuid>
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -23,41 +32,40 @@ export async function PUT(
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { name, tier, description, amount_cents, sort_order } = await req.json() as {
+  const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
+  if (!orgId) return NextResponse.json({ error: "Choose a school." }, { status: 400 });
+  const { name, tier, description, amount_cents, sort_order } = (await req.json().catch(() => ({}))) as {
     name?: string; tier?: string; description?: string; amount_cents?: number; sort_order?: number;
   };
 
-  const res = await fetch(`${BASE}/rest/v1/sponsor_packages?id=eq.${encodeURIComponent(id)}`, {
+  const res = await fetch(`${BASE}/rest/v1/sponsor_packages?${scope(id, orgId)}&select=id`, {
     method:  "PATCH",
-    headers: h({ Prefer: "return=minimal" }),
+    headers: h({ Prefer: "return=representation" }),
     body:    JSON.stringify({ name, tier, description, amount_cents, sort_order }),
   });
 
-  if (!res.ok) {
-    const msg = await res.text();
-    return NextResponse.json({ error: `Update failed: ${msg}` }, { status: 500 });
-  }
-
+  if (!res.ok) return NextResponse.json({ error: "Update failed." }, { status: 500 });
+  if ((await res.json()).length === 0) return NextResponse.json({ error: "Package not found for this school." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 
+// DELETE /api/admin/organization/sponsor-packages/<id>?organizationId=<uuid>
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
+  if (!orgId) return NextResponse.json({ error: "Choose a school." }, { status: 400 });
 
-  const res = await fetch(`${BASE}/rest/v1/sponsor_packages?id=eq.${encodeURIComponent(id)}`, {
+  const res = await fetch(`${BASE}/rest/v1/sponsor_packages?${scope(id, orgId)}&select=id`, {
     method:  "DELETE",
-    headers: h({ Prefer: "return=minimal" }),
+    headers: h({ Prefer: "return=representation" }),
   });
 
-  if (!res.ok) {
-    const msg = await res.text();
-    return NextResponse.json({ error: `Delete failed: ${msg}` }, { status: 500 });
-  }
-
+  if (!res.ok) return NextResponse.json({ error: "Delete failed." }, { status: 500 });
+  if ((await res.json()).length === 0) return NextResponse.json({ error: "Package not found for this school." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

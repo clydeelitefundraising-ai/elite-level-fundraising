@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { organizationLabel } from "@/lib/organizationCenter";
 import type { OrgRow, CommunicationTemplate, SponsorPackage } from "./page";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,9 +35,12 @@ type TemplateState = { type: string; subject: string; body_text: string };
 type NewPkg = { name: string; tier: string; description: string; amount_cents: number };
 
 type Props = {
-  org:       OrgRow | null;
+  // Always one explicit school (page.tsx resolves ?school=<id>).
+  org:       OrgRow;
   templates: CommunicationTemplate[];
   packages:  SponsorPackage[];
+  /** Team-seasons linked to this school, or null if the count failed. */
+  linkedTeamCount?: number | null;
 };
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -137,7 +142,7 @@ function Toggle({ label, desc, checked, onChange }: { label: string; desc?: stri
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function OrganizationView({ org, templates: initialTemplates, packages: initialPackages }: Props) {
+export default function OrganizationView({ org, templates: initialTemplates, packages: initialPackages, linkedTeamCount = null }: Props) {
   const [tab, setTab] = useState(0);
 
   // Profile state
@@ -204,7 +209,7 @@ export default function OrganizationView({ org, templates: initialTemplates, pac
       const res = await fetch("/api/admin/organization", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, organizationId: org.id }),
       });
       const d = await res.json() as { error?: string };
       if (!res.ok) { setMsg(d.error ?? "Save failed."); return; }
@@ -224,7 +229,7 @@ export default function OrganizationView({ org, templates: initialTemplates, pac
       const res = await fetch("/api/admin/organization/templates", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(t),
+        body: JSON.stringify({ ...t, organizationId: org.id }),
       });
       const d = await res.json() as { error?: string };
       const msg = !res.ok ? (d.error ?? "Save failed.") : "Saved!";
@@ -245,7 +250,7 @@ export default function OrganizationView({ org, templates: initialTemplates, pac
       const res = await fetch("/api/admin/organization/sponsor-packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newPkg, sort_order: packages.length }),
+        body: JSON.stringify({ ...newPkg, sort_order: packages.length, organizationId: org.id }),
       });
       const d = await res.json() as SponsorPackage & { error?: string };
       if (!res.ok) { setPkgMsg(d.error ?? "Failed to add."); return; }
@@ -259,7 +264,7 @@ export default function OrganizationView({ org, templates: initialTemplates, pac
   }
 
   async function deletePackage(id: string) {
-    const res = await fetch(`/api/admin/organization/sponsor-packages/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin/organization/sponsor-packages/${encodeURIComponent(id)}?organizationId=${org.id}`, { method: "DELETE" });
     if (res.ok) setPackages(p => p.filter(x => x.id !== id));
   }
 
@@ -267,6 +272,21 @@ export default function OrganizationView({ org, templates: initialTemplates, pac
 
   return (
     <div style={{ padding: "1.75rem 2rem", maxWidth: 860 }}>
+
+      {/* The one school being edited — every save below applies to it only. */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: ".5rem 1rem", marginBottom: "1.25rem" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: ".72rem", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", color: "#86868b" }}>Editing school</div>
+          <h1 style={{ margin: ".15rem 0 0", fontSize: "1.2rem", fontWeight: 700, color: "#1d1d1f", overflowWrap: "anywhere" }}>{organizationLabel(org)}</h1>
+          <div style={{ fontSize: ".78rem", color: "#6e6e73", marginTop: ".2rem" }}>
+            {org.slug}
+            {linkedTeamCount !== null && <> · {linkedTeamCount} linked team-season{linkedTeamCount === 1 ? "" : "s"}</>}
+          </div>
+        </div>
+        <Link href="/admin/organization" style={{ fontSize: ".85rem", fontWeight: 600, color: "#0071e3", textDecoration: "none" }}>
+          Change school
+        </Link>
+      </div>
 
       {/* Tab bar */}
       <div style={{ display: "flex", gap: ".25rem", marginBottom: "1.75rem", background: "#f5f5f7", padding: ".25rem", borderRadius: 10, width: "fit-content" }}>
