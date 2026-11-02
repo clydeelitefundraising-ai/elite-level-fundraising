@@ -1,6 +1,6 @@
 /* Attendance Reports — same tokens and card language as the attendance
    screen (Attendance.module.css). Phones: stacked filters, two-column stat
-   grid, athlete cards. 640px+: the athlete table. */
+   grid, athlete cards. 768px+: the athlete table. */
 
 .screen {
   width: 100%;
@@ -239,6 +239,10 @@ details[open] > .sessionSummary .sessionDate::before { transform: rotate(45deg);
   .fieldWide { grid-column: auto; }
   .statGrid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .downloads { display: flex; flex-wrap: wrap; }
+}
+
+/* The athlete table (nine columns with View Absences) from 768px; cards below. */
+@media (min-width: 768px) {
   .table { display: table; }
   .athleteCards { display: none; }
 }
@@ -246,4 +250,50 @@ details[open] > .sessionSummary .sessionDate::before { transform: rotate(45deg);
 @media (min-width: 1024px) {
   .summary { grid-template-columns: minmax(220px, 1fr) 3fr; align-items: stretch; }
   .rateCard { justify-content: center; }
+}
+
+/* ── View Absences (per athlete) ── */
+.absToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 44px;
+  margin-top: .15rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0b1e3d;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.absChevron {
+  display: inline-block;
+  width: .38rem;
+  height: .38rem;
+  border-right: 2px solid #9ca3af;
+  border-bottom: 2px solid #9ca3af;
+  transform: rotate(-45deg);
+  transition: transform .15s;
+}
+.absChevronOpen { transform: rotate(45deg); }
+.absCell { text-align: right; width: 1%; }
+/* Tablets: the label wraps to two lines so the table fits; one line once
+   there's room. */
+.absCell .absToggle { max-width: 6.2rem; text-align: left; line-height: 1.2; }
+@media (min-width: 1024px) { .absCell .absToggle { max-width: none; white-space: nowrap; } }
+.table td.absCell { padding-top: 0; padding-bottom: 0; vertical-align: middle; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.absenceRow td { background: #fafafa; padding-top: .35rem; }
+.absList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.absItem { display: flex; justify-content: space-between; align-items: center; gap: .6rem; font-size: .82rem; }
+.absDate { color: #0b1e3d; font-weight: 600; font-variant-numeric: tabular-nums; }
+.absEmpty { margin: 0; font-size: .8rem; color: var(--text-secondary-app); }
+
+@media (min-width: 640px) {
+  .absList { flex-direction: row; flex-wrap: wrap; gap: .4rem .9rem; }
+  .absItem { justify-content: flex-start; }
 }

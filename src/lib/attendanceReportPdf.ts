@@ -2,9 +2,18 @@
 // or images fetched). Built from the same AttendanceReport as the screen
 // and the CSV. US Letter portrait: title block (team, sport, season, date
 // range), summary statistics, the percentage definition, then the athlete
-// table — its header repeated on every page — and "Page X of Y" footers.
+// table — its header repeated on every page — then Absence Details (every
+// saved absence date and reason, per athlete) and "Page X of Y" footers.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { formatPercent, PERCENT_DEFINITION, type AttendanceReport, type Counts } from "./attendanceReport.ts";
+import {
+  ABSENCE_LABELS,
+  NO_ABSENCES_TEXT,
+  PERCENT_DEFINITION,
+  formatPercent,
+  formatReportDate,
+  type AttendanceReport,
+  type Counts,
+} from "./attendanceReport.ts";
 
 export type ReportPdfMeta = {
   schoolName: string;
@@ -172,6 +181,59 @@ export async function buildAttendancePdf(report: AttendanceReport, meta: ReportP
   }
   report.athletes.forEach((a, i) => drawRow({ ...a }, i));
   if (report.athletes.length > 1) drawRow({ ...t, name: "Team total", classYear: "" }, report.athletes.length, true);
+
+  // ── Absence details: every saved absence, per athlete, newest first ──
+  // Same order as the athlete table; the athlete's name on their first
+  // row only. Athletes with none aren't listed (stated below the title).
+  const ABS_COLS = [
+    { label: "Athlete", width: 232 },
+    { label: "Date", width: 150 },
+    { label: "Reason", width: 150 },
+  ];
+  const absW = ABS_COLS.reduce((s, c) => s + c.width, 0);
+  const withAbsences = report.athletes.filter(a => a.absences.length > 0);
+  const drawAbsHeader = () => {
+    page.drawRectangle({ x: MARGIN, y: y - ROW_H, width: absW, height: ROW_H, color: NAVY });
+    let x = MARGIN;
+    for (const col of ABS_COLS) {
+      page.drawText(col.label, { x: x + 5, y: y - 11.5, size: 8, font: bold, color: rgb(1, 1, 1) });
+      x += col.width;
+    }
+    y -= ROW_H;
+  };
+  // Title + note + header + one row must fit, or start a new page.
+  if (y - (22 + 12 + ROW_H * 2) < MARGIN + 24) { page = newPage(); y = PAGE_H - MARGIN; } else y -= 22;
+  page.drawText("Absence Details", { x: MARGIN, y: y - 12, size: 12, font: bold, color: NAVY });
+  y -= 18;
+  const absNote = withAbsences.length === 0
+    ? NO_ABSENCES_TEXT
+    : withAbsences.length < report.athletes.length
+      ? `Newest first. Athletes not listed have no recorded absences in this period.`
+      : "Newest first.";
+  page.drawText(safe(absNote), { x: MARGIN, y: y - 8, size: 8, font: regular, color: MUTED });
+  y -= 16;
+  if (withAbsences.length > 0) {
+    drawAbsHeader();
+    let row = 0;
+    for (const a of withAbsences) {
+      a.absences.forEach((abs, j) => {
+        // The name repeats at the top of a new page.
+        let showName = j === 0;
+        if (y - ROW_H < MARGIN + 24) { page = newPage(); y = PAGE_H - MARGIN; drawAbsHeader(); showName = true; }
+        if (row % 2 === 1) page.drawRectangle({ x: MARGIN, y: y - ROW_H, width: absW, height: ROW_H, color: STRIPE });
+        const cells = [showName ? a.name : "", formatReportDate(abs.date), ABSENCE_LABELS[abs.reason]];
+        let x = MARGIN;
+        cells.forEach((text, k) => {
+          const font = k === 0 ? bold : regular;
+          page.drawText(fit(safe(text), font, 8.5, ABS_COLS[k].width - 10), { x: x + 5, y: y - 11.5, size: 8.5, font, color: NAVY });
+          x += ABS_COLS[k].width;
+        });
+        page.drawLine({ start: { x: MARGIN, y: y - ROW_H }, end: { x: MARGIN + absW, y: y - ROW_H }, thickness: 0.5, color: RULE });
+        y -= ROW_H;
+        row++;
+      });
+    }
+  }
 
   // ── Footers ──
   pages.forEach((p, i) => {

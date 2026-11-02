@@ -158,14 +158,15 @@ test("downloads carry exactly the on-screen filters", () => {
 
 // ── Layout ────────────────────────────────────────────────────────────────
 
-test("phones: stacked filters, athlete cards, 44px controls, no fixed widths; table from 640px", () => {
+test("phones: stacked filters, athlete cards, 44px controls, no fixed widths; table from 768px", () => {
   const css = readFileSync(new URL("./AttendanceReports.module.css", import.meta.url), "utf8");
   const rule = (sel: string) => new RegExp(`\\${sel} \\{([^}]*)\\}`).exec(css)?.[1] ?? "";
   assert.match(rule(".table"), /display: none/);
-  assert.match(css, /@media \(min-width: 640px\) \{[\s\S]*\.table \{ display: table; \}[\s\S]*\.athleteCards \{ display: none; \}/);
+  assert.match(css, /@media \(min-width: 768px\) \{\s*\.table \{ display: table; \}\s*\.athleteCards \{ display: none; \}/);
   for (const sel of [".input", ".downloadBtn", ".backLink", ".sessionSummary"]) assert.match(rule(sel), /min-height: 44px/, sel);
   assert.match(rule(".input"), /font-size: 1rem/, "no iOS zoom");
-  assert.doesNotMatch(css, /(^|[^-])width: \d+px/m, "no fixed pixel widths");
+  // (1px is the visually-hidden label's standard clip, not a layout width.)
+  assert.doesNotMatch(css, /(^|[^-])width: (?!1px)\d+px/m, "no fixed pixel widths");
 });
 
 test("the screen's first render is a loading state (no invented numbers before the report arrives)", () => {
@@ -174,4 +175,48 @@ test("the screen's first render is a loading state (no invented numbers before t
   }));
   assert.match(html, /Loading report…/);
   assert.doesNotMatch(html, /%/);
+});
+
+// ── View Absences ─────────────────────────────────────────────────────────
+
+test("View Absences: the on-screen list is exactly the exported list, newest first", async () => {
+  const { AbsenceList } = await import("./AttendanceReportsView.tsx");
+  const { buildAttendanceReport } = await import("@/lib/attendanceReport");
+  const { absenceDatesCell } = await import("@/lib/attendanceReportCsv");
+  const TZ = "America/Phoenix";
+  const report = buildAttendanceReport({
+    sessions: [{ id: "s1", date: "2026-10-22", timeZone: TZ }, { id: "s2", date: "2026-10-23", timeZone: TZ }, { id: "s3", date: "2026-10-24", timeZone: TZ }],
+    roster: [
+      { id: "jo", name: "Jo Junior", classYear: null, createdAt: null },
+      { id: "sam", name: "Sam Senior", classYear: null, createdAt: null },
+    ],
+    records: [
+      { sessionId: "s1", athleteId: "jo", status: "absent", absenceReason: "excused" },
+      { sessionId: "s2", athleteId: "jo", status: "absent", absenceReason: "unexcused" },
+      { sessionId: "s3", athleteId: "jo", status: "absent", absenceReason: "other" },
+      { sessionId: "s1", athleteId: "sam", status: "present", absenceReason: null },
+      { sessionId: "s2", athleteId: "sam", status: "present", absenceReason: null },
+      // s3: Sam unmarked — never an absence
+    ],
+  }, { from: "2026-10-01", to: "2026-10-31", athleteId: null, sort: "name" });
+  for (const a of report.athletes) {
+    const html = renderToStaticMarkup(createElement(AbsenceList, { absences: a.absences }));
+    const items = [...html.matchAll(/<li[^>]*><span[^>]*>([^<]+)<\/span><span[^>]*>([^<]+)<\/span><\/li>/g)].map(m => `${m[1]} – ${m[2]}`);
+    const shown = items.length ? items.join("; ") : html.replace(/<[^>]+>/g, "");
+    assert.equal(shown, absenceDatesCell(a.absences), a.name);
+  }
+  const jo = renderToStaticMarkup(createElement(AbsenceList, { absences: report.athletes[0].absences }));
+  assert.match(jo, /Oct 24, 2026.*Other.*Oct 23, 2026.*Unexcused.*Oct 22, 2026.*Excused/);
+  assert.equal(renderToStaticMarkup(createElement(AbsenceList, { absences: report.athletes[1].absences })).replace(/<[^>]+>/g, ""), "No recorded absences in this period.");
+});
+
+test("View Absences: a toggle per athlete in the table and on phone cards, 44px, accessible", () => {
+  const view = readFileSync(new URL("./AttendanceReportsView.tsx", import.meta.url), "utf8");
+  assert.match(view, /<AbsencesToggle a=\{a\} open=\{openAbsences\.has\(a\.athleteId\)\} onToggle=\{toggleAbsences\} idPrefix="t" \/>/);
+  assert.match(view, /<AbsencesToggle a=\{a\} open=\{open\} onToggle=\{onToggle\} idPrefix="c" \/>/);
+  assert.match(view, /aria-expanded=\{open\}/);
+  assert.match(view, /<td colSpan=\{9\} id=\{`t-abs-\$\{a\.athleteId\}`\}>/);
+  assert.match(view, /View Absences \(\$\{a\.absences\.length\}\)/);
+  const css = readFileSync(new URL("./AttendanceReports.module.css", import.meta.url), "utf8");
+  assert.match(/\.absToggle \{([^}]*)\}/.exec(css)?.[1] ?? "", /min-height: 44px/);
 });

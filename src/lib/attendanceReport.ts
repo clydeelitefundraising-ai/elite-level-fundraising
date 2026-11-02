@@ -82,7 +82,19 @@ export type Counts = {
   percent: number | null;
 };
 
-export type AthleteRow = { athleteId: string; name: string; classYear: string | null } & Counts;
+export type AbsenceReasonKey = "excused" | "unexcused" | "other";
+
+export const ABSENCE_LABELS: Record<AbsenceReasonKey, string> = { excused: "Excused", unexcused: "Unexcused", other: "Other" };
+
+/** One saved Absent record: the session date and its reason. */
+export type AbsenceEntry = { date: string; reason: AbsenceReasonKey };
+
+export type AthleteRow = { athleteId: string; name: string; classYear: string | null } & Counts & {
+  /** Every saved absence in the report's range, newest first — the same
+   *  cells the counts come from (never Unmarked or Not on roster yet), so
+   *  absences.length === absent. */
+  absences: AbsenceEntry[];
+};
 
 export type SessionRow = {
   sessionId: string;
@@ -185,7 +197,7 @@ export function buildAttendanceReport(input: AttendanceReportInput, filters: Rep
     saved.set(r.sessionId, bySession);
   }
 
-  const athleteCounts = new Map(reportAthletes.map(a => [a.id, { c: { ...EMPTY }, marks: [] as AttendanceMark[] }]));
+  const athleteCounts = new Map(reportAthletes.map(a => [a.id, { c: { ...EMPTY }, marks: [] as AttendanceMark[], absences: [] as AbsenceEntry[] }]));
   const teamCounts = { ...EMPTY };
   const teamMarks: AttendanceMark[] = [];
 
@@ -202,6 +214,7 @@ export function buildAttendanceReport(input: AttendanceReportInput, filters: Rep
       const ac = athleteCounts.get(a.id)!;
       tally(ac.c, status);
       if (mark) { marks.push(mark); teamMarks.push(mark); ac.marks.push(mark); }
+      if (status === "excused" || status === "unexcused" || status === "other") ac.absences.push({ date: s.date, reason: status });
       return { athleteId: a.id, status };
     });
     return { sessionId: s.id, date: s.date, counts: finish(c, marks), cells };
@@ -209,7 +222,9 @@ export function buildAttendanceReport(input: AttendanceReportInput, filters: Rep
 
   const athleteRows = sortAthleteRows(reportAthletes.map(a => {
     const ac = athleteCounts.get(a.id)!;
-    return { athleteId: a.id, name: a.name, classYear: a.classYear, ...finish(ac.c, ac.marks) };
+    const absences = [...ac.absences].sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+    if (absences.length !== ac.c.absent) throw new AttendanceReportError("absence list mismatch");
+    return { athleteId: a.id, name: a.name, classYear: a.classYear, ...finish(ac.c, ac.marks), absences };
   }), filters.sort);
   // Session cells follow the athlete table's order.
   const order = new Map(athleteRows.map((r, i) => [r.athleteId, i]));
@@ -227,6 +242,14 @@ export function buildAttendanceReport(input: AttendanceReportInput, filters: Rep
     removedRecords,
   };
 }
+
+/** "Oct 22, 2026" for a YYYY-MM-DD calendar date (no time zone shift). */
+export function formatReportDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+}
+
+export const NO_ABSENCES_TEXT = "No recorded absences in this period.";
 
 /** "92.5%" or "—" when nothing is marked. */
 export function formatPercent(percent: number | null): string {

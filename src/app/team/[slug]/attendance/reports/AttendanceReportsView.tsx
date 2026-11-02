@@ -1,10 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Download, FileText } from "lucide-react";
 import { addCalendarDays } from "@/lib/teamAttendance";
-import { CELL_LABELS, formatPercent, sortAthleteRows, type AttendanceReport, type CellStatus, type Counts } from "@/lib/attendanceReport";
+import {
+  ABSENCE_LABELS,
+  CELL_LABELS,
+  NO_ABSENCES_TEXT,
+  formatPercent,
+  formatReportDate,
+  sortAthleteRows,
+  type AbsenceEntry,
+  type AthleteRow,
+  type AttendanceReport,
+  type CellStatus,
+} from "@/lib/attendanceReport";
 import { attendancePath } from "../../team/takeAttendance";
 import { reportApiUrl, reportsPagePath, type ReportQuery, type ReportSortKey } from "./reportQuery";
 import styles from "./AttendanceReports.module.css";
@@ -59,6 +70,14 @@ export default function AttendanceReportsView({ slug, teamName, initial }: { slu
   const [query, setQuery] = useState<ReportQuery>(initial);
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [sessionsShown, setSessionsShown] = useState(SESSIONS_PAGE);
+  // Athletes whose "View Absences" list is open (the list itself always
+  // comes from the current report, so it follows the filters).
+  const [openAbsences, setOpenAbsences] = useState<ReadonlySet<string>>(new Set());
+  const toggleAbsences = (athleteId: string) => setOpenAbsences(prev => {
+    const next = new Set(prev);
+    if (next.has(athleteId)) next.delete(athleteId); else next.add(athleteId);
+    return next;
+  });
   const [attempt, setAttempt] = useState(0);
   // Dates being typed; applied when both are valid.
   const [draftFrom, setDraftFrom] = useState(initial.from ?? "");
@@ -259,11 +278,13 @@ export default function AttendanceReportsView({ slug, teamName, initial }: { slu
                       <th scope="col" className={styles.num}>Other</th>
                       <th scope="col" className={styles.num}>Unmarked</th>
                       <th scope="col" className={styles.num}>Attendance</th>
+                      <th scope="col" className={styles.absCell}><span className={styles.srOnly}>Absence dates</span></th>
                     </tr>
                   </thead>
                   <tbody>
                     {athletes.map(a => (
-                      <tr key={a.athleteId}>
+                      <Fragment key={a.athleteId}>
+                      <tr>
                         <th scope="row">
                           <span className={styles.athleteName}>{a.name}</span>
                           {a.classYear && <span className={styles.grade}>{a.classYear}</span>}
@@ -275,12 +296,23 @@ export default function AttendanceReportsView({ slug, teamName, initial }: { slu
                         <td className={styles.num}>{a.other}</td>
                         <td className={styles.num}>{a.unmarked}</td>
                         <td className={`${styles.num} ${styles.pct}`}>{formatPercent(a.percent)}</td>
+                        <td className={styles.absCell}>
+                          <AbsencesToggle a={a} open={openAbsences.has(a.athleteId)} onToggle={toggleAbsences} idPrefix="t" />
+                        </td>
                       </tr>
+                      {openAbsences.has(a.athleteId) && (
+                        <tr className={styles.absenceRow}>
+                          <td colSpan={9} id={`t-abs-${a.athleteId}`}>
+                            <AbsenceList absences={a.absences} />
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
                 <ul className={styles.athleteCards}>
-                  {athletes.map(a => <AthleteCard key={a.athleteId} a={a} />)}
+                  {athletes.map(a => <AthleteCard key={a.athleteId} a={a} open={openAbsences.has(a.athleteId)} onToggle={toggleAbsences} />)}
                 </ul>
               </>
             )}
@@ -363,7 +395,40 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "pr
   );
 }
 
-function AthleteCard({ a }: { a: Counts & { athleteId: string; name: string; classYear: string | null } }) {
+/** "View Absences (n)" / "Hide Absences" for one athlete. */
+function AbsencesToggle({ a, open, onToggle, idPrefix }: { a: AthleteRow; open: boolean; onToggle: (id: string) => void; idPrefix: string }) {
+  return (
+    <button
+      type="button"
+      className={`${styles.absToggle} elf-focus-ring`}
+      aria-expanded={open}
+      aria-controls={`${idPrefix}-abs-${a.athleteId}`}
+      aria-label={`${open ? "Hide" : "View"} absences for ${a.name}`}
+      onClick={() => onToggle(a.athleteId)}
+    >
+      <span className={`${styles.absChevron} ${open ? styles.absChevronOpen : ""}`} aria-hidden="true" />
+      {open ? "Hide Absences" : `View Absences (${a.absences.length})`}
+    </button>
+  );
+}
+
+/** Every saved absence in the report's range, newest first — or the
+ *  no-absences text. Unmarked and Not on roster yet never appear. */
+export function AbsenceList({ absences }: { absences: readonly AbsenceEntry[] }) {
+  if (absences.length === 0) return <p className={styles.absEmpty}>{NO_ABSENCES_TEXT}</p>;
+  return (
+    <ul className={styles.absList}>
+      {absences.map(abs => (
+        <li key={abs.date} className={styles.absItem}>
+          <span className={styles.absDate}>{formatReportDate(abs.date)}</span>
+          <span className={`${styles.status} ${STATUS_CLASS[abs.reason]}`}>{ABSENCE_LABELS[abs.reason]}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function AthleteCard({ a, open, onToggle }: { a: AthleteRow; open: boolean; onToggle: (id: string) => void }) {
   return (
     <li className={styles.athleteCard}>
       <div className={styles.athleteCardHead}>
@@ -379,6 +444,8 @@ function AthleteCard({ a }: { a: Counts & { athleteId: string; name: string; cla
         <div><dt>Other</dt><dd>{a.other}</dd></div>
         <div><dt>Unmarked</dt><dd>{a.unmarked}</dd></div>
       </dl>
+      <AbsencesToggle a={a} open={open} onToggle={onToggle} idPrefix="c" />
+      {open && <div id={`c-abs-${a.athleteId}`}><AbsenceList absences={a.absences} /></div>}
     </li>
   );
 }

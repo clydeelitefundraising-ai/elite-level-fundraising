@@ -212,3 +212,56 @@ test("a read failure is a 503, never a partial report", async () => {
     assert.ok(!(await res.text()).includes(SECRET_NOTE));
   });
 });
+
+// ── Individual absence dates ──────────────────────────────────────────────
+
+test("absence dates: JSON, CSV and PDF list the same dates and reasons for the same filters", async () => {
+  await withWorld(async w => {
+    await seed(w);
+    const { absenceDatesCell } = await import("@/lib/attendanceReportCsv");
+    const { formatReportDate } = await import("@/lib/attendanceReport");
+    const q = "?from=2026-10-01&to=2026-10-19";
+    const json = await body(await report(q));
+    const absences = Object.fromEntries(json.report.athletes.map((a: Row) => [a.name, a.absences]));
+    assert.deepEqual(absences["Ava Athlete"], [{ date: "2026-10-18", reason: "unexcused" }]);
+    assert.deepEqual(absences["Ben Brown"], [{ date: "2026-10-17", reason: "excused" }]);
+    assert.deepEqual(absences["Cy Clark"], []);
+
+    const rows = parseCsv((await (await report(`${q}&format=csv`)).text()).replace(/^﻿/, ""));
+    for (const a of json.report.athletes) {
+      assert.equal(rows.find(r => r[0] === a.name)![11], absenceDatesCell(a.absences), a.name);
+    }
+    assert.equal(rows.find(r => r[0] === "Cy Clark")![11], "No recorded absences in this period.");
+
+    const pdf = Buffer.from(await (await report(`${q}&format=pdf`)).arrayBuffer());
+    assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
+    const { inflateSync } = await import("node:zlib");
+    const raw = pdf.toString("latin1");
+    const text = [...raw.matchAll(/stream\r?\n/g)].map(m => {
+      const start = m.index! + m[0].length;
+      const chunk = pdf.subarray(start, raw.indexOf("endstream", start));
+      try { return inflateSync(chunk).toString("latin1"); } catch { return ""; }
+    }).join("").matchAll(/<([0-9A-Fa-f]+)> Tj/g);
+    const lines = [...text].map(t => Buffer.from(t[1], "hex").toString("latin1"));
+    const details = lines.slice(lines.indexOf("Absence Details"));
+    for (const [name, list] of Object.entries(absences) as [string, { date: string; reason: string }[]][]) {
+      for (const abs of list) assert.ok(details.includes(formatReportDate(abs.date)), `${name} ${abs.date}`);
+    }
+    assert.ok(!details.includes("Cy Clark"));
+    assert.ok(!JSON.stringify(json).includes(SECRET_NOTE) && !rows.flat().join(" ").includes(SECRET_NOTE), "notes never appear");
+  });
+});
+
+test("absence dates follow filter changes (range and athlete)", async () => {
+  await withWorld(async w => {
+    await seed(w);
+    const only17 = await body(await report("?from=2026-10-17&to=2026-10-17"));
+    const ava17 = only17.report.athletes.find((a: Row) => a.name === "Ava Athlete");
+    assert.deepEqual(ava17.absences, [], "Ava's Oct 18 absence is outside the range");
+    const ben = await body(await report(`?from=2026-10-01&to=2026-10-19&athlete=${A(2)}`));
+    assert.deepEqual(ben.report.athletes.map((a: Row) => [a.name, a.absences]), [["Ben Brown", [{ date: "2026-10-17", reason: "excused" }]]]);
+    const benCsv = parseCsv((await (await report(`?from=2026-10-01&to=2026-10-19&athlete=${A(2)}&format=csv`)).text()).replace(/^﻿/, ""));
+    assert.equal(benCsv.length, 3);
+    assert.equal(benCsv[1][11], "Oct 17, 2026 – Excused");
+  });
+});

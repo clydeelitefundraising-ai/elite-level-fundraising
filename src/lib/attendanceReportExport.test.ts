@@ -46,7 +46,7 @@ test("athlete CSV: headers, one row per athlete, team total equal to the report'
   assert.equal(total[0], "Team total");
   assert.deepEqual(total.slice(2).map(String), [
     report.totals.present, report.totals.absent, report.totals.excused, report.totals.unexcused, report.totals.other,
-    report.totals.unmarked, report.totals.notOnRoster, report.totals.marked, "33.3%",
+    report.totals.unmarked, report.totals.notOnRoster, report.totals.marked, "33.3%", "",
   ].map(String));
   // Formula injection is neutralised; commas/quotes survive intact.
   assert.equal(rows[1][0], "'=HYPERLINK(\"x\")");
