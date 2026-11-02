@@ -131,6 +131,7 @@ function GoalModal({
             value={value}
             onChange={e => setValue(e.target.value)}
             style={{ ...INP, fontSize: "1.1rem", fontWeight: 700, textAlign: "center" }}
+            data-elf-font="large"
             autoFocus
             onKeyDown={e => { if (e.key === "Enter") handleSave(); }}
           />

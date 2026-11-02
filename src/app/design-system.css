@@ -751,3 +751,31 @@
     animation: none;
   }
 }
+
+/* ─────────────────────────────────────────────
+   TEXT FIELDS ON PHONES & TABLETS — no iOS focus zoom
+   iOS (Safari and the app's WKWebView) zooms the whole page when a focused
+   field's text is under 16px, and doesn't zoom back out — the Team App
+   then overflows the screen (roster search, .85rem, was the report). Many
+   fields set a smaller size inline, so this raises every Team App text
+   field to 16px on touch devices and narrow screens. Desktop keeps each
+   field's own size. Accessibility (pinch) zoom is untouched: the viewport
+   never sets maximum-scale or user-scalable.
+
+   Two rules on purpose: the first works on every iOS version; the second
+   also reaches Team App modals portalled to <body>, where :has() exists
+   (iOS 15.4+). A field that is deliberately larger than 16px opts out
+   with data-elf-font="large".
+───────────────────────────────────────────── */
+
+@media (max-width: 767px), (pointer: coarse) {
+  .elf-shell :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):not([data-elf-font="large"]) {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  body:has(.elf-shell) :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):not([data-elf-font="large"]) {
+    font-size: 16px !important;
+  }
+}
