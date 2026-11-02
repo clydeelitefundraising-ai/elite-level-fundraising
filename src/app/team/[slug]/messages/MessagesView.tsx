@@ -181,6 +181,10 @@ type DmAthleteEntry = {
   classYear: string | null;
   joined: boolean;
   photo_url: string | null;
+  /** Linked parents/guardians with an ELF account (team_members.id +
+   *  name), staff only — the "Message Parent/Guardian" fallback for an
+   *  athlete who hasn't joined. Each is also in Directory.parents. */
+  guardians?: { id: string; name: string }[];
 };
 // Satisfies groupMessaging.ts's RosterAthleteEntry (id/name/event/classYear/
 // joined) via its `id` alias of athleteId, so searchRosterAthletes() can be
@@ -223,6 +227,12 @@ function ComposeModal({
   );
   const [preselectMissing, setPreselectMissing] = useState(false);
   const preselectDone = useRef(false);
+  // An athlete who hasn't joined, picked (from the profile or by tapping
+  // their row): explained, never selected.
+  const [unjoinedAthlete, setUnjoinedAthlete] = useState<DmAthleteEntry | null>(null);
+  // A guardian chosen from that explanation, applied once the Parent tab
+  // is showing (switching tabs otherwise clears the selection).
+  const pendingGuardian = useRef<{ id: string; name: string } | null>(null);
   const [recipientId, setRecipientId] = useState("");
   const [search, setSearch] = useState("");
   const [step, setStep] = useState<ComposeStep>("recipient");
@@ -244,10 +254,20 @@ function ComposeModal({
     // Resetting a derived selection when its own category changes is the
     // correct use of an effect here (external-ish concern: recipientType
     // is a separate control the user just changed).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRecipientId("");
-    setSearch("");
+    const guardian = pendingGuardian.current;
+    pendingGuardian.current = null;
+    setRecipientId(guardian?.id ?? "");
+    setSearch(guardian?.name ?? "");
+    setUnjoinedAthlete(null);
   }, [recipientType]);
+
+  // "Message Parent/Guardian": the existing Parent flow with this guardian
+  // selected — same recipient type, same server-side checks and family
+  // inclusion as choosing them on the Parent tab by hand.
+  const messageGuardian = (guardian: { id: string; name: string }) => {
+    pendingGuardian.current = guardian;
+    setRecipientType("parent");
+  };
 
   useEffect(() => {
     if (step === "message") textareaRef.current?.focus();
@@ -264,6 +284,7 @@ function ComposeModal({
     if (!entry) { setPreselectMissing(true); return; }
     setSearch(entry.name);
     if (entry.teamMemberId) setRecipientId(entry.teamMemberId);
+    else setUnjoinedAthlete(entry);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [dir, preselectAthleteId, isStaff]);
 
@@ -528,7 +549,7 @@ function ComposeModal({
                       <input
                         type="text"
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setUnjoinedAthlete(null); }}
                         placeholder={searchLabel}
                         aria-label={searchLabel}
                         style={{
@@ -563,9 +584,13 @@ function ComposeModal({
                             <button
                               key={a.athleteId}
                               type="button"
-                              disabled={!selectable}
                               aria-disabled={!selectable}
-                              onClick={() => selectable && setRecipientId(a.teamMemberId as string)}
+                              // An unjoined athlete is never selected — tapping
+                              // explains why and offers their guardians.
+                              onClick={() => {
+                                if (selectable) { setRecipientId(a.teamMemberId as string); setUnjoinedAthlete(null); }
+                                else { setRecipientId(""); setUnjoinedAthlete(a); }
+                              }}
                               style={{
                                 display: "flex", alignItems: "center", gap: ".6rem",
                                 padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
@@ -585,6 +610,40 @@ function ComposeModal({
                             </button>
                           );
                         })}
+                      </div>
+                    )}
+                    {unjoinedAthlete && (
+                      <div
+                        role="status"
+                        style={{
+                          marginTop: ".6rem", padding: ".65rem .75rem", borderRadius: 10,
+                          background: "#fffbeb", border: "1px solid #fde68a",
+                          fontSize: ".8rem", color: "#92400e", lineHeight: 1.45,
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, marginBottom: ".2rem", overflowWrap: "anywhere" }}>{unjoinedAthlete.name}</div>
+                        This athlete hasn&apos;t joined ELF yet. They need an active account before you can message them.
+                        {(unjoinedAthlete.guardians ?? []).length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: ".4rem", marginTop: ".6rem" }}>
+                            {(unjoinedAthlete.guardians ?? []).map(g => (
+                              <button
+                                key={g.id}
+                                type="button"
+                                onClick={() => messageGuardian(g)}
+                                style={{
+                                  width: "100%", minHeight: 44, padding: ".55rem .7rem", borderRadius: 10,
+                                  border: `1.5px solid ${primaryColor}`, background: "#fff", color: primaryColor,
+                                  fontSize: ".82rem", fontWeight: 700, cursor: "pointer", textAlign: "center",
+                                  overflowWrap: "anywhere",
+                                }}
+                              >
+                                Message Parent/Guardian · {g.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: ".4rem" }}>No linked parent or guardian has joined ELF yet.</div>
+                        )}
                       </div>
                     )}
                   </>
@@ -659,6 +718,13 @@ function ComposeModal({
               </div>
             )}
 
+            {/* Pinned to the bottom of the scrolling sheet so a long result
+                list (or the not-joined notice) never pushes Next out of
+                reach on a narrow phone. */}
+            <div style={{
+              position: "sticky", bottom: "-1.2rem", background: "#fff",
+              margin: "0 -1rem -1.2rem", padding: ".6rem 1rem 1.2rem",
+            }}>
             <button
               onClick={() => recipientId && setStep("message")}
               disabled={!recipientId}
@@ -674,6 +740,7 @@ function ComposeModal({
             >
               Next
             </button>
+            </div>
           </>
         )}
 

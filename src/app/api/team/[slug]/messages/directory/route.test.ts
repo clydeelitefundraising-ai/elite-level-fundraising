@@ -16,6 +16,7 @@ register(new URL("../../../../../../lib/testSupport/nextStubLoader.mjs", import.
 const { NextRequest } = await import("../../../../../../lib/testSupport/nextServerStub.mjs");
 const { __setTestCookie } = await import("../../../../../../lib/testSupport/nextHeadersStub.mjs");
 const { makeCoachCookie } = await import("@/lib/teamAuth");
+const { makeMemberCookie } = await import("@/lib/memberAuth");
 
 type Row = Record<string, unknown>;
 
@@ -24,10 +25,12 @@ function makeFakeDb() {
     athletes:      [],
     team_members:  [],
     team_coaches:  [],
+    team_member_athletes: [],
   };
 
   function matches(row: Row, field: string, expr: string): boolean {
     if (expr.startsWith("eq.")) return String(row[field]) === expr.slice(3);
+    if (expr.startsWith("in.(")) return expr.slice(4, -1).split(",").includes(String(row[field]));
     return true;
   }
 
@@ -196,5 +199,78 @@ test("GET directory: an unauthenticated request is rejected", async () => {
     const { GET } = await loadRoute();
     const res = await GET(new NextRequest(`http://test.local/api/team/${SLUG}/messages/directory`) as never, { params: Promise.resolve({ slug: SLUG }) });
     assert.equal(res.status, 401);
+  });
+});
+
+// ── Roster Messages: "Message Parent/Guardian" for an athlete who hasn't
+// joined — each roster athlete carries its messageable guardians. ────────
+
+function seedGuardian(db: Record<string, Row[]>, memberId: string, name: string, opts: { legacyAthleteId?: string; linkedAthleteIds?: string[]; accountId?: string | null; slug?: string } = {}) {
+  db.team_members.push({
+    id: memberId, campaign_slug: opts.slug ?? SLUG, role: "parent", athlete_id: opts.legacyAthleteId ?? null, name, salt: `s-${memberId}`,
+    account_id: opts.accountId === undefined ? `acct-${memberId}` : opts.accountId, athletes: null, elf_accounts: null,
+  });
+  for (const athleteId of opts.linkedAthleteIds ?? []) db.team_member_athletes.push({ team_member_id: memberId, athlete_id: athleteId });
+}
+
+async function getDirectory() {
+  const { GET } = await loadRoute();
+  const res = await GET(new NextRequest(`http://test.local/api/team/${SLUG}/messages/directory`) as never, { params: Promise.resolve({ slug: SLUG }) });
+  assert.equal(res.status, 200);
+  return res.json();
+}
+
+test("GET directory: an unjoined athlete lists guardians with an ELF account, via either link source", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "ac-1", "assistant_coach");
+    seedRosterAthlete(db, "athlete-fay", "Fay Freshman");
+    seedGuardian(db, "m-tess", "Tess Two", { linkedAthleteIds: ["athlete-fay"] });     // join table
+    seedGuardian(db, "m-gil", "Gil Graduating", { legacyAthleteId: "athlete-fay" });   // legacy column
+    seedGuardian(db, "m-nora", "Nora NoAccount", { linkedAthleteIds: ["athlete-fay"], accountId: null });
+    seedGuardian(db, "m-other", "Other Parent", { linkedAthleteIds: ["athlete-x"] });
+    signInAsCoach({ id: "ac-1", salt: "s-ac-1" });
+    const data = await getDirectory();
+    const fay = data.athletes.find((a: Row) => a.athleteId === "athlete-fay");
+    assert.equal(fay.teamMemberId, null, "the athlete herself stays unmessageable");
+    assert.deepEqual(fay.guardians.map((g: Row) => g.id).sort(), ["m-gil", "m-tess"], "no account → never offered");
+    // Every guardian is an existing Parent-tab recipient.
+    const parentIds = new Set(data.parents.map((p: Row) => p.id));
+    assert.ok(fay.guardians.every((g: Row) => parentIds.has(g.id)));
+    assert.ok(!("account_id" in data.parents[0]), "parent entries keep their existing shape");
+  });
+});
+
+test("GET directory: a coach who is the athlete's parent is never offered to themselves", async () => {
+  await withFakeDb(async db => {
+    db.team_coaches.push({ id: "hc-hana", campaign_slug: SLUG, role: "head_coach", name: "Hana Head", salt: "s-hc-hana", account_id: "acct-hana", elf_accounts: null });
+    seedCoach(db, "ac-1", "assistant_coach");
+    seedRosterAthlete(db, "athlete-mia", "Mia Middle");
+    seedGuardian(db, "m-hana-parent", "Hana Head", { linkedAthleteIds: ["athlete-mia"], accountId: "acct-hana" });
+    signInAsCoach({ id: "hc-hana", salt: "s-hc-hana" });
+    let mia = (await getDirectory()).athletes.find((a: Row) => a.athleteId === "athlete-mia");
+    assert.deepEqual(mia.guardians, []);
+    // Another coach still sees Hana as Mia's parent.
+    signInAsCoach({ id: "ac-1", salt: "s-ac-1" });
+    mia = (await getDirectory()).athletes.find((a: Row) => a.athleteId === "athlete-mia");
+    assert.deepEqual(mia.guardians, [{ id: "m-hana-parent", name: "Hana Head" }]);
+  });
+});
+
+test("GET directory: guardians are staff-only and campaign-scoped", async () => {
+  await withFakeDb(async db => {
+    seedRosterAthlete(db, "athlete-fay", "Fay Freshman");
+    seedGuardian(db, "m-tess", "Tess Two", { linkedAthleteIds: ["athlete-fay"] });
+    seedGuardian(db, "m-elsewhere", "Elsewhere Parent", { legacyAthleteId: "athlete-fay", slug: OTHER_SLUG });
+    seedJoinedAthlete(db, "m-jo", "athlete-jo", "Jo Junior");
+    __setTestCookie("team_coach", undefined);
+    __setTestCookie("elf_session", undefined);
+    __setTestCookie("team_member", makeMemberCookie("m-jo", "s-m-jo"));
+    const asAthlete = await getDirectory();
+    assert.ok(asAthlete.athletes.every((a: Row) => (a.guardians as unknown[]).length === 0), "an athlete never receives family links");
+    __setTestCookie("team_member", undefined);
+    seedCoach(db, "hc-1");
+    signInAsCoach({ id: "hc-1", salt: "s-hc-1" });
+    const fay = (await getDirectory()).athletes.find((a: Row) => a.athleteId === "athlete-fay");
+    assert.deepEqual(fay.guardians.map((g: Row) => g.id), ["m-tess"], "another campaign's parent is never offered");
   });
 });

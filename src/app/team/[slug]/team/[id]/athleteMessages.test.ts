@@ -61,6 +61,40 @@ test("composer preselection is staff-only, off in a read-only season, and select
   assert.match(comms, /searchParams\.get\("compose"\) === "athlete" \? athleteParam\(searchParams\.get\("athlete"\)\) : null/);
 });
 
+test("an athlete who hasn't joined is explained, never selected; Next needs a real recipient", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  // Preselected from the profile: unjoined → the explanation, no recipient.
+  assert.match(mv, /if \(entry\.teamMemberId\) setRecipientId\(entry\.teamMemberId\);\n\s*else setUnjoinedAthlete\(entry\);/);
+  // Tapping an unjoined row clears any recipient instead of selecting one.
+  assert.match(mv, /if \(selectable\) \{ setRecipientId\(a\.teamMemberId as string\); setUnjoinedAthlete\(null\); \}\n\s*else \{ setRecipientId\(""\); setUnjoinedAthlete\(a\); \}/);
+  assert.ok(mv.includes("This athlete hasn&apos;t joined ELF yet. They need an active account before you can message them."));
+  // Next is enabled only by a selected directory recipient.
+  assert.match(mv, /onClick=\{\(\) => recipientId && setStep\("message"\)\}\n\s*disabled=\{!recipientId\}/);
+  assert.match(mv, /if \(!recipientId \|\| \(!body && selected\.length === 0\)\) return;/);
+});
+
+test("Message Parent/Guardian opens the existing Parent flow with that guardian selected", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  assert.match(mv, /pendingGuardian\.current = guardian;\n\s*setRecipientType\("parent"\);/);
+  assert.match(mv, /setRecipientId\(guardian\?\.id \?\? ""\);/);
+  assert.match(mv, /onClick=\{\(\) => messageGuardian\(g\)\}/);
+  assert.ok(mv.includes("Message Parent/Guardian · {g.name}"));
+  // Guardians come only from the server directory (staff-only, account
+  // holders, campaign-scoped — see messages/directory/route.test.ts) and
+  // are sent as an ordinary parent ("member") recipient.
+  assert.match(mv, /const actorType = recipientType === "coach" \? "coach" : "member";/);
+  const route = read("src/app/api/team/[slug]/messages/directory/route.ts");
+  assert.match(route, /if \(isStaff\(actor\)\) \{/);
+  assert.match(route, /p\.account_id && p\.id !== actorMemberId/);
+});
+
+test("the composer keeps Next reachable on a narrow screen", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  assert.match(mv, /position: "sticky", bottom: "-1\.2rem", background: "#fff"/);
+  assert.ok(mv.includes('width: "min(430px,100%)"'));
+  assert.ok(mv.includes('overflowY: "auto"'));
+});
+
 test("back from the conversation returns to the athlete profile when opened from it", () => {
   const page = read(`${DIR}/messages/[threadId]/page.tsx`);
   assert.match(page, /athleteProfilePath\(slug, athleteParam\(/);
