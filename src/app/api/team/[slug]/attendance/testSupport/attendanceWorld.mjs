@@ -156,6 +156,10 @@ export function makeWorld() {
                 out = out.filter(r => String(r[k]) === v.slice(3));
             else if (v.startsWith("in.("))
                 out = out.filter(r => v.slice(4, -1).split(",").includes(String(r[k])));
+            else if (v.startsWith("gte."))
+                out = out.filter(r => String(r[k]) >= v.slice(4));
+            else if (v.startsWith("lte."))
+                out = out.filter(r => String(r[k]) <= v.slice(4));
         }
         return out;
     }

@@ -31,6 +31,7 @@ export default function TeamView({
   outreachMap,
   linkedAthleteIds = [],
   attendanceHref = null,
+  reportsHref = null,
 }: {
   slug: string;
   initialAthletes: TeamAthleteRow[];
@@ -45,6 +46,8 @@ export default function TeamView({
   linkedAthleteIds?: string[];
   // Phase 5-5: the Take Attendance link (takeAttendanceHref, on the server).
   attendanceHref?: string | null;
+  // Attendance Reports (attendanceReportsHref, on the server).
+  reportsHref?: string | null;
 }) {
   const roster = useAthleteRoster(slug, initialAthletes, actor);
   const showDesktop = shouldShowDesktopRoster(actor);
@@ -65,6 +68,7 @@ export default function TeamView({
           actor={actor}
           linkedAthleteIds={linkedAthleteIds}
           attendanceHref={attendanceHref}
+          reportsHref={reportsHref}
         />
       </div>
       {showDesktop && (
@@ -76,6 +80,7 @@ export default function TeamView({
             contactCounts={contactCounts}
             outreachMap={outreachMap}
             attendanceHref={attendanceHref}
+            reportsHref={reportsHref}
           />
         </div>
       )}

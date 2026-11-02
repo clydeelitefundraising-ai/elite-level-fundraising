@@ -117,6 +117,19 @@
   text-underline-offset: 2px;
 }
 
+/* A link styled like .textButton (Attendance Reports). */
+.textLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 .25rem;
+  color: #0b1e3d;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .textButton:disabled {
   color: #9ca3af;
   cursor: default;

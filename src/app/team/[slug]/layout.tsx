@@ -14,6 +14,7 @@ import TeamChrome from "./_components/TeamChrome";
 import TeamPullRefresh from "./_components/TeamPullRefresh";
 import TeamRealtimeSync from "./_components/TeamRealtimeSync";
 import ServiceWorkerRegistrar from "./_components/ServiceWorkerRegistrar";
+import TeamBodyClass from "./_components/TeamBodyClass";
 import NativePushRegistrar from "./_components/NativePushRegistrar";
 import { SeasonStatusProvider, CompletedSeasonBanner } from "./_components/SeasonStatus";
 import { isSeasonCompleted } from "@/lib/seasonState";
@@ -203,6 +204,7 @@ export default async function TeamLayout({
           )}
           {seasonStatus.readOnly && <CompletedSeasonBanner completedAt={seasonStatus.completedAt} />}
           <ServiceWorkerRegistrar />
+          <TeamBodyClass />
           <NativePushRegistrar isAuthenticated={Boolean(accountSession)} />
           <TeamPullRefresh />
           <TeamRealtimeSync slug={slug} />

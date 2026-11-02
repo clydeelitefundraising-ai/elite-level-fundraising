@@ -6,7 +6,7 @@ import { ChevronLeft, Search } from "lucide-react";
 import { attendanceRuleMessage } from "@/lib/teamAttendance";
 import { draftChanges, type AttendanceEntry } from "@/lib/teamAttendanceDraft";
 import GradeTabs, { gradeTabId, gradeTabPanelId } from "../team/GradeTabs";
-import { rosterPath } from "../team/takeAttendance";
+import { attendanceReportsPath, rosterPath } from "../team/takeAttendance";
 import {
   ATTENDANCE_FILTERS,
   attendanceListView,
@@ -144,6 +144,9 @@ export default function AttendanceScreen({
           <button type="button" className={styles.textButton} onClick={actions.reload} disabled={saving || !state.selectedDate}>
             Reload
           </button>
+          <Link href={attendanceReportsPath(slug)} className={`${styles.textLink} elf-focus-ring`}>
+            Attendance Reports
+          </Link>
         </div>
       </header>
 
