@@ -1,0 +1,70 @@
+// Athlete profile "Messages" — opens the athlete's existing conversation,
+// or the composer with the athlete preselected, and returns to the profile.
+// The thread lookup itself is covered by
+// src/lib/messages.athleteProfileThread.test.ts.
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { athleteMessagesHref, athleteParam, athleteProfilePath } from "../../../../../lib/athleteMessagesLink.ts";
+
+const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8").replace(/\r\n/g, "\n");
+const DIR = "src/app/team/[slug]";
+
+test("existing conversation → the thread itself, carrying the athlete for the way back", () => {
+  assert.equal(
+    athleteMessagesHref({ slug: "monroe-valley", athleteId: "a-1", existingThreadId: "t-9", seasonReadOnly: false }),
+    "/team/monroe-valley/messages/t-9?athlete=a-1",
+  );
+  // A read-only season still opens an existing conversation (readable).
+  assert.equal(
+    athleteMessagesHref({ slug: "monroe-valley", athleteId: "a-1", existingThreadId: "t-9", seasonReadOnly: true }),
+    "/team/monroe-valley/messages/t-9?athlete=a-1",
+  );
+});
+
+test("no conversation → the composer with the athlete preselected; a read-only season → the inbox", () => {
+  assert.equal(
+    athleteMessagesHref({ slug: "monroe-valley", athleteId: "a-1", existingThreadId: null, seasonReadOnly: false }),
+    "/team/monroe-valley/communications?tab=messages&compose=athlete&athlete=a-1",
+  );
+  assert.equal(
+    athleteMessagesHref({ slug: "monroe-valley", athleteId: "a-1", existingThreadId: null, seasonReadOnly: true }),
+    "/team/monroe-valley/communications?tab=messages",
+  );
+});
+
+test("the athlete parameter is validated before it becomes a path", () => {
+  assert.equal(athleteParam("3f2c9a1e-0b7d-4a55-9d0e-2b1c8f6a7e10"), "3f2c9a1e-0b7d-4a55-9d0e-2b1c8f6a7e10");
+  for (const bad of [null, undefined, "", "../settings", "a/b", "//evil.example", "a?b", "x".repeat(65)]) {
+    assert.equal(athleteParam(bad), null, String(bad));
+  }
+  assert.equal(athleteProfilePath("monroe-valley", "a-1"), "/team/monroe-valley/team/a-1");
+  assert.equal(athleteProfilePath("monroe-valley", null), null);
+});
+
+test("the profile's Messages button uses the server-resolved link, not the inbox", () => {
+  const view = read(`${DIR}/team/[id]/CoachAthleteView.tsx`);
+  assert.ok(view.includes("href={messagesHref}"));
+  assert.ok(!view.includes("communications?tab=messages`}"), "no hard-coded inbox link");
+  const page = read(`${DIR}/team/[id]/page.tsx`);
+  assert.match(page, /findExistingDirectThread\(\{ slug, actor: actorKey, recipientActorType: "member", recipientId: athleteAccount\.id \}\)/);
+  assert.ok(!/resolveOrCreateThreadForRecipient|POST/.test(page), "the profile never creates a thread");
+});
+
+test("composer preselection is staff-only, off in a read-only season, and selects only from the directory", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  assert.match(mv, /composeForAthleteId && isStaff && !seasonReadOnly \? composeForAthleteId : null/);
+  assert.match(mv, /dir\.athletes\.find\(a => a\.athleteId === preselectAthleteId\)/);
+  assert.match(mv, /if \(entry\.teamMemberId\) setRecipientId\(entry\.teamMemberId\)/, "an athlete who hasn't joined stays unselectable");
+  const comms = read(`${DIR}/communications/CommunicationsView.tsx`);
+  assert.match(comms, /searchParams\.get\("compose"\) === "athlete" \? athleteParam\(searchParams\.get\("athlete"\)\) : null/);
+});
+
+test("back from the conversation returns to the athlete profile when opened from it", () => {
+  const page = read(`${DIR}/messages/[threadId]/page.tsx`);
+  assert.match(page, /athleteProfilePath\(slug, athleteParam\(/);
+  assert.ok(page.includes("backHref={backToProfile}"));
+  const view = read(`${DIR}/messages/[threadId]/ThreadView.tsx`);
+  assert.ok(view.includes("router.push(backHref ?? `/team/${slug}/communications?tab=messages`)"));
+});

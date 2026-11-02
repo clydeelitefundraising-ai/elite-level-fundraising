@@ -148,6 +148,9 @@ export function DemoCoachAthleteProfile({ actor, athleteId, db, attendanceDb }: 
       members={demoLinkedMembers(athleteId)}
       membersUnavailable={false}
       fundraisingActive={isAthleteFundraisingVisible(db.settings)}
+      // The demo keeps its Communications → Messages destination (the app
+      // resolves the athlete's own conversation server-side).
+      messagesHref={`/team/${DEMO_SLUG}/communications?tab=messages`}
       raisedCents={f.raisedCents}
       goalCents={f.goalCents}
       donorCount={f.donorCount}

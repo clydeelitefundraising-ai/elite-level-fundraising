@@ -8,6 +8,7 @@ import { isHeadCoach, isCoachOnlyRole, type TeamActor } from "@/lib/permissions"
 import type { ThreadWithDetails } from "@/lib/messages";
 import UpdatesWorkspaceView from "../files/UpdatesWorkspaceView";
 import MessagesView from "../messages/MessagesView";
+import { athleteParam } from "@/lib/athleteMessagesLink";
 import styles from "./Communications.module.css";
 
 type Section = "updates" | "messages";
@@ -47,6 +48,8 @@ export default function CommunicationsView({
 }) {
   const searchParams = useSearchParams();
   const initialSection: Section = searchParams.get("tab") === "messages" ? "messages" : "updates";
+  // From a coach's athlete profile "Messages" with no conversation yet.
+  const composeForAthleteId = searchParams.get("compose") === "athlete" ? athleteParam(searchParams.get("athlete")) : null;
   const [section, setSection] = useState<Section>(initialSection);
 
   // Seeded from the same thread data fetched server-side for this page,
@@ -203,6 +206,7 @@ export default function CommunicationsView({
             primaryColor={primaryColor}
             onUnreadChange={setDmUnreadCount}
             seasonReadOnly={seasonReadOnly}
+            composeForAthleteId={composeForAthleteId}
           />
         )}
         </div>

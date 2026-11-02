@@ -17,6 +17,7 @@ import AttachmentComposerBar from "./_shared/AttachmentComposerBar";
 import { useSelectedAttachments } from "./_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "./_shared/uploadMessageAttachments";
 import CreateGroupModal from "./_shared/CreateGroupModal";
+import { athleteProfilePath } from "@/lib/athleteMessagesLink";
 
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -197,12 +198,18 @@ function ComposeModal({
   primaryColor,
   onClose,
   onCreated,
+  preselectAthleteId = null,
 }: {
   slug: string;
   isStaff: boolean;
   primaryColor: string;
   onClose: () => void;
   onCreated: (threadId: string) => void;
+  /** Opened from a coach's athlete profile: start on the Athlete tab with
+   *  this roster athlete (athletes.id) found and selected. Selection still
+   *  comes only from the directory — an athlete who hasn't joined stays
+   *  unselectable, exactly as when searched by hand. */
+  preselectAthleteId?: string | null;
 }) {
   const [dir, setDir] = useState<Directory | null>(null);
   // G3C bugfix — same fetchFailed distinction already shipped for the Group
@@ -212,8 +219,10 @@ function ComposeModal({
   // Parent/Coach tabs are explicitly left exactly as they were.
   const [fetchFailed, setFetchFailed] = useState(false);
   const [recipientType, setRecipientType] = useState<RecipientType | null>(
-    isStaff ? null : "coach",
+    isStaff ? (preselectAthleteId ? "athlete" : null) : "coach",
   );
+  const [preselectMissing, setPreselectMissing] = useState(false);
+  const preselectDone = useRef(false);
   const [recipientId, setRecipientId] = useState("");
   const [search, setSearch] = useState("");
   const [step, setStep] = useState<ComposeStep>("recipient");
@@ -243,6 +252,20 @@ function ComposeModal({
   useEffect(() => {
     if (step === "message") textareaRef.current?.focus();
   }, [step]);
+
+  // One-time preselection once the directory has loaded (the directory is
+  // the only source of a sendable recipient id).
+  useEffect(() => {
+    if (!dir || !preselectAthleteId || !isStaff || preselectDone.current) return;
+    preselectDone.current = true;
+    const entry = dir.athletes.find(a => a.athleteId === preselectAthleteId);
+    /* eslint-disable react-hooks/set-state-in-effect -- applying a selection
+       from data that only arrives after mount */
+    if (!entry) { setPreselectMissing(true); return; }
+    setSearch(entry.name);
+    if (entry.teamMemberId) setRecipientId(entry.teamMemberId);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [dir, preselectAthleteId, isStaff]);
 
   const isAthleteTab = recipientType === "athlete";
 
@@ -524,7 +547,9 @@ function ComposeModal({
                     ) : athletePool.length === 0 ? (
                       <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>No athletes are on the roster yet.</div>
                     ) : !athleteQuery ? (
-                      <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>Search your roster to message an athlete.</div>
+                      <div style={{ fontSize: ".82rem", color: "#9ca3af" }}>
+                        {preselectMissing && "This athlete isn’t available to message. "}Search your roster to message an athlete.
+                      </div>
                     ) : athleteResults.length === 0 ? (
                       <div style={{ fontSize: ".82rem", color: "#9ca3af", padding: ".4rem 0" }}>No matching athletes.</div>
                     ) : (
@@ -759,6 +784,7 @@ export default function MessagesView({
   primaryColor,
   onUnreadChange,
   seasonReadOnly = false,
+  composeForAthleteId = null,
 }: {
   slug: string;
   initialThreads: ThreadWithDetails[];
@@ -773,10 +799,17 @@ export default function MessagesView({
   // Complete Season: past conversations stay listed and readable; nothing
   // new can be started (the server refuses it regardless).
   seasonReadOnly?: boolean;
+  /** From a coach's athlete profile "Messages" (no conversation yet): open
+   *  the composer with this roster athlete preselected. Staff only, never
+   *  in a read-only season (nothing new can be started there). */
+  composeForAthleteId?: string | null;
 }) {
   const router = useRouter();
   const [threads, setThreads] = useState<ThreadWithDetails[]>(initialThreads);
-  const [showCompose, setShowCompose] = useState(false);
+  const preselectAthleteId = composeForAthleteId && isStaff && !seasonReadOnly ? composeForAthleteId : null;
+  const athleteProfile = athleteProfilePath(slug, preselectAthleteId);
+  const [showCompose, setShowCompose] = useState(preselectAthleteId !== null);
+  const [composeFromProfile, setComposeFromProfile] = useState(preselectAthleteId !== null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [hcTab, setHcTab] = useState<"forMe" | "oversight">("forMe");
 
@@ -802,11 +835,25 @@ export default function MessagesView({
     onUnreadChange?.(threads.reduce((sum, t) => sum + t.unread_count, 0));
   }, [threads, onUnreadChange]);
 
-  const handleCreated = (threadId: string) => {
+  const handleCreated = (threadId: string, fromProfile = false) => {
     setShowCompose(false);
     // Dispatch so nav badge updates
     window.dispatchEvent(new CustomEvent("elf:messages-changed"));
-    router.push(`/team/${slug}/messages/${threadId}`);
+    // Started from an athlete profile: the conversation's back button
+    // returns to that profile.
+    const back = fromProfile && preselectAthleteId ? `?athlete=${encodeURIComponent(preselectAthleteId)}` : "";
+    router.push(`/team/${slug}/messages/${threadId}${back}`);
+  };
+
+  // Closing a composer opened from an athlete profile goes back to it.
+  const closeCompose = () => {
+    setShowCompose(false);
+    if (!composeFromProfile || !athleteProfile) return;
+    setComposeFromProfile(false);
+    let cameFromProfile = false;
+    try { cameFromProfile = new URL(document.referrer).pathname === athleteProfile; } catch { /* no referrer */ }
+    if (cameFromProfile) router.back();
+    else router.replace(athleteProfile);
   };
 
   // Head Coach only: split threads into "For Me" (this HC's own row is NOT
@@ -850,7 +897,7 @@ export default function MessagesView({
         ) : (
         <div style={{ display: "flex", gap: ".4rem" }}>
           <button
-            onClick={() => setShowCompose(true)}
+            onClick={() => { setComposeFromProfile(false); setShowCompose(true); }}
             aria-label="Start a new message"
             className="elf-focus-ring"
             style={{
@@ -978,8 +1025,9 @@ export default function MessagesView({
           slug={slug}
           isStaff={isStaff}
           primaryColor={primaryColor}
-          onClose={() => setShowCompose(false)}
-          onCreated={handleCreated}
+          onClose={closeCompose}
+          onCreated={threadId => handleCreated(threadId, composeFromProfile)}
+          preselectAthleteId={composeFromProfile ? preselectAthleteId : null}
         />
       )}
 

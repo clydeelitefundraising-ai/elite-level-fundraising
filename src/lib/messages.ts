@@ -2589,6 +2589,80 @@ export async function sendMessageWithAttachments(params: {
 // NEVER inserts a message — that stays the caller's responsibility, so it
 // works identically whether a message already has a body in hand (the
 // existing route) or not yet (the future resolve-only endpoint).
+// The non-observer participants of a direct conversation between `actor`
+// and one recipient: the creator, the explicit recipient, and the
+// recipient's/actor's required family (athlete <-> parent, canonical and
+// symmetric in both directions). Head Coach oversight is NOT included —
+// observers are never part of a conversation's identity.
+async function buildDirectThreadParticipants(
+  slug: string,
+  actor: ActorKey,
+  recipientActorType: "coach" | "member",
+  recipientId: string,
+  recipientIsMember: boolean,
+): Promise<Omit<ParticipantInsert, "thread_id">[]> {
+  const seen = new Set<string>();
+  const participants: Omit<ParticipantInsert, "thread_id">[] = [];
+  function add(actor_type: "coach" | "member" | "platform_admin", id: string, is_auto_included: boolean) {
+    const key = `${actor_type}:${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    participants.push({
+      actor_type,
+      coach_id:          actor_type === "coach"          ? id : null,
+      member_id:         actor_type === "member"         ? id : null,
+      platform_admin_id: actor_type === "platform_admin" ? id : null,
+      is_auto_included,
+      is_observer: false,
+    });
+  }
+
+  // Creator
+  add(actor.kind, actor.id, false);
+
+  // Explicit recipient
+  add(recipientActorType, recipientId, false);
+
+  // Family auto-include (athlete <-> parent) — canonical, symmetric in
+  // both directions. Seeds from whichever side(s) of this thread are
+  // members: the actor (covers athlete->coach, parent->coach) and the
+  // explicit recipient (covers coach->athlete, coach->parent).
+  const familySeedIds: string[] = [];
+  if (actor.kind === "member") familySeedIds.push(actor.id);
+  if (recipientIsMember) familySeedIds.push(recipientId);
+  const familyParticipants = await resolveRequiredFamilyParticipants(familySeedIds, slug);
+  for (const fp of familyParticipants) {
+    if (fp.member_id) add("member", fp.member_id, true);
+  }
+  return participants;
+}
+
+// READ-ONLY counterpart of resolveOrCreateThreadForRecipient(): the
+// existing canonical direct thread the composer would reuse for this
+// recipient, or null. Never creates a thread, never adds participants or
+// oversight, never sends anything. Only threads the actor already
+// participates in can match (findCanonicalExistingThread starts from the
+// actor's own participant rows), so this reveals nothing the actor's
+// inbox doesn't already show. Used by the coach's athlete profile
+// "Messages" action to open the conversation directly.
+export async function findExistingDirectThread(params: {
+  slug: string;
+  actor: ActorKey;
+  recipientActorType: "coach" | "member";
+  recipientId: string;
+}): Promise<MessageThread | null> {
+  const { slug, actor, recipientActorType, recipientId } = params;
+  if (actor.kind === "member" && recipientActorType !== "coach") return null;
+  const recipientExists = recipientActorType === "coach"
+    ? Boolean(await fetchCoachById(recipientId, slug))
+    : Boolean(await fetchMemberById(recipientId, slug));
+  if (!recipientExists) return null;
+  const participants = await buildDirectThreadParticipants(slug, actor, recipientActorType, recipientId, recipientActorType === "member");
+  return findCanonicalExistingThread(slug, actor, participants.map(p => ({
+    actor_type: p.actor_type, coach_id: p.coach_id, member_id: p.member_id, platform_admin_id: p.platform_admin_id,
+  })));
+}
+
 export type ResolveOrCreateThreadOutcome =
   | { ok: true; thread: MessageThread; reused: boolean }
   | { ok: false; error: string; status: number };
@@ -2647,9 +2721,10 @@ export async function resolveOrCreateThreadForRecipient(params: {
     return { ok: false, error: "You can't message this person right now.", status: 403 };
   }
 
-  // Build participant list (deduped by actor key)
-  const seen = new Set<string>();
-  const participants: Omit<ParticipantInsert, "thread_id">[] = [];
+  // Creator, explicit recipient and required family — the same set
+  // findExistingDirectThread() looks up (shared so they can't diverge).
+  const participants = await buildDirectThreadParticipants(slug, actor, recipientActorType, recipientId, Boolean(recipientMember));
+  const seen = new Set(participants.map(p => `${p.actor_type}:${p.coach_id ?? p.member_id ?? p.platform_admin_id}`));
 
   function addParticipant(
     actor_type: "coach" | "member" | "platform_admin",
@@ -2668,24 +2743,6 @@ export async function resolveOrCreateThreadForRecipient(params: {
       is_auto_included,
       is_observer,
     });
-  }
-
-  // Creator
-  addParticipant(actor.kind, actor.id, false, false);
-
-  // Explicit recipient
-  addParticipant(recipientActorType, recipientId, false, false);
-
-  // Family auto-include (athlete <-> parent) — canonical, symmetric in
-  // both directions. Seeds from whichever side(s) of this thread are
-  // members: the actor (covers athlete->coach, parent->coach) and the
-  // explicit recipient (covers coach->athlete, coach->parent).
-  const familySeedIds: string[] = [];
-  if (actor.kind === "member") familySeedIds.push(actor.id);
-  if (recipientMember) familySeedIds.push(recipientMember.id);
-  const familyParticipants = await resolveRequiredFamilyParticipants(familySeedIds, slug);
-  for (const fp of familyParticipants) {
-    if (fp.member_id) addParticipant("member", fp.member_id, true, false);
   }
 
   // Head coach oversight condition: add if thread has athlete/parent OR
