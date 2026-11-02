@@ -19,14 +19,35 @@ const RULE = (scope: string) =>
 
 test("design-system.css raises every Team App text field to 16px on phones and touch devices", () => {
   assert.ok(css.includes(RULE(".elf-shell")), "fields inside the Team App shell");
-  assert.ok(css.includes(RULE("body:has(.elf-shell)")), "Team App modals portalled to <body>");
+  assert.ok(css.includes(RULE("body.elf-team-app")), "Team App modals portalled to <body>, every iOS version");
+  assert.ok(css.includes(RULE("body:has(.elf-shell)")), "portalled fields without the body class (iOS 15.4+)");
 });
 
-test("the two scopes stay separate rules (an unsupported :has() must not drop the shell rule on iOS 15.0–15.3)", () => {
+test("iOS 15.0–15.3: modal coverage doesn't depend on :has()", () => {
+  // The body-class rule uses only selectors Safari has supported since
+  // iOS 14 (:is, :not with a list, attribute selectors).
+  const block = css.match(/@media \(max-width: 767px\), \(pointer: coarse\) \{\n  body\.elf-team-app [\s\S]*?\n\}/)?.[0] ?? "";
+  assert.ok(block, "body.elf-team-app rule present");
+  assert.doesNotMatch(block, /:has\(/);
+  // …and the Team App layout mounts the component that sets the class.
+  const layout = read("src/app/team/[slug]/layout.tsx");
+  assert.match(layout, /import TeamBodyClass from "\.\/_components\/TeamBodyClass";/);
+  assert.match(layout, /<TeamBodyClass \/>/);
+});
+
+test("TeamBodyClass adds elf-team-app to <body> on mount and removes it on unmount", () => {
+  const src = read("src/app/team/[slug]/_components/TeamBodyClass.tsx");
+  assert.match(src, /export const TEAM_APP_BODY_CLASS = "elf-team-app";/);
+  assert.match(src, /document\.body\.classList\.add\(TEAM_APP_BODY_CLASS\);\n\s*return \(\) => document\.body\.classList\.remove\(TEAM_APP_BODY_CLASS\);/);
+  assert.match(src, /\}, \[\]\);/, "runs once per mount");
+});
+
+test("the three scopes stay separate rules (an unsupported :has() must not drop the others on iOS 15.0–15.3)", () => {
   const blocks = css.match(/@media \(max-width: 767px\), \(pointer: coarse\) \{[\s\S]*?\n\}/g) ?? [];
   const fieldBlocks = blocks.filter(b => b.includes("font-size: 16px !important"));
-  assert.equal(fieldBlocks.length, 2);
-  assert.ok(fieldBlocks.some(b => b.includes(".elf-shell :is(") && !b.includes(":has(")));
+  assert.equal(fieldBlocks.length, 3);
+  assert.equal(fieldBlocks.filter(b => b.includes(":has(")).length, 1, ":has() appears in exactly one rule");
+  assert.ok(fieldBlocks.some(b => b.includes("  .elf-shell :is(")));
 });
 
 test("desktop keeps each field's own size: the rule is only for narrow screens or coarse pointers", () => {

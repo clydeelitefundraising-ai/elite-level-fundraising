@@ -762,14 +762,26 @@
    field's own size. Accessibility (pinch) zoom is untouched: the viewport
    never sets maximum-scale or user-scalable.
 
-   Two rules on purpose: the first works on every iOS version; the second
-   also reaches Team App modals portalled to <body>, where :has() exists
-   (iOS 15.4+). A field that is deliberately larger than 16px opts out
-   with data-elf-font="large".
+   Three scopes, each its own rule (a browser that can't parse one
+   selector drops only that rule):
+     .elf-shell             fields in the Team App, every iOS version,
+                            from the first server-rendered paint
+     body.elf-team-app      Team App modals portalled to <body>, every iOS
+                            version (TeamBodyClass sets it on mount)
+     body:has(.elf-shell)   the same without the body class (e.g. the
+                            marketing demo's modals) on iOS 15.4+
+   A field that is deliberately larger than 16px opts out with
+   data-elf-font="large".
 ───────────────────────────────────────────── */
 
 @media (max-width: 767px), (pointer: coarse) {
   .elf-shell :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):not([data-elf-font="large"]) {
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 767px), (pointer: coarse) {
+  body.elf-team-app :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"], [type="button"], [type="submit"], [type="reset"], [type="image"]), textarea, select):not([data-elf-font="large"]) {
     font-size: 16px !important;
   }
 }
