@@ -47,6 +47,10 @@ export default function PlatformAdminHeader({
         Reports
       </Link>
 
+      <Link href="/platform-admin/school-links" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0 }}>
+        School links
+      </Link>
+
       <Link href="/platform-admin/fundraising-inquiries" style={{ color: "rgba(255,255,255,.85)", textDecoration: "none", fontSize: ".82rem", fontWeight: 600, flexShrink: 0, display: "flex", alignItems: "center", gap: ".35rem" }}>
         Fundraising Inquiries
         {newInquiryCount > 0 && (

@@ -61,6 +61,8 @@ const EXEMPT: Record<string, string> = {
   "platform-admin/messages/[messageId]/moderate-remove POST": "moderation removal (moderation purpose header)",
   "platform-admin/messages/attachments/[attachmentId]/moderate-remove POST": "moderation removal (moderation purpose header)",
   "platform-admin/reports/[id] PATCH": "safety: resolving a report",
+  "platform-admin/school-links/teams/[slug] PUT": "school link: checks every selected season itself (completed seasons refused by planSchoolLink, and by the database guard for the whole statement)",
+  "platform-admin/school-links/teams/[slug]/preview POST": "read-only preview (writes nothing)",
   "push/devices POST": "device registration (account-level)",
   "push/devices/deactivate POST": "device unregistration",
   "push/preferences PATCH": "account notification preferences",

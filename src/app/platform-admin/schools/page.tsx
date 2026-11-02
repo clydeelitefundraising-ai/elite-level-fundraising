@@ -40,7 +40,10 @@ export default async function PlatformAdminSchoolsPage({
         @media (min-width: 640px) { .pa-search-input { max-width: 420px; } }
       `}</style>
 
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 1rem" }}>Schools</h1>
+      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 .35rem" }}>Schools</h1>
+      <p style={{ margin: "0 0 1rem", fontSize: ".85rem" }}>
+        <Link href="/platform-admin/school-links">Teams without a school &amp; school links →</Link>
+      </p>
 
       <form method="GET" style={{ marginBottom: "1.25rem" }}>
         <input
