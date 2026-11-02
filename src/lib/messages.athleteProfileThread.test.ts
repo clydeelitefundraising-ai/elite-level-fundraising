@@ -240,3 +240,94 @@ test("members can't use the lookup to reach other members", async () => {
     assert.equal(found, null);
   });
 });
+
+// ── Parent recipients: only parents someone can sign in as (messageRecipients.ts)
+
+const DAY = 86_400_000;
+const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
+function seedParentAs(db: Record<string, Row[]>, memberId: string, athleteId: string, opts: { accountId?: string | null; createdAt?: string | null; slug?: string; name?: string }) {
+  db.team_members.push({
+    id: memberId, campaign_slug: opts.slug ?? SLUG, role: "parent", athlete_id: athleteId, name: opts.name ?? "Parent",
+    account_id: opts.accountId ?? null, created_at: opts.createdAt ?? null,
+  });
+}
+
+test("parent recipient with an ELF account: a new conversation is created, with family and head coach oversight", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "c-asst", "assistant_coach");
+    seedCoach(db, "c-head", "head_coach");
+    seedAthlete(db, "m-jo", "a-jo", "Jo Junior");
+    seedParentAs(db, "m-tess", "a-jo", { accountId: "acct-tess", createdAt: daysAgo(200), name: "Tess Two" });
+    const mod = await loadModule();
+    const res = await resolve(mod, "c-asst", "m-tess");
+    if (!res.ok) return assert.fail(res.error);
+    assert.equal(res.reused, false);
+    const parts = db.message_thread_participants.filter(p => p.thread_id === res.thread.id);
+    assert.ok(parts.some(p => p.member_id === "m-jo" && !p.is_observer), "athlete included (oversight)");
+    assert.ok(parts.some(p => p.coach_id === "c-head" && p.is_observer), "head coach oversight");
+  });
+});
+
+test("parent with no account and no possible session: refused before anything is written", async () => {
+  for (const createdAt of [daysAgo(31), daysAgo(400), null]) {
+    await withFakeDb(async db => {
+      seedCoach(db, "c-asst", "assistant_coach");
+      seedAthlete(db, "m-fay", "a-fay");
+      seedParentAs(db, "m-nora", "a-fay", { accountId: null, createdAt, name: "Nora NoAccount" });
+      const mod = await loadModule();
+      const before = JSON.stringify(db);
+      const res = await resolve(mod, "c-asst", "m-nora");
+      assert.equal(res.ok, false, String(createdAt));
+      if (res.ok) return;
+      assert.equal(res.status, 422);
+      assert.match(res.error, /doesn't have an active ELF account/);
+      assert.equal(JSON.stringify(db), before, "no thread, participant or oversight row");
+    });
+  }
+});
+
+test("legacy team-code parent still inside the 30-day session: can be messaged", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "c-asst", "assistant_coach");
+    seedAthlete(db, "m-lou", "a-lou");
+    seedParentAs(db, "m-gil", "a-lou", { accountId: null, createdAt: daysAgo(5), name: "Gil Graduating" });
+    const mod = await loadModule();
+    const res = await resolve(mod, "c-asst", "m-gil");
+    assert.equal(res.ok, true);
+  });
+});
+
+test("an existing conversation with a parent who can no longer sign in keeps working (reused, nothing refused)", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "c-asst", "assistant_coach");
+    seedAthlete(db, "m-sam", "a-sam");
+    seedParentAs(db, "m-pat", "a-sam", { accountId: null, createdAt: daysAgo(90), name: "Pat Mixed" });
+    const mod = await loadModule();
+    // The parent started it back when they could sign in.
+    const started = await mod.resolveOrCreateThreadForRecipient({
+      slug: SLUG, actor: { kind: "member", id: "m-pat" }, actorName: "Pat Mixed", actorRole: "parent",
+      actorIsHeadCoach: false, recipientActorType: "coach", recipientId: "c-asst", initialPreview: null,
+    });
+    if (!started.ok) return assert.fail(started.error);
+    const again = await resolve(mod, "c-asst", "m-pat");
+    if (!again.ok) return assert.fail(again.error);
+    assert.equal(again.reused, true);
+    assert.equal(again.thread.id, started.thread.id);
+    assert.equal(db.message_threads.length, 1);
+  });
+});
+
+test("athlete recipients and other teams' parents are unaffected by the parent rule", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "c-asst", "assistant_coach");
+    seedAthlete(db, "m-jo", "a-jo");
+    seedParentAs(db, "m-old", "a-jo", { accountId: null, createdAt: daysAgo(400) });
+    seedParentAs(db, "m-elsewhere", "a-x", { accountId: "acct-x", createdAt: daysAgo(1), slug: OTHER });
+    const mod = await loadModule();
+    const toAthlete = await resolve(mod, "c-asst", "m-jo");
+    assert.equal(toAthlete.ok, true, "athlete conversation still created (the inactive parent is included for oversight)");
+    const other = await resolve(mod, "c-asst", "m-elsewhere");
+    assert.equal(other.ok, false);
+    if (!other.ok) assert.equal(other.status, 404, "another team's parent is never resolved");
+  });
+});

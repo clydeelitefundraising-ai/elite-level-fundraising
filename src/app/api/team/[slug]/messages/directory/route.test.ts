@@ -205,10 +205,13 @@ test("GET directory: an unauthenticated request is rejected", async () => {
 // ── Roster Messages: "Message Parent/Guardian" for an athlete who hasn't
 // joined — each roster athlete carries its messageable guardians. ────────
 
-function seedGuardian(db: Record<string, Row[]>, memberId: string, name: string, opts: { legacyAthleteId?: string; linkedAthleteIds?: string[]; accountId?: string | null; slug?: string } = {}) {
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+
+function seedGuardian(db: Record<string, Row[]>, memberId: string, name: string, opts: { legacyAthleteId?: string; linkedAthleteIds?: string[]; accountId?: string | null; createdAt?: string | null; slug?: string } = {}) {
   db.team_members.push({
     id: memberId, campaign_slug: opts.slug ?? SLUG, role: "parent", athlete_id: opts.legacyAthleteId ?? null, name, salt: `s-${memberId}`,
-    account_id: opts.accountId === undefined ? `acct-${memberId}` : opts.accountId, athletes: null, elf_accounts: null,
+    account_id: opts.accountId === undefined ? `acct-${memberId}` : opts.accountId, created_at: opts.createdAt ?? daysAgo(120),
+    athletes: null, elf_accounts: null,
   });
   for (const athleteId of opts.linkedAthleteIds ?? []) db.team_member_athletes.push({ team_member_id: memberId, athlete_id: athleteId });
 }
@@ -220,7 +223,7 @@ async function getDirectory() {
   return res.json();
 }
 
-test("GET directory: an unjoined athlete lists guardians with an ELF account, via either link source", async () => {
+test("GET directory: an unjoined athlete lists every linked guardian, via either link source, flagged messageable or not", async () => {
   await withFakeDb(async db => {
     seedCoach(db, "ac-1", "assistant_coach");
     seedRosterAthlete(db, "athlete-fay", "Fay Freshman");
@@ -232,7 +235,8 @@ test("GET directory: an unjoined athlete lists guardians with an ELF account, vi
     const data = await getDirectory();
     const fay = data.athletes.find((a: Row) => a.athleteId === "athlete-fay");
     assert.equal(fay.teamMemberId, null, "the athlete herself stays unmessageable");
-    assert.deepEqual(fay.guardians.map((g: Row) => g.id).sort(), ["m-gil", "m-tess"], "no account → never offered");
+    assert.deepEqual(fay.guardians.map((g: Row) => [g.id, g.messageable]).sort(), [["m-gil", true], ["m-nora", false], ["m-tess", true]],
+      "no account → listed only so the composer can explain it");
     // Every guardian is an existing Parent-tab recipient.
     const parentIds = new Set(data.parents.map((p: Row) => p.id));
     assert.ok(fay.guardians.every((g: Row) => parentIds.has(g.id)));
@@ -252,7 +256,7 @@ test("GET directory: a coach who is the athlete's parent is never offered to the
     // Another coach still sees Hana as Mia's parent.
     signInAsCoach({ id: "ac-1", salt: "s-ac-1" });
     mia = (await getDirectory()).athletes.find((a: Row) => a.athleteId === "athlete-mia");
-    assert.deepEqual(mia.guardians, [{ id: "m-hana-parent", name: "Hana Head" }]);
+    assert.deepEqual(mia.guardians, [{ id: "m-hana-parent", name: "Hana Head", messageable: true }]);
   });
 });
 
@@ -272,5 +276,20 @@ test("GET directory: guardians are staff-only and campaign-scoped", async () => 
     signInAsCoach({ id: "hc-1", salt: "s-hc-1" });
     const fay = (await getDirectory()).athletes.find((a: Row) => a.athleteId === "athlete-fay");
     assert.deepEqual(fay.guardians.map((g: Row) => g.id), ["m-tess"], "another campaign's parent is never offered");
+  });
+});
+
+test("GET directory: the Parent tab flags each parent with the server's messaging rule", async () => {
+  await withFakeDb(async db => {
+    seedCoach(db, "hc-1");
+    seedGuardian(db, "m-account", "Ann Account", { accountId: "acct-a", createdAt: daysAgo(500) });
+    seedGuardian(db, "m-legacy-new", "Leo Legacy", { accountId: null, createdAt: daysAgo(3) });
+    seedGuardian(db, "m-legacy-old", "Ola Old", { accountId: null, createdAt: daysAgo(45) });
+    seedGuardian(db, "m-placeholder", "Nora NoAccount", { accountId: null, createdAt: null });
+    signInAsCoach({ id: "hc-1", salt: "s-hc-1" });
+    const data = await getDirectory();
+    const flags = Object.fromEntries(data.parents.map((p: Row) => [p.id, p.messageable]));
+    assert.deepEqual(flags, { "m-account": true, "m-legacy-new": true, "m-legacy-old": false, "m-placeholder": false });
+    assert.ok(data.parents.every((p: Row) => !("account_id" in p) && !("created_at" in p)), "account details are never sent to the browser");
   });
 });

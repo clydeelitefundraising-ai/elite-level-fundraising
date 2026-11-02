@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { checkContent } from "./moderation/contentFilter.ts";
 import { getLinkedAthleteIdsForMember, getFamilyMembersForAthlete } from "./familyRelationships.ts";
+import { isMessageCapableParent, PARENT_UNAVAILABLE_ERROR } from "./messageRecipients.ts";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -2049,14 +2050,14 @@ export async function markThreadReadForActor(
 export async function fetchMemberById(
   memberId: string,
   slug: string,
-): Promise<{ id: string; name: string; role: string; athlete_id: string | null } | null> {
+): Promise<{ id: string; name: string; role: string; athlete_id: string | null; account_id?: string | null; created_at?: string | null } | null> {
   const res = await fetch(
     `${BASE}/rest/v1/team_members` +
-    `?id=eq.${encodeURIComponent(memberId)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,role,athlete_id&limit=1`,
+    `?id=eq.${encodeURIComponent(memberId)}&campaign_slug=eq.${encodeURIComponent(slug)}&select=id,name,role,athlete_id,account_id,created_at&limit=1`,
     { headers: h(), cache: "no-store" },
   );
   if (!res.ok) return null;
-  const rows: { id: string; name: string; role: string; athlete_id: string | null }[] = await res.json();
+  const rows: { id: string; name: string; role: string; athlete_id: string | null; account_id?: string | null; created_at?: string | null }[] = await res.json();
   return rows[0] ?? null;
 }
 
@@ -2780,6 +2781,15 @@ export async function resolveOrCreateThreadForRecipient(params: {
       return { ok: false, error: "Unable to send message right now. Please try again.", status: 500 };
     }
     return { ok: true, thread: existingThread, reused: true };
+  }
+
+  // A NEW conversation with a parent needs someone who can sign in as them
+  // (messageRecipients.ts — the same rule the directory uses). Checked only
+  // here, after reuse: an existing conversation keeps working either way.
+  if (recipientMember?.role === "parent" && !isMessageCapableParent({
+    role: recipientMember.role, account_id: recipientMember.account_id, created_at: recipientMember.created_at,
+  })) {
+    return { ok: false, error: PARENT_UNAVAILABLE_ERROR, status: 422 };
   }
 
   for (const hc of headCoaches) addParticipant("coach", hc.id, true, true);

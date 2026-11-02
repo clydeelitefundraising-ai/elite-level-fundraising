@@ -18,6 +18,7 @@ import { useSelectedAttachments } from "./_shared/useSelectedAttachments";
 import { uploadMessageAttachments } from "./_shared/uploadMessageAttachments";
 import CreateGroupModal from "./_shared/CreateGroupModal";
 import { athleteProfilePath } from "@/lib/athleteMessagesLink";
+import { PARENT_UNAVAILABLE_TEXT } from "@/lib/messageRecipients";
 
 function relativeTime(iso: string): string {
   const sec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -167,7 +168,9 @@ function ThreadCard({
 
 // ─── Compose modal ────────────────────────────────────────────────────────────
 
-type DirectoryEntry = { id: string; name: string; role: string; athlete_id?: string | null; photo_url?: string | null };
+// messageable: parents only — false when no one can sign in as them
+// (messageRecipients.ts); the server refuses a new conversation with them.
+type DirectoryEntry = { id: string; name: string; role: string; athlete_id?: string | null; photo_url?: string | null; messageable?: boolean };
 // G3C bugfix — the Athlete tab's entries are no longer joined-only
 // team_members rows. athleteId (athletes.id) is ALWAYS present (used for
 // display/search/keys); teamMemberId (team_members.id) is the ONLY field
@@ -184,7 +187,7 @@ type DmAthleteEntry = {
   /** Linked parents/guardians with an ELF account (team_members.id +
    *  name), staff only — the "Message Parent/Guardian" fallback for an
    *  athlete who hasn't joined. Each is also in Directory.parents. */
-  guardians?: { id: string; name: string }[];
+  guardians?: { id: string; name: string; messageable: boolean }[];
 };
 // Satisfies groupMessaging.ts's RosterAthleteEntry (id/name/event/classYear/
 // joined) via its `id` alias of athleteId, so searchRosterAthletes() can be
@@ -230,6 +233,9 @@ function ComposeModal({
   // An athlete who hasn't joined, picked (from the profile or by tapping
   // their row): explained, never selected.
   const [unjoinedAthlete, setUnjoinedAthlete] = useState<DmAthleteEntry | null>(null);
+  // A parent with no active ELF account, tapped on the Parent tab:
+  // explained, never selected.
+  const [unavailableParent, setUnavailableParent] = useState<DirectoryEntry | null>(null);
   // A guardian chosen from that explanation, applied once the Parent tab
   // is showing (switching tabs otherwise clears the selection).
   const pendingGuardian = useRef<{ id: string; name: string } | null>(null);
@@ -259,6 +265,7 @@ function ComposeModal({
     setRecipientId(guardian?.id ?? "");
     setSearch(guardian?.name ?? "");
     setUnjoinedAthlete(null);
+    setUnavailableParent(null);
   }, [recipientType]);
 
   // "Message Parent/Guardian": the existing Parent flow with this guardian
@@ -623,9 +630,9 @@ function ComposeModal({
                       >
                         <div style={{ fontWeight: 700, marginBottom: ".2rem", overflowWrap: "anywhere" }}>{unjoinedAthlete.name}</div>
                         This athlete hasn&apos;t joined ELF yet. They need an active account before you can message them.
-                        {(unjoinedAthlete.guardians ?? []).length > 0 ? (
+                        {(unjoinedAthlete.guardians ?? []).some(g => g.messageable) ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: ".4rem", marginTop: ".6rem" }}>
-                            {(unjoinedAthlete.guardians ?? []).map(g => (
+                            {(unjoinedAthlete.guardians ?? []).filter(g => g.messageable).map(g => (
                               <button
                                 key={g.id}
                                 type="button"
@@ -642,8 +649,13 @@ function ComposeModal({
                             ))}
                           </div>
                         ) : (
-                          <div style={{ marginTop: ".4rem" }}>No linked parent or guardian has joined ELF yet.</div>
+                          <div style={{ marginTop: ".4rem" }}>No linked parent or guardian has an active ELF account yet.</div>
                         )}
+                        {(unjoinedAthlete.guardians ?? []).filter(g => !g.messageable).map(g => (
+                          <div key={g.id} style={{ marginTop: ".4rem", overflowWrap: "anywhere" }}>
+                            {g.name} doesn&apos;t have an active ELF account yet, so they can&apos;t be messaged.
+                          </div>
+                        ))}
                       </div>
                     )}
                   </>
@@ -653,7 +665,7 @@ function ComposeModal({
                       <input
                         type="text"
                         value={search}
-                        onChange={e => setSearch(e.target.value)}
+                        onChange={e => { setSearch(e.target.value); setUnavailableParent(null); }}
                         placeholder={searchLabel}
                         aria-label={searchLabel}
                         style={{
@@ -674,10 +686,18 @@ function ComposeModal({
                         <div style={{ display: "flex", flexDirection: "column", gap: ".4rem" }}>
                           {filteredRecipients.map(r => {
                             const active = r.id === recipientId;
+                            const unavailable = r.messageable === false;
                             return (
                               <button
                                 key={r.id}
-                                onClick={() => setRecipientId(r.id)}
+                                type="button"
+                                aria-disabled={unavailable}
+                                // A parent no one can sign in as is never
+                                // selected — tapping explains why.
+                                onClick={() => {
+                                  if (unavailable) { setRecipientId(""); setUnavailableParent(r); }
+                                  else { setRecipientId(r.id); setUnavailableParent(null); }
+                                }}
                                 style={{
                                   display: "flex", alignItems: "center", gap: ".6rem",
                                   padding: ".5rem .6rem", borderRadius: 10, textAlign: "left",
@@ -692,10 +712,23 @@ function ComposeModal({
                                     {r.name}
                                   </div>
                                   <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{roleLabel(r.role)}</div>
+                                  {unavailable && <div style={{ fontSize: ".7rem", color: "#9ca3af" }}>{PARENT_UNAVAILABLE_TEXT}</div>}
                                 </div>
                               </button>
                             );
                           })}
+                          {unavailableParent && (
+                            <div
+                              role="status"
+                              style={{
+                                marginTop: ".2rem", padding: ".65rem .75rem", borderRadius: 10,
+                                background: "#fffbeb", border: "1px solid #fde68a",
+                                fontSize: ".8rem", color: "#92400e", lineHeight: 1.45, overflowWrap: "anywhere",
+                              }}
+                            >
+                              {unavailableParent.name} doesn&apos;t have an active ELF account yet, so you can&apos;t start a conversation with them. Any existing conversation with them still works.
+                            </div>
+                          )}
                         </div>
                       )
                     ) : (

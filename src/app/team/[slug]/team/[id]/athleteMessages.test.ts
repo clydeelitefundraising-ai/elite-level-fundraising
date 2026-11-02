@@ -85,7 +85,9 @@ test("Message Parent/Guardian opens the existing Parent flow with that guardian 
   assert.match(mv, /const actorType = recipientType === "coach" \? "coach" : "member";/);
   const route = read("src/app/api/team/[slug]/messages/directory/route.ts");
   assert.match(route, /if \(isStaff\(actor\)\) \{/);
-  assert.match(route, /p\.account_id && p\.id !== actorMemberId/);
+  // Never the viewer themselves; who is message-capable is the shared rule
+  // (messageRecipients.ts), flagged per guardian.
+  assert.match(route, /p\.id !== actorMemberId && \(!actorAccountId \|\| p\.account_id !== actorAccountId\)/);
 });
 
 test("the composer keeps Next reachable on a narrow screen", () => {
@@ -101,4 +103,25 @@ test("back from the conversation returns to the athlete profile when opened from
   assert.ok(page.includes("backHref={backToProfile}"));
   const view = read(`${DIR}/messages/[threadId]/ThreadView.tsx`);
   assert.ok(view.includes("router.push(backHref ?? `/team/${slug}/communications?tab=messages`)"));
+});
+
+test("Parent tab: a parent with no active ELF account is shown, explained, and never selected", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  assert.match(mv, /const unavailable = r\.messageable === false;/);
+  assert.match(mv, /aria-disabled=\{unavailable\}/);
+  assert.match(mv, /if \(unavailable\) \{ setRecipientId\(""\); setUnavailableParent\(r\); \}\n\s*else \{ setRecipientId\(r\.id\); setUnavailableParent\(null\); \}/);
+  assert.ok(mv.includes("{unavailable && <div style={{ fontSize: \".7rem\", color: \"#9ca3af\" }}>{PARENT_UNAVAILABLE_TEXT}</div>}"));
+  assert.ok(mv.includes("doesn&apos;t have an active ELF account yet, so you can&apos;t start a conversation with them. Any existing conversation with them still works."));
+});
+
+test("Message Parent/Guardian offers only message-capable guardians and explains the rest", () => {
+  const mv = read(`${DIR}/messages/MessagesView.tsx`);
+  assert.match(mv, /\.filter\(g => g\.messageable\)\.map\(g => \(/);
+  assert.match(mv, /\.filter\(g => !g\.messageable\)\.map\(g => \(/);
+  assert.ok(mv.includes("No linked parent or guardian has an active ELF account yet."));
+  // Both lists come from the server's single rule.
+  const route = read("src/app/api/team/[slug]/messages/directory/route.ts");
+  assert.match(route, /import \{ isMessageCapableParent \} from "@\/lib\/messageRecipients";/);
+  assert.match(route, /messageable: parentMessageable\.get\(m\.id\) === true \}\)\);/);
+  assert.match(route, /list\.push\(\{ id: p\.id, name: p\.name, messageable: parentMessageable\.get\(p\.id\) === true \}\);/);
 });
