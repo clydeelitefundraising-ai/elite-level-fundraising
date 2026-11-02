@@ -201,6 +201,83 @@ export async function getAthleteAbsences(slug: string, athleteId: string): Promi
   });
 }
 
+// ── Team report (Attendance Reports) ──────────────────────────────────────
+
+/** The team's earliest session date, or null when it has none. */
+export async function firstAttendanceSessionDate(slug: string): Promise<AttendanceReadResult<string | null>> {
+  return guarded("report first session", async () => {
+    const res = await fetch(
+      `${BASE}/rest/v1/team_attendance_sessions?campaign_slug=eq.${encodeURIComponent(slug)}&select=session_date&order=session_date.asc&limit=1`,
+      { headers: h(), cache: "no-store" },
+    );
+    if (!res.ok) throw fail(res, await res.text());
+    const rows = await res.json();
+    if (!Array.isArray(rows)) throw new ReadError("error", "unexpected response");
+    if (rows.length === 0) return null;
+    if (!isIsoDate(rows[0]?.session_date)) throw new ReadError("error", "malformed session date");
+    return rows[0].session_date as string;
+  });
+}
+
+type ReportSessionRow = { id: string; session_date: string; time_zone: string; version: number };
+type ReportRecordRow = { id: string; session_id: string; athlete_id: string | null; status: unknown; absence_reason: unknown };
+type ReportAthleteRow = { id: string; name: string; class_year: string | null; created_at: string | null };
+
+export type AttendanceReportData = {
+  sessions: { id: string; date: string; timeZone: string }[];
+  records: { sessionId: string; athleteId: string | null; status: unknown; absenceReason: unknown }[];
+  roster: { id: string; name: string; classYear: string | null; createdAt: string | null }[];
+};
+
+/** Every session and record of this team between two dates (inclusive)
+ *  and its current roster — COMPLETE and consistent with one saved state,
+ *  or a failure. Filtered by campaign_slug on every read, so another team
+ *  or season never appears. Never reads notes. Callers check the viewer
+ *  is one of this team's coaches first. */
+export async function loadAttendanceReportData(slug: string, from: string, to: string): Promise<AttendanceReadResult<AttendanceReportData>> {
+  return guarded("report", async () => {
+    if (!isIsoDate(from) || !isIsoDate(to) || from > to) throw new ReadError("error", "invalid range");
+    const team = `campaign_slug=eq.${encodeURIComponent(slug)}`;
+    const range = `session_date=gte.${from}&session_date=lte.${to}`;
+    const readSessions = () => readAll<ReportSessionRow>(
+      `team_attendance_sessions?${team}&${range}&select=id,session_date,time_zone,version&order=session_date.asc,id.asc`, r => String(r.id));
+    const sameSessions = (a: ReportSessionRow[], b: ReportSessionRow[]) =>
+      a.length === b.length && a.every((s, i) => s.id === b[i].id && s.version === b[i].version);
+
+    for (let attempt = 1; attempt <= ATTENDANCE_LOAD_ATTEMPTS; attempt++) {
+      const before = await readSessions();
+      const [records, roster] = await Promise.all([
+        readAll<ReportRecordRow>(
+          `team_attendance_records?${team}&${range}&select=id,session_id,athlete_id,status,absence_reason&order=session_date.asc,id.asc`, r => String(r.id)),
+        readAll<ReportAthleteRow>(`athletes?${team}&select=id,name,class_year,created_at&order=name.asc,id.asc`, r => String(r.id)),
+      ]);
+      const after = await readSessions();
+      // A save landed between the reads: try again rather than mix versions.
+      if (!sameSessions(before, after)) continue;
+
+      for (const s of after) {
+        if (typeof s.id !== "string" || !isIsoDate(s.session_date) || typeof s.time_zone !== "string" || !s.time_zone) {
+          throw new ReadError("error", "malformed session row");
+        }
+      }
+      for (const a of roster) {
+        if (typeof a.id !== "string" || typeof a.name !== "string") throw new ReadError("error", "malformed athlete row");
+      }
+      for (const r of records) {
+        if (typeof r.session_id !== "string" || (r.athlete_id !== null && typeof r.athlete_id !== "string")) {
+          throw new ReadError("error", "malformed record row");
+        }
+      }
+      return {
+        sessions: after.map(s => ({ id: s.id, date: s.session_date, timeZone: s.time_zone })),
+        records: records.map(r => ({ sessionId: r.session_id, athleteId: r.athlete_id, status: r.status, absenceReason: r.absence_reason })),
+        roster: roster.map(a => ({ id: a.id, name: a.name, classYear: a.class_year ?? null, createdAt: a.created_at ?? null })),
+      };
+    }
+    throw new ReadError("error", "attendance kept changing while loading");
+  });
+}
+
 // ── One date ──────────────────────────────────────────────────────────────
 
 export type AttendanceEditability = "editable" | "date_in_future" | "date_not_editable" | "session_not_draft";

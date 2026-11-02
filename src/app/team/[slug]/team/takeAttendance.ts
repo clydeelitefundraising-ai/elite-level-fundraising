@@ -17,6 +17,18 @@ export function rosterPath(slug: string): string {
   return `/team/${encodeURIComponent(slug)}/team?tab=roster`;
 }
 
+/** The team's Attendance Reports screen. */
+export function attendanceReportsPath(slug: string): string {
+  return `/team/${encodeURIComponent(slug)}/attendance/reports`;
+}
+
+/** The Attendance Reports link for this actor (same people as attendance
+ *  itself), or null to show nothing. Unlike Take Attendance it stays in a
+ *  completed season: reports are read-only history. */
+export function attendanceReportsHref(slug: string, actor: TeamActor): string | null {
+  return canViewAttendance(actor) ? attendanceReportsPath(slug) : null;
+}
+
 /** The Take Attendance link for this actor, or null to show nothing. */
 export function takeAttendanceHref(slug: string, actor: TeamActor): string | null {
   return canViewAttendance(actor) ? attendancePath(slug) : null;
