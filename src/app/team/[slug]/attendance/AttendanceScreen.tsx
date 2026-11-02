@@ -287,7 +287,8 @@ export default function AttendanceScreen({
                   </div>
                   {list.filtered && (
                     <p className={styles.muted} role="status">
-                      Showing {visible.length} of {list.inSession} athletes. Filters only change what&apos;s shown — Save Draft always saves every athlete.
+                      {/* {" "}: the server build drops a leading text space here; the client keeps it (hydration #418). */}
+                      Showing {visible.length} of {list.inSession}{" "}athletes. Filters only change what&apos;s shown — Save Draft always saves every athlete.
                     </p>
                   )}
                 </div>

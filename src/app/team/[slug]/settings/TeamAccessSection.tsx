@@ -253,7 +253,8 @@ export default function TeamAccessSection({
                 cursor: "pointer",
               }}
             >
-              <QrCode size={15} /> Team QR &amp; Signup Sheet
+              {/* {" "}: the server build drops a leading text space here; the client keeps it (hydration #418). */}
+              <QrCode size={15} />{" "}Team QR &amp; Signup Sheet
             </button>
           </>
         ) : (
