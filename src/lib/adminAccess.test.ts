@@ -120,6 +120,8 @@ test("the shared password never authorizes a Platform-Admin-only surface", () =>
 // ── Part 2: behavior ──────────────────────────────────────────────────────
 
 type Row = Record<string, unknown>;
+// The Organization Center edits one explicit school (School Linking Phase A).
+const ORG = "00000000-0000-4000-8000-0000000000a1";
 function world() {
   const db: Record<string, Row[]> = {
     elf_accounts: [
@@ -127,9 +129,9 @@ function world() {
       { id: "acct-coach", email: "coach@elf.test", name: "Casey Coach", salt: "s-coach", profile_photo_url: null },
     ],
     platform_admins: [{ id: "pa-1", account_id: "acct-pa", role: "platform_admin" }],
-    organizations: [{ id: "org-1", slug: "default" }],
+    organizations: [{ id: ORG, slug: "default" }],
     communication_templates: [],
-    sponsor_packages: [{ id: "pkg-1", organization_id: "org-1", name: "Gold" }],
+    sponsor_packages: [{ id: "pkg-1", organization_id: ORG, name: "Gold" }],
     audit_logs: [],
   };
   const writes: { method: string; table: string; body: Row | null }[] = [];
@@ -147,7 +149,10 @@ function world() {
       return new Response(JSON.stringify(p.get("limit") ? out.slice(0, +p.get("limit")!) : out), { status: 200 });
     }
     if (method === "POST") { rows.push({ ...body }); return new Response(JSON.stringify([{ id: "new-1", ...body }]), { status: 201 }); }
-    return new Response("[]", { status: 200 });
+    // PATCH / DELETE: the matching rows (return=representation).
+    const hit = rows.filter(r => [...p.entries()].every(([k, v]) => !v.startsWith("eq.") || String(r[k]) === v.slice(3)));
+    if (method === "DELETE") db[table] = rows.filter(r => !hit.includes(r));
+    return new Response(JSON.stringify(hit), { status: 200 });
   }
   return { db, writes, fetchImpl };
 }
@@ -199,19 +204,19 @@ const pkg = () => import("../app/api/admin/organization/sponsor-packages/[id]/ro
 test("legacy admin APIs: coach and anonymous refused before any write; Platform Admin and shared password allowed", async () => {
   for (const who of ["nobody", "coach"] as const) {
     await as(who, async w => {
-      assert.equal((await (await templates()).GET(req("/x"))).status, 401);
-      assert.equal((await (await templates()).PUT(req("/x", "PUT", { type: "welcome", subject: "s", body_text: "b" }))).status, 401);
+      assert.equal((await (await templates()).GET(req(`/x?organizationId=${ORG}`))).status, 401);
+      assert.equal((await (await templates()).PUT(req("/x", "PUT", { organizationId: ORG, type: "welcome", subject: "s", body_text: "b" }))).status, 401);
       assert.equal(w.writes.length, 0, who);
     });
   }
   for (const who of ["platform", "shared"] as const) {
-    await as(who, async () => assert.equal((await (await templates()).GET(req("/x"))).status, 200, who));
+    await as(who, async () => assert.equal((await (await templates()).GET(req(`/x?organizationId=${ORG}`))).status, 200, who));
   }
 });
 
 test("admin writes are attributed: the individual Platform Admin, or admin_tool for the shared password; body identity ignored", async () => {
   await as("platform", async w => {
-    const res = await (await templates()).PUT(req("/x", "PUT", { type: "welcome", subject: "s", body_text: "b", actor: { type: "platform_admin", id: "pa-forged" }, admin_identifier: "someone" }));
+    const res = await (await templates()).PUT(req("/x", "PUT", { organizationId: ORG, type: "welcome", subject: "s", body_text: "b", actor: { type: "platform_admin", id: "pa-forged" }, admin_identifier: "someone" }));
     assert.equal(res.status, 200);
     const [a] = audits(w);
     assert.equal(a.action, "communication_template.updated");
@@ -220,15 +225,28 @@ test("admin writes are attributed: the individual Platform Admin, or admin_tool 
     assert.equal(a.actor_email, "pa@elf.test");
     assert.equal(a.admin_identifier, "pa@elf.test");
     assert.equal(a.user_agent, "qa-agent");
+    assert.equal((a.new_value as Row).organization_id, ORG, "audit names the school");
   });
   await as("shared", async w => {
-    const res = await (await pkg()).DELETE(req("/x", "DELETE"), { params: Promise.resolve({ id: "pkg-1" }) });
+    const res = await (await pkg()).DELETE(req(`/x?organizationId=${ORG}`, "DELETE"), { params: Promise.resolve({ id: "pkg-1" }) });
     assert.equal(res.status, 200);
     const [a] = audits(w);
     assert.equal(a.action, "sponsor_package.deleted");
     assert.equal(a.actor_type, "admin_tool");
     assert.equal(a.actor_id, null);
     assert.equal(a.admin_identifier, "admin");
+    assert.equal((a.new_value as Row).organization_id, ORG, "audit names the school");
+  });
+});
+
+test("legacy admin APIs keep School Linking scoping: no school or another school is refused, without a write or audit", async () => {
+  await as("platform", async w => {
+    assert.equal((await (await templates()).GET(req("/x"))).status, 400);
+    assert.equal((await (await templates()).PUT(req("/x", "PUT", { type: "welcome", subject: "s", body_text: "b" }))).status, 400);
+    const other = "00000000-0000-4000-8000-0000000000b2";
+    assert.equal((await (await pkg()).DELETE(req(`/x?organizationId=${other}`, "DELETE"), { params: Promise.resolve({ id: "pkg-1" }) })).status, 404);
+    assert.equal(w.db.sponsor_packages.length, 1, "another school's package id cannot be deleted");
+    assert.equal(audits(w).length, 0);
   });
 });
 
