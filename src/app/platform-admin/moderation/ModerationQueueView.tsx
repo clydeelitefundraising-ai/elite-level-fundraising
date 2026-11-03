@@ -121,7 +121,7 @@ function ReportRow({ report, onResolved }: { report: ContentReport; onResolved: 
   );
 }
 
-export default function ReportsQueueView() {
+export default function ModerationQueueView() {
   const [reports, setReports] = useState<ContentReport[] | null>(null);
 
   const load = () => {
@@ -137,7 +137,7 @@ export default function ReportsQueueView() {
 
   return (
     <div>
-      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 1rem" }}>Reports</h1>
+      <h1 style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0b1e3d", margin: "0 0 1rem" }}>Moderation</h1>
       {reports === null ? (
         <p style={{ color: "#6b7280" }}>Loading…</p>
       ) : open.length === 0 ? (

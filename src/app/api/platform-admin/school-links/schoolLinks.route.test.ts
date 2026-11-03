@@ -481,7 +481,7 @@ test("wiring: Campaign Control Center points staff to Platform Admin; nav links;
   assert.match(ccc, /School links are managed in Platform Admin/);
   assert.match(ccc, /href=\{`\/platform-admin\/school-links\/\$\{encodeURIComponent\(campaignSlug\)\}`\}/);
   assert.doesNotMatch(ccc, /Link it to an organization before this toggle becomes available/);
-  assert.match(readFileSync(join(process.cwd(), "src/app/platform-admin/_components/PlatformAdminHeader.tsx"), "utf8"), /href="\/platform-admin\/school-links"/);
+  assert.match(readFileSync(join(process.cwd(), "src/lib/platformAdminNav.ts"), "utf8"), /href: "\/platform-admin\/school-links"/);
   const lib = readFileSync(join(process.cwd(), "src/lib/platform/schoolLinks.ts"), "utf8");
   assert.doesNotMatch(lib, /organizations`?,\s*\{\s*method: "POST"|restInsert/, "no school creation path");
   assert.doesNotMatch(lib, /method: "PATCH"|reverted/, "no direct link write and no app-level rollback");

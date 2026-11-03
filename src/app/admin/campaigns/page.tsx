@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import CampaignsView from "./CampaignsView";
 
@@ -31,8 +30,7 @@ export type CampaignSummary = {
 };
 
 export default async function CampaignsPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const [campaignsRes, donationsRes, athletesRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/campaign_settings?select=campaign_slug,school_name,sport_name,season,location,primary_color,secondary_color,logo_url,goal_cents,deadline,archived,default_athlete_goal_cents&order=campaign_slug.asc`,

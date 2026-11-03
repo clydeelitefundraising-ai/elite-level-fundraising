@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import { getContact } from "@/lib/platform/crm";
 import NewCampaignWizard, { type CrmSeed } from "./NewCampaignWizard";
@@ -35,8 +34,7 @@ export default async function NewCampaignPage({
 }: {
   searchParams: Promise<{ crm_contact_id?: string }>;
 }) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   // Only an opaque id ever appears in the URL — never school/sport/coach name
   // or email. The wizard's seed values below come from an admin-authenticated

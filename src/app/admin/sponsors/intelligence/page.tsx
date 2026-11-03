@@ -1,6 +1,5 @@
-import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import {
   getSponsorScoringContext, getTopSponsors, getSponsorInsights, getRenewalForecast,
 } from "@/lib/platform/sponsors";
@@ -10,8 +9,7 @@ import type { SponsorIntelligenceData } from "./types";
 export const dynamic = "force-dynamic";
 
 export default async function SponsorIntelligencePage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   // Fetch sponsors/relationships/activities/campaigns exactly once, then
   // derive top sponsors, insights, and the renewal forecast from that single

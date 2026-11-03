@@ -38,9 +38,12 @@ test("the new /admin/community-partners page and view exist at their relocated p
   assert.equal(existsSync(join(process.cwd(), "src/app/admin/community-partners/CommunityPartnersAdminView.tsx")), true);
 });
 
-test("PlatformAdminHeader.tsx no longer links to the old /platform-admin/community-partners route", () => {
-  const src = readFileSync(join(process.cwd(), "src/app/platform-admin/_components/PlatformAdminHeader.tsx"), "utf8");
-  assert.doesNotMatch(src, /\/platform-admin\/community-partners/);
+test("the Platform Admin shell and navigation never link to the old /platform-admin/community-partners route", () => {
+  for (const f of ["src/app/platform-admin/_components/PlatformAdminShell.tsx", "src/lib/platformAdminNav.ts"]) {
+    const src = readFileSync(join(process.cwd(), f), "utf8");
+    assert.doesNotMatch(src, /\/platform-admin\/community-partners/, f);
+  }
+  assert.match(readFileSync(join(process.cwd(), "src/lib/platformAdminNav.ts"), "utf8"), /href: "\/admin\/community-partners"/);
 });
 
 test("AdminShell.tsx's Relationships group includes the new ELF Community Partners nav item at its relocated path", () => {

@@ -1,0 +1,132 @@
+.title {
+  margin: 0 0 .25rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.summary {
+  margin: 0 0 1.1rem;
+  color: #6b7280;
+  font-size: .9rem;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1100px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  height: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+  color: inherit;
+  text-decoration: none;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: #0b1e3d;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem;
+  font-weight: 700;
+  font-size: .95rem;
+  color: #0b1e3d;
+}
+
+.cardText {
+  font-size: .82rem;
+  color: #4b5563;
+  line-height: 1.4;
+}
+
+.legacy {
+  font-size: .66rem;
+  font-weight: 700;
+  padding: .05rem .45rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.note {
+  margin: 1rem 0 0;
+  font-size: .78rem;
+  color: #6b7280;
+}
+
+.stats {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 900px) {
+  .stats { grid-template-columns: repeat(4, 1fr); }
+}
+
+.stat {
+  display: block;
+  padding: .9rem 1rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  color: inherit;
+  text-decoration: none;
+}
+
+.statValue {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.statLabel {
+  display: block;
+  font-size: .78rem;
+  color: #6b7280;
+}
+
+.sectionTitle {
+  margin: 1.5rem 0 .6rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0b1e3d;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 1rem 1.1rem;
+}

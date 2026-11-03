@@ -1,6 +1,5 @@
-import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { listEvents, getSummary } from "@/lib/platform/automation";
 import { getRecentJobRuns, getJobRunSummary } from "@/lib/platform/jobs";
 import { getCampaignSummary } from "@/lib/platform/campaigns";
@@ -13,8 +12,7 @@ export const dynamic = "force-dynamic";
 type RawCoach = { id: string; name: string };
 
 export default async function AutomationPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const [events, summary, runs, jobSummary, campaigns, coaches] = await Promise.all([
     listEvents(),

@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import AnalyticsView, { type AnalyticsData } from "./AnalyticsView";
 
@@ -22,8 +21,7 @@ async function countRows(table: string): Promise<number> {
 }
 
 export default async function AnalyticsPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const [
     campaignsRes, donationsRes, athletesRes,

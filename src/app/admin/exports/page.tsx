@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import ExportsView from "./ExportsView";
 
@@ -21,8 +20,7 @@ export type ExportCampaign = {
 };
 
 export default async function ExportsPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const res = await fetch(
     `${BASE}/rest/v1/campaign_settings?select=campaign_slug,school_name,sport_name,season,archived&order=campaign_slug.asc`,

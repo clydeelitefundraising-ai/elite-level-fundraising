@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { notFound, redirect } from "next/navigation";
 import CampaignControlCenter, { type CampaignDetail } from "./CampaignControlCenter";
 
@@ -53,8 +52,7 @@ function computeHealthScore(d: {
 type RouteCtx = { params: Promise<{ slug: string }> };
 
 export default async function CampaignDetailPage({ params }: RouteCtx) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const { slug } = await params;
 

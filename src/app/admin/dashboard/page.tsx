@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import DashboardView from "./DashboardView";
 import { getNeedsAttention } from "@/lib/platform/operations";
@@ -34,8 +33,7 @@ async function countRows(table: string, filter = ""): Promise<number> {
 }
 
 export default async function DashboardPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   // Phase 1 (Dashboard simplification): every number below comes from an
   // existing shared lib/platform/* function already used by Operations,
