@@ -10,13 +10,14 @@ import {
   wrapFocusIndex,
 } from "@/app/admin/adminDrawer";
 import { isNativeApp, performNativeAwareLogout } from "@/lib/nativePushDevice";
-import { ADMIN_NAV, activeSectionId } from "@/lib/platformAdminNav";
+import { ADMIN_NAV, BOTTOM_NAV, activeSectionId } from "@/lib/platformAdminNav";
 import styles from "./PlatformAdminShell.module.css";
 
 // Platform Admin shell: a permanent sidebar on desktop (≥900px, same
-// breakpoint as the legacy /admin portal) and a top bar + slide-out
-// navigation drawer on phones and in the installed iOS/Android apps
-// (safe-area aware). Navigation comes from src/lib/platformAdminNav.ts.
+// breakpoint as the legacy /admin portal) and, on phones and in the
+// installed iOS/Android apps, a top bar + slide-out navigation drawer plus a
+// bottom bar (Home, Schools, Fundraising, More — More opens the drawer).
+// Both are safe-area aware. Navigation comes from src/lib/platformAdminNav.ts.
 // Authorization is NOT done here — the /platform-admin layout has already
 // verified the Platform Admin account before this renders.
 
@@ -39,8 +40,10 @@ export default function PlatformAdminShell({
   const [open, setOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
   const wasOpenRef = useRef(false);
   const close = useCallback(() => setOpen(false), []);
+  const openFrom = (button: HTMLButtonElement) => { openerRef.current = button; setOpen(true); };
 
   // Close on any route change.
   const [drawerPath, setDrawerPath] = useState(pathname);
@@ -57,12 +60,12 @@ export default function PlatformAdminShell({
   }, []);
 
   // While open: lock scroll, focus into the drawer, trap Tab, Escape closes;
-  // on close, focus returns to the menu button.
+  // on close, focus returns to the button that opened it (menu or More).
   useEffect(() => {
     if (!open) {
       if (wasOpenRef.current) {
         wasOpenRef.current = false;
-        menuButtonRef.current?.focus();
+        (openerRef.current ?? menuButtonRef.current)?.focus();
       }
       return;
     }
@@ -83,6 +86,7 @@ export default function PlatformAdminShell({
   }, [open]);
 
   const activeLabel = ADMIN_NAV.find(s => s.id === active)?.label ?? "Platform Admin";
+  const inBottomNav = BOTTOM_NAV.some(b => b.id === active);
 
   return (
     <div className={styles.shell} data-drawer-open={open ? "true" : "false"}>
@@ -158,7 +162,7 @@ export default function PlatformAdminShell({
             aria-label="Open navigation menu"
             aria-expanded={open}
             aria-controls={DRAWER_ID}
-            onClick={() => setOpen(true)}
+            onClick={e => openFrom(e.currentTarget)}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
@@ -167,6 +171,46 @@ export default function PlatformAdminShell({
           <span className={styles.topbarTitle}>{activeLabel}</span>
         </header>
         <main className={styles.content}>{children}</main>
+
+        <nav className={styles.bottomNav} aria-label="Quick navigation">
+          <ul className={styles.bottomList}>
+            {BOTTOM_NAV.map(item => {
+              const isActive = item.id === active;
+              const badge = item.id === "fundraising" && newInquiryCount > 0 ? newInquiryCount : 0;
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={item.href}
+                    className={styles.bottomItem}
+                    aria-current={isActive ? "page" : undefined}
+                    data-active={isActive ? "true" : undefined}
+                  >
+                    <span className={styles.bottomIcon} aria-hidden="true">
+                      {item.icon}
+                      {badge > 0 && <span className={styles.bottomBadge}>{badge > 99 ? "99+" : badge}</span>}
+                    </span>
+                    <span className={styles.bottomLabel}>{item.label}</span>
+                    {badge > 0 && <span className={styles.srOnly}>, {badge} new fundraising inquiries</span>}
+                  </Link>
+                </li>
+              );
+            })}
+            <li>
+              <button
+                type="button"
+                className={styles.bottomItem}
+                aria-label="More navigation"
+                aria-expanded={open}
+                aria-controls={DRAWER_ID}
+                data-active={!inBottomNav && active !== null ? "true" : undefined}
+                onClick={e => openFrom(e.currentTarget)}
+              >
+                <span className={styles.bottomIcon} aria-hidden="true">⋯</span>
+                <span className={styles.bottomLabel}>More</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
     </div>
   );

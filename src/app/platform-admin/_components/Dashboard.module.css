@@ -1,0 +1,402 @@
+/* Platform Admin dashboard. Mobile first: compact KPI grid, then Needs
+   attention, Quick actions and Recent activity in one column. From 900px
+   (the shell's sidebar breakpoint) Needs attention and Quick actions sit
+   side by side with Recent activity across the full width below. Tap
+   targets are ≥44px, never oversized. */
+
+.dashboard {
+  --d-navy: #0b1e3d;
+  --d-border: #e5e7eb;
+  --d-muted: #6b7280;
+  --d-text: #1f2937;
+  --d-warn: #b45309;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  min-width: 0;
+}
+
+/* Heading and subtitle always stack — never squeezed onto one line. */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--d-navy);
+  line-height: 1.2;
+}
+
+/* Sits on the page background (#f5f6f8), not a white panel: #4b5563 keeps
+   it above 4.5:1 there (the panels' #6b7280 would be 4.47:1). */
+.subtitle {
+  margin: 0;
+  font-size: .82rem;
+  color: #4b5563;
+}
+
+/* ── KPIs ───────────────────────────────────────────────────────────── */
+.kpis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 600px) {
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: .1rem;
+  box-sizing: border-box;
+  min-height: 68px;
+  height: 100%;
+  padding: .6rem .8rem;
+  background: #fff;
+  border: 1px solid var(--d-border);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.kpi[data-alert="true"] {
+  border-color: var(--d-navy);
+  box-shadow: inset 3px 0 0 var(--d-navy);
+}
+
+.kpi:hover,
+.kpi:focus-visible {
+  border-color: var(--d-navy);
+}
+
+.kpiValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -.01em;
+  color: var(--d-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpiLabel {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--d-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────── */
+.columns {
+  display: grid;
+  gap: .9rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "attention"
+    "quick"
+    "activity";
+}
+
+@media (min-width: 900px) {
+  .columns {
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas:
+      "attention quick"
+      "activity activity";
+  }
+}
+
+.attention { grid-area: attention; }
+.quick { grid-area: quick; }
+.activity { grid-area: activity; }
+
+.panel {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--d-border);
+  border-radius: 12px;
+  padding: .85rem .9rem;
+}
+
+/* Phones: slightly less side padding inside panels, so two-up tiles keep
+   their labels on one line at 375px. */
+@media (max-width: 599px) {
+  .panel { padding: .8rem .75rem; }
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.panelTitle {
+  margin: 0 0 .5rem;
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--d-navy);
+}
+
+.panelHead .panelTitle { margin-bottom: 0; }
+
+.panelLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 .25rem;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--d-navy);
+}
+
+.empty,
+.failed {
+  margin: 0;
+  font-size: .85rem;
+  color: var(--d-muted);
+  line-height: 1.4;
+}
+
+.failed { color: var(--d-warn); }
+
+.warn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: .35rem;
+  border-radius: 999px;
+  background: var(--d-warn);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+/* ── Needs attention ────────────────────────────────────────────────── */
+.attentionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.attentionList > li + li {
+  border-top: 1px solid var(--d-border);
+}
+
+.attentionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  min-height: 44px;
+  padding: .45rem 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.attentionRow:hover .attentionHeadline,
+.attentionRow:focus-visible .attentionHeadline {
+  text-decoration: underline;
+}
+
+.attentionHead {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attentionLabel {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--d-muted);
+}
+
+.attentionHeadline {
+  display: flex;
+  align-items: center;
+  font-size: .92rem;
+  font-weight: 700;
+  color: var(--d-navy);
+  overflow-wrap: anywhere;
+}
+
+.attentionRow[data-state="failed"] .attentionHeadline { color: var(--d-warn); }
+
+.chevron {
+  flex-shrink: 0;
+  font-size: 1.3rem;
+  color: var(--d-muted);
+}
+
+.attentionItems {
+  list-style: none;
+  margin: 0 0 .5rem;
+  padding: 0 0 0 .6rem;
+  border-left: 2px solid var(--d-border);
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.attentionItems li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itemText {
+  font-size: .84rem;
+  color: var(--d-text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.itemMeta {
+  font-size: .74rem;
+  color: var(--d-muted);
+}
+
+/* ── Quick actions ──────────────────────────────────────────────────── */
+.quickGrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .4rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .quickGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.quickAction {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  box-sizing: border-box;
+  min-height: 48px;
+  height: 100%;
+  padding: .45rem .5rem;
+  border: 1px solid var(--d-border);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--d-navy);
+  font-size: .86rem;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.quickAction:hover,
+.quickAction:focus-visible {
+  border-color: var(--d-navy);
+  background: #fff;
+}
+
+.quickIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 8px;
+  background: var(--d-navy);
+  color: #fff;
+  font-size: .9rem;
+}
+
+/* ── Recent activity ────────────────────────────────────────────────── */
+.activityList {
+  list-style: none;
+  margin: .35rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Wide screens: two columns of events, so the full-width panel stays short. */
+@media (min-width: 1100px) {
+  .activityList { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.5rem; }
+}
+
+.activityItem {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  min-width: 0;
+  padding: .5rem 0;
+  border-top: 1px solid var(--d-border);
+}
+
+.activityItem:first-child { border-top: none; }
+
+@media (min-width: 1100px) {
+  .activityItem:nth-child(2) { border-top: none; }
+}
+
+.activityIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: .05rem;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: var(--d-navy);
+  font-size: .85rem;
+  line-height: 1;
+}
+
+.activityBody {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-width: 0;
+}
+
+.activityText {
+  font-size: .86rem;
+  font-weight: 600;
+  color: var(--d-text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.activityMeta {
+  font-size: .74rem;
+  color: var(--d-muted);
+}
+
+.activityActor {
+  font-weight: 700;
+  color: #4b5563;
+}
