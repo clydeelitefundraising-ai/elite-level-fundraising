@@ -1,4 +1,4 @@
-import { restList } from "./_client";
+import { restHeaders, restList, restUrl } from "./_client";
 import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf, type AuditEventParams, type AuditActor } from "@/lib/auditLog";
 
 // Thin re-export — the write path (fire-and-forget insert, "admin" identifier,
@@ -36,10 +36,22 @@ export function auditActorLabel(entry: AuditEntry): string {
   return entry.admin_identifier ?? "Unknown";
 }
 
+function recentAuditPath(limit: number): string {
+  return `audit_logs?select=id,action,campaign_slug,summary,admin_identifier,actor_type,actor_email,created_at&order=created_at.desc&limit=${limit}`;
+}
+
 export async function getRecentAudit(limit = 15): Promise<AuditEntry[]> {
-  return restList<AuditEntry>(
-    `audit_logs?select=id,action,campaign_slug,summary,admin_identifier,actor_type,actor_email,created_at&order=created_at.desc&limit=${limit}`,
-  );
+  return restList<AuditEntry>(recentAuditPath(limit));
+}
+
+/** getRecentAudit's exact query, but a failure throws instead of returning
+ *  [] — so the dashboard can tell "no activity" from "couldn't load". */
+export async function getRecentAuditStrict(limit = 15): Promise<AuditEntry[]> {
+  const res = await fetch(restUrl(recentAuditPath(limit)), { headers: restHeaders(), cache: "no-store" });
+  if (!res.ok) throw new Error(`audit_logs read failed: HTTP ${res.status}`);
+  const json = await res.json();
+  if (!Array.isArray(json)) throw new Error("audit_logs read failed: unexpected response");
+  return json as AuditEntry[];
 }
 
 export async function getAuditSince(sinceISO: string, limit = 500): Promise<AuditEntry[]> {

@@ -119,6 +119,14 @@ export function navSection(id: string): AdminNavSection {
 }
 
 /** The section a /platform-admin path belongs to (for highlighting). */
+/** Phone bottom bar (below 900px): three sections plus More, which opens
+ *  the full navigation drawer. Ids are ADMIN_NAV section ids. */
+export const BOTTOM_NAV = [
+  { id: "dashboard", label: "Home", href: PLATFORM_ADMIN_HOME, icon: "⌂" },
+  { id: "schools", label: "Schools", href: "/platform-admin/schools", icon: "▣" },
+  { id: "fundraising", label: "Fundraising", href: "/platform-admin/fundraising", icon: "$" },
+] as const;
+
 export function activeSectionId(pathname: string): string | null {
   const path = pathname.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   if (path === PLATFORM_ADMIN_HOME) return "dashboard";
