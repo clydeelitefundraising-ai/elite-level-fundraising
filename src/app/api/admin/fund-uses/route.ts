@@ -1,19 +1,14 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { getFundUses, addFundUse } from "@/lib/supabase";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const slug = req.nextUrl.searchParams.get("slug") ?? "";
   if (!slug) return NextResponse.json([]);
   const items = await getFundUses(slug);
@@ -21,13 +16,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { campaign_slug, title, description, icon, sort_order } = await req.json();
   const seasonBlocked = await seasonWriteBlocked(campaign_slug);
   if (seasonBlocked) return seasonBlocked;
   const item = await addFundUse({ campaign_slug, title, description, icon: icon || "💰", sort_order: sort_order ?? 0 });
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "fund_use.added",
     entity_type:   "fund_use",
     entity_id:     item?.id ?? undefined,

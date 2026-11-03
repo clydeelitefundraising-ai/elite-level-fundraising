@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { organizationIdParam, sortOrganizations, type OrgPickerRow } from "@/lib/organizationCenter";
 import OrganizationView from "./OrganizationView";
 import OrganizationPicker from "./OrganizationPicker";
@@ -74,8 +73,7 @@ export default async function OrganizationPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const { school } = await searchParams;
   const orgId = organizationIdParam(typeof school === "string" ? school : null);

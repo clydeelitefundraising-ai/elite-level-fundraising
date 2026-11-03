@@ -5,9 +5,10 @@ import CommunityPartnersAdminView from "./CommunityPartnersAdminView";
 export const dynamic = "force-dynamic";
 
 // Phase 2.2A relocation — lives inside the main /admin Portal, so the
-// outer shared-password gate (src/app/admin/layout.tsx's verifyToken
-// check) has already passed by the time this page renders at all; that
-// layout check is NOT re-duplicated here. Community Partners management
+// outer /admin gate (src/app/admin/layout.tsx's getAdminAccess() check:
+// a Platform Admin account or the legacy shared password) has already
+// passed by the time this page renders at all; that layout check is NOT
+// re-duplicated here. Community Partners management
 // itself additionally requires a real, individually-attributable Platform
 // Admin session (getPlatformAdminSession) — the exact same authorization
 // every /api/platform-admin/community-partners/* route already enforces

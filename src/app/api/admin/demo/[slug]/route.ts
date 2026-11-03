@@ -1,9 +1,8 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -56,10 +55,8 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { slug } = await params;
   const seasonBlocked = await seasonWriteBlocked(slug);
@@ -85,7 +82,7 @@ export async function DELETE(
   await deleteDemoCampaign(slug);
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "demo.deleted",
     entity_type:   "campaign",
     entity_id:     slug,

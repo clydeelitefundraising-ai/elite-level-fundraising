@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { getDemoRequests } from "@/lib/platform/marketingDemoRequests";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export async function GET() {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   try {
     const requests = await getDemoRequests();

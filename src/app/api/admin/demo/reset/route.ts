@@ -1,10 +1,9 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { DEMO_TEMPLATES, DemoTemplate } from "@/lib/demoTemplates";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +68,8 @@ async function seedDemoData(slug: string, template: DemoTemplate): Promise<void>
 }
 
 export async function POST(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { slug } = await req.json() as { slug?: string };
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
@@ -101,7 +98,7 @@ export async function POST(req: NextRequest) {
   await seedDemoData(slug, template);
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "demo.reset",
     entity_type:   "campaign",
     entity_id:     slug,

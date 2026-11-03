@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveAuthenticatedLandingPath, resolvePlatformAdminGateRedirect } from "./platformAdminLanding.ts";
 
-test("resolveAuthenticatedLandingPath: platform admin lands on Schools, never the Team Selector", () => {
-  assert.equal(resolveAuthenticatedLandingPath(true), "/platform-admin/schools");
+test("resolveAuthenticatedLandingPath: platform admin lands on the admin dashboard, never the Team Selector", () => {
+  assert.equal(resolveAuthenticatedLandingPath(true), "/platform-admin");
 });
 
 test("resolveAuthenticatedLandingPath: a normal account lands on the Team Selector, unchanged", () => {

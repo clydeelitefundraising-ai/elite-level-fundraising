@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +7,8 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export async function GET(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const slug = req.nextUrl.searchParams.get("slug")?.trim().toLowerCase() ?? "";
 

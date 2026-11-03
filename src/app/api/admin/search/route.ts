@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +23,8 @@ type Coach    = { id: string; name: string; role: string; campaign_slug: string 
 type Sponsor  = { id: string; name: string; tier: string; campaign_slug: string };
 
 export async function GET(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   if (q.length < 2) {

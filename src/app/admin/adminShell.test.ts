@@ -199,7 +199,7 @@ test("current nav item is announced with aria-current", () => {
   assert.match(shell, /role="navigation" aria-label="Admin sections"/);
 });
 
-test("Phase 1B leaves authentication alone", () => {
-  assert.match(layout, /if \(!verifyToken\(token\)\) \{\s*return <LoginView \/>;/);
+test("Phase 1B leaves authentication alone (gate since admin Stage 1: getAdminAccess — Platform Admin account or shared password)", () => {
+  assert.match(layout, /const access = await getAdminAccess\(\);\s*if \(!access\) \{\s*return <LoginView \/>;/);
   assert.match(shell, /await fetch\("\/api\/admin\/logout", \{ method: "POST" \}\);\s*window\.location\.href = "\/admin";/);
 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignSettings } from "@/lib/supabase";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +11,9 @@ function h() {
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function GET() {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const [campaignsRes, donationsRes, athletesRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/campaign_settings?select=*&order=campaign_slug.asc`, { headers: h(), cache: "no-store" }),
@@ -53,7 +49,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const {
     campaign_slug, school_name, sport_name, mascot,
@@ -82,6 +79,16 @@ export async function POST(req: NextRequest) {
       location:       location       ?? "",
       season:         season         ?? "",
       logo_url:       logo_url       ?? "",
+    });
+    logAuditEvent({
+      actor:         adminAuditActor(access),
+      action:        "campaign.created",
+      entity_type:   "campaign_settings",
+      entity_id:     campaign_slug.trim(),
+      campaign_slug: campaign_slug.trim(),
+      summary:       `Campaign ${campaign_slug.trim()} created`,
+      ip_address:    ipOf(req),
+      user_agent:    req.headers.get("user-agent"),
     });
     return NextResponse.json({ ok: true, slug: campaign_slug.trim() });
   } catch (err) {

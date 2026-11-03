@@ -1,12 +1,11 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
 import { generateAccountSalt, hashAccountPassword, makeAccountCookie } from "@/lib/accountAuth";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getCampaignSettings } from "@/lib/supabase";
 import { sendCoachWelcome } from "@/lib/email";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -20,13 +19,9 @@ function supabaseHeaders(extra?: Record<string, string>) {
   };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const slug = req.nextUrl.searchParams.get("slug");
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
@@ -61,7 +56,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { campaign_slug, name, email, role, password } = await req.json();
 
@@ -172,7 +168,7 @@ export async function POST(req: NextRequest) {
   })();
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "coach.added",
     entity_type:   "coach",
     entity_id:     coach.id as string,

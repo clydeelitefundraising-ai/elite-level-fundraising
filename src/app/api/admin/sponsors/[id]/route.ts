@@ -1,24 +1,19 @@
 import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { updateSponsor, deleteSponsor } from "@/lib/supabase";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("sponsors", id);
   if (seasonBlocked) return seasonBlocked;
   const { name, url, tier } = await req.json();
   await updateSponsor(id, { name, url, tier });
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:      "sponsor.updated",
     entity_type: "sponsor",
     entity_id:   id,
@@ -31,13 +26,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("sponsors", id);
   if (seasonBlocked) return seasonBlocked;
   await deleteSponsor(id);
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:      "sponsor.deleted",
     entity_type: "sponsor",
     entity_id:   id,

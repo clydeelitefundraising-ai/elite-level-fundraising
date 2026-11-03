@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import sharp from "sharp";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 const BASE      = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const BUCKET    = "team-logos";
@@ -15,11 +15,6 @@ const ALLOWED: Record<string, { ext: string; contentType: string }> = {
   "image/svg+xml": { ext: "svg",  contentType: "image/svg+xml" },
 };
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 function storageHeaders(contentType: string) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return {
@@ -31,7 +26,8 @@ function storageHeaders(contentType: string) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const form = await req.formData();
   const file = form.get("logo");
@@ -91,6 +87,16 @@ export async function POST(req: NextRequest) {
     const msg = await uploadRes.text();
     return NextResponse.json({ error: `Storage upload failed: ${msg}` }, { status: 500 });
   }
+
+  logAuditEvent({
+    actor:       adminAuditActor(access),
+    action:      "logo.uploaded",
+    entity_type: "storage_object",
+    entity_id:   path,
+    summary:     "Campaign logo uploaded",
+    ip_address:  ipOf(req),
+    user_agent:  req.headers.get("user-agent"),
+  });
 
   return NextResponse.json({ url: `${BASE}/storage/v1/object/public/${BUCKET}/${path}` });
 }

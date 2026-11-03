@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
+import { resolveAuthenticatedLandingPath } from "@/lib/platformAdminLanding";
 import { getVisiblePendingRequestsForAccount as getVisiblePendingAthleteRequests } from "@/lib/platform/athleteRequests";
 import { getVisiblePendingRequestsForAccount as getVisiblePendingParentRequests } from "@/lib/platform/parentAccessRequests";
 import { getCampaign } from "@/lib/platform/campaigns";
@@ -9,7 +10,11 @@ import TeamsView, { type PendingTeamCard } from "./TeamsView";
 
 export const dynamic = "force-dynamic";
 
-export default async function TeamsPage() {
+export default async function TeamsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await getAccountSession();
   if (!session) redirect("/login");
 
@@ -18,9 +23,11 @@ export default async function TeamsPage() {
   // athlete somewhere — matches the precedence rule enforced by
   // resolveAuthenticatedLandingPath()/getTeamActor() elsewhere. A direct
   // visit to /teams (bookmark, back button, etc.) must not show the
-  // selector to a platform admin.
+  // selector to a platform admin — unless they asked for it from My Teams
+  // (/teams?view=my-teams), for admins who are also coaches or parents.
   const platformAdmin = await getPlatformAdminSession();
-  if (platformAdmin) redirect("/platform-admin/schools");
+  const { view } = await searchParams;
+  if (platformAdmin && view !== "my-teams") redirect(resolveAuthenticatedLandingPath(true));
 
   const [teams, pendingAthleteRequests, pendingParentRequests] = await Promise.all([
     getAccountTeams(session.id),

@@ -1,6 +1,5 @@
-import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { getContacts, getActivities, getPipelineSummary, getFollowUps } from "@/lib/platform/crm";
 import { getCampaignsByCrmContact } from "@/lib/platform/campaigns";
 import CoachCrmView from "./CoachCrmView";
@@ -9,8 +8,7 @@ import type { CrmData } from "./types";
 export const dynamic = "force-dynamic";
 
 export default async function CoachCrmPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const [contacts, recentActivity, { summary, pipeline }, followUpsDue, linkedCampaigns] = await Promise.all([
     getContacts(),

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { organizationIdParam } from "@/lib/organizationCenter";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +12,6 @@ function h(extra?: Record<string, string>) {
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
 
-async function authed() {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 /** The school, if it exists (never "the first school"). */
 async function organizationExists(orgId: string): Promise<boolean> {
   const res = await fetch(`${BASE}/rest/v1/organizations?id=eq.${orgId}&select=id&limit=1`, { headers: h(), cache: "no-store" });
@@ -26,7 +21,8 @@ async function organizationExists(orgId: string): Promise<boolean> {
 
 // GET /api/admin/organization/templates?organizationId=<uuid>
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
   if (!orgId) return NextResponse.json({ error: "Choose a school." }, { status: 400 });
 
@@ -39,7 +35,8 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/admin/organization/templates   { organizationId, type, subject, body_text }
 export async function PUT(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json().catch(() => null) as { organizationId?: unknown; type?: unknown; subject?: unknown; body_text?: unknown } | null;
   const orgId = organizationIdParam(body?.organizationId);
@@ -63,5 +60,15 @@ export async function PUT(req: NextRequest) {
 
   if (!res.ok) return NextResponse.json({ error: "Save failed." }, { status: 500 });
   const rows = await res.json();
+  logAuditEvent({
+    actor:       adminAuditActor(access),
+    action:      "communication_template.updated",
+    entity_type: "communication_templates",
+    entity_id:   type,
+    summary:     `Communication template "${type}" updated`,
+    new_value:   { organization_id: orgId },
+    ip_address:  ipOf(req),
+    user_agent:  req.headers.get("user-agent"),
+  });
   return NextResponse.json(rows[0] ?? { ok: true });
 }

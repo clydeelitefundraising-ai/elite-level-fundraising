@@ -13,7 +13,7 @@
  *  ALSO happens to be a coach/parent/booster/athlete on some team, per
  *  the explicit precedence rule: platform admin landing wins. */
 export function resolveAuthenticatedLandingPath(isPlatformAdmin: boolean): string {
-  return isPlatformAdmin ? "/platform-admin/schools" : "/teams";
+  return isPlatformAdmin ? "/platform-admin" : "/teams";
 }
 
 /** The /platform-admin/* server-side gate's redirect decision — the

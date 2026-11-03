@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
+import { logAudit, ipOf } from "@/lib/platform/audit";
 import { getContacts, createContact, CRM_STATUSES } from "@/lib/platform/crm";
 import type { CrmStatus } from "@/lib/platform/crm";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const VALID_STATUSES = new Set<string>(CRM_STATUSES);
 
 export async function GET(_req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   return NextResponse.json(await getContacts());
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json() as Record<string, unknown>;
   const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -51,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAudit({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:      "crm.contact_created",
     entity_type: "coach_crm_contact",
     entity_id:   contact.id,

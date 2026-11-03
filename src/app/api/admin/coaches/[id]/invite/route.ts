@@ -1,9 +1,9 @@
 import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { generateInviteToken, hashInviteToken, inviteExpiresAt } from "@/lib/coachInvite";
 import { sendCoachInvite } from "@/lib/email";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -12,16 +12,12 @@ function h(extra?: Record<string, string>) {
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
@@ -76,6 +72,18 @@ export async function POST(
   if (!insertRes.ok) {
     return NextResponse.json({ error: "Failed to generate invite token." }, { status: 500 });
   }
+
+  // Never the token or invite URL — only that one was issued.
+  logAuditEvent({
+    actor:         adminAuditActor(access),
+    action:        "coach.invite_issued",
+    entity_type:   "team_coaches",
+    entity_id:     id,
+    campaign_slug: coach.campaign_slug,
+    summary:       "Coach activation invite issued",
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   const appBase   = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const inviteUrl = `${appBase}/coach-activate/${rawToken}`;

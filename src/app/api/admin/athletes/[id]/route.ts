@@ -1,18 +1,13 @@
 import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { updateAthlete } from "@/lib/supabase";
 import { deleteAthleteWithMessagingCleanup } from "@/lib/platform/athletes";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("athletes", id);
   if (seasonBlocked) return seasonBlocked;
@@ -27,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to update athlete." }, { status: 500 });
   }
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:      "athlete.updated",
     entity_type: "athlete",
     entity_id:   id,
@@ -40,7 +35,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("athletes", id);
   if (seasonBlocked) return seasonBlocked;
@@ -57,7 +53,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Failed to delete athlete." }, { status: 500 });
   }
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:      "athlete.deleted",
     entity_type: "athlete",
     entity_id:   id,

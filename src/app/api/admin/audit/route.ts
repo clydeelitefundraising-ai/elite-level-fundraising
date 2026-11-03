@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +26,8 @@ type AuditLog = {
 };
 
 export async function GET(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const sp       = req.nextUrl.searchParams;
   const page     = Math.max(1, parseInt(sp.get("page") ?? "1", 10));

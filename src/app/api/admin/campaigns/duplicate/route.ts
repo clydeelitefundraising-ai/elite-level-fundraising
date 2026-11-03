@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +36,8 @@ type SourceSettings = {
 };
 
 export async function POST(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
@@ -243,7 +240,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "campaign.duplicated",
     entity_type:   "campaign",
     entity_id:     slug,

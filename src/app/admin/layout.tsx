@@ -1,18 +1,19 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { LoginView } from "./AdminClient";
 import AdminShell from "./AdminShell";
 import "./adminResponsive.css";
 
 export const dynamic = "force-dynamic";
 
+// Legacy /admin tool. A signed-in Platform Admin account is admitted
+// directly (no shared password); the shared-password sign-in stays for
+// existing users until /admin is retired (src/lib/adminAccess.ts).
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const store = await cookies();
-  const token = store.get("elf_admin")?.value;
+  const access = await getAdminAccess();
 
-  if (!verifyToken(token)) {
+  if (!access) {
     return <LoginView />;
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell via={access.via}>{children}</AdminShell>;
 }

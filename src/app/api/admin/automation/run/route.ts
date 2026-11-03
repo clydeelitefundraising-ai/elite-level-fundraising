@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
+import { logAudit, ipOf } from "@/lib/platform/audit";
 import { runAutomationJob } from "@/lib/platform/jobs";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const result = await runAutomationJob("manual", { source: "admin_dashboard" });
 
   logAudit({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:  "automation.run",
     summary: result.status === "succeeded"
       ? `Automation run: ${result.rulesEvaluated} rules evaluated, ${result.eventsCreated} created, ${result.eventsResolved} resolved (${result.durationMs}ms)`

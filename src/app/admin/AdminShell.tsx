@@ -105,7 +105,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/edit":           "Campaign Editor",
 };
 
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+export default function AdminShell({ children, via = "shared_password" }: { children: React.ReactNode; via?: "platform_admin" | "shared_password" }) {
   const pathname = usePathname();
   const router   = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -242,13 +242,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           ))}
         </div>
 
-        {/* Bottom: logout */}
+        {/* Bottom: back to Platform Admin (account sign-in) or sign out (shared password) */}
         <div style={{ padding: ".75rem .5rem 1rem", borderTop: "1px solid #f3f4f6" }}>
-          <button onClick={logout} className="adm-nav-item"
-            style={{ width: "100%", textAlign: "left", padding: ".45rem .75rem", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: ".78rem", color: "#6e6e73", fontWeight: 500, display: "flex", alignItems: "center", gap: ".5rem" }}>
-            <span style={{ fontSize: ".85rem", opacity: .7 }}>⎋</span>
-            Sign out
-          </button>
+          {via === "platform_admin" ? (
+            <a href="/platform-admin" className="adm-nav-item"
+              style={{ width: "100%", boxSizing: "border-box", textAlign: "left", padding: ".45rem .75rem", borderRadius: 7, fontSize: ".78rem", color: "#0b1e3d", fontWeight: 600, display: "flex", alignItems: "center", gap: ".5rem", textDecoration: "none" }}>
+              <span aria-hidden="true" style={{ fontSize: ".85rem" }}>←</span>
+              Back to Platform Admin
+            </a>
+          ) : (
+            <button onClick={logout} className="adm-nav-item"
+              style={{ width: "100%", textAlign: "left", padding: ".45rem .75rem", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: ".78rem", color: "#6e6e73", fontWeight: 500, display: "flex", alignItems: "center", gap: ".5rem" }}>
+              <span style={{ fontSize: ".85rem", opacity: .7 }}>⎋</span>
+              Sign out
+            </button>
+          )}
         </div>
       </aside>
 

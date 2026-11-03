@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import DemoView from "./DemoView";
 import { DEMO_SLUG, DEMO_COACH_EMAIL, DEMO_ATHLETE_EMAIL, DEMO_PARENT_EMAIL } from "@/lib/demoPersonas";
 
@@ -25,8 +24,7 @@ export type DemoStatus = {
 };
 
 export default async function DemoPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   let status: DemoStatus = {
     campaignExists:  false,

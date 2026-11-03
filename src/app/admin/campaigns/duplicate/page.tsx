@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import DuplicateWizard from "./DuplicateWizard";
 
@@ -20,8 +19,7 @@ export type CampaignOption = {
 type Props = { searchParams: Promise<{ source?: string }> };
 
 export default async function DuplicateCampaignPage({ searchParams }: Props) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const h   = { apikey: key, Authorization: `Bearer ${key}` };

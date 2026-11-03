@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getContact, createActivity } from "@/lib/platform/crm";
 import { getCampaignByCrmContactId } from "@/lib/platform/campaigns";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -19,13 +18,9 @@ const DEFAULT_FUND_USES = [
 
 type StarterAthlete = { name?: unknown; event?: unknown; class_year?: unknown };
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
@@ -160,7 +155,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "campaign.created",
     entity_type:   "campaign",
     entity_id:     slug,

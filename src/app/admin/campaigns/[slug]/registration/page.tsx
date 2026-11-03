@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect, notFound } from "next/navigation";
 import RegistrationView from "./RegistrationView";
 import type { AthleteRegistration, RegistrationSummary } from "@/app/api/admin/campaigns/[slug]/registration/route";
@@ -16,8 +15,7 @@ function h() {
 type RouteCtx = { params: Promise<{ slug: string }> };
 
 export default async function RegistrationPage({ params }: RouteCtx) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const { slug } = await params;
   const enc = encodeURIComponent(slug);

@@ -1,26 +1,22 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { getSponsors, addSponsor } from "@/lib/supabase";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const DEFAULT_SLUG = "paradise-valley-track-field-live";
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const slug = req.nextUrl.searchParams.get("slug") ?? DEFAULT_SLUG;
   const sponsors = await getSponsors(slug);
   return NextResponse.json(sponsors);
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { campaign_slug, name, url, tier } = await req.json();
   const slug = campaign_slug ?? DEFAULT_SLUG;
   const seasonBlocked = await seasonWriteBlocked(slug);
@@ -30,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
   const sponsor = await addSponsor({ campaign_slug: slug, name: name.trim(), url: url.trim(), tier });
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "sponsor.added",
     entity_type:   "sponsor",
     entity_id:     sponsor?.id ?? undefined,

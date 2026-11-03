@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { campaignExists } from "@/lib/platform/campaigns";
 import { parseCsv } from "@/lib/platform/import/csvParse";
 import { parseXlsx } from "@/lib/platform/import/xlsxParse";
 import { mapHeaders, buildCandidates, annotateDuplicates, NoNameColumnError } from "@/lib/platform/import/rosterCandidates";
 import { getExistingAthleteInfo } from "@/lib/platform/import/existingAthletes";
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — same ceiling as logo-upload
 const MAX_DATA_ROWS = 1000;        // expected workload is 100–300; this leaves generous headroom without risking a serverless timeout
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const form = await req.formData();
   const file = form.get("file");

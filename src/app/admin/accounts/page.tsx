@@ -1,5 +1,4 @@
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import AccountsView from "./AccountsView";
 import type { AccountRow } from "@/app/api/admin/accounts/route";
@@ -14,8 +13,7 @@ function h() {
 }
 
 export default async function AccountsPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   const [coachesRes, membersRes, campaignsRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/team_coaches?select=id,campaign_slug,name,email,role,account_id,created_at&order=created_at.desc`, { headers: h(), cache: "no-store" }),

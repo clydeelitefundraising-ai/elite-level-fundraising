@@ -3,7 +3,7 @@ import { getAccountSession } from "@/lib/accountSession";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { resolvePlatformAdminGateRedirect } from "@/lib/platformAdminLanding";
 import { countNewFundraisingInquiries } from "@/lib/platform/fundraisingInquiries";
-import PlatformAdminHeader from "./_components/PlatformAdminHeader";
+import PlatformAdminShell from "./_components/PlatformAdminShell";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +36,8 @@ export default async function PlatformAdminLayout({
   const newInquiryCount = await countNewFundraisingInquiries();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f6f8", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <PlatformAdminHeader name={platformAdmin!.name} email={platformAdmin!.email} newInquiryCount={newInquiryCount} />
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "1.25rem 1rem 3rem" }}>
-        {children}
-      </main>
-    </div>
+    <PlatformAdminShell name={platformAdmin!.name} email={platformAdmin!.email} newInquiryCount={newInquiryCount}>
+      {children}
+    </PlatformAdminShell>
   );
 }

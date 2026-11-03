@@ -89,7 +89,7 @@ test("buildLogoutBody: neither platform nor token -> empty body", () => {
 const FORM_LOGOUT_SURFACES = [
   "src/app/team/[slug]/_components/AccountMenu.tsx",
   "src/app/teams/TeamsView.tsx",
-  "src/app/platform-admin/_components/PlatformAdminHeader.tsx",
+  "src/app/platform-admin/_components/PlatformAdminShell.tsx",
   "src/app/team/[slug]/_components/TeamSwitcher.tsx",
 ];
 

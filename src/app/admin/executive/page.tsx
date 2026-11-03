@@ -1,6 +1,5 @@
-import { cookies }  from "next/headers";
 import { redirect } from "next/navigation";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { calculateHealth, calculateRevenueForecast } from "@/lib/platform/health";
 import { getAllDonations, getDonationSummary, calculateDonationMomentum } from "@/lib/platform/donations";
 import { getPipelineSummary, getActivities } from "@/lib/platform/crm";
@@ -26,8 +25,7 @@ const ELF_FEE_RATE = Number(process.env.ELF_PLATFORM_FEE_RATE) || 0.08;
 const DAY_MS = 86400000;
 
 export default async function ExecutiveDashboardPage() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) redirect("/admin");
+  if (!(await getAdminAccess())) redirect("/admin");
 
   // ── Fetch once, reuse everywhere below. calculateHealth() already fetches
   // campaigns + donations internally to score every team, so it alone covers
