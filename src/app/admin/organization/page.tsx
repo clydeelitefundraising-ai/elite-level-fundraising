@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAdminAccess } from "@/lib/adminAccess";
-import { organizationIdParam, sortOrganizations, type OrgPickerRow } from "@/lib/organizationCenter";
+import { isLegacyPlaceholderOrganization, organizationIdParam, sortOrganizations, type OrgPickerRow } from "@/lib/organizationCenter";
 import OrganizationView from "./OrganizationView";
 import OrganizationPicker from "./OrganizationPicker";
 
@@ -87,7 +87,8 @@ export default async function OrganizationPage({
     const links: { organization_id: string }[] = linkRes.ok ? await linkRes.json() : [];
     const counts = new Map<string, number>();
     for (const l of links) counts.set(l.organization_id, (counts.get(l.organization_id) ?? 0) + 1);
-    const rows: OrgPickerRow[] = sortOrganizations(orgs.map(o => ({
+    // Display only: the empty legacy placeholder isn't offered as a school.
+    const rows: OrgPickerRow[] = sortOrganizations(orgs.filter(o => !isLegacyPlaceholderOrganization(o)).map(o => ({
       id: o.id, slug: o.slug, school_name: o.school_name ?? "", city: o.city ?? "", state: o.state ?? "",
       team_count: counts.get(o.id) ?? 0,
     })));

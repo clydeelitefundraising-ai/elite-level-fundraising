@@ -40,7 +40,7 @@ function makeWorld() {
     audit_logs: [],
   };
   const requests: { method: string; path: string; body?: Row }[] = [];
-  const hooks: { beforeInsert?: () => void; orgReadStatus?: number } = {};
+  const hooks: { beforeInsert?: () => void; orgReadStatus?: number; auditStatuses?: number[] } = {};
   let n = 0;
   async function fetchImpl(url: string, init?: RequestInit): Promise<Response> {
     const path = url.replace(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, "");
@@ -67,6 +67,11 @@ function makeWorld() {
       const row = { id: `org-new-${++n}`, ...body };
       rows.push(row);
       return new Response(JSON.stringify([row]), { status: 201 });
+    }
+    if (method === "POST" && table === "audit_logs" && hooks.auditStatuses?.length) {
+      const status = hooks.auditStatuses.shift()!;
+      if (status < 300) rows.push({ ...body });
+      return new Response("", { status });
     }
     if (method === "POST") { rows.push({ ...body }); return new Response("", { status: 201 }); }
     return new Response("null", { status: 405 });
@@ -133,6 +138,7 @@ test("create school: inserts only name, city, state and a slug; audited as the P
   await withWorld(async w => {
     const res = await create({ school_name: "  Apollo   High School ", city: " Phoenix ", state: "az", organization_id: "x", show_community_partners: true });
     assert.equal(res.status, 201);
+    assert.equal(res.body.auditRecorded, true);
     assert.deepEqual(inserts(w).map(q => q.body), [{ slug: "apollo-high-school", school_name: "Apollo High School", city: "Phoenix", state: "AZ" }]);
     assert.deepEqual(res.body.school, { id: "org-new-1", slug: "apollo-high-school", school_name: "Apollo High School", city: "Phoenix", state: "AZ", label: "Apollo High School — Phoenix, AZ" });
     const [a] = audits(w);
@@ -228,11 +234,46 @@ test("wiring: picker hides the seed row; the form only creates; linking still ne
   assert.deepEqual([...form.matchAll(/fetch\("([^"]+)"/g)].map(m => m[1]), ["/api/platform-admin/school-links/schools"]);
   assert.doesNotMatch(form, /\/preview|previewToken|method: "PUT"/);
   const panel = read("src/app/platform-admin/school-links/[slug]/SchoolLinkPanel.tsx");
-  assert.match(panel, /onCreated=\{school => selectSchool\(school, true\)\}/);
+  assert.match(panel, /onCreated=\{\(school, auditRecorded\) => selectSchool\(school, true, auditRecorded\)\}/);
   assert.match(panel, /const selectSchool = [\s\S]*?choose\(school\);/, "selecting discards any preview (choose → discard)");
   assert.match(panel, /Nothing is linked yet — preview and confirm to link\./);
   // The confirm is still the only link write, and it still needs the preview token.
   assert.match(panel, /body: JSON\.stringify\(\{ organizationId: preview\.organizationId, seasons: preview\.confirm, previewToken: preview\.previewToken \}\)/);
   // Creating lives outside the linking library, which still never creates.
   assert.doesNotMatch(read("src/lib/platform/schoolLinks.ts"), /organizations`?,s*{s*method: "POST"|restInsert/);
+});
+
+test("audit failure: the audit row is awaited and retried once; a second failure keeps the school and says so", async () => {
+  await withWorld(async w => {
+    w.hooks.auditStatuses = [500, 201];
+    const retried = await create(APOLLO);
+    assert.deepEqual([retried.status, retried.body.auditRecorded], [201, true]);
+    assert.equal(audits(w).length, 2, "one retry");
+    assert.equal(w.db.audit_logs.length, 1, "exactly one audit row written");
+  });
+  await withWorld(async w => {
+    w.hooks.auditStatuses = [500, 503];
+    const errors: string[] = [];
+    const realError = console.error, realWarn = console.warn;
+    console.error = (m: string) => { errors.push(String(m)); };
+    console.warn = () => {};
+    try {
+      const failed = await create(APOLLO);
+      assert.deepEqual([failed.status, failed.body.auditRecorded], [201, false]);
+      assert.equal(audits(w).length, 2, "no more than one retry");
+      assert.equal(w.db.audit_logs.length, 0);
+      assert.ok(w.db.organizations.some(o => o.slug === "apollo-high-school"), "the valid school is kept, not deleted");
+      assert.deepEqual(linkWrites(w), []);
+      assert.ok(errors.some(e => e.includes(String(failed.body.school.id))), "server log names the school id");
+      assert.ok(errors.every(e => !e.includes("Apollo") && !e.includes("admin@elf.test")), "no names or emails in the log");
+    } finally { console.error = realError; console.warn = realWarn; }
+  });
+});
+
+test("wiring: an unrecorded audit row is shown to the admin", () => {
+  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8").replace(/\r\n/g, "\n");
+  assert.match(read("src/app/platform-admin/school-links/[slug]/CreateSchoolForm.tsx"), /onCreated\(d\.school, d\.auditRecorded !== false\)/);
+  const panel = read("src/app/platform-admin/school-links/[slug]/SchoolLinkPanel.tsx");
+  assert.match(panel, /if \(!auditRecorded\) setAuditWarning\(/);
+  assert.match(panel, /\{auditWarning && <p role="alert"/);
 });

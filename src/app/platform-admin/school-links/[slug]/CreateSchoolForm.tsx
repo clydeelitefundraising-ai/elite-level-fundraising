@@ -35,7 +35,7 @@ export default function CreateSchoolForm({
   onCancel,
 }: {
   initialName: string;
-  onCreated: (school: CreatedSchool) => void;
+  onCreated: (school: CreatedSchool, auditRecorded: boolean) => void;
   onUseExisting: (school: CreatedSchool) => void;
   onCancel: () => void;
 }) {
@@ -64,7 +64,7 @@ export default function CreateSchoolForm({
         body: JSON.stringify({ school_name: name, city, state, acknowledgeSimilar: differentSchool }),
       });
       const d = await res.json().catch(() => ({}));
-      if (res.status === 201) return onCreated(d.school);
+      if (res.status === 201) return onCreated(d.school, d.auditRecorded !== false);
       if (res.status === 409 && d.code === "duplicate") return setProblem({ kind: "duplicate", existing: d.existing });
       if (res.status === 409 && d.code === "similar") return setProblem({ kind: "similar", similar: d.similar });
       if (res.status === 400 && d.field) return setProblem({ kind: "field", field: d.field, text: d.error });

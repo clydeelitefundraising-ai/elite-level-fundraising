@@ -17,7 +17,7 @@ register(new URL("../../../../lib/testSupport/nextStubLoader.mjs", import.meta.u
 const { NextRequest } = await import("../../../../lib/testSupport/nextServerStub.mjs");
 const { __setTestCookie } = await import("../../../../lib/testSupport/nextHeadersStub.mjs");
 const { getAdminToken } = await import("@/lib/adminAuth");
-const { pickEditableOrgFields, organizationIdParam, organizationLabel, filterOrganizations, sortOrganizations } = await import("@/lib/organizationCenter");
+const { pickEditableOrgFields, organizationIdParam, organizationLabel, filterOrganizations, sortOrganizations, isLegacyPlaceholderOrganization } = await import("@/lib/organizationCenter");
 
 type Row = Record<string, unknown>;
 const A = "11111111-1111-4111-8111-111111111111"; // Monroe Valley
@@ -224,4 +224,18 @@ test("rules: ids, labels (name — city, state), search by name/city/state, sort
   assert.deepEqual(sortOrganizations(rows).map(r => r.slug), ["lincoln-ne", "lincoln-or", "default"]);
   const ok = pickEditableOrgFields({ school_name: "X", default_show_sponsors: false, slug: "no" });
   assert.ok(ok.ok && ok.fields.sort().join() === "default_show_sponsors,school_name");
+});
+
+test("picker: the empty legacy 'default' placeholder is hidden (display only); it stays reachable and is never modified", () => {
+  assert.equal(isLegacyPlaceholderOrganization({ slug: "default", school_name: "" }), true);
+  assert.equal(isLegacyPlaceholderOrganization({ slug: "default", school_name: "   " }), true);
+  assert.equal(isLegacyPlaceholderOrganization({ slug: "default", school_name: "Named Later High" }), false, "a named record is a real school");
+  assert.equal(isLegacyPlaceholderOrganization({ slug: "default-mesa-az", school_name: "" }), false);
+  assert.equal(isLegacyPlaceholderOrganization({ slug: "monroe", school_name: "Monroe" }), false);
+  const page = readFileSync(join(process.cwd(), "src/app/admin/organization/page.tsx"), "utf8").replace(/\r\n/g, "\n");
+  // Only the picker list is filtered; the list query and the ?school=<id> editor query are unchanged.
+  assert.match(page, /sortOrganizations\(orgs\.filter\(o => !isLegacyPlaceholderOrganization\(o\)\)\.map\(/);
+  assert.match(page, /organizations\?select=id,slug,school_name,city,state`/);
+  assert.match(page, /organizations\?id=eq\.\$\{orgId\}&select=\*&limit=1`/);
+  assert.doesNotMatch(page, /method: "(PATCH|DELETE|POST)"/, "the page never writes");
 });

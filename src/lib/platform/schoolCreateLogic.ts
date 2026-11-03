@@ -16,11 +16,13 @@
 // duplicate instead of silently creating a second record.
 import { slugifyOrganizationName } from "@/lib/teamProvisioning/organization";
 import { US_STATES } from "./usStates";
+import { LEGACY_PLACEHOLDER_ORG_SLUG } from "@/lib/organizationCenter";
 
 export { US_STATES };
 
-/** The original single-school seed row — never a real school. */
-export const DEFAULT_ORG_SLUG = "default";
+/** The original single-school seed row — never a real school (same rule
+ *  as the Organization Center picker). */
+export const DEFAULT_ORG_SLUG = LEGACY_PLACEHOLDER_ORG_SLUG;
 
 export type NewSchoolInput = { school_name: string; city: string; state: string };
 export type ExistingSchool = { id: string; slug: string; school_name: string; city: string | null; state: string | null };

@@ -40,6 +40,14 @@ export type OrgPatchResult =
 /** The allowed, type-checked subset of a profile/defaults save. Unknown
  *  keys are ignored (the client sends its whole section); a known key
  *  with the wrong type refuses the save. */
+/** The original single-school seed row (slug 'default', no name) — a
+ *  placeholder, not a school. Hidden from the school pickers only; the row
+ *  is kept and stays reachable directly (?school=<id>). */
+export const LEGACY_PLACEHOLDER_ORG_SLUG = "default";
+export function isLegacyPlaceholderOrganization(o: { slug: string; school_name?: string | null }): boolean {
+  return o.slug === LEGACY_PLACEHOLDER_ORG_SLUG && !(o.school_name ?? "").trim();
+}
+
 export function pickEditableOrgFields(body: unknown): OrgPatchResult {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "Invalid request." };
   const src = body as Record<string, unknown>;

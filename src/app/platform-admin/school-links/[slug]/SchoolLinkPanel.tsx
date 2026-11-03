@@ -45,6 +45,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [schoolNotice, setSchoolNotice] = useState("");
+  const [auditWarning, setAuditWarning] = useState("");
   const [searchFailed, setSearchFailed] = useState(false);
 
   async function loadSeasons() {
@@ -71,13 +72,14 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
   // Any change to what would be saved discards the preview.
   const discard = () => { setPreview(null); setMessage(null); };
   const toggle = (s: string) => { discard(); setSelected(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; }); };
-  const choose = (t: School | "unlink") => { discard(); setSchoolNotice(""); setTarget(t); };
+  const choose = (t: School | "unlink") => { discard(); setSchoolNotice(""); setAuditWarning(""); setTarget(t); };
   // A new (or existing duplicate) school from the create form: show it in
   // the list and select it. Nothing is linked yet.
-  const selectSchool = (school: CreatedSchool, created: boolean) => {
+  const selectSchool = (school: CreatedSchool, created: boolean, auditRecorded = true) => {
     setResults(prev => [school, ...prev.filter(o => o.id !== school.id)]);
     choose(school);
     setCreating(false);
+    if (!auditRecorded) setAuditWarning(`The school was created, but its audit-log entry couldn't be recorded. Please tell the ELF team (school id ${school.id}).`);
     setSchoolNotice(created
       ? `Created ${school.label} and selected it. Nothing is linked yet — preview and confirm to link.`
       : `Selected ${school.label}. Nothing is linked yet — preview and confirm to link.`);
@@ -172,10 +174,11 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
           </label>
         </div>
         {schoolNotice && <p role="status" style={{ margin: ".6rem 0 0", fontSize: ".84rem", color: "#166534" }}>{schoolNotice}</p>}
+        {auditWarning && <p role="alert" style={{ margin: ".4rem 0 0", fontSize: ".84rem", color: "#92400e" }}>{auditWarning}</p>}
         {creating ? (
           <CreateSchoolForm
             initialName={query}
-            onCreated={school => selectSchool(school, true)}
+            onCreated={(school, auditRecorded) => selectSchool(school, true, auditRecorded)}
             onUseExisting={school => selectSchool(school, false)}
             onCancel={() => setCreating(false)}
           />

@@ -7,14 +7,14 @@
 // existing UNIQUE(slug) constraint makes a concurrent duplicate impossible,
 // and a lost race is reported, never retried with a random suffix.
 // Creating a school links nothing; linking still needs Preview + Confirm.
-import { logAuditEvent } from "@/lib/auditLog";
+import { recordAuditEvent, type AuditEventParams } from "@/lib/auditLog";
 import type { PlatformAdminIdentity } from "@/lib/platformAdminSession";
 import { restInsert, RestError } from "./_client";
 import { listAllOrganizations } from "./schoolLinks";
 import { checkDuplicates, slugForNewSchool, type ExistingSchool, type NewSchoolInput } from "./schoolCreateLogic";
 
 export type CreateSchoolResult =
-  | { status: "created"; school: ExistingSchool }
+  | { status: "created"; school: ExistingSchool; auditRecorded: boolean }
   | { status: "duplicate"; existing: ExistingSchool }
   | { status: "similar"; similar: ExistingSchool[] };
 
@@ -46,7 +46,13 @@ export async function createSchool(
     throw err;
   }
 
-  logAuditEvent({
+  // The audit row is written before answering (awaited, one retry) — a
+  // fire-and-forget insert can be cut off when a serverless response ends.
+  // If it still fails, the school stays (it is valid, and deleting it would
+  // be a second unaudited write); the admin is told and the server logs the
+  // school id so the entry can be reconstructed. Linking it later is audited
+  // separately and atomically by school_link_apply().
+  const audit: AuditEventParams = {
     actor:       { type: "platform_admin", id: opts.admin.platformAdminId, email: opts.admin.email, name: opts.admin.name },
     action:      "organization.created",
     entity_type: "organization",
@@ -55,6 +61,10 @@ export async function createSchool(
     new_value:   { school_name: created.school_name, city: created.city, state: created.state, slug: created.slug },
     ip_address:  opts.request.ip,
     user_agent:  opts.request.userAgent,
-  });
-  return { status: "created", school: created };
+  };
+  const auditRecorded = (await recordAuditEvent(audit)) || (await recordAuditEvent(audit));
+  if (!auditRecorded) {
+    console.error(`[schoolCreate] organization.created audit row not recorded for organization ${created.id}`);
+  }
+  return { status: "created", school: created, auditRecorded };
 }

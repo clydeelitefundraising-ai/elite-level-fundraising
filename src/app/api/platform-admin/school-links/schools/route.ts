@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
 // "Create new school" — Platform Admin accounts only (checked here, like
 // every handler in this tree). Creates the school record only: no season
 // is linked until the admin previews and confirms. Answers:
-//   201 { school }                       created (audited with this admin)
+//   201 { school, auditRecorded }        created (audited with this admin;
+//                                        auditRecorded false = the audit row
+//                                        couldn't be written, school kept)
 //   409 { code: "duplicate", existing }  same name + city + state exists
 //   409 { code: "similar", similar }     same name elsewhere — resend with
 //                                        acknowledgeSimilar: true if it is
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (result.status === "similar") {
       return NextResponse.json({ code: "similar", error: "A school with this name already exists elsewhere.", similar: result.similar.map(view) }, { status: 409 });
     }
-    return NextResponse.json({ school: view(result.school) }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ school: view(result.school), auditRecorded: result.auditRecorded }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "The school couldn't be created. Nothing was changed." }, { status: 503 });
   }

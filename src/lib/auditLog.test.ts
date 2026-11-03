@@ -53,3 +53,32 @@ test("adminIdentifierFor: admin_tool always resolves to the exact legacy string,
 test("adminIdentifierFor: system actor carries its note, distinguishable from admin_tool", () => {
   assert.equal(adminIdentifierFor({ type: "system", note: "staff_invite_self_accept" }), "system:staff_invite_self_accept");
 });
+
+test("recordAuditEvent resolves true/false and never throws; logAuditEvent stays fire-and-forget", async () => {
+  const { recordAuditEvent, logAuditEvent } = await import("./auditLog.ts");
+  const env = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY };
+  const realFetch = globalThis.fetch, realWarn = console.warn;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://fake.supabase.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "fake-key";
+  const calls: string[] = [];
+  console.warn = () => {};
+  try {
+    const params = { actor: { type: "admin_tool" as const }, action: "test.action" };
+    globalThis.fetch = (async (url: string) => { calls.push(url); return new Response("", { status: 201 }); }) as typeof fetch;
+    assert.equal(await recordAuditEvent(params), true);
+    globalThis.fetch = (async () => new Response("", { status: 500 })) as typeof fetch;
+    assert.equal(await recordAuditEvent(params), false);
+    globalThis.fetch = (async () => { throw new TypeError("fetch failed"); }) as typeof fetch;
+    assert.equal(await recordAuditEvent(params), false);
+    globalThis.fetch = (async (url: string) => { calls.push(url); return new Response("", { status: 201 }); }) as typeof fetch;
+    assert.equal(logAuditEvent(params), undefined);
+    assert.equal(calls.filter(u => u.endsWith("/rest/v1/audit_logs")).length, 2, "logAuditEvent still posts the same insert");
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    assert.equal(await recordAuditEvent(params), false, "no credentials → false, no request");
+  } finally {
+    globalThis.fetch = realFetch; console.warn = realWarn;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = env.url; process.env.SUPABASE_SERVICE_ROLE_KEY = env.key;
+    if (env.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (env.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+});
