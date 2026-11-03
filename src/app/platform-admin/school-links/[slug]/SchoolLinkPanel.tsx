@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import CreateSchoolForm, { type CreatedSchool } from "./CreateSchoolForm";
 
 // Platform Admin — link, change or unlink the school for one team's seasons.
 // Flow: choose seasons (current season preselected; others only when ticked;
 // completed seasons may be ticked too — only their school link changes) →
 // choose a school or "Unlink" → Preview
 // (mandatory: before/after school and Community Partner visibility) →
-// Confirm. Any change to the selection discards the preview.
+// Confirm. Any change to the selection discards the preview. A missing school
+// can be created in step 2 ("Create new school"); it is then selected, but
+// still goes through the same Preview + Confirm before anything is linked.
 
 type Season = { campaign_slug: string; label: string; school_name: string | null; organization_id: string | null; school: string | null; completed: boolean };
 type School = { id: string; slug: string; label: string };
@@ -40,6 +43,9 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [schoolNotice, setSchoolNotice] = useState("");
+  const [searchFailed, setSearchFailed] = useState(false);
 
   async function loadSeasons() {
     setLoadError("");
@@ -57,6 +63,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
       const res = await fetch(`/api/platform-admin/school-links/schools?q=${encodeURIComponent(query)}`, { cache: "no-store" });
       const d = await res.json().catch(() => ({}));
       setResults(res.ok ? d.schools : []);
+      setSearchFailed(!res.ok);
     }, 250);
     return () => clearTimeout(t);
   }, [query]);
@@ -64,7 +71,17 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
   // Any change to what would be saved discards the preview.
   const discard = () => { setPreview(null); setMessage(null); };
   const toggle = (s: string) => { discard(); setSelected(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; }); };
-  const choose = (t: School | "unlink") => { discard(); setTarget(t); };
+  const choose = (t: School | "unlink") => { discard(); setSchoolNotice(""); setTarget(t); };
+  // A new (or existing duplicate) school from the create form: show it in
+  // the list and select it. Nothing is linked yet.
+  const selectSchool = (school: CreatedSchool, created: boolean) => {
+    setResults(prev => [school, ...prev.filter(o => o.id !== school.id)]);
+    choose(school);
+    setCreating(false);
+    setSchoolNotice(created
+      ? `Created ${school.label} and selected it. Nothing is linked yet — preview and confirm to link.`
+      : `Selected ${school.label}. Nothing is linked yet — preview and confirm to link.`);
+  };
 
   const selectedList = useMemo(() => (seasons ?? []).filter(s => selected.has(s.campaign_slug)).map(s => s.campaign_slug), [seasons, selected]);
   const targetId = target === "unlink" ? null : target?.id ?? undefined;
@@ -146,12 +163,33 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
               <span style={{ fontSize: ".88rem", overflowWrap: "anywhere" }}>{o.label} <span style={muted}>[{o.slug}]</span></span>
             </label>
           ))}
-          {results.length === 0 && <span style={muted}>No schools match. Schools aren&apos;t created here.</span>}
+          {results.length === 0 && (
+            <span style={muted}>{searchFailed ? "Schools couldn't be loaded. Try searching again." : query.trim() ? `No schools match “${query.trim()}”.` : "No schools yet."}</span>
+          )}
           <label style={{ display: "flex", gap: ".6rem", alignItems: "center", minHeight: 36, cursor: "pointer", borderTop: "1px solid #eee", paddingTop: ".35rem" }}>
             <input type="radio" name="school" checked={target === "unlink"} onChange={() => choose("unlink")} />
             <span style={{ fontSize: ".88rem" }}>Unlink (no school)</span>
           </label>
         </div>
+        {schoolNotice && <p role="status" style={{ margin: ".6rem 0 0", fontSize: ".84rem", color: "#166534" }}>{schoolNotice}</p>}
+        {creating ? (
+          <CreateSchoolForm
+            initialName={query}
+            onCreated={school => selectSchool(school, true)}
+            onUseExisting={school => selectSchool(school, false)}
+            onCancel={() => setCreating(false)}
+          />
+        ) : (
+          <div style={{ marginTop: ".6rem", display: "flex", alignItems: "center", gap: ".5rem", flexWrap: "wrap" }}>
+            <button
+              type="button" onClick={() => { setCreating(true); setSchoolNotice(""); }}
+              style={{ ...btn(results.length === 0 && !!query.trim()), minHeight: 44 }}
+            >
+              + Create new school
+            </button>
+            {results.length > 0 && <span style={muted}>Not in the list? Create it.</span>}
+          </div>
+        )}
       </section>
 
       <section style={{ ...card, padding: card.padding }} aria-labelledby="preview-h">

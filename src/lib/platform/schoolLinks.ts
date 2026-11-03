@@ -79,7 +79,10 @@ export async function searchSchools(rawQuery: unknown, limit = 25): Promise<OrgR
   const filter = q
     ? `&or=(${["school_name", "city", "state", "slug"].map(c => `${c}.ilike.*${encodeURIComponent(q)}*`).join(",")})`
     : "";
-  return strictList<OrgRow>(`organizations?select=${ORG_SELECT}${filter}&order=school_name.asc,slug.asc&limit=${limit}`);
+  // The empty 'default' seed row (the original single-school record) is
+  // never a real school, so it is not offered as a link target — the same
+  // rule the Schools directory already applies. The row itself is untouched.
+  return strictList<OrgRow>(`organizations?select=${ORG_SELECT}&slug=neq.default${filter}&order=school_name.asc,slug.asc&limit=${limit}`);
 }
 
 export async function listAllSeasons(): Promise<SeasonRow[]> {
