@@ -83,6 +83,8 @@ test("dashboard CSS: mobile-first, no overflow-prone widths, ≥44px tap targets
     assert.equal(+m![1], min);
   }
   assert.match(css, /overflow-wrap: anywhere;/);
+  // Text on the grey page background needs the darker grey for 4.5:1.
+  assert.match(css, /.subtitle {[^}]*color: #4b5563;/);
 });
 
 test("bottom nav: Home, Schools, Fundraising match their sections; More opens the existing drawer", () => {

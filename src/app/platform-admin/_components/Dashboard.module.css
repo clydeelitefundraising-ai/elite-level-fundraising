@@ -30,10 +30,12 @@
   line-height: 1.2;
 }
 
+/* Sits on the page background (#f5f6f8), not a white panel: #4b5563 keeps
+   it above 4.5:1 there (the panels' #6b7280 would be 4.47:1). */
 .subtitle {
   margin: 0;
   font-size: .82rem;
-  color: var(--d-muted);
+  color: #4b5563;
 }
 
 /* ── KPIs ───────────────────────────────────────────────────────────── */
