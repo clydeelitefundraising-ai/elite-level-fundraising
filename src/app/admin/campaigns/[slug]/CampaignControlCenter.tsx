@@ -265,9 +265,11 @@ type SchoolAdState =
 
 function SchoolAdvertisingSection({
   organizationId,
+  campaignSlug,
   show,
 }: {
   organizationId: string | null;
+  campaignSlug: string;
   show: (msg: string, type?: "success" | "error") => void;
 }) {
   const [schoolAd, setSchoolAd] = useState<SchoolAdState>(
@@ -361,7 +363,9 @@ function SchoolAdvertisingSection({
             />
           </div>
           <div style={{ padding: ".6rem .8rem", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 7, fontSize: ".78rem", color: "#4b5563", lineHeight: 1.5, marginTop: ".6rem" }}>
-            This team isn&rsquo;t linked to a school yet, so there&rsquo;s no shared advertising setting to control. Link it to an organization before this toggle becomes available.
+            This team isn&rsquo;t linked to a school yet, so there&rsquo;s no shared advertising setting to control. School links are managed in Platform Admin:{" "}
+            <a href={`/platform-admin/school-links/${encodeURIComponent(campaignSlug)}`} style={{ color: "#0b1e3d", fontWeight: 600 }}>Platform Admin → School links</a>{" "}
+            (requires a Platform Admin account).
           </div>
         </>
       )}
@@ -2109,6 +2113,7 @@ export default function CampaignControlCenter({ detail }: Props) {
           <SchoolAdvertisingSection
             key={detail.organization_id ?? "unlinked"}
             organizationId={detail.organization_id}
+            campaignSlug={detail.campaign_slug}
             show={show}
           />
 
