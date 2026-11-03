@@ -34,15 +34,20 @@ WITH r(n, check_name, value, expected) AS (
   SELECT 1, 'current_user', current_user::text, 'postgres'
 
   -- The migration's objects.
-  -- Rows 2 and 26 accept the LF and CRLF forms of the same code (the SQL
-  -- Editor keeps CRLF when pasted from a Windows working copy, as with
-  -- phase_s2). Rows 3 and 27 are strict, with line endings ignored.
-  UNION ALL SELECT 2, 'season_write_guard md5 (LF or CRLF form)',
+  -- Rows 2 and 26 accept only the three known text forms of the committed
+  -- migration: UTF-8 LF, UTF-8 CRLF (pasted from a Windows working copy), and
+  -- UTF-8 read as code page 437 + CRLF (Windows "clip < file"; garbles only
+  -- the comment characters - installed in production 2026-11-03, proven
+  -- equivalent: runbook section 6). Rows 3 and 27 are the strict check: the
+  -- code with line endings and "--" comments removed must equal the
+  -- committed code exactly (no string literal in either function contains
+  -- "--"); row 28 proves every non-ASCII byte is inside a comment.
+  UNION ALL SELECT 2, 'season_write_guard md5 (known text form)',
     (SELECT md5(prosrc) FROM pg_proc WHERE oid = to_regprocedure('public.season_write_guard()')),
-    'e6189ca1a112c1bd27b52c8fdaeabf13|dccd6986a9bf90557c3834d78c21318f'
-  UNION ALL SELECT 3, 'season_write_guard md5 (line endings ignored)',
-    (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.season_write_guard()')),
-    'e6189ca1a112c1bd27b52c8fdaeabf13'
+    'e6189ca1a112c1bd27b52c8fdaeabf13|dccd6986a9bf90557c3834d78c21318f|3ce94a5820dbdb2be3c731d874dc9958'
+  UNION ALL SELECT 3, 'season_write_guard md5, code only (strict)',
+    (SELECT md5(regexp_replace(replace(prosrc, chr(13), ''), '--[^\n]*', '', 'g')) FROM pg_proc WHERE oid = to_regprocedure('public.season_write_guard()')),
+    'e4b2b809097ac0e0cde77616a258d8d1'
   UNION ALL SELECT 4, 'season_write_guard secdef / acl / config / owner',
     (SELECT prosecdef::text || ' ' || coalesce(proacl::text, '') || ' ' || coalesce(array_to_string(proconfig, ','), '')
             || ' owner=' || pg_get_userbyid(proowner)
@@ -127,12 +132,17 @@ WITH r(n, check_name, value, expected) AS (
     'permission denied for function school_link_apply'
   UNION ALL SELECT 24, 'flag after probes', coalesce(nullif(current_setting('elf.school_link', true), ''), '(unset)'), '(unset)|off'
   UNION ALL SELECT 25, 'role after probes', current_user::text, 'postgres'
-  UNION ALL SELECT 26, 'school_link_apply md5 (LF or CRLF form)',
+  UNION ALL SELECT 26, 'school_link_apply md5 (known text form)',
     (SELECT md5(prosrc) FROM pg_proc WHERE oid = to_regprocedure('public.school_link_apply(jsonb,text,uuid,jsonb,jsonb)')),
-    '691ec970ff3fc62bea4e2e43408785d8|3986f9f58daf65314b1db8a3181d77a0'
-  UNION ALL SELECT 27, 'school_link_apply md5 (line endings ignored)',
-    (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.school_link_apply(jsonb,text,uuid,jsonb,jsonb)')),
-    '691ec970ff3fc62bea4e2e43408785d8'
+    '691ec970ff3fc62bea4e2e43408785d8|3986f9f58daf65314b1db8a3181d77a0|f92ce1d2e8b884242d38b79be7c5986a'
+  UNION ALL SELECT 27, 'school_link_apply md5, code only (strict)',
+    (SELECT md5(regexp_replace(replace(prosrc, chr(13), ''), '--[^\n]*', '', 'g')) FROM pg_proc WHERE oid = to_regprocedure('public.school_link_apply(jsonb,text,uuid,jsonb,jsonb)')),
+    '750ace23acff9575ef927b5578a9d19f'
+  UNION ALL SELECT 28, 'non-ASCII lines outside comments (both functions)',
+    (SELECT count(*)::text FROM pg_proc p, regexp_split_to_table(replace(p.prosrc, chr(13), ''), E'\n') AS l(line)
+      WHERE p.oid IN (to_regprocedure('public.season_write_guard()'), to_regprocedure('public.school_link_apply(jsonb,text,uuid,jsonb,jsonb)'))
+        AND octet_length(line) <> char_length(line) AND line !~ '^\s*--'),
+    '0'
 ), s AS (
   SELECT n, check_name, coalesce(value, '(missing)') AS value, coalesce(expected, '(same as pre-check)') AS expected,
          CASE WHEN expected IS NULL THEN 'COMPARE'
