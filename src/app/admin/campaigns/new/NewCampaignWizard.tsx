@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { CAMPAIGN_SLUG_RE, generateCampaignSlug } from "@/lib/teamProvisioning/slug";
+import { applySchoolDefaults, keptEdits, partnerVisibilityText, type InheritableField, type InheritableValues } from "@/lib/campaignSchoolDefaults";
+import CampaignSchoolPicker, { type SelectedSchool } from "../_components/CampaignSchoolPicker";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -136,6 +138,26 @@ function FieldNote({ children }: { children: React.ReactNode }) {
   return <span style={{ ...T.muted }}>{children}</span>;
 }
 
+// Marks a field whose value came from the selected school's Organization
+// Center defaults ("School default") or that the administrator changed
+// ("Edited" — never overwritten by a school selection or switch).
+type OriginState = { inherited: ReadonlySet<string>; touched: ReadonlySet<string>; hasSchool: boolean };
+const OriginCtx = createContext<OriginState>({ inherited: new Set(), touched: new Set(), hasSchool: false });
+
+function Origin({ f }: { f: InheritableField }) {
+  const o = useContext(OriginCtx);
+  const chip = (text: string, bg: string, fg: string) => (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: ".05rem .45rem", borderRadius: 999, background: bg, color: fg, fontSize: ".62rem", fontWeight: 700, textTransform: "none", letterSpacing: 0 }}>{text}</span>
+  );
+  if (o.inherited.has(f)) return chip("School default", "#e8edf5", "#0b1e3d");
+  if (o.hasSchool && o.touched.has(f)) return chip("Edited", "#f3f4f6", "#374151");
+  return null;
+}
+
+function LabelText({ children, f }: { children: React.ReactNode; f?: InheritableField }) {
+  return <span style={{ display: "flex", alignItems: "center", gap: ".4rem", flexWrap: "wrap" }}>{children}{f && <Origin f={f} />}</span>;
+}
+
 function SectionHeader({ title, desc }: { title: string; desc?: string }) {
   return (
     <div style={T.section}>
@@ -147,7 +169,7 @@ function SectionHeader({ title, desc }: { title: string; desc?: string }) {
 
 function ColorField({
   label, value, onChange,
-}: { label: string; value: string; onChange: (v: string) => void }) {
+}: { label: React.ReactNode; value: string; onChange: (v: string) => void }) {
   return (
     <label style={T.label}>
       {label}
@@ -172,7 +194,7 @@ function ColorField({
 
 function ToggleRow({
   label, desc, checked, onChange,
-}: { label: string; desc?: string; checked: boolean; onChange: (v: boolean) => void }) {
+}: { label: React.ReactNode; desc?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: ".6rem 0", borderBottom: "1px solid #f5f5f7" }}>
       <div>
@@ -224,14 +246,27 @@ function ErrorBanner({ errors }: { errors: string[] }) {
 // ── Step 1 – Team Info ────────────────────────────────────────────────────────
 
 function Step1({
-  d, upd, slugStatus,
+  d, upd, slugStatus, school, onSchool, suggestedSchool, schoolNotice,
 }: {
   d: WizardData;
   upd: (p: Partial<WizardData>) => void;
   slugStatus: SlugStatus;
+  school: SelectedSchool | null;
+  onSchool: (s: SelectedSchool) => void;
+  suggestedSchool: string;
+  schoolNotice: string;
 }) {
   return (
     <div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <SectionHeader
+          title="School *"
+          desc="Choose the school this campaign belongs to, or create it. Its Organization Center defaults fill the fields you haven't changed."
+        />
+        <CampaignSchoolPicker value={school} onChange={onSchool} suggestedName={suggestedSchool} />
+        {schoolNotice && <p role="status" style={{ margin: ".5rem 0 0", fontSize: ".78rem", color: "#166534" }}>{schoolNotice}</p>}
+      </div>
+
       <SectionHeader
         title="Team Information"
         desc="Basic details that identify your program. These appear on the campaign page and team hub."
@@ -239,8 +274,8 @@ function Step1({
 
       <div style={T.grid2}>
         <label style={T.label}>
-          School Name *
-          <input style={T.input} value={d.school_name} autoFocus
+          <LabelText f="school_name">Campaign School Name *</LabelText>
+          <input style={T.input} value={d.school_name}
             onChange={e => upd({ school_name: e.target.value })}
             placeholder="e.g. Mesa High School" />
         </label>
@@ -251,7 +286,7 @@ function Step1({
             placeholder="e.g. Soccer" />
         </label>
         <label style={T.label}>
-          Mascot
+          <LabelText f="mascot">Mascot</LabelText>
           <input style={T.input} value={d.mascot}
             onChange={e => upd({ mascot: e.target.value })}
             placeholder="e.g. Jaguars" />
@@ -270,13 +305,13 @@ function Step1({
           <FieldNote>Appears on the campaign page header (e.g. "2026 Season")</FieldNote>
         </label>
         <label style={T.label}>
-          City *
+          <LabelText f="city">City *</LabelText>
           <input style={T.input} value={d.city}
             onChange={e => upd({ city: e.target.value })}
             placeholder="e.g. Mesa" />
         </label>
         <label style={T.label}>
-          State
+          <LabelText f="state">State</LabelText>
           <input style={T.input} value={d.state}
             onChange={e => upd({ state: e.target.value })}
             placeholder="e.g. AZ" maxLength={2} />
@@ -360,9 +395,9 @@ function Step2({
 
         <div style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
           <div style={T.grid2}>
-            <ColorField label="Primary Color" value={d.primary_color}
+            <ColorField label={<LabelText f="primary_color">Primary Color</LabelText>} value={d.primary_color}
               onChange={v => upd({ primary_color: v })} />
-            <ColorField label="Secondary Color" value={d.secondary_color}
+            <ColorField label={<LabelText f="secondary_color">Secondary Color</LabelText>} value={d.secondary_color}
               onChange={v => upd({ secondary_color: v })} />
           </div>
 
@@ -378,7 +413,7 @@ function Step2({
 
           {/* Logo upload */}
           <div>
-            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".5rem" }}>Logo</div>
+            <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".5rem" }}><LabelText f="logo_url">Logo</LabelText></div>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" style={{ display: "none" }}
               onChange={e => { const f = e.target.files?.[0]; if (f) void uploadLogo(f); e.target.value = ""; }} />
 
@@ -458,7 +493,7 @@ function Step3({
 
         <div style={T.grid2}>
           <label style={T.label}>
-            Fundraising Goal ($)
+            <LabelText f="goal_dollars">Fundraising Goal ($)</LabelText>
             <FieldNote>Optional. Leave blank to run without a goal.</FieldNote>
             <input type="number" min="0" step="100" style={T.input}
               value={d.goal_dollars}
@@ -466,7 +501,7 @@ function Step3({
               placeholder="e.g. 25000" />
           </label>
           <label style={T.label}>
-            Default Athlete Goal ($)
+            <LabelText f="default_athlete_goal_dollars">Default Athlete Goal ($)</LabelText>
             <FieldNote>Per-athlete fundraising target.</FieldNote>
             <input type="number" min="0" step="50" style={T.input}
               value={d.default_athlete_goal_dollars}
@@ -481,7 +516,7 @@ function Step3({
               onChange={e => upd({ deadline: e.target.value })} />
           </label>
           <label style={T.label}>
-            Contact Goal (per athlete)
+            <LabelText f="contact_goal">Contact Goal (per athlete)</LabelText>
             <FieldNote>How many contacts each athlete should collect.</FieldNote>
             <input type="number" min="1" max="500" style={T.input}
               value={d.contact_goal}
@@ -532,7 +567,7 @@ function Step4({
       {/* Layout variant */}
       <div style={{ marginBottom: "1.5rem" }}>
         <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".65rem" }}>
-          Page Layout
+          <LabelText f="layout_variant">Page Layout</LabelText>
         </div>
         <div style={{ display: "flex", gap: ".75rem" }}>
           {(["classic", "premium"] as const).map(v => (
@@ -566,13 +601,13 @@ function Step4({
         <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".5rem" }}>
           Campaign Page Sections
         </div>
-        <ToggleRow label="Donation Card"        desc="The main donation form"                   checked={d.show_donation_card}    onChange={v => upd({ show_donation_card: v })} />
-        <ToggleRow label="Athlete Leaderboard"  desc="Ranked list of athletes by funds raised"  checked={d.show_leaderboard}      onChange={v => upd({ show_leaderboard: v })} />
-        <ToggleRow label="Program Identity"     desc="School name, mascot, and program header"  checked={d.show_program_identity} onChange={v => upd({ show_program_identity: v })} />
-        <ToggleRow label="Share This Campaign"  desc="Social share links and QR code"           checked={d.show_share_section}    onChange={v => upd({ show_share_section: v })} />
-        <ToggleRow label="Where Your Money Goes" desc="Fund use breakdown"                      checked={d.show_fund_uses}        onChange={v => upd({ show_fund_uses: v })} />
-        <ToggleRow label="Recent Donations Feed" desc="Live feed of recent donors"              checked={d.show_recent_donations} onChange={v => upd({ show_recent_donations: v })} />
-        <ToggleRow label="Sponsors"             desc="Sponsor logos and tier listings"          checked={d.show_sponsors}         onChange={v => upd({ show_sponsors: v })} />
+        <ToggleRow label={<LabelText f="show_donation_card">Donation Card</LabelText>} desc="The main donation form"                   checked={d.show_donation_card}    onChange={v => upd({ show_donation_card: v })} />
+        <ToggleRow label={<LabelText f="show_leaderboard">Athlete Leaderboard</LabelText>} desc="Ranked list of athletes by funds raised"  checked={d.show_leaderboard}      onChange={v => upd({ show_leaderboard: v })} />
+        <ToggleRow label={<LabelText f="show_program_identity">Program Identity</LabelText>} desc="School name, mascot, and program header"  checked={d.show_program_identity} onChange={v => upd({ show_program_identity: v })} />
+        <ToggleRow label={<LabelText f="show_share_section">Share This Campaign</LabelText>} desc="Social share links and QR code"           checked={d.show_share_section}    onChange={v => upd({ show_share_section: v })} />
+        <ToggleRow label={<LabelText f="show_fund_uses">Where Your Money Goes</LabelText>} desc="Fund use breakdown"                      checked={d.show_fund_uses}        onChange={v => upd({ show_fund_uses: v })} />
+        <ToggleRow label={<LabelText f="show_recent_donations">Recent Donations Feed</LabelText>} desc="Live feed of recent donors"              checked={d.show_recent_donations} onChange={v => upd({ show_recent_donations: v })} />
+        <ToggleRow label={<LabelText f="show_sponsors">Sponsors</LabelText>} desc="Sponsor logos and tier listings"          checked={d.show_sponsors}         onChange={v => upd({ show_sponsors: v })} />
       </div>
     </div>
   );
@@ -581,8 +616,9 @@ function Step4({
 // ── Step 5 – Review & Launch ──────────────────────────────────────────────────
 
 function Step5({
-  d, upd, launchError, launching, onLaunch,
+  d, upd, launchError, launching, onLaunch, school,
 }: {
+  school: SelectedSchool | null;
   d: WizardData;
   upd: (p: Partial<WizardData>) => void;
   launchError: string;
@@ -634,6 +670,8 @@ function Step5({
               </div>
               <ReviewRow label="Slug"      value={<code style={{ fontFamily: "monospace", fontSize: ".78rem", background: "#f3f4f6", padding: ".1rem .4rem", borderRadius: 4 }}>{slug}</code>} />
               {location && <ReviewRow label="Location" value={location} />}
+              <ReviewRow label="School" value={school ? school.label : "Not selected"} />
+              <ReviewRow label="Community Partners" value={school ? <>{partnerVisibilityText(school.org)}<div style={{ fontSize: ".7rem", color: "#6b7280", fontWeight: 400 }}>Set by the school&apos;s advertising settings</div></> : "—"} />
             </div>
           </div>
 
@@ -804,8 +842,9 @@ function ProgressStepper({ step }: { step: Step }) {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus): string[] {
+function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus, hasSchool: boolean): string[] {
   const errs: string[] = [];
+  if (step === 1 && !hasSchool) errs.push("Choose the school this campaign belongs to (or create it).");
   if (step === 1) {
     if (!d.school_name.trim()) errs.push("School name is required.");
     if (!d.sport_name.trim())  errs.push("Sport is required.");
@@ -830,70 +869,64 @@ function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus): string
   return errs;
 }
 
-// ── Org defaults type ─────────────────────────────────────────────────────────
-
-type OrgDefaults = {
-  primary_color?:                  string;
-  secondary_color?:                string;
-  logo_url?:                       string;
-  default_layout?:                 string;
-  default_fundraising_goal_cents?: number;
-  default_athlete_goal_cents?:     number;
-  default_contact_goal?:           number;
-  default_show_leaderboard?:       boolean;
-  default_show_program_identity?:  boolean;
-  default_show_share_section?:     boolean;
-  default_show_fund_uses?:         boolean;
-  default_show_recent_donations?:  boolean;
-  default_show_sponsors?:          boolean;
-  default_show_donation_card?:     boolean;
+// The wizard starts from neutral ELF values; a school's defaults arrive only
+// when the administrator selects that school (applySchoolDefaults). A CRM
+// contact's school name is only a suggestion (search pre-fill / untouched).
+const NEUTRAL: InheritableValues = {
+  school_name: BLANK.school_name, city: BLANK.city, state: BLANK.state, mascot: BLANK.mascot,
+  primary_color: BLANK.primary_color, secondary_color: BLANK.secondary_color, logo_url: BLANK.logo_url,
+  goal_dollars: BLANK.goal_dollars, default_athlete_goal_dollars: BLANK.default_athlete_goal_dollars, contact_goal: BLANK.contact_goal,
+  layout_variant: BLANK.layout_variant, show_donation_card: BLANK.show_donation_card, show_leaderboard: BLANK.show_leaderboard,
+  show_program_identity: BLANK.show_program_identity, show_share_section: BLANK.show_share_section, show_fund_uses: BLANK.show_fund_uses,
+  show_recent_donations: BLANK.show_recent_donations, show_sponsors: BLANK.show_sponsors,
 };
 
-function buildInitial(org: OrgDefaults, crmSeed: CrmSeed | null): WizardData {
+function buildInitial(crmSeed: CrmSeed | null): WizardData {
   return {
     ...BLANK,
-    school_name:                  crmSeed?.schoolName || BLANK.school_name,
-    sport_name:                   crmSeed?.sportName  || BLANK.sport_name,
-    coach_name:                   crmSeed?.coachName  || BLANK.coach_name,
-    coach_email:                  crmSeed?.coachEmail || BLANK.coach_email,
-    primary_color:                org.primary_color   ?? BLANK.primary_color,
-    secondary_color:              org.secondary_color ?? BLANK.secondary_color,
-    logo_url:                     org.logo_url        ?? BLANK.logo_url,
-    layout_variant:               (org.default_layout === "premium" ? "premium" : BLANK.layout_variant),
-    goal_dollars:                 org.default_fundraising_goal_cents
-      ? String(org.default_fundraising_goal_cents / 100)
-      : BLANK.goal_dollars,
-    default_athlete_goal_dollars: org.default_athlete_goal_cents
-      ? String(org.default_athlete_goal_cents / 100)
-      : BLANK.default_athlete_goal_dollars,
-    contact_goal:                 org.default_contact_goal != null
-      ? String(org.default_contact_goal)
-      : BLANK.contact_goal,
-    show_leaderboard:       org.default_show_leaderboard       ?? BLANK.show_leaderboard,
-    show_program_identity:  org.default_show_program_identity  ?? BLANK.show_program_identity,
-    show_share_section:     org.default_show_share_section     ?? BLANK.show_share_section,
-    show_fund_uses:         org.default_show_fund_uses         ?? BLANK.show_fund_uses,
-    show_recent_donations:  org.default_show_recent_donations  ?? BLANK.show_recent_donations,
-    show_sponsors:          org.default_show_sponsors          ?? BLANK.show_sponsors,
-    show_donation_card:     org.default_show_donation_card     ?? BLANK.show_donation_card,
+    school_name: crmSeed?.schoolName || BLANK.school_name,
+    sport_name:  crmSeed?.sportName  || BLANK.sport_name,
+    coach_name:  crmSeed?.coachName  || BLANK.coach_name,
+    coach_email: crmSeed?.coachEmail || BLANK.coach_email,
   };
 }
 
 // ── Main wizard ───────────────────────────────────────────────────────────────
 
 export default function NewCampaignWizard({
-  orgDefaults = {}, crmSeed = null,
-}: { orgDefaults?: OrgDefaults; crmSeed?: CrmSeed | null }) {
+  crmSeed = null,
+}: { crmSeed?: CrmSeed | null }) {
   const router = useRouter();
 
   const [step,        setStep]        = useState<Step>(1);
-  const [d,           setD]           = useState<WizardData>(() => buildInitial(orgDefaults, crmSeed));
+  const [d,           setD]           = useState<WizardData>(() => buildInitial(crmSeed));
+  const [school,      setSchool]      = useState<SelectedSchool | null>(null);
+  const [touched,     setTouched]     = useState<Set<string>>(() => new Set());
+  const [inherited,   setInherited]   = useState<Set<InheritableField>>(() => new Set());
+  const [schoolNotice, setSchoolNotice] = useState("");
   const [errors,      setErrors]      = useState<string[]>([]);
   const [slugStatus,  setSlugStatus]  = useState<SlugStatus>("idle");
   const [launching,   setLaunching]   = useState(false);
   const [launchError, setLaunchError] = useState("");
 
-  const upd = useCallback((patch: Partial<WizardData>) => setD(p => ({ ...p, ...patch })), []);
+  // Every change made through the form is an administrator edit: it is
+  // recorded so no school selection or switch ever overwrites it.
+  const upd = useCallback((patch: Partial<WizardData>) => {
+    setD(p => ({ ...p, ...patch }));
+    setTouched(prev => { const n = new Set(prev); for (const k of Object.keys(patch)) n.add(k); return n; });
+    setInherited(prev => { const n = new Set(prev); for (const k of Object.keys(patch)) n.delete(k as InheritableField); return n; });
+  }, []);
+
+  // A school was chosen (or changed): untouched fields take that school's
+  // defaults (or neutral values where it has none); edits are kept.
+  const onSchool = (next: SelectedSchool) => {
+    const { values, inherited: fromSchool } = applySchoolDefaults(d, touched, next.org, NEUTRAL);
+    setD(values);
+    setInherited(fromSchool);
+    const kept = keptEdits(touched).length;
+    setSchoolNotice(`${school && school.id !== next.id ? "Switched to" : "Selected"} ${next.label}. ${fromSchool.size} field${fromSchool.size === 1 ? "" : "s"} use its defaults${kept ? `; ${kept} field${kept === 1 ? "" : "s"} you edited kept your values` : ""}.`);
+    setSchool(next);
+  };
 
   // Auto-generate slug when school/sport/year change
   useEffect(() => {
@@ -922,7 +955,7 @@ export default function NewCampaignWizard({
   }, [d.campaign_slug]);
 
   const next = () => {
-    const errs = validateStep(step, d, slugStatus);
+    const errs = validateStep(step, d, slugStatus, !!school);
     if (errs.length) { setErrors(errs); return; }
     setErrors([]);
     setStep(s => Math.min(5, s + 1) as Step);
@@ -943,7 +976,7 @@ export default function NewCampaignWizard({
   };
 
   const launch = async () => {
-    const errs = validateStep(5, d, slugStatus);
+    const errs = validateStep(5, d, slugStatus, !!school).concat(school ? [] : ["Choose the school this campaign belongs to (or create it)."]);
     if (errs.length) { setErrors(errs); return; }
     setErrors([]);
     setLaunching(true);
@@ -987,6 +1020,7 @@ export default function NewCampaignWizard({
           coach_password:             d.coach_password,
           starter_athletes:           [],
           crm_contact_id:             crmSeed?.contactId ?? null,
+          organization_id:            school?.id ?? null,
         }),
       });
 
@@ -1063,11 +1097,13 @@ export default function NewCampaignWizard({
           )}
         </div>
 
-        {step === 1 && <Step1 d={d} upd={upd} slugStatus={slugStatus} />}
+        <OriginCtx.Provider value={{ inherited, touched, hasSchool: !!school }}>
+        {step === 1 && <Step1 d={d} upd={upd} slugStatus={slugStatus} school={school} onSchool={onSchool} suggestedSchool={crmSeed?.schoolName ?? ""} schoolNotice={schoolNotice} />}
         {step === 2 && <Step2 d={d} upd={upd} />}
         {step === 3 && <Step3 d={d} upd={upd} />}
         {step === 4 && <Step4 d={d} upd={upd} />}
-        {step === 5 && <Step5 d={d} upd={upd} launchError={launchError} launching={launching} onLaunch={launch} />}
+        {step === 5 && <Step5 d={d} upd={upd} launchError={launchError} launching={launching} onLaunch={launch} school={school} />}
+        </OriginCtx.Provider>
 
       </div>
 

@@ -56,6 +56,10 @@ export type CampaignCoreParams = {
   // can never exist without the link, and the DB's partial unique index on
   // campaign_settings.crm_contact_id authoritatively blocks a second launch.
   crmContactId?:   string | null;
+  // The school (organizations.id) this campaign belongs to. Set by the
+  // Platform Admin New Campaign / CRM Launch and Duplicate flows after
+  // resolveCampaignSchool() validated it; omitted (NULL) by the demo tools.
+  organizationId?: string | null;
 };
 
 export type CampaignCoreResult =
@@ -91,11 +95,14 @@ export async function createCampaignCore(p: CampaignCoreParams): Promise<Campaig
       default_athlete_goal_cents: p.default_athlete_goal_cents,
       allow_coach_fundraising:    p.allow_coach_fundraising ?? false,
       crm_contact_id:             p.crmContactId ?? null,
+      ...(p.organizationId ? { organization_id: p.organizationId } : {}),
     });
   } catch (err) {
     if (err instanceof CampaignSettingsError) {
       // `.message` was already built from code/constraint by
       // parseCampaignSettingsError and is browser-safe — never `.raw`.
+      // 23503: the validated school was removed before the insert.
+      if (err.code === "23503") return { ok: false, error: "That school no longer exists. Choose a school from the directory.", status: 400 };
       const isUniqueViolation = err.code === "23505";
       return { ok: false, error: err.message, status: isUniqueViolation ? 409 : 500 };
     }

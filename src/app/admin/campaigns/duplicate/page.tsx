@@ -1,6 +1,7 @@
 import { getAdminAccess } from "@/lib/adminAccess";
 import { redirect } from "next/navigation";
 import DuplicateWizard from "./DuplicateWizard";
+import PlatformAdminRequired from "../_components/PlatformAdminRequired";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,9 @@ export type CampaignOption = {
 type Props = { searchParams: Promise<{ source?: string }> };
 
 export default async function DuplicateCampaignPage({ searchParams }: Props) {
-  if (!(await getAdminAccess())) redirect("/admin");
+  const access = await getAdminAccess();
+  if (!access) redirect("/admin");
+  if (access.via !== "platform_admin") return <PlatformAdminRequired action="Duplicating a campaign" />;
 
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   const h   = { apikey: key, Authorization: `Bearer ${key}` };

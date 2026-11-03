@@ -97,7 +97,9 @@ test("legacy /admin: the layout and every page admit getAdminAccess() (Platform 
   for (const p of pages) {
     const src = read(p);
     assert.doesNotMatch(src, /verifyToken|elf_admin/, p);
-    if (/redirect\("\/admin"\)/.test(src)) assert.match(src, /if \(!\(await getAdminAccess\(\)\)\) redirect\("\/admin"\);/, p);
+    // Either the one-line check or the same check kept in a variable (pages
+    // that also look at access.via, e.g. the campaign wizards).
+    if (/redirect\("\/admin"\)/.test(src)) assert.match(src, /if \(!\(await getAdminAccess\(\)\)\) redirect\("\/admin"\);|const access = await getAdminAccess\(\);\n  if \(!access\) redirect\("\/admin"\);/, p);
   }
   // Community Partners still needs the Platform Admin account itself.
   assert.match(read("src/app/admin/community-partners/page.tsx"), /getPlatformAdminSession\(\)/);

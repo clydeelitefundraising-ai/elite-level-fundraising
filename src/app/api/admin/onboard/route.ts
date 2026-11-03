@@ -4,6 +4,7 @@ import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getContact, createActivity } from "@/lib/platform/crm";
 import { getCampaignByCrmContactId } from "@/lib/platform/campaigns";
 import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { resolveCampaignSchool } from "@/lib/platform/campaignSchool";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -21,6 +22,12 @@ type StarterAthlete = { name?: unknown; event?: unknown; class_year?: unknown };
 export async function POST(req: NextRequest) {
   const access = await getAdminAccess();
   if (!access) return adminUnauthorized();
+  // Production campaigns need a school, and choosing or creating one needs an
+  // individual Platform Admin account — the shared /admin password can't.
+  // (The demo tools keep their own routes and permissions.)
+  if (access.via !== "platform_admin") {
+    return NextResponse.json({ error: "Creating a campaign requires your ELF Platform Admin account. Sign in with it and try again." }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
@@ -40,6 +47,7 @@ export async function POST(req: NextRequest) {
     default_athlete_goal_cents,
     contact_goal,
     crm_contact_id,
+    organization_id,
   } = body;
 
   const slug = String(campaign_slug ?? "").trim();
@@ -51,6 +59,11 @@ export async function POST(req: NextRequest) {
   if (!String(coach_email ?? "").trim()) return NextResponse.json({ error: "Coach email is required." }, { status: 400 });
   const pw = String(coach_password ?? "").trim();
   if (pw.length < 8) return NextResponse.json({ error: "Coach password must be at least 8 characters." }, { status: 400 });
+
+  // The school, validated before anything is written (New Campaign and CRM
+  // Launch both arrive here).
+  const school = await resolveCampaignSchool(organization_id);
+  if (!school.ok) return NextResponse.json({ error: school.error, code: "school" }, { status: school.status });
 
   // A crm_contact_id, if present, is only ever a server-generated id passed
   // through from the wizard's own state — never trust it as proof of the CRM
@@ -98,6 +111,7 @@ export async function POST(req: NextRequest) {
     coach_password: pw,
     contact_goal:  typeof contact_goal === "number" && contact_goal > 0 ? Math.round(contact_goal) : 0,
     crmContactId,
+    organizationId: school.school.id,
   });
 
   if (!result.ok) {
@@ -161,7 +175,7 @@ export async function POST(req: NextRequest) {
     entity_id:     slug,
     campaign_slug: slug,
     summary:       `Created campaign "${String(school_name ?? "").trim()}" (${slug})`,
-    new_value:     { slug, school_name: String(school_name ?? "").trim(), sport_name: String(sport_name ?? "").trim(), season: String(season ?? "").trim(), coach_email: String(coach_email).trim().toLowerCase() },
+    new_value:     { slug, organization_id: school.school.id, school_name: String(school_name ?? "").trim(), sport_name: String(sport_name ?? "").trim(), season: String(season ?? "").trim(), coach_email: String(coach_email).trim().toLowerCase() },
     ip_address:    ipOf(req),
     user_agent:    req.headers.get("user-agent"),
   });

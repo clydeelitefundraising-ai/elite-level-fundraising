@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
+import { resolveCampaignSchool } from "@/lib/platform/campaignSchool";
 import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
@@ -19,6 +20,7 @@ type CopyOptions = {
 };
 
 type SourceSettings = {
+  organization_id?:           string | null;
   primary_color:              string;
   secondary_color:            string;
   logo_url:                   string;
@@ -38,6 +40,12 @@ type SourceSettings = {
 export async function POST(req: NextRequest) {
   const access = await getAdminAccess();
   if (!access) return adminUnauthorized();
+  // Production campaigns need a school, and choosing or creating one needs an
+  // individual Platform Admin account — the shared /admin password can't.
+  // (The demo tools keep their own routes and permissions.)
+  if (access.via !== "platform_admin") {
+    return NextResponse.json({ error: "Creating a campaign requires your ELF Platform Admin account. Sign in with it and try again." }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
@@ -78,6 +86,16 @@ export async function POST(req: NextRequest) {
   const srcRows = await srcRes.json() as SourceSettings[];
   if (!srcRows.length) return NextResponse.json({ error: "Source campaign not found." }, { status: 404 });
   const source = srcRows[0];
+
+  // ── School: inherited from the source unless another was chosen ──────────────
+  // The wizard always sends organization_id (the source's school preselected);
+  // an older client that omits the key inherits the source's school. Either
+  // way it is validated, and a campaign without a school is refused.
+  const schoolId = Object.prototype.hasOwnProperty.call(body, "organization_id")
+    ? (body as { organization_id?: unknown }).organization_id
+    : source.organization_id ?? null;
+  const school = await resolveCampaignSchool(schoolId);
+  if (!school.ok) return NextResponse.json({ error: school.error, code: "school" }, { status: school.status });
 
   // ── Resolve branding (copy from source or use safe defaults) ─────────────────
   const branding = copy?.branding
@@ -154,6 +172,7 @@ export async function POST(req: NextRequest) {
     coach_email:   String(coach_email).trim().toLowerCase(),
     coach_password: pw,
     contact_goal:  contactGoal,
+    organizationId: school.school.id,
   });
 
   if (!result.ok) {
@@ -246,7 +265,7 @@ export async function POST(req: NextRequest) {
     entity_id:     slug,
     campaign_slug: slug,
     summary:       `Duplicated campaign from "${src}" to "${slug}"`,
-    new_value:     { slug, source_slug: src, join_code: result.join_code, copied },
+    new_value:     { slug, source_slug: src, organization_id: school.school.id, inherited_school: school.school.id === (source.organization_id ?? null), join_code: result.join_code, copied },
     ip_address:    ipOf(req),
     user_agent:    req.headers.get("user-agent"),
   });
