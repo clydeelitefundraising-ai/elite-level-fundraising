@@ -210,9 +210,9 @@ function ToggleRow({
 
 function ReviewRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: ".45rem 0", borderBottom: "1px solid #f5f5f7", gap: "1rem" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", padding: ".45rem 0", borderBottom: "1px solid #f5f5f7", columnGap: "1rem", rowGap: ".15rem" }}>
       <span style={{ fontSize: ".72rem", fontWeight: 600, color: "#98989d", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap" }}>{label}</span>
-      <span style={{ fontSize: ".82rem", fontWeight: 500, color: "#1d1d1f", textAlign: "right" }}>{value}</span>
+      <span style={{ fontSize: ".82rem", fontWeight: 500, color: "#1d1d1f", textAlign: "right", marginLeft: "auto", minWidth: 0, overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }

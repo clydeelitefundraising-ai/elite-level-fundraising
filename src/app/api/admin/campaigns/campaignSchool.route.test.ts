@@ -265,5 +265,8 @@ test("Review layout: wraps on narrow screens (no fixed two-column grid), so noth
     assert.doesNotMatch(src, /gridTemplateColumns: "1fr (320|300)px"/, p);
     assert.match(src, /display: "flex", flexWrap: "wrap", gap: "1\.5rem", alignItems: "flex-start"/, p);
     assert.match(src, /flex: "3 1 340px", minWidth: 0/, p);
+    // Review rows drop a long value under its label instead of squeezing it.
+    assert.match(src, /flexWrap: "wrap", justifyContent: "space-between"[^\n]*rowGap/, p);
+    assert.match(src, /textAlign: "right", marginLeft: "auto", minWidth: 0, overflowWrap: "anywhere"/, p);
   }
 });
