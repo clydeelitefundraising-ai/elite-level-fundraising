@@ -19,9 +19,12 @@ WITH r(n, check_name, value, expected) AS (
   UNION ALL SELECT 3, 'postgres server version (information)', current_setting('server_version'), NULL
 
   -- The completed-season guard must be exactly phase_s2's (what phase_o3 replaces).
-  UNION ALL SELECT 4, 'season_write_guard md5',
+  -- Row 4 accepts the LF form and the CRLF form (2a52b3a0..., observed in
+  -- production 2026-11-03: phase_s2 was pasted from a CRLF working copy). The
+  -- two differ only in line endings outside string literals; row 5 is strict.
+  UNION ALL SELECT 4, 'season_write_guard md5 (LF or CRLF form)',
     (SELECT md5(prosrc) FROM pg_proc WHERE oid = to_regprocedure('public.season_write_guard()')),
-    'de544ccaf6f5b483afea9c5ff5186ab3'
+    'de544ccaf6f5b483afea9c5ff5186ab3|2a52b3a0c20ce519de878f1cadb885a6'
   UNION ALL SELECT 5, 'season_write_guard md5 (line endings ignored)',
     (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.season_write_guard()')),
     'de544ccaf6f5b483afea9c5ff5186ab3'
@@ -107,14 +110,16 @@ WITH r(n, check_name, value, expected) AS (
     (SELECT count(*)::text FROM public.platform_admins), NULL
   UNION ALL SELECT 25, 'BASELINE school_link audit rows',
     (SELECT count(*)::text FROM public.audit_logs WHERE action LIKE 'school_link.%'), '0'
+), s AS (
+  SELECT n, check_name, coalesce(value, '(missing)') AS value, coalesce(expected, '(record)') AS expected,
+         CASE WHEN expected IS NULL THEN 'RECORD'
+              WHEN value = ANY (string_to_array(expected, '|')) THEN 'PASS'
+              ELSE 'STOP' END AS status
+  FROM r
 )
-SELECT n, check_name, coalesce(value, '(missing)') AS value, coalesce(expected, '(record)') AS expected,
-       CASE WHEN expected IS NULL THEN 'RECORD'
-            WHEN value IS NOT DISTINCT FROM expected THEN 'PASS'
-            ELSE 'STOP' END AS status
-FROM r
+SELECT * FROM s
 UNION ALL
-SELECT 99, 'OVERALL', count(*) FILTER (WHERE expected IS NOT NULL AND value IS DISTINCT FROM expected) || ' STOP row(s)', '0 STOP row(s)',
-       CASE WHEN count(*) FILTER (WHERE expected IS NOT NULL AND value IS DISTINCT FROM expected) = 0 THEN 'PASS' ELSE 'STOP' END
-FROM r
+SELECT 99, 'OVERALL', count(*) FILTER (WHERE status = 'STOP') || ' STOP row(s)', '0 STOP row(s)',
+       CASE WHEN count(*) FILTER (WHERE status = 'STOP') = 0 THEN 'PASS' ELSE 'STOP' END
+FROM s
 ORDER BY n;
