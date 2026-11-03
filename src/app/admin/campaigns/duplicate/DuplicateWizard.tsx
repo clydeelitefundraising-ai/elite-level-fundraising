@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { CampaignOption } from "./page";
+import CampaignSchoolPicker, { loadSchool, type SelectedSchool } from "../_components/CampaignSchoolPicker";
+import { partnerVisibilityText } from "@/lib/campaignSchoolDefaults";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -11,6 +13,7 @@ type SlugStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 type SourceDetails = {
   campaign_slug:              string;
+  organization_id?:           string | null;
   school_name:                string;
   sport_name:                 string;
   mascot:                     string;
@@ -207,9 +210,9 @@ function ToggleRow({
 
 function ReviewRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: ".45rem 0", borderBottom: "1px solid #f5f5f7", gap: "1rem" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", padding: ".45rem 0", borderBottom: "1px solid #f5f5f7", columnGap: "1rem", rowGap: ".15rem" }}>
       <span style={{ fontSize: ".72rem", fontWeight: 600, color: "#98989d", textTransform: "uppercase", letterSpacing: ".04em", whiteSpace: "nowrap" }}>{label}</span>
-      <span style={{ fontSize: ".82rem", fontWeight: 500, color: "#1d1d1f", textAlign: "right" }}>{value}</span>
+      <span style={{ fontSize: ".82rem", fontWeight: 500, color: "#1d1d1f", textAlign: "right", marginLeft: "auto", minWidth: 0, overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }
@@ -308,16 +311,33 @@ function Step1({
 // ── Step 2 — New Campaign Info ────────────────────────────────────────────────
 
 function Step2({
-  d, upd, slugStatus,
+  d, upd, slugStatus, school, onSchool, sourceSchoolId,
 }: {
   d:          WizardData;
   upd:        (p: Partial<WizardData>) => void;
   slugStatus: SlugStatus;
+  school:     SelectedSchool | null;
+  onSchool:   (s: SelectedSchool) => void;
+  sourceSchoolId: string | null;
 }) {
   const [showPw, setShowPw] = useState(false);
 
   return (
     <div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <SectionHeader
+          title="School *"
+          desc={sourceSchoolId
+            ? "The duplicate keeps the source campaign's school unless you choose another (or create one)."
+            : "The source campaign has no school. Choose the school this campaign belongs to (or create it)."}
+        />
+        <CampaignSchoolPicker
+          value={school}
+          onChange={onSchool}
+          note={school && sourceSchoolId === school.id ? "Inherited from the source campaign." : school ? "Different from the source campaign's school." : undefined}
+        />
+      </div>
+
       <SectionHeader
         title="New Campaign Information"
         desc="Update the identity for this season's campaign. Fields are pre-filled from the source — adjust as needed."
@@ -594,8 +614,10 @@ function Step3({
 // ── Step 4 — Review ───────────────────────────────────────────────────────────
 
 function Step4({
-  d, sourceDetails, launchError, launching, onLaunch,
+  d, sourceDetails, launchError, launching, onLaunch, school, sourceSchoolId,
 }: {
+  school: SelectedSchool | null;
+  sourceSchoolId: string | null;
   d:             WizardData;
   sourceDetails: SourceDetails | null;
   launchError:   string;
@@ -625,10 +647,10 @@ function Step4({
     <div>
       <SectionHeader title="Review & Launch" desc="Confirm everything before creating the duplicate campaign." />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.5rem", alignItems: "start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", alignItems: "flex-start" }}>
 
         {/* Left: campaign flow */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ flex: "3 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
 
           {/* Source → New */}
           <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
@@ -653,6 +675,8 @@ function Step4({
           {/* Campaign details */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1rem 1.25rem" }}>
             <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#98989d", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: ".6rem" }}>New Campaign Details</div>
+            <ReviewRow label="School"       value={school ? <>{school.label}<div style={{ fontSize: ".7rem", color: "#6b7280", fontWeight: 400 }}>{school.id === sourceSchoolId ? "Inherited from the source campaign" : "Changed from the source campaign"}</div></> : "Not selected"} />
+            <ReviewRow label="Community Partners" value={school ? <>{partnerVisibilityText(school.org)}<div style={{ fontSize: ".7rem", color: "#6b7280", fontWeight: 400 }}>Set by the school&apos;s advertising settings</div></> : "—"} />
             <ReviewRow label="Season"       value={d.season || "—"} />
             <ReviewRow label="Location"     value={d.location || "—"} />
             <ReviewRow label="Team Goal"    value={goalStr} />
@@ -677,7 +701,7 @@ function Step4({
         </div>
 
         {/* Right: launch panel */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ background: "#f9fafb", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1.25rem" }}>
             <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#1d1d1f", marginBottom: ".75rem" }}>After Duplication</div>
             <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
@@ -835,8 +859,9 @@ function ProgressStepper({ step }: { step: Step }) {
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus): string[] {
+function validateStep(step: Step, d: WizardData, slugStatus: SlugStatus, hasSchool = true): string[] {
   const errs: string[] = [];
+  if (step === 2 && !hasSchool) errs.push("Choose the school this campaign belongs to (or create it).");
   if (step === 1) {
     if (!d.source_slug) errs.push("Please select a source campaign.");
   }
@@ -877,6 +902,8 @@ export default function DuplicateWizard({
   const [result,        setResult]        = useState<CopyResult | null>(null);
 
   const upd = useCallback((patch: Partial<WizardData>) => setD(p => ({ ...p, ...patch })), []);
+  const [school,         setSchool]         = useState<SelectedSchool | null>(null);
+  const [sourceSchoolId, setSourceSchoolId] = useState<string | null>(null);
 
   // Fetch source details when source_slug changes
   const fetchSource = useCallback(async (slug: string) => {
@@ -887,6 +914,10 @@ export default function DuplicateWizard({
       const data = await res.json() as SourceDetails & { campaign_slug: string };
       if (res.ok) {
         setSourceDetails(data);
+        // The duplicate inherits the source's school by default.
+        const inheritedId = data.organization_id ?? null;
+        setSourceSchoolId(inheritedId);
+        setSchool(inheritedId ? await loadSchool(inheritedId).catch(() => null) : null);
         // Pre-populate step 2 from source
         const year = NEXT_YEAR;
         setD(p => ({
@@ -940,7 +971,7 @@ export default function DuplicateWizard({
   };
 
   const next = () => {
-    const errs = validateStep(step, d, slugStatus);
+    const errs = validateStep(step, d, slugStatus, !!school);
     if (errs.length) { setErrors(errs); return; }
     setErrors([]);
     setStep(s => Math.min(4, s + 1) as Step);
@@ -954,7 +985,7 @@ export default function DuplicateWizard({
   };
 
   const launch = async () => {
-    const errs = validateStep(2, d, slugStatus);
+    const errs = validateStep(2, d, slugStatus, !!school);
     if (errs.length) { setErrors(errs); return; }
     setErrors([]);
     setLaunching(true);
@@ -971,6 +1002,7 @@ export default function DuplicateWizard({
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           source_slug:                d.source_slug,
+          organization_id:            school?.id ?? null,
           campaign_slug:              d.campaign_slug.trim(),
           school_name:                d.school_name.trim(),
           sport_name:                 d.sport_name.trim(),
@@ -1067,7 +1099,7 @@ export default function DuplicateWizard({
             loadingSource={loadingSource}
           />
         )}
-        {step === 2 && <Step2 d={d} upd={upd} slugStatus={slugStatus} />}
+        {step === 2 && <Step2 d={d} upd={upd} slugStatus={slugStatus} school={school} onSchool={setSchool} sourceSchoolId={sourceSchoolId} />}
         {step === 3 && <Step3 d={d} upd={upd} sourceDetails={sourceDetails} />}
         {step === 4 && (
           <Step4
@@ -1076,6 +1108,8 @@ export default function DuplicateWizard({
             launchError={launchError}
             launching={launching}
             onLaunch={launch}
+            school={school}
+            sourceSchoolId={sourceSchoolId}
           />
         )}
       </div>
