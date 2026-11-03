@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 
   const plan = planSchoolLink({ chain, selected: seasons as string[], target, orgsById: orgs });
   if (!plan.ok) {
-    return NextResponse.json({ error: PLAN_ERROR_TEXT[plan.error], code: plan.error, seasons: plan.seasons ?? [] }, { status: plan.error === "season_read_only" ? 409 : 400 });
+    return NextResponse.json({ error: PLAN_ERROR_TEXT[plan.error], code: plan.error, seasons: plan.seasons ?? [] }, { status: 400 });
   }
   const confirm = plan.changes.map(c => ({ campaign_slug: c.campaign_slug, expectedOrganizationId: c.before.organization_id }));
   return NextResponse.json({

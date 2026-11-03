@@ -5,11 +5,12 @@ import Link from "next/link";
 
 // Platform Admin — link, change or unlink the school for one team's seasons.
 // Flow: choose seasons (current season preselected; others only when ticked;
-// completed seasons are read-only) → choose a school or "Unlink" → Preview
+// completed seasons may be ticked too — only their school link changes) →
+// choose a school or "Unlink" → Preview
 // (mandatory: before/after school and Community Partner visibility) →
 // Confirm. Any change to the selection discards the preview.
 
-type Season = { campaign_slug: string; label: string; school_name: string | null; organization_id: string | null; school: string | null; readOnly: boolean };
+type Season = { campaign_slug: string; label: string; school_name: string | null; organization_id: string | null; school: string | null; completed: boolean };
 type School = { id: string; slug: string; label: string };
 type Visibility = { teamApp: boolean; publicPage: boolean };
 type Change = {
@@ -26,6 +27,7 @@ const btn = (primary: boolean, disabled = false): React.CSSProperties => ({
   minHeight: 40, padding: ".5rem 1rem", borderRadius: 8, fontSize: ".85rem", fontWeight: 700, cursor: disabled ? "default" : "pointer",
   border: primary ? "none" : "1px solid #d1d5db", background: primary ? (disabled ? "#9ca3af" : "#0b1e3d") : "#fff", color: primary ? "#fff" : "#111",
 });
+const badge: React.CSSProperties = { display: "inline-block", marginLeft: ".4rem", padding: "0 .4rem", borderRadius: 999, background: "#f3f4f6", color: "#374151", fontSize: ".7rem", fontWeight: 700, verticalAlign: "middle" };
 const vis = (v: Visibility) => `Team App ${v.teamApp ? "shown" : "hidden"} · Public page ${v.publicPage ? "shown" : "hidden"}`;
 
 export default function SchoolLinkPanel({ slug }: { slug: string }) {
@@ -102,6 +104,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
   if (!seasons) return <div style={card}>Loading…</div>;
 
   const partnerChanges = preview?.changes.filter(c => c.changesPartners) ?? [];
+  const completedSlugs = new Set(seasons.filter(s => s.completed).map(s => s.campaign_slug));
 
   return (
     <div>
@@ -111,16 +114,16 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
         Linking only records which school this team belongs to. It doesn&apos;t give anyone access to other teams or to student information.
       </p>
 
-      <section style={card} aria-labelledby="seasons-h">
+      <section style={{ ...card, padding: card.padding }} aria-labelledby="seasons-h">
         <h2 id="seasons-h" style={h2}>1. Seasons</h2>
-        <p style={{ ...muted, marginTop: 0 }}>The current season is selected. Tick other seasons only if they should change too. Completed seasons are read-only.</p>
+        <p style={{ ...muted, marginTop: 0 }}>The current season is selected. Tick other seasons only if they should change too. For a completed season only the school link changes; its roster, attendance, messages, fundraising and completion stay as they are.</p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: ".4rem" }}>
           {seasons.map(s => (
             <li key={s.campaign_slug}>
-              <label style={{ display: "flex", gap: ".6rem", alignItems: "flex-start", minHeight: 40, cursor: s.readOnly ? "default" : "pointer", opacity: s.readOnly ? .6 : 1 }}>
-                <input type="checkbox" checked={selected.has(s.campaign_slug)} disabled={s.readOnly} onChange={() => toggle(s.campaign_slug)} style={{ marginTop: ".2rem" }} />
+              <label style={{ display: "flex", gap: ".6rem", alignItems: "flex-start", minHeight: 40, cursor: "pointer" }}>
+                <input type="checkbox" checked={selected.has(s.campaign_slug)} onChange={() => toggle(s.campaign_slug)} style={{ marginTop: ".2rem" }} />
                 <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontWeight: 600, fontSize: ".88rem", overflowWrap: "anywhere" }}>{s.label}{s.readOnly ? " · completed (read-only)" : ""}</span>
+                  <span style={{ display: "block", fontWeight: 600, fontSize: ".88rem", overflowWrap: "anywhere" }}>{s.label}{s.completed && <span style={badge}>Completed</span>}</span>
                   <span style={{ display: "block", ...muted }}>School: {s.school ?? "Not linked"} · Team&apos;s own name: {s.school_name || "—"}</span>
                 </span>
               </label>
@@ -129,7 +132,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
         </ul>
       </section>
 
-      <section style={card} aria-labelledby="school-h">
+      <section style={{ ...card, padding: card.padding }} aria-labelledby="school-h">
         <h2 id="school-h" style={h2}>2. School</h2>
         <input
           type="search" value={query} onChange={e => setQuery(e.target.value)}
@@ -151,7 +154,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
         </div>
       </section>
 
-      <section style={card} aria-labelledby="preview-h">
+      <section style={{ ...card, padding: card.padding }} aria-labelledby="preview-h">
         <h2 id="preview-h" style={h2}>3. Preview and confirm</h2>
         {!preview ? (
           <button type="button" style={btn(true, busy || targetId === undefined || selectedList.length === 0)} disabled={busy || targetId === undefined || selectedList.length === 0} onClick={runPreview}>
@@ -169,7 +172,7 @@ export default function SchoolLinkPanel({ slug }: { slug: string }) {
                 <tbody>
                   {preview.changes.map(c => (
                     <tr key={c.campaign_slug} style={{ borderTop: "1px solid #eee", verticalAlign: "top" }}>
-                      <td style={{ padding: ".4rem", overflowWrap: "anywhere" }}>{c.label}{!c.changesSchool && <div style={muted}>No change</div>}</td>
+                      <td style={{ padding: ".4rem", overflowWrap: "anywhere" }}>{c.label}{completedSlugs.has(c.campaign_slug) && <span style={badge}>Completed</span>}{!c.changesSchool && <div style={muted}>No change</div>}</td>
                       <td style={{ padding: ".4rem" }}>{c.before.school ?? "Not linked"} → <strong>{c.after.school ?? "Not linked"}</strong></td>
                       <td style={{ padding: ".4rem", color: c.changesPartners ? "#92400e" : undefined }}>{vis(c.before.visibility)} → <strong>{vis(c.after.visibility)}</strong></td>
                     </tr>

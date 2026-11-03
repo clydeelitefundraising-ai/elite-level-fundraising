@@ -1,5 +1,6 @@
 // School-Account Linking, Phase B — server-side reads and the one write
-// (campaign_settings.organization_id) behind Platform Admin school linking.
+// (campaign_settings.organization_id, via the school_link_apply() database
+// function) behind Platform Admin school linking.
 // Server-only: service-role key via _client.ts. Callers (the
 // /api/platform-admin/school-links routes and /platform-admin pages) verify
 // getPlatformAdminSession() first. Rules are in schoolLinksLogic.ts.
@@ -9,7 +10,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { restHeaders, restUrl } from "./_client";
 import {
-  conditionalSeasonFilter,
   isCampaignSlug,
   orderChain,
   sanitizeSchoolQuery,
@@ -18,13 +18,6 @@ import {
 } from "./schoolLinksLogic";
 
 export class SchoolLinkReadError extends Error {}
-class SchoolLinkWriteError extends Error {
-  readonly readOnly: boolean;
-  constructor(readOnly: boolean) {
-    super(readOnly ? "season_completed_read_only" : "update_failed");
-    this.readOnly = readOnly;
-  }
-}
 
 const SEASON_SELECT = "campaign_slug,school_name,sport_name,season,organization_id,season_completed_at,successor_campaign_slug";
 const ORG_SELECT = "id,slug,school_name,city,state,show_community_partners,show_community_partners_public";
@@ -97,63 +90,78 @@ export async function listAllOrganizations(): Promise<OrgRow[]> {
   return strictList<OrgRow>(`organizations?select=${ORG_SELECT}&order=school_name.asc,slug.asc`);
 }
 
+export type ApplyErrorCode =
+  | "stale"
+  | "nothing_to_change"
+  | "season_not_in_team"
+  | "team_not_found"
+  | "organization_not_found"
+  | "not_authorized"
+  | "invalid"
+  | "error";
+
 export type ApplyResult =
-  | { ok: true; updated: string[] }
-  | { ok: false; reason: "stale"; reverted: boolean }
-  | { ok: false; reason: "read_only" }
-  | { ok: false; reason: "error" };
+  | { ok: true; updated: string[]; unchanged: string[] }
+  | { ok: false; reason: ApplyErrorCode };
 
-async function patchSeasons(filter: string, body: unknown): Promise<string[]> {
-  const res = await fetch(restUrl(`campaign_settings?${filter}&select=campaign_slug`), {
-    method: "PATCH",
-    headers: restHeaders({ Prefer: "return=representation" }),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    // Status only is kept — never the body (it can quote row values).
-    throw new SchoolLinkWriteError(/season_completed_read_only/.test(text));
-  }
-  return ((await res.json()) as { campaign_slug: string }[]).map(r => r.campaign_slug);
-}
+/** school_link_apply()'s fixed error codes → ours. Anything else (network,
+ *  HTTP 5xx, an unexpected database error) is "error"; nothing changed. */
+const RPC_ERRORS: Record<string, ApplyErrorCode> = {
+  school_link_stale: "stale",
+  school_link_nothing_to_change: "nothing_to_change",
+  school_link_season_not_in_team: "season_not_in_team",
+  school_link_team_not_found: "team_not_found",
+  school_link_organization_not_found: "organization_not_found",
+  school_link_actor_not_authorized: "not_authorized",
+  school_link_actor_invalid: "not_authorized",
+  school_link_invalid: "invalid",
+};
 
-/** Sets organization_id on exactly these seasons, all-or-nothing:
- *  - ONE UPDATE statement, matching each season only while it still has
- *    the school the preview showed (so a concurrent change isn't
- *    overwritten), and touching organization_id only;
- *  - if fewer rows matched than requested (someone changed one in
- *    between), the rows that did change are put back (again only where
- *    they still hold the new value) and the request is refused as stale;
- *  - a completed season makes the database refuse the whole statement. */
-export async function applySchoolLink(
-  expected: ReadonlyArray<{ campaign_slug: string; organization_id: string | null }>,
-  targetId: string | null,
-): Promise<ApplyResult> {
-  let updated: string[];
+/** Links (or unlinks, targetId null) the selected seasons of one team in a
+ *  single database transaction — public.school_link_apply()
+ *  (phase_o3_school_link_apply.sql). The database re-checks the Platform
+ *  Admin, the team's season chain, and that every season still has the
+ *  school the preview showed; then it writes the audit rows and the links
+ *  together. Any failure changes nothing and writes no audit row — there is
+ *  no application-level rollback. Completed seasons are allowed (only
+ *  organization_id changes). `actor` must come from the verified
+ *  getPlatformAdminSession(), never from the request body. */
+export async function applySchoolLink(input: {
+  actor: { platformAdminId: string; accountId: string };
+  teamSlug: string;
+  targetId: string | null;
+  seasons: ReadonlyArray<{ campaign_slug: string; expectedOrganizationId: string | null }>;
+  request: { ipAddress: string | null; userAgent: string | null };
+}): Promise<ApplyResult> {
+  let res: Response;
   try {
-    updated = await patchSeasons(conditionalSeasonFilter(expected), { organization_id: targetId });
-  } catch (err) {
-    if (err instanceof SchoolLinkWriteError && err.readOnly) return { ok: false, reason: "read_only" };
+    res = await fetch(restUrl("rpc/school_link_apply"), {
+      method: "POST",
+      headers: restHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({
+        p_actor: { platform_admin_id: input.actor.platformAdminId, account_id: input.actor.accountId },
+        p_team_slug: input.teamSlug,
+        p_organization_id: input.targetId,
+        p_seasons: input.seasons.map(s => ({ campaign_slug: s.campaign_slug, expected_organization_id: s.expectedOrganizationId })),
+        p_request: { ip_address: input.request.ipAddress, user_agent: input.request.userAgent },
+      }),
+    });
+  } catch {
     return { ok: false, reason: "error" };
   }
-  if (updated.length === expected.length && expected.every(e => updated.includes(e.campaign_slug))) {
-    return { ok: true, updated };
+  if (!res.ok) {
+    // Only the fixed code is read — never echoed (it can't carry row data,
+    // but other database errors could).
+    const body = await res.json().catch(() => null) as { message?: unknown } | null;
+    const code = typeof body?.message === "string" ? RPC_ERRORS[body.message] : undefined;
+    return { ok: false, reason: code ?? "error" };
   }
-  // Partial match: undo what changed so nothing is left half-applied.
-  let reverted = true;
-  const toRevert = expected.filter(e => updated.includes(e.campaign_slug));
-  const byPrevious = new Map<string | null, string[]>();
-  for (const e of toRevert) byPrevious.set(e.organization_id, [...(byPrevious.get(e.organization_id) ?? []), e.campaign_slug]);
-  for (const [previous, slugs] of byPrevious) {
-    try {
-      const target = targetId ? `organization_id=eq.${targetId}` : "organization_id=is.null";
-      const back = await patchSeasons(`campaign_slug=in.(${slugs.join(",")})&${target}`, { organization_id: previous });
-      if (back.length !== slugs.length) reverted = false;
-    } catch {
-      reverted = false;
-    }
-  }
-  return { ok: false, reason: "stale", reverted };
+  const data = await res.json().catch(() => null) as { updated?: unknown; unchanged?: unknown } | null;
+  const list = (v: unknown) => Array.isArray(v) && v.every(x => typeof x === "string") ? v as string[] : null;
+  const updated = list(data?.updated), unchanged = list(data?.unchanged);
+  // The transaction committed; an unreadable reply still means it applied.
+  return { ok: true, updated: updated ?? [], unchanged: unchanged ?? [] };
 }
 
 // ── Mandatory preview ─────────────────────────────────────────────────────

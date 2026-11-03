@@ -6,9 +6,11 @@
 //                   linked by successor_campaign_slug (Complete Season). Only
 //                   seasons in the chain of the team being edited may be
 //                   changed in one request.
-//   Read-only       A completed season (season_completed_at or a successor)
-//                   is read-only in the database (phase_s2 guard), so its
-//                   school can't change here — it is shown, never selectable.
+//   Completed       A completed season (season_completed_at or a successor)
+//                   is read-only (phase_s2 guard) EXCEPT its school link:
+//                   school_link_apply() (phase_o3) may change its
+//                   organization_id and nothing else. It is selectable and
+//                   labelled "Completed".
 //   Preview         Every change is previewed first: per season, the school
 //                   before and after, and Community Partner visibility in
 //                   the Team App and on the public campaign page.
@@ -112,7 +114,6 @@ export type PlanError =
   | "no_seasons"
   | "duplicate_season"
   | "season_not_in_team"
-  | "season_read_only"
   | "stale"
   | "nothing_to_change";
 
@@ -120,7 +121,6 @@ export const PLAN_ERROR_TEXT: Record<PlanError, string> = {
   no_seasons: "Choose at least one season.",
   duplicate_season: "A season was selected more than once.",
   season_not_in_team: "A selected season doesn't belong to this team.",
-  season_read_only: "Completed seasons are read-only and can't change school.",
   stale: "The school for one or more seasons changed after the preview. Review the new preview before confirming.",
   nothing_to_change: "The selected seasons already have this school.",
 };
@@ -145,8 +145,6 @@ export function planSchoolLink(input: {
   const bySlug = new Map(chain.map(s => [s.campaign_slug, s]));
   const outside = selected.filter(s => !bySlug.has(s));
   if (outside.length) return { ok: false, error: "season_not_in_team", seasons: outside };
-  const readOnly = selected.filter(s => isCompletedSeason(bySlug.get(s)!));
-  if (readOnly.length) return { ok: false, error: "season_read_only", seasons: readOnly };
   if (expected) {
     const stale = selected.filter(s => !expected.has(s) || (expected.get(s) ?? null) !== (bySlug.get(s)!.organization_id ?? null));
     if (stale.length) return { ok: false, error: "stale", seasons: stale };
@@ -167,15 +165,6 @@ export function planSchoolLink(input: {
   });
   if (!changes.some(c => c.changesSchool)) return { ok: false, error: "nothing_to_change" };
   return { ok: true, changes };
-}
-
-/** One PostgREST `or` filter that matches each selected season only while
- *  it still has the school the confirm expects — a single UPDATE statement,
- *  so a row that changed meanwhile simply isn't matched. */
-export function conditionalSeasonFilter(expected: ReadonlyArray<{ campaign_slug: string; organization_id: string | null }>): string {
-  const parts = expected.map(e =>
-    `and(campaign_slug.eq.${e.campaign_slug},organization_id.${e.organization_id ? `eq.${e.organization_id}` : "is.null"})`);
-  return `or=(${parts.join(",")})`;
 }
 
 // ── Search ────────────────────────────────────────────────────────────────

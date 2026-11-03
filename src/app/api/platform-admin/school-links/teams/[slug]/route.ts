@@ -11,7 +11,7 @@ import {
   schoolLabel,
   seasonLabel,
 } from "@/lib/platform/schoolLinksLogic";
-import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
         school_name: s.school_name,
         organization_id: s.organization_id,
         school: s.organization_id ? schoolLabel(orgs.get(s.organization_id) ?? null) ?? "Unknown school record" : null,
-        readOnly: isCompletedSeason(s),
+        completed: isCompletedSeason(s),
       })),
     }, { headers: NO_STORE });
   } catch {
@@ -60,7 +60,9 @@ type ConfirmBody = {
 //   { organizationId: "<uuid>" | null, seasons: [{ campaign_slug, expectedOrganizationId }], previewToken }
 // expectedOrganizationId is each season's school as shown in the preview;
 // if any differs now the whole change is refused (409 stale). All selected
-// seasons change together or none do.
+// seasons change together or none do — enforced by one database
+// transaction, which also writes the audit rows. Completed seasons may be
+// selected: only their organization_id changes (phase_o3).
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const admin = await getPlatformAdminSession();
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -109,41 +111,36 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
   const plan = planSchoolLink({ chain, selected: [...expected.keys()], target, orgsById: orgs, expected });
   if (!plan.ok) {
-    const status = plan.error === "stale" ? 409 : plan.error === "season_read_only" ? 409 : 400;
+    const status = plan.error === "stale" ? 409 : 400;
     return NextResponse.json({ error: PLAN_ERROR_TEXT[plan.error], code: plan.error, seasons: plan.seasons ?? [] }, { status });
   }
 
-  // Seasons already on the target are left alone (no write, no audit row).
-  const toChange = plan.changes.filter(c => c.changesSchool);
-  const result = await applySchoolLink(
-    toChange.map(c => ({ campaign_slug: c.campaign_slug, organization_id: c.before.organization_id })),
+  // One database transaction (school_link_apply): re-checks the Platform
+  // Admin, the team's season chain and every season's previewed school
+  // under row locks, then writes the links and their audit rows together.
+  // All selected seasons are sent with their previewed school, so a season
+  // that changed meanwhile refuses the whole request; seasons already on
+  // the target are left alone (no write, no audit row).
+  const result = await applySchoolLink({
+    actor: { platformAdminId: admin.platformAdminId, accountId: admin.accountId },
+    teamSlug: slug,
     targetId,
-  );
+    seasons: [...expected].map(([campaign_slug, expectedOrganizationId]) => ({ campaign_slug, expectedOrganizationId })),
+    request: { ipAddress: ipOf(req), userAgent: req.headers.get("user-agent") },
+  });
   if (!result.ok) {
-    if (result.reason === "stale") {
-      return NextResponse.json({ error: PLAN_ERROR_TEXT.stale, code: "stale", reverted: result.reverted }, { status: 409 });
-    }
-    if (result.reason === "read_only") return NextResponse.json({ error: PLAN_ERROR_TEXT.season_read_only, code: "season_read_only" }, { status: 409 });
-    return NextResponse.json({ error: "The change couldn't be saved. Nothing was changed." }, { status: 500 });
+    const map: Record<string, { status: number; error: string }> = {
+      stale: { status: 409, error: PLAN_ERROR_TEXT.stale },
+      nothing_to_change: { status: 400, error: PLAN_ERROR_TEXT.nothing_to_change },
+      season_not_in_team: { status: 400, error: PLAN_ERROR_TEXT.season_not_in_team },
+      team_not_found: { status: 404, error: "Team not found." },
+      organization_not_found: { status: 404, error: "School not found." },
+      not_authorized: { status: 403, error: "Only Platform Admin accounts can change school links." },
+      invalid: { status: 400, error: "Preview again before confirming." },
+    };
+    const m = map[result.reason] ?? { status: 500, error: "The change couldn't be saved. Nothing was changed." };
+    return NextResponse.json({ error: m.error, code: result.reason }, { status: m.status });
   }
 
-  const actor = { type: "platform_admin" as const, id: admin.platformAdminId, email: admin.email, name: admin.name };
-  for (const c of toChange) {
-    logAuditEvent({
-      actor,
-      action:         targetId ? "school_link.set" : "school_link.unlink",
-      entity_type:    "campaign_settings",
-      entity_id:      c.campaign_slug,
-      campaign_slug:  c.campaign_slug,
-      summary:        targetId
-        ? `School for ${c.campaign_slug} ${c.before.organization_id ? "changed" : "linked"}: ${c.after.school}`
-        : `School unlinked from ${c.campaign_slug} (was ${c.before.school})`,
-      previous_value: { organization_id: c.before.organization_id, school: c.before.school, community_partners: c.before.visibility },
-      new_value:      { organization_id: c.after.organization_id, school: c.after.school, community_partners: c.after.visibility },
-      ip_address:     ipOf(req),
-      user_agent:     req.headers.get("user-agent"),
-    });
-  }
-
-  return NextResponse.json({ ok: true, updated: result.updated }, { headers: NO_STORE });
+  return NextResponse.json({ ok: true, updated: result.updated, unchanged: result.unchanged }, { headers: NO_STORE });
 }

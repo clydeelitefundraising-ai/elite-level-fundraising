@@ -1,7 +1,12 @@
 // School-Account Linking, Phase B — Platform Admin school links.
 // Route tests with a real account cookie + platform_admins row against a
-// fetch-mocked PostgREST that also enforces the completed-season guard
-// (phase_s2: any UPDATE touching a completed season fails the statement).
+// fetch-mocked PostgREST. The confirm goes through ONE call to
+// rpc/school_link_apply (phase_o3); the fake below mirrors its contract
+// (actor check, chain, stale, nothing-to-change, links + audit rows
+// together or not at all). The real transaction, locking and guard
+// behaviour is tested against PostgreSQL in
+// supabase/tests/phase_o3_school_link_apply. Direct PATCHes still hit the
+// completed-season guard (phase_s2) here, so any stray write would fail.
 import { register } from "node:module";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -20,8 +25,8 @@ const { __setTestCookie } = await import("../../../../lib/testSupport/nextHeader
 const { NextRequest } = await import("../../../../lib/testSupport/nextServerStub.mjs");
 const { makeAccountCookie } = await import("@/lib/accountAuth");
 const { getAdminToken } = await import("@/lib/adminAuth");
-const { signPreview, applySchoolLink } = await import("@/lib/platform/schoolLinks");
-const { buildDryRunReport, planSchoolLink, conditionalSeasonFilter, sanitizeSchoolQuery } = await import("@/lib/platform/schoolLinksLogic");
+const { signPreview } = await import("@/lib/platform/schoolLinks");
+const { buildDryRunReport, planSchoolLink, sanitizeSchoolQuery } = await import("@/lib/platform/schoolLinksLogic");
 
 type Row = Record<string, unknown>;
 const MONROE = "11111111-1111-4111-8111-111111111111";   // advertising on (app + public)
@@ -63,6 +68,42 @@ function makeWorld() {
     audit_logs: [],
   };
   const requests: { method: string; path: string; body?: Row }[] = [];
+  const hooks: { beforeRpc?: () => void; rpcError?: string; rpcStatus?: number; rpcThrows?: boolean } = {};
+
+  // Mirrors public.school_link_apply(): validates, then changes every
+  // selected season and writes its audit row — or raises and changes nothing.
+  function schoolLinkApply(b: Row): Response {
+    const fail = (m: string) => new Response(JSON.stringify({ code: "P0001", message: m }), { status: 400 });
+    hooks.beforeRpc?.();
+    if (hooks.rpcError) return new Response(JSON.stringify({ code: "P0001", message: hooks.rpcError }), { status: hooks.rpcStatus ?? 400 });
+    const actor = b.p_actor as Row | null;
+    const pa = db.platform_admins.find(p => p.id === actor?.platform_admin_id && p.account_id === actor?.account_id);
+    if (!pa) return fail("school_link_actor_not_authorized");
+    const acct = db.elf_accounts.find(a => a.id === pa.account_id)!;
+    const seasons = b.p_seasons as { campaign_slug: string; expected_organization_id: string | null }[];
+    const target = b.p_organization_id as string | null;
+    const org = target ? db.organizations.find(o => o.id === target) : null;
+    if (target && !org) return fail("school_link_organization_not_found");
+    const rows = seasons.map(x => db.campaign_settings.find(c => c.campaign_slug === x.campaign_slug));
+    if (rows.some(x => !x)) return fail("school_link_season_not_in_team");
+    const chain = new Set<string>([String(b.p_team_slug)]);
+    for (let grew = true; grew;) { grew = false; for (const c of db.campaign_settings) {
+      const a = String(c.campaign_slug), n = c.successor_campaign_slug as string | null;
+      if (n && chain.has(a) !== chain.has(n)) { chain.add(a); chain.add(n); grew = true; } } }
+    if (seasons.some(x => !chain.has(x.campaign_slug))) return fail("school_link_season_not_in_team");
+    if (seasons.some((x, i) => (rows[i]!.organization_id ?? null) !== x.expected_organization_id)) return fail("school_link_stale");
+    const changing = rows.filter(x => (x!.organization_id ?? null) !== target) as Row[];
+    if (!changing.length) return fail("school_link_nothing_to_change");
+    for (const c of changing) {
+      const prev = db.organizations.find(o => o.id === c.organization_id);
+      db.audit_logs.push({ action: target ? "school_link.set" : "school_link.unlink", campaign_slug: c.campaign_slug, actor_type: "platform_admin", actor_id: pa.id, actor_email: acct.email,
+        previous_value: { organization_id: c.organization_id ?? null, school: prev?.school_name ?? null }, new_value: { organization_id: target, school: org?.school_name ?? null },
+        ip_address: (b.p_request as Row).ip_address, user_agent: (b.p_request as Row).user_agent });
+      c.organization_id = target;
+    }
+    const updated = changing.map(c => String(c.campaign_slug)).sort();
+    return new Response(JSON.stringify({ updated, unchanged: seasons.map(x => x.campaign_slug).filter(x => !updated.includes(x)).sort() }), { status: 200 });
+  }
 
   function cond(r: Row, k: string, v: string): boolean {
     if (v.startsWith("eq.")) return String(r[k]) === decodeURIComponent(v.slice(3));
@@ -94,6 +135,10 @@ function makeWorld() {
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     requests.push({ method, path, body });
+    if (table === "rpc/school_link_apply" && method === "POST") {
+      if (hooks.rpcThrows) throw new TypeError("fetch failed");
+      return schoolLinkApply(body);
+    }
     const rows = (db[table] ??= []);
     if (method === "GET") return new Response(JSON.stringify(filter(rows, p).map(r => ({ ...r }))), { status: 200 });
     if (method === "PATCH") {
@@ -107,7 +152,7 @@ function makeWorld() {
     if (method === "POST") { rows.push({ id: `row-${rows.length + 1}`, ...body }); return new Response(JSON.stringify([body]), { status: 201 }); }
     return new Response("null", { status: 405 });
   }
-  return { db, requests, fetchImpl };
+  return { db, requests, hooks, fetchImpl };
 }
 
 type World = ReturnType<typeof makeWorld>;
@@ -140,7 +185,10 @@ async function confirm(slug: string, body: unknown) {
   const res = await (await team()).PUT(r(`/x/${slug}`, "PUT", body), ctx(slug));
   return { status: res.status, body: await json(res) };
 }
-const writes = (w: World) => w.requests.filter(q => q.method !== "GET" && !q.path.startsWith("audit_logs"));
+const writes = (w: World) => w.requests.filter(q => q.method !== "GET");
+const rpcCalls = (w: World) => w.requests.filter(q => q.path === "rpc/school_link_apply");
+/** Every write the confirm made, other than the one RPC call. */
+const otherWrites = (w: World) => writes(w).filter(q => q.path !== "rpc/school_link_apply");
 
 // ── Who ───────────────────────────────────────────────────────────────────
 
@@ -159,13 +207,13 @@ for (const who of ["nobody", "coach", "shared-admin"] as const) {
 
 // ── Reading ───────────────────────────────────────────────────────────────
 
-test("team seasons: whole chain oldest→newest, current season, completed seasons read-only, each season's school", async () => {
+test("team seasons: whole chain oldest→newest, current season, completed seasons flagged, each season's school", async () => {
   await withWorld(async () => {
     for (const anchor of ["mustangs-2025", "mustangs-2026", "mustangs-2027"]) {
       const d = await json(await (await team()).GET(r("/x"), ctx(anchor)));
       assert.deepEqual(d.seasons.map((s: Row) => s.campaign_slug), ["mustangs-2025", "mustangs-2026", "mustangs-2027"], anchor);
       assert.equal(d.currentSeason, "mustangs-2027");
-      assert.deepEqual(d.seasons.map((s: Row) => s.readOnly), [true, true, false]);
+      assert.deepEqual(d.seasons.map((s: Row) => s.completed), [true, true, false]);
       assert.equal(d.seasons[0].school, "Chino Valley High School — Chino Valley, AZ");
       assert.equal(d.seasons[2].school, null);
     }
@@ -206,17 +254,29 @@ test("preview: before/after school and Community Partner visibility (Team App an
   });
 });
 
-test("preview refuses: unknown school (never created), seasons from another team, completed seasons, nothing to change", async () => {
+test("preview includes completed seasons when selected (each with its previewed school); writes nothing", async () => {
+  await withWorld(async w => {
+    const p = await preview("mustangs-2027", MONROE, ["mustangs-2025", "mustangs-2026", "mustangs-2027"]);
+    assert.equal(p.status, 200, JSON.stringify(p.body));
+    assert.deepEqual(p.body.confirm, [
+      { campaign_slug: "mustangs-2025", expectedOrganizationId: CHINO },
+      { campaign_slug: "mustangs-2026", expectedOrganizationId: null },
+      { campaign_slug: "mustangs-2027", expectedOrganizationId: null },
+    ]);
+    assert.equal(p.body.changes[0].before.school, "Chino Valley High School — Chino Valley, AZ");
+    assert.equal(writes(w).length, 0);
+  });
+});
+
+test("preview refuses: unknown school (never created), seasons from another team, nothing to change", async () => {
   await withWorld(async w => {
     assert.equal((await preview("mustangs-2027", MISSING, ["mustangs-2027"])).status, 404);
     const other = await preview("mustangs-2027", MONROE, ["mustangs-2027", "owls-soccer"]);
     assert.equal(other.status, 400);
     assert.equal(other.body.code, "season_not_in_team");
-    const done = await preview("mustangs-2027", MONROE, ["mustangs-2026", "mustangs-2027"]);
-    assert.equal(done.status, 409);
-    assert.equal(done.body.code, "season_read_only");
     const same = await preview("mustangs-2025", CHINO, ["mustangs-2025"]);
-    assert.equal(same.body.code, "season_read_only");
+    assert.equal(same.status, 400);
+    assert.equal(same.body.code, "nothing_to_change");
     assert.ok(!w.requests.some(q => q.method === "POST" && q.path.startsWith("organizations")));
     assert.equal(writes(w).length, 0);
   });
@@ -230,27 +290,54 @@ async function previewThenConfirm(slug: string, org: string | null, seasons: str
   return confirm(slug, { organizationId: p.body.organizationId, seasons: p.body.confirm, previewToken: p.body.previewToken });
 }
 
-test("link the current season: only organization_id changes, other seasons and teams untouched, audited per season", async () => {
+test("link the current season: ONE database call carrying the verified admin and previewed schools; no app-level writes or rollback", async () => {
   await withWorld(async w => {
     const before = JSON.parse(JSON.stringify(w.db.campaign_settings));
     const res = await previewThenConfirm("mustangs-2027", MONROE, ["mustangs-2027"]);
     assert.equal(res.status, 200);
     assert.deepEqual(res.body.updated, ["mustangs-2027"]);
-    const patch = w.requests.find(q => q.method === "PATCH")!;
-    assert.deepEqual(Object.keys(patch.body!), ["organization_id"], "nothing but the link is written");
+    assert.equal(rpcCalls(w).length, 1);
+    assert.deepEqual(rpcCalls(w)[0].body, {
+      p_actor: { platform_admin_id: "pa-1", account_id: "acct-admin" },
+      p_team_slug: "mustangs-2027",
+      p_organization_id: MONROE,
+      p_seasons: [{ campaign_slug: "mustangs-2027", expected_organization_id: null }],
+      p_request: { ip_address: null, user_agent: null },
+    });
+    assert.equal(otherWrites(w).length, 0, "no PATCH, no audit insert, no revert from the app");
     for (const row of w.db.campaign_settings) {
       const old = before.find((b: Row) => b.campaign_slug === row.campaign_slug);
       if (row.campaign_slug === "mustangs-2027") assert.deepEqual({ ...row, organization_id: null }, old);
       else assert.deepEqual(row, old, `${row.campaign_slug} untouched`);
     }
-    await new Promise(res2 => setTimeout(res2, 0));
-    const audits = w.requests.filter(q => q.path.startsWith("audit_logs"));
-    assert.equal(audits.length, 1);
-    assert.equal(audits[0].body!.action, "school_link.set");
-    assert.equal(audits[0].body!.campaign_slug, "mustangs-2027");
-    assert.equal(audits[0].body!.actor_type, "platform_admin");
-    assert.equal(audits[0].body!.actor_id, "pa-1");
-    assert.deepEqual((audits[0].body!.new_value as Row).community_partners, { teamApp: true, publicPage: true });
+    assert.equal(w.db.audit_logs.length, 1, "audit row written by the database call");
+    assert.equal(w.db.audit_logs[0].action, "school_link.set");
+    assert.equal(w.db.audit_logs[0].actor_id, "pa-1");
+  });
+});
+
+test("completed seasons: link, change and unlink their school; only organization_id changes", async () => {
+  await withWorld(async w => {
+    const before = JSON.parse(JSON.stringify(w.db.campaign_settings));
+    const linked = await previewThenConfirm("mustangs-2027", MONROE, ["mustangs-2025", "mustangs-2026", "mustangs-2027"]);
+    assert.equal(linked.status, 200, JSON.stringify(linked.body));
+    assert.deepEqual(linked.body.updated, ["mustangs-2025", "mustangs-2026", "mustangs-2027"]);
+    for (const row of w.db.campaign_settings) {
+      const old = before.find((b: Row) => b.campaign_slug === row.campaign_slug);
+      if (String(row.campaign_slug).startsWith("mustangs-")) {
+        assert.equal(row.organization_id, MONROE);
+        assert.deepEqual({ ...row, organization_id: old.organization_id }, old, `${row.campaign_slug}: completion, successor and everything else unchanged`);
+      } else assert.deepEqual(row, old);
+    }
+    assert.equal((await previewThenConfirm("mustangs-2026", LINCOLN_NE, ["mustangs-2026"])).status, 200);
+    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2026")!.organization_id, LINCOLN_NE);
+    assert.equal((await previewThenConfirm("mustangs-2025", null, ["mustangs-2025"])).status, 200);
+    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2025")!.organization_id, null);
+    assert.deepEqual(w.db.audit_logs.map(a => [a.action, a.campaign_slug]), [
+      ["school_link.set", "mustangs-2025"], ["school_link.set", "mustangs-2026"], ["school_link.set", "mustangs-2027"],
+      ["school_link.set", "mustangs-2026"], ["school_link.unlink", "mustangs-2025"],
+    ]);
+    assert.equal(otherWrites(w).length, 0);
   });
 });
 
@@ -262,9 +349,7 @@ test("change and unlink", async () => {
     assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "lincoln-hoops")!.organization_id, LINCOLN_OR);
     assert.equal((await previewThenConfirm("lincoln-hoops", null, ["lincoln-hoops"])).status, 200);
     assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "lincoln-hoops")!.organization_id, null);
-    await new Promise(res2 => setTimeout(res2, 0));
-    const actions = w.requests.filter(q => q.path.startsWith("audit_logs")).map(q => q.body!.action);
-    assert.deepEqual(actions, ["school_link.set", "school_link.set", "school_link.unlink"]);
+    assert.deepEqual(w.db.audit_logs.map(a => a.action), ["school_link.set", "school_link.set", "school_link.unlink"]);
   });
 });
 
@@ -278,11 +363,21 @@ test("the preview is mandatory and binding: no token, altered school/season, ano
     assert.equal((await confirm("mustangs-2027", { ...base, previewToken: expired })).body.code, "preview_required");
     const otherAdmin = signPreview({ adminId: "pa-2", slug: "mustangs-2027", organizationId: CHINO, seasons: p.body.confirm });
     assert.equal((await confirm("mustangs-2027", { ...base, previewToken: otherAdmin })).body.code, "preview_required");
-    assert.equal(w.requests.filter(q => q.method === "PATCH").length, 0);
+    assert.equal(writes(w).length, 0);
   });
 });
 
-test("stale confirmation: a school changed after the preview → 409, nothing written", async () => {
+test("the actor always comes from the signed-in session, never the request body", async () => {
+  await withWorld(async w => {
+    const p = await preview("mustangs-2027", CHINO, ["mustangs-2027"]);
+    const res = await confirm("mustangs-2027", { organizationId: CHINO, seasons: p.body.confirm, previewToken: p.body.previewToken,
+      p_actor: { platform_admin_id: "pa-2", account_id: "acct-admin2" }, actor: { platformAdminId: "pa-2" } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(rpcCalls(w)[0].body!.p_actor, { platform_admin_id: "pa-1", account_id: "acct-admin" });
+  });
+});
+
+test("stale confirmation caught before the call: a school changed after the preview → 409, nothing written", async () => {
   await withWorld(async w => {
     const p = await preview("mustangs-2027", MONROE, ["mustangs-2027"]);
     w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2027")!.organization_id = CHINO; // someone else linked it
@@ -290,58 +385,68 @@ test("stale confirmation: a school changed after the preview → 409, nothing wr
     assert.equal(res.status, 409);
     assert.equal(res.body.code, "stale");
     assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2027")!.organization_id, CHINO);
-    assert.equal(w.requests.filter(q => q.method === "PATCH").length, 0);
+    assert.equal(writes(w).length, 0);
   });
 });
 
-test("a confirm naming a season outside the team or a completed season is refused before any write", async () => {
+test("stale confirmation caught BY THE DATABASE (changed between the app's check and the call) → 409, nothing changed, no audit row, no retry or revert", async () => {
   await withWorld(async w => {
-    for (const seasons of [
-      [{ campaign_slug: "mustangs-2027", expectedOrganizationId: null }, { campaign_slug: "owls-soccer", expectedOrganizationId: null }],
-      [{ campaign_slug: "mustangs-2026", expectedOrganizationId: null }],
-    ]) {
-      const token = signPreview({ adminId: "pa-1", slug: "mustangs-2027", organizationId: MONROE, seasons });
-      const res = await confirm("mustangs-2027", { organizationId: MONROE, seasons, previewToken: token });
-      assert.ok([400, 409].includes(res.status), JSON.stringify(res.body));
-    }
-    assert.equal(w.requests.filter(q => q.method === "PATCH").length, 0);
+    const p = await preview("mustangs-2027", MONROE, ["mustangs-2026", "mustangs-2027"]);
+    w.hooks.beforeRpc = () => { w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2027")!.organization_id = LINCOLN_NE; };
+    const res = await confirm("mustangs-2027", { organizationId: MONROE, seasons: p.body.confirm, previewToken: p.body.previewToken });
+    assert.equal(res.status, 409);
+    assert.equal(res.body.code, "stale");
+    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2026")!.organization_id, null, "the other season was not changed");
+    assert.equal(w.db.audit_logs.length, 0);
+    assert.equal(rpcCalls(w).length, 1);
+    assert.equal(otherWrites(w).length, 0);
   });
 });
 
-// ── All-or-nothing writes (library level) ─────────────────────────────────
-
-test("multi-season write: one conditional UPDATE; success updates all", async () => {
-  await withWorld(async w => {
-    w.db.campaign_settings.push(season("x-a"), season("x-b", { organization_id: CHINO }));
-    const res = await applySchoolLink([{ campaign_slug: "x-a", organization_id: null }, { campaign_slug: "x-b", organization_id: CHINO }], MONROE);
-    assert.equal(res.ok, true);
-    assert.equal(w.requests.filter(q => q.method === "PATCH").length, 1, "a single statement");
-    assert.ok(w.db.campaign_settings.filter(s => ["x-a", "x-b"].includes(String(s.campaign_slug))).every(s => s.organization_id === MONROE));
-  });
+test("database refusals map to fixed responses; unknown failures say nothing changed; never a follow-up write", async () => {
+  const cases: [string | null, number, string, number?][] = [
+    ["school_link_stale", 409, "stale"],
+    ["school_link_nothing_to_change", 400, "nothing_to_change"],
+    ["school_link_season_not_in_team", 400, "season_not_in_team"],
+    ["school_link_team_not_found", 404, "team_not_found"],
+    ["school_link_organization_not_found", 404, "organization_not_found"],
+    ["school_link_actor_not_authorized", 403, "not_authorized"],
+    ["school_link_actor_invalid", 403, "not_authorized"],
+    ["school_link_invalid", 400, "invalid"],
+    ["season_completed_read_only", 500, "error"],
+    ["canceling statement due to statement timeout", 500, "error", 500],
+    [null, 500, "error"], // network failure
+  ];
+  for (const [dbError, status, code, httpStatus] of cases) {
+    await withWorld(async w => {
+      const p = await preview("mustangs-2027", MONROE, ["mustangs-2027"]);
+      if (dbError) { w.hooks.rpcError = dbError; w.hooks.rpcStatus = httpStatus; } else w.hooks.rpcThrows = true;
+      const res = await confirm("mustangs-2027", { organizationId: MONROE, seasons: p.body.confirm, previewToken: p.body.previewToken });
+      assert.equal(res.status, status, String(dbError));
+      assert.equal(res.body.code, code, String(dbError));
+      if (code === "error") assert.match(res.body.error, /Nothing was changed/);
+      assert.doesNotMatch(JSON.stringify(res.body), /statement timeout|school_link_/, "database text is never echoed");
+      assert.equal(rpcCalls(w).length, 1, "one call, no retry");
+      assert.equal(otherWrites(w).length, 0, "no compensating writes");
+      assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "mustangs-2027")!.organization_id, null);
+    });
+  }
 });
 
-test("multi-season write: a season changed concurrently → the others are put back, nothing left half-applied", async () => {
+test("a confirm naming a season outside the team is refused before the database call", async () => {
   await withWorld(async w => {
-    w.db.campaign_settings.push(season("x-a"), season("x-b", { organization_id: LINCOLN_NE })); // expected CHINO, but it's LINCOLN_NE now
-    const res = await applySchoolLink([{ campaign_slug: "x-a", organization_id: null }, { campaign_slug: "x-b", organization_id: CHINO }], MONROE);
-    assert.deepEqual(res, { ok: false, reason: "stale", reverted: true });
-    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "x-a")!.organization_id, null, "reverted");
-    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "x-b")!.organization_id, LINCOLN_NE, "concurrent change kept");
-  });
-});
-
-test("multi-season write: a completed season in the set makes the database refuse the whole statement", async () => {
-  await withWorld(async w => {
-    w.db.campaign_settings.push(season("x-a"));
-    const res = await applySchoolLink([{ campaign_slug: "x-a", organization_id: null }, { campaign_slug: "mustangs-2026", organization_id: null }], MONROE);
-    assert.deepEqual(res, { ok: false, reason: "read_only" });
-    assert.equal(w.db.campaign_settings.find(s => s.campaign_slug === "x-a")!.organization_id, null);
+    const seasons = [{ campaign_slug: "mustangs-2027", expectedOrganizationId: null }, { campaign_slug: "owls-soccer", expectedOrganizationId: null }];
+    const token = signPreview({ adminId: "pa-1", slug: "mustangs-2027", organizationId: MONROE, seasons });
+    const res = await confirm("mustangs-2027", { organizationId: MONROE, seasons, previewToken: token });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.code, "season_not_in_team");
+    assert.equal(writes(w).length, 0);
   });
 });
 
 // ── Rules, report, wiring ─────────────────────────────────────────────────
 
-test("plan: current season by default only; additional seasons only when listed; duplicates and stale refused", () => {
+test("plan: current season by default only; additional seasons only when listed; completed seasons allowed; duplicates and stale refused", () => {
   const chain = [
     { campaign_slug: "t-1", school_name: "A", sport_name: "S", season: "1", organization_id: null, season_completed_at: null, successor_campaign_slug: null },
     { campaign_slug: "t-2", school_name: "A", sport_name: "S", season: "2", organization_id: null, season_completed_at: null, successor_campaign_slug: null },
@@ -352,8 +457,9 @@ test("plan: current season by default only; additional seasons only when listed;
   assert.equal((planSchoolLink({ chain, selected: ["t-2", "t-2"], target: null, orgsById: orgs }) as { error: string }).error, "duplicate_season");
   const stale = planSchoolLink({ chain, selected: ["t-1"], target: orgs.get(CHINO)!, orgsById: orgs, expected: new Map([["t-1", CHINO]]) });
   assert.equal((stale as { error: string }).error, "stale");
-  assert.equal(conditionalSeasonFilter([{ campaign_slug: "t-1", organization_id: null }, { campaign_slug: "t-2", organization_id: CHINO }]),
-    `or=(and(campaign_slug.eq.t-1,organization_id.is.null),and(campaign_slug.eq.t-2,organization_id.eq.${CHINO}))`);
+  const done = [{ ...chain[0], season_completed_at: "2026-01-01", successor_campaign_slug: "t-2" }, chain[1]];
+  const both = planSchoolLink({ chain: done, selected: ["t-1", "t-2"], target: orgs.get(CHINO)!, orgsById: orgs });
+  assert.ok(both.ok && both.changes.length === 2, "a completed season can be planned (organization_id only)");
 });
 
 test("dry-run report: exact matches, ambiguous names, unmatched names, possible duplicates — computed, never applied", () => {
@@ -378,4 +484,9 @@ test("wiring: Campaign Control Center points staff to Platform Admin; nav links;
   assert.match(readFileSync(join(process.cwd(), "src/app/platform-admin/_components/PlatformAdminHeader.tsx"), "utf8"), /href="\/platform-admin\/school-links"/);
   const lib = readFileSync(join(process.cwd(), "src/lib/platform/schoolLinks.ts"), "utf8");
   assert.doesNotMatch(lib, /organizations`?,\s*\{\s*method: "POST"|restInsert/, "no school creation path");
+  assert.doesNotMatch(lib, /method: "PATCH"|reverted/, "no direct link write and no app-level rollback");
+  assert.match(lib, /rpc\/school_link_apply/);
+  const put = readFileSync(join(process.cwd(), "src/app/api/platform-admin/school-links/teams/[slug]/route.ts"), "utf8");
+  assert.doesNotMatch(put, /logAuditEvent/, "audit rows are written inside the database transaction");
+  assert.match(put, /platformAdminId: admin\.platformAdminId, accountId: admin\.accountId/);
 });

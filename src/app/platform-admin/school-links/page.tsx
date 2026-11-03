@@ -52,7 +52,7 @@ export default async function SchoolLinksPage() {
         Linking records which school a team belongs to; it grants no access to other teams.
       </p>
 
-      <section style={card} aria-labelledby="unlinked-h">
+      <section style={{ ...card, padding: card.padding }} aria-labelledby="unlinked-h">
         <h2 id="unlinked-h" style={h2}>Teams without a school ({teams.length})</h2>
         {teams.length === 0 ? <p style={muted}>Every team-season is linked to a school.</p> : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -66,7 +66,7 @@ export default async function SchoolLinksPage() {
                   </Link>
                   <div style={muted}>
                     {unlinked.length} of {chain.length} season{chain.length === 1 ? "" : "s"} without a school
-                    {unlinked.some(isCompletedSeason) ? " · includes completed (read-only) seasons" : ""}
+                    {unlinked.some(isCompletedSeason) ? " · includes completed seasons" : ""}
                   </div>
                 </li>
               );
@@ -75,7 +75,7 @@ export default async function SchoolLinksPage() {
         )}
       </section>
 
-      <section style={card} aria-labelledby="dryrun-h">
+      <section style={{ ...card, padding: card.padding }} aria-labelledby="dryrun-h">
         <h2 id="dryrun-h" style={h2}>Dry-run backfill report (read-only — nothing is applied)</h2>
         <p style={{ ...muted, marginTop: 0 }}>
           Exact school-name matches only (the same rule as the 2026-08-24 backfill). No fuzzy matching; review each team before linking it.
@@ -87,7 +87,7 @@ export default async function SchoolLinksPage() {
             {report.exactMatches.map(m => (
               <li key={m.campaign_slug} style={li}>
                 <Link href={`/platform-admin/school-links/${m.campaign_slug}`}>{m.campaign_slug}</Link> → {m.organization}
-                {m.completed && <span style={muted}> · completed season (read-only)</span>}
+                {m.completed && <span style={muted}> · completed season</span>}
               </li>
             ))}
           </ul>

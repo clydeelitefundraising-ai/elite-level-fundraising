@@ -61,7 +61,7 @@ const EXEMPT: Record<string, string> = {
   "platform-admin/messages/[messageId]/moderate-remove POST": "moderation removal (moderation purpose header)",
   "platform-admin/messages/attachments/[attachmentId]/moderate-remove POST": "moderation removal (moderation purpose header)",
   "platform-admin/reports/[id] PATCH": "safety: resolving a report",
-  "platform-admin/school-links/teams/[slug] PUT": "school link: checks every selected season itself (completed seasons refused by planSchoolLink, and by the database guard for the whole statement)",
+  "platform-admin/school-links/teams/[slug] PUT": "school link metadata: school_link_apply() (phase_o3) may change organization_id ONLY on completed seasons; every other completed-season write stays refused by the database guard",
   "platform-admin/school-links/teams/[slug]/preview POST": "read-only preview (writes nothing)",
   "push/devices POST": "device registration (account-level)",
   "push/devices/deactivate POST": "device unregistration",
