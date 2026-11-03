@@ -116,7 +116,8 @@ changed" when saving a link. The old app with it is unaffected.
 Production's `season_write_guard()` has exact md5
 `2a52b3a0c20ce519de878f1cadb885a6`; with line endings ignored it is
 `de544ccaf6f5b483afea9c5ff5186ab3`, phase_s2's. Verified offline from the
-production backup (`pgdump-20261103T165217Z/elf-prod-public.dump`):
+production backup (`pgdump-20261103T165217Z`; reconfirmed from the verified
+backup `pgdump-20261103T171608Z`, the backup of record):
 
 - the body has 52 line endings, all CRLF; no other carriage returns, and none
   inside a string literal;
