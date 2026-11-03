@@ -114,8 +114,15 @@ export default async function PlatformAdminDashboardPage() {
             <ol className={styles.activityList}>
               {activity.items.map(a => (
                 <li key={a.id} className={styles.activityItem}>
-                  <span className={styles.itemText}>{a.text}</span>
-                  <span className={styles.itemMeta}>{a.actor} · {a.age}</span>
+                  <span className={styles.activityIcon} data-kind={a.kind} aria-hidden="true">{a.icon}</span>
+                  <span className={styles.activityBody}>
+                    <span className={styles.activityText}>{a.text}</span>
+                    <span className={styles.activityMeta}>
+                      <span className={styles.activityActor}>{a.actor}</span>
+                      <span aria-hidden="true"> · </span>
+                      <time dateTime={a.at} className={styles.activityTime}>{a.age}</time>
+                    </span>
+                  </span>
                 </li>
               ))}
             </ol>

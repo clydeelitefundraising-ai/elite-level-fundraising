@@ -24,7 +24,9 @@ export type AttentionGroup = {
   lines: AttentionLine[];
 };
 
-export type ActivityItem = { id: string; text: string; actor: string; age: string };
+export type ActivityKind = "school" | "organization" | "partner" | "campaign" | "people" | "message" | "export" | "other";
+
+export type ActivityItem = { id: string; kind: ActivityKind; icon: string; text: string; actor: string; age: string; at: string };
 
 export type ActivitySection = { state: LoadState; items: ActivityItem[] };
 
@@ -166,6 +168,23 @@ const ACTOR_LABEL: Record<string, string> = {
   system: "System",
 };
 
+/** A small, decorative event category from the audit action's prefix —
+ *  display only, never used for any decision. */
+const ACTIVITY_KINDS: [RegExp, ActivityKind, string][] = [
+  [/^school_link\./, "school", "⇄"],
+  [/^organization\./, "organization", "▣"],
+  [/^(sponsor|community_partner|partner)/, "partner", "◇"],
+  [/^campaign/, "campaign", "◫"],
+  [/^(coach|account|member|athlete|platform_admin|staff)/, "people", "◉"],
+  [/^(communication|message|announcement|notification)/, "message", "✉"],
+  [/^export/, "export", "⇩"],
+];
+
+export function activityKind(action: string): { kind: ActivityKind; icon: string } {
+  const hit = ACTIVITY_KINDS.find(([re]) => re.test(action));
+  return hit ? { kind: hit[1], icon: hit[2] } : { kind: "other", icon: "•" };
+}
+
 /** entries === null means the audit read failed. */
 export function buildActivity(entries: AuditLike[] | null, now: Date): ActivitySection {
   if (entries === null) return { state: "failed", items: [] };
@@ -174,9 +193,11 @@ export function buildActivity(entries: AuditLike[] | null, now: Date): ActivityS
     state: "loaded",
     items: entries.slice(0, ACTIVITY_LIMIT).map(e => ({
       id: e.id,
+      ...activityKind(e.action),
       text: (e.summary?.trim() || e.action).slice(0, 160),
       actor: ACTOR_LABEL[e.actor_type ?? ""] ?? "ELF",
       age: relativeAge(e.created_at, now),
+      at: e.created_at,
     })),
   };
 }

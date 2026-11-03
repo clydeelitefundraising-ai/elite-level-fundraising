@@ -76,7 +76,7 @@ test("dashboard CSS: mobile-first, no overflow-prone widths, ≥44px tap targets
   assert.match(css, /@media \(min-width: 600px\) \{\n  \.kpis \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
   assert.match(css, /@media \(min-width: 900px\) \{\n  \.columns \{/);
   assert.doesNotMatch(css, /(?<!max-|min-)width:\s*\d{3,}px/, "no fixed pixel widths");
-  for (const [sel, min] of [[".kpi", 64], [".attentionRow", 44], [".quickAction", 48], [".panelLink", 44]] as const) {
+  for (const [sel, min] of [[".kpi", 68], [".attentionRow", 44], [".quickAction", 48], [".panelLink", 44]] as const) {
     const block = css.slice(css.indexOf(`${sel} {`));
     const m = /min-height: (\d+)px;/.exec(block.slice(0, block.indexOf("}")));
     assert.ok(m && +m[1] >= 44 && +m[1] <= 72, `${sel} min-height ${m?.[1]}`);
@@ -118,4 +118,23 @@ test("bottom nav CSS: phones only, fixed above the safe area, never covers conte
 
 test("bottom nav appears on every Platform Admin page: the layout wraps them all in the shell", () => {
   assert.match(read("src/app/platform-admin/layout.tsx"), /<PlatformAdminShell [^>]*>\n\s*\{children\}/);
+});
+
+test("polish: heading and subtitle stack; KPI numbers prominent; desktop puts activity full-width below", () => {
+  assert.match(css, /\.header \{\n  display: flex;\n  flex-direction: column;/);
+  assert.match(css, /\.kpiValue \{\n  font-size: 1\.6rem;/);
+  assert.match(css, /grid-template-areas:\n      "attention quick"\n      "activity activity";/);
+  // Quick action labels stay at an accessible size while fitting two-up at 375px.
+  assert.match(css, /\.quickAction \{[^}]*font-size: \.86rem;/);
+  assert.match(css, /@media \(max-width: 599px\) \{\n  \.panel \{ padding: \.8rem \.75rem; \}/);
+});
+
+test("polish: recent activity — decorative icon, action first, then actor and a machine-readable time", () => {
+  assert.match(page, /<span className=\{styles\.activityIcon\} data-kind=\{a\.kind\} aria-hidden="true">\{a\.icon\}<\/span>/);
+  assert.match(page, /<span className=\{styles\.activityText\}>\{a\.text\}<\/span>/);
+  assert.match(page, /<span className=\{styles\.activityActor\}>\{a\.actor\}<\/span>/);
+  assert.match(page, /<time dateTime=\{a\.at\} className=\{styles\.activityTime\}>\{a\.age\}<\/time>/);
+  assert.ok(page.indexOf("activityText") < page.indexOf("activityActor"), "action before actor");
+  assert.match(css, /\.activityText \{[^}]*font-weight: 600;/);
+  assert.match(css, /\.activityMeta \{[^}]*font-size: \.74rem;/);
 });

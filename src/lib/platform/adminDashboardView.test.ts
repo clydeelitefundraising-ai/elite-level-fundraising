@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVITY_LIMIT, ATTENTION_ITEM_LIMIT, attentionToShow, buildActivity, buildInquiryGroup,
+  ACTIVITY_LIMIT, ATTENTION_ITEM_LIMIT, activityKind, attentionToShow, buildActivity, buildInquiryGroup,
   buildModerationGroup, buildSchoolsGroup, relativeAge, teamLabel,
 } from "./adminDashboardView.ts";
 
@@ -98,10 +98,23 @@ test("recent activity: newest six, summary + role-level actor + age, no email ad
   const a = buildActivity(rows, NOW);
   assert.equal(a.state, "loaded");
   assert.equal(a.items.length, ACTIVITY_LIMIT);
-  assert.deepEqual(a.items[0], { id: "a0", text: "organization.update", actor: "Admin tool", age: "just now" });
-  assert.deepEqual(a.items[1], { id: "a1", text: "Change 1", actor: "Platform Admin", age: "10m ago" });
+  assert.deepEqual(a.items[0], { id: "a0", kind: "organization", icon: "▣", text: "organization.update", actor: "Admin tool", age: "just now", at: ago(0) });
+  assert.deepEqual(a.items[1], { id: "a1", kind: "organization", icon: "▣", text: "Change 1", actor: "Platform Admin", age: "10m ago", at: ago(10) });
   assert.ok(!JSON.stringify(a).includes("pat@elf.test"));
   assert.equal(buildActivity([{ id: "x", action: "a", summary: "y".repeat(400), created_at: ago(1) }], NOW).items[0].text.length, 160);
   assert.deepEqual(buildActivity([], NOW), { state: "empty", items: [] });
   assert.deepEqual(buildActivity(null, NOW), { state: "failed", items: [] });
+});
+
+test("activity icons: a decorative category from the action prefix, with a neutral fallback", () => {
+  assert.deepEqual(activityKind("school_link.set"), { kind: "school", icon: "⇄" });
+  assert.deepEqual(activityKind("organization.update"), { kind: "organization", icon: "▣" });
+  assert.deepEqual(activityKind("sponsor_package.created"), { kind: "partner", icon: "◇" });
+  assert.deepEqual(activityKind("community_partner.updated"), { kind: "partner", icon: "◇" });
+  assert.deepEqual(activityKind("campaign.created"), { kind: "campaign", icon: "◫" });
+  assert.deepEqual(activityKind("coach.password_reset"), { kind: "people", icon: "◉" });
+  assert.deepEqual(activityKind("communication_template.updated"), { kind: "message", icon: "✉" });
+  assert.deepEqual(activityKind("export.roster"), { kind: "export", icon: "⇩" });
+  assert.deepEqual(activityKind("something.else"), { kind: "other", icon: "•" });
+  assert.deepEqual(activityKind(""), { kind: "other", icon: "•" });
 });
