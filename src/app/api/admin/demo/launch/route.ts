@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken, getAdminToken } from "@/lib/adminAuth";
+import { getAdminToken } from "@/lib/adminAuth";
+import { getAdminAccess } from "@/lib/adminAccess";
 import { makeCoachCookie } from "@/lib/teamAuth";
 import { makeAccountCookie } from "@/lib/accountAuth";
 import { makeMemberCookie } from "@/lib/memberAuth";
@@ -36,13 +36,16 @@ export async function GET(req: NextRequest) {
   }
 
   // All other personas require admin to be authenticated
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
+  const access = await getAdminAccess();
+  if (!access) {
     return NextResponse.redirect(new URL("/admin", req.url));
   }
 
   // --- Admin ---
   if (persona === "admin") {
+    // A Platform Admin already has /admin through their own account; never
+    // mint the anonymous shared-password cookie for them.
+    if (access.via === "platform_admin") return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     const token = getAdminToken();
     if (!token) return errRedirect(req, "admin_config");
     const res = NextResponse.redirect(new URL("/admin/dashboard", req.url));

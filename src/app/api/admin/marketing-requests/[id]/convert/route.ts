@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
+import { logAudit, ipOf } from "@/lib/platform/audit";
 import { getDemoRequest } from "@/lib/platform/marketingDemoRequests";
 import { getContactByDemoRequestId, createContact, createActivity } from "@/lib/platform/crm";
 import { RestError } from "@/lib/platform/_client";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const DEMO_REQUEST_CONSTRAINT = "coach_crm_contacts_demo_request_id_key";
 
@@ -21,16 +20,12 @@ function isDemoRequestConflict(err: unknown): boolean {
   return err instanceof Error && err.message.includes(DEMO_REQUEST_CONSTRAINT);
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
 
@@ -80,7 +75,7 @@ export async function POST(
   });
 
   logAudit({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:       "crm.contact_converted_from_demo_request",
     entity_type:  "coach_crm_contact",
     entity_id:    contact.id,

@@ -1,7 +1,7 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +17,12 @@ function h(extra?: Record<string, string>) {
   };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 type RouteCtx = { params: Promise<{ slug: string }> };
 
 // GET — return current team-default contact goal (athlete_id = null row)
 export async function GET(_req: NextRequest, { params }: RouteCtx) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { slug } = await params;
 
   const res = await fetch(
@@ -41,7 +37,8 @@ export async function GET(_req: NextRequest, { params }: RouteCtx) {
 
 // PATCH — upsert team-default contact goal
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { slug } = await params;
   const seasonBlocked = await seasonWriteBlocked(slug);
   if (seasonBlocked) return seasonBlocked;
@@ -51,6 +48,18 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (!Number.isInteger(goal) || goal < 1 || goal > 999) {
     return NextResponse.json({ error: "Goal must be a positive integer between 1 and 999." }, { status: 400 });
   }
+
+  const audit = () => logAuditEvent({
+    actor:         adminAuditActor(access),
+    action:        "contact_goal.updated",
+    entity_type:   "fundraising_contact_goals",
+    entity_id:     slug,
+    campaign_slug: slug,
+    summary:       `Team contact goal set to ${goal}`,
+    new_value:     { goal },
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
 
   // Try PATCH first (update existing row)
   const updateRes = await fetch(
@@ -65,6 +74,7 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
   if (updateRes.ok) {
     const rows = await updateRes.json();
     if (Array.isArray(rows) && rows.length > 0) {
+      audit();
       return NextResponse.json({ ok: true, goal: rows[0].goal });
     }
   }
@@ -81,5 +91,6 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: `Failed to save contact goal: ${msg}` }, { status: 500 });
   }
   const [created] = await insertRes.json();
+  audit();
   return NextResponse.json({ ok: true, goal: created.goal }, { status: 201 });
 }

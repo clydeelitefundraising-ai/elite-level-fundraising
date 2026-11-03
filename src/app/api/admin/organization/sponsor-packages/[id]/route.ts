@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { organizationIdParam } from "@/lib/organizationCenter";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +10,6 @@ const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 function h(extra?: Record<string, string>) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
-}
-
-async function authed() {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
 }
 
 // A package is changed or removed only within the school it belongs to:
@@ -29,7 +24,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
   const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
@@ -46,6 +42,16 @@ export async function PUT(
 
   if (!res.ok) return NextResponse.json({ error: "Update failed." }, { status: 500 });
   if ((await res.json()).length === 0) return NextResponse.json({ error: "Package not found for this school." }, { status: 404 });
+  logAuditEvent({
+    actor:       adminAuditActor(access),
+    action:      "sponsor_package.updated",
+    entity_type: "sponsor_packages",
+    entity_id:   id,
+    summary:     "Sponsor package updated",
+    new_value:   { organization_id: orgId, name, tier, amount_cents, sort_order },
+    ip_address:  ipOf(req),
+    user_agent:  req.headers.get("user-agent"),
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -54,7 +60,8 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
   const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
@@ -67,5 +74,15 @@ export async function DELETE(
 
   if (!res.ok) return NextResponse.json({ error: "Delete failed." }, { status: 500 });
   if ((await res.json()).length === 0) return NextResponse.json({ error: "Package not found for this school." }, { status: 404 });
+  logAuditEvent({
+    actor:       adminAuditActor(access),
+    action:      "sponsor_package.deleted",
+    entity_type: "sponsor_packages",
+    entity_id:   id,
+    summary:     "Sponsor package deleted",
+    new_value:   { organization_id: orgId },
+    ip_address:  ipOf(req),
+    user_agent:  req.headers.get("user-agent"),
+  });
   return NextResponse.json({ ok: true });
 }

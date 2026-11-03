@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { DEMO_TEMPLATES, DemoTemplate } from "@/lib/demoTemplates";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +65,8 @@ async function seedDemoData(slug: string, template: DemoTemplate): Promise<void>
 }
 
 export async function POST(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { templateId } = await req.json() as { templateId?: string };
   const template = DEMO_TEMPLATES.find(t => t.id === templateId);
@@ -126,7 +123,7 @@ export async function POST(req: NextRequest) {
   await seedDemoData(slug, template);
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:       "demo.created",
     entity_type:  "campaign",
     entity_id:    slug,

@@ -1,9 +1,8 @@
 import { seasonWriteBlockedFor } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { generateSalt, hashPassword } from "@/lib/teamAuth";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
@@ -17,16 +16,12 @@ function supabaseHeaders(extra?: Record<string, string>) {
   };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
@@ -54,6 +49,17 @@ export async function PATCH(
     return NextResponse.json({ error: `Failed to reset password: ${msg}` }, { status: 500 });
   }
 
+  // Never the password or hash — only that a reset happened.
+  logAuditEvent({
+    actor:       adminAuditActor(access),
+    action:      "coach.password_reset",
+    entity_type: "team_coaches",
+    entity_id:   id,
+    summary:     "Coach password reset by an administrator",
+    ip_address:  ipOf(req),
+    user_agent:  req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ ok: true });
 }
 
@@ -61,7 +67,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const { id } = await params;
   const seasonBlocked = await seasonWriteBlockedFor("team_coaches", id);
@@ -113,7 +120,7 @@ export async function DELETE(
   }
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "coach.removed",
     entity_type:   "coach",
     entity_id:     id,

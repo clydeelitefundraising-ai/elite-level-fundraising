@@ -11,12 +11,10 @@
  *  5. Links athlete/parent elf_accounts to the campaign via team_members
  */
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { createCampaignCore, supabaseHeaders } from "@/lib/campaignCreate";
 import { generateAccountSalt, hashAccountPassword } from "@/lib/accountAuth";
 import { generateMemberSalt } from "@/lib/memberAuth";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { DEMO_TEMPLATES, DemoTemplate } from "@/lib/demoTemplates";
 import {
   DEMO_SLUG,
@@ -25,6 +23,7 @@ import {
   DEMO_PARENT_EMAIL,
   DEMO_TEMPLATE_ID,
 } from "@/lib/demoPersonas";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -156,10 +155,8 @@ async function seedFromTemplate(template: DemoTemplate): Promise<string | null> 
 // ─── handler ────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const template = DEMO_TEMPLATES.find(t => t.id === DEMO_TEMPLATE_ID);
   if (!template) return NextResponse.json({ error: "Demo template not found." }, { status: 500 });
@@ -231,7 +228,7 @@ export async function POST(req: NextRequest) {
   ]);
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "demo.reset",
     entity_type:   "campaign",
     entity_id:     DEMO_SLUG,

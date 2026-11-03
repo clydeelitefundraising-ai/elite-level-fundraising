@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +32,8 @@ type RawAthlete  = { id: string; name: string; campaign_slug: string };
 type RawCampaign = { campaign_slug: string; school_name: string };
 
 export async function GET(req: NextRequest) {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const campaign = req.nextUrl.searchParams.get("campaign") ?? "all";
   const filter   = campaign !== "all"
@@ -44,7 +41,7 @@ export async function GET(req: NextRequest) {
     : "";
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "export.contacts",
     entity_type:   "export",
     campaign_slug: campaign !== "all" ? campaign : null,

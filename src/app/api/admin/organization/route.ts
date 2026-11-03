@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { ADMIN_TOOL_ACTOR, logAuditEvent } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
 import { organizationIdParam, pickEditableOrgFields } from "@/lib/organizationCenter";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +12,6 @@ function h(extra?: Record<string, string>) {
   return { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", ...extra };
 }
 
-async function authed() {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 // Organization Center — one EXPLICIT school per request (organizationId).
 // The old "first organizations row" lookup (limit=1) is gone: with many
 // schools it edited an arbitrary one. Unknown or missing ids are refused;
@@ -25,7 +19,8 @@ async function authed() {
 
 // GET /api/admin/organization?organizationId=<uuid>
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const orgId = organizationIdParam(req.nextUrl.searchParams.get("organizationId"));
   if (!orgId) return NextResponse.json({ error: "Choose a school." }, { status: 400 });
 
@@ -38,7 +33,8 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/admin/organization   { organizationId, ...profile or defaults fields }
 export async function PUT(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   const orgId = organizationIdParam(body?.organizationId);
@@ -56,13 +52,13 @@ export async function PUT(req: NextRequest) {
   if (!rows[0]) return NextResponse.json({ error: "School not found." }, { status: 404 });
 
   logAuditEvent({
-    actor:       ADMIN_TOOL_ACTOR,
+    actor:       adminAuditActor(access),
     action:      "organization.update",
     entity_type: "organization",
     entity_id:   orgId,
     summary:     `Organization Center: updated ${picked.fields.length} field${picked.fields.length === 1 ? "" : "s"} for "${rows[0].school_name}"`,
     new_value:   { fields: picked.fields },
-    ip_address:  req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip_address:  ipOf(req),
     user_agent:  req.headers.get("user-agent"),
   });
 

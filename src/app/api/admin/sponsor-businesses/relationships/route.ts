@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAudit, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/platform/audit";
+import { logAudit, ipOf } from "@/lib/platform/audit";
 import { getSponsorRelationships, createSponsorRelationship } from "@/lib/platform/sponsors";
 import { getCampaignSummary } from "@/lib/platform/campaigns";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const businessId = req.nextUrl.searchParams.get("business_id") ?? undefined;
   const [relationships, campaigns] = await Promise.all([
@@ -32,7 +27,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json() as Record<string, unknown>;
   const business_id = typeof body.business_id === "string" ? body.business_id : "";
@@ -54,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   logAudit({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "sponsor_business.sponsorship_recorded",
     entity_type:   "sponsor_relationship",
     entity_id:     relationship.id,

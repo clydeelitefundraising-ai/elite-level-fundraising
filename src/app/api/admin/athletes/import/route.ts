@@ -1,19 +1,13 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { campaignExists } from "@/lib/platform/campaigns";
 import { bulkImportAthletes, type BulkImportRowInput } from "@/lib/platform/import/bulkImportAthletes";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
 const MAX_ROWS = 1000;
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
 
 type IncomingRow = {
   rowNumber?:         unknown;
@@ -47,7 +41,8 @@ function toValidatedRow(input: IncomingRow, fallbackRowNumber: number): BulkImpo
 }
 
 export async function POST(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -100,7 +95,7 @@ export async function POST(req: NextRequest) {
   // Summary only — never the roster contents (names/classes/events) or any
   // donor/contact data.
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "athletes.roster_imported",
     entity_type:   "campaign",
     campaign_slug: slug,

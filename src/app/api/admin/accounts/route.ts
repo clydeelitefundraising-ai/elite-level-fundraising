@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
+import { getAdminAccess, adminUnauthorized } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +11,8 @@ function h() {
 }
 
 export async function GET() {
-  const store = await cookies();
-  if (!verifyToken(store.get("elf_admin")?.value)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
 
   const [coachesRes, membersRes, campaignsRes] = await Promise.all([
     fetch(`${BASE}/rest/v1/team_coaches?select=id,campaign_slug,name,email,role,account_id,created_at&order=created_at.desc`, { headers: h(), cache: "no-store" }),

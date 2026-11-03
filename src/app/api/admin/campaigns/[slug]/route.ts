@@ -1,8 +1,7 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +17,11 @@ function h(extra?: Record<string, string>) {
   };
 }
 
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
-
 type RouteCtx = { params: Promise<{ slug: string }> };
 
 export async function GET(_req: NextRequest, { params }: RouteCtx) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { slug } = await params;
 
   const [settingsRes, donationsRes, athletesRes, membersRes, coachesRes] = await Promise.all([
@@ -100,7 +95,8 @@ const KNOWN_FIELDS = new Set([
 const MIGRATION_FIELDS = new Set(["contact_requirement", "status"]);
 
 export async function PATCH(req: NextRequest, { params }: RouteCtx) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { slug } = await params;
   const seasonBlocked = await seasonWriteBlocked(slug);
   if (seasonBlocked) return seasonBlocked;
@@ -152,6 +148,19 @@ export async function PATCH(req: NextRequest, { params }: RouteCtx) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
+  // Field names only — values can be long (descriptions) or personal.
+  logAuditEvent({
+    actor:         adminAuditActor(access),
+    action:        "campaign.updated",
+    entity_type:   "campaign_settings",
+    entity_id:     slug,
+    campaign_slug: slug,
+    summary:       `Campaign ${slug} settings updated`,
+    new_value:     { fields: [...Object.keys(patch), ...Object.keys(migration)].sort() },
+    ip_address:    ipOf(req),
+    user_agent:    req.headers.get("user-agent"),
+  });
+
   return NextResponse.json({ ok: true, ...(warnings.length ? { warnings } : {}) });
 }
 
@@ -196,7 +205,8 @@ const CAMPAIGN_SLUG_TABLES = [
 ];
 
 export async function DELETE(req: NextRequest, { params }: RouteCtx) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const { slug } = await params;
   const seasonBlocked = await seasonWriteBlocked(slug);
   if (seasonBlocked) return seasonBlocked;
@@ -267,7 +277,7 @@ export async function DELETE(req: NextRequest, { params }: RouteCtx) {
   }
 
   logAuditEvent({
-    actor: ADMIN_TOOL_ACTOR,
+    actor: adminAuditActor(access),
     action:        "campaign.permanently_deleted",
     entity_type:   "campaign",
     entity_id:     slug,

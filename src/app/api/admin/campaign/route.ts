@@ -1,17 +1,12 @@
 import { seasonWriteBlocked } from "@/lib/seasonWritable";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/adminAuth";
 import { getCampaignSettings, updateCampaignSettings } from "@/lib/supabase";
-import { logAuditEvent, ADMIN_TOOL_ACTOR, ipOf } from "@/lib/auditLog";
-
-async function authed(): Promise<boolean> {
-  const store = await cookies();
-  return verifyToken(store.get("elf_admin")?.value);
-}
+import { logAuditEvent, ipOf } from "@/lib/auditLog";
+import { getAdminAccess, adminUnauthorized, adminAuditActor } from "@/lib/adminAccess";
 
 export async function GET(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const slug = req.nextUrl.searchParams.get("slug");
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
   const settings = await getCampaignSettings(slug);
@@ -19,7 +14,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!await authed()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await getAdminAccess();
+  if (!access) return adminUnauthorized();
   const body = await req.json();
   const { slug, school_name, sport_name, mascot, goal_cents, deadline, primary_color, secondary_color, theme_primary_color, theme_secondary_color, theme_accent_color, theme_button_color, location, season, logo_url, description, archived, show_leaderboard, show_program_identity, show_share_section, show_fund_uses, show_recent_donations, show_sponsors, show_donation_card, layout_variant, default_athlete_goal_cents, allow_coach_fundraising } = body;
   if (!slug) return NextResponse.json({ error: "slug is required" }, { status: 400 });
@@ -47,7 +43,7 @@ export async function PUT(req: NextRequest) {
       ? (archived ? "campaign.archived" : "campaign.restored")
       : "campaign.updated";
     logAuditEvent({
-      actor: ADMIN_TOOL_ACTOR,
+      actor: adminAuditActor(access),
       action:        auditAction,
       entity_type:   "campaign",
       entity_id:     slug,
