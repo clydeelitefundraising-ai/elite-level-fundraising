@@ -73,12 +73,16 @@ export type AuditEventParams = {
   user_agent?:     string | null;
 };
 
-export function logAuditEvent(params: AuditEventParams): void {
+/** The audit insert itself. Resolves true when the row was written, false
+ *  otherwise — never throws. Callers that must know the audit row exists
+ *  before answering (e.g. Create New School) await it; everyone else uses
+ *  logAuditEvent(), the unchanged fire-and-forget wrapper below. */
+export async function recordAuditEvent(params: AuditEventParams): Promise<boolean> {
   const BASE = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!BASE || !key) return;
+  if (!BASE || !key) return false;
 
-  fetch(`${BASE}/rest/v1/audit_logs`, {
+  return fetch(`${BASE}/rest/v1/audit_logs`, {
     method:  "POST",
     headers: {
       apikey:           key,
@@ -102,20 +106,27 @@ export function logAuditEvent(params: AuditEventParams): void {
       user_agent:       params.user_agent       ?? null,
     }),
   })
-    // Fire-and-forget — an audit failure must never fail the user's
-    // request. Not silent, though: a failed insert is a real operational
-    // problem (a mutation happened with no audit trail), so it's worth a
-    // server log line. Only the action name + response status are
-    // logged — never the summary/previous_value/new_value payload, which
-    // can carry names/emails/ids that don't belong in server logs.
+    // A failed insert is a real operational problem (a mutation happened
+    // with no audit trail), so it's worth a server log line. Only the
+    // action name + response status are logged — never the summary/
+    // previous_value/new_value payload, which can carry names/emails/ids
+    // that don't belong in server logs.
     .then(res => {
       if (!res.ok) {
         console.warn(`[auditLog] insert failed for action "${params.action}" (status ${res.status})`);
       }
+      return res.ok;
     })
     .catch(() => {
       console.warn(`[auditLog] insert threw for action "${params.action}"`);
+      return false;
     });
+}
+
+/** Fire-and-forget — an audit failure must never fail the user's request.
+ *  Unchanged behavior for every existing caller. */
+export function logAuditEvent(params: AuditEventParams): void {
+  void recordAuditEvent(params);
 }
 
 export function ipOf(req: { headers: { get(k: string): string | null } }): string | null {

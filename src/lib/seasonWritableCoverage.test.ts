@@ -63,6 +63,7 @@ const EXEMPT: Record<string, string> = {
   "platform-admin/reports/[id] PATCH": "safety: resolving a report",
   "platform-admin/school-links/teams/[slug] PUT": "school link metadata: school_link_apply() (phase_o3) may change organization_id ONLY on completed seasons; every other completed-season write stays refused by the database guard",
   "platform-admin/school-links/teams/[slug]/preview POST": "read-only preview (writes nothing)",
+  "platform-admin/school-links/schools POST": "creates a school (organizations row) only; links no season",
   "push/devices POST": "device registration (account-level)",
   "push/devices/deactivate POST": "device unregistration",
   "push/preferences PATCH": "account notification preferences",
