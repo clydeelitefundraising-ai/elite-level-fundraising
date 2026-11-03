@@ -257,3 +257,13 @@ test("wizards: school step required, launches send organization_id, no arbitrary
   assert.match(dup, /organization_id:            school\?\.id \?\? null,/);
   assert.match(dup, /if \(step === 2 && !hasSchool\) errs\.push\("Choose the school/);
 });
+
+test("Review layout: wraps on narrow screens (no fixed two-column grid), so nothing is clipped at phone widths", () => {
+  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8").replace(/\r\n/g, "\n");
+  for (const p of ["src/app/admin/campaigns/new/NewCampaignWizard.tsx", "src/app/admin/campaigns/duplicate/DuplicateWizard.tsx"]) {
+    const src = read(p);
+    assert.doesNotMatch(src, /gridTemplateColumns: "1fr (320|300)px"/, p);
+    assert.match(src, /display: "flex", flexWrap: "wrap", gap: "1\.5rem", alignItems: "flex-start"/, p);
+    assert.match(src, /flex: "3 1 340px", minWidth: 0/, p);
+  }
+});

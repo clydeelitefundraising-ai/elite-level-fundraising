@@ -648,10 +648,10 @@ function Step5({
         desc="Confirm your campaign settings and create the head coach account."
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "1.5rem", alignItems: "start" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", alignItems: "flex-start" }}>
 
         {/* ── Left: Summary ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ flex: "3 1 340px", minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
 
           {/* Campaign identity */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", overflow: "hidden" }}>
@@ -721,7 +721,7 @@ function Step5({
         </div>
 
         {/* ── Right: Coach form + Launch ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ flex: "1 1 300px", minWidth: 0, display: "flex", flexDirection: "column", gap: "1rem" }}>
 
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #f0f0f2", padding: "1.25rem" }}>
             <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#1d1d1f", marginBottom: ".2rem" }}>Head Coach Account</div>
