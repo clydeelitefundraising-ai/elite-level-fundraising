@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import Link from "next/link";
 import { getSchoolsDirectory } from "@/lib/platform/schools";
 
@@ -18,6 +19,7 @@ export default async function PlatformAdminSchoolsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await requirePlatformAdminPage();
   const { q } = await searchParams;
   const schools = await getSchoolsDirectory(q);
 

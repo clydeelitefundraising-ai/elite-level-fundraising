@@ -111,7 +111,7 @@ test("legacy /admin: the layout and every page admit getAdminAccess() (Platform 
 
 test("Platform Admin shell: gated by the layout, safe areas, no iOS zoom, native-aware sign out", () => {
   const layout = read("src/app/platform-admin/layout.tsx");
-  assert.match(layout, /resolvePlatformAdminGateRedirect\(/);
+  assert.match(layout, /await requirePlatformAdminPage\(\)/);
   assert.match(layout, /<PlatformAdminShell /);
   const css = read("src/app/platform-admin/_components/PlatformAdminShell.module.css");
   for (const inset of ["top", "bottom", "left", "right"]) assert.match(css, new RegExp(`env\\(safe-area-inset-${inset}\\)`));

@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import FundraisingInquiriesView from "./FundraisingInquiriesView";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 // route under this tree requires a live platform_admins row, re-verified
 // fresh per request, never trusted from a cookie. Same shape as
 // /platform-admin/moderation/page.tsx.
-export default function FundraisingInquiriesPage() {
+export default async function FundraisingInquiriesPage() {
+  await requirePlatformAdminPage();
   return <FundraisingInquiriesView />;
 }

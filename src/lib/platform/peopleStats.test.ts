@@ -316,7 +316,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8").replace
 
 test("People on ELF lives behind the Platform Admin layout gate and adds no API route", () => {
   assert.ok(existsSync(join(process.cwd(), "src/app/platform-admin/people/page.tsx")));
-  assert.match(read("src/app/platform-admin/layout.tsx"), /resolvePlatformAdminGateRedirect\(/);
+  assert.match(read("src/app/platform-admin/layout.tsx"), /await requirePlatformAdminPage\(\)/);
   const page = read("src/app/platform-admin/people/page.tsx");
   assert.doesNotMatch(page, /getAdminAccess|elf_admin|"use client"/, "never reachable with the shared password; server-rendered");
   assert.match(page, /getPeopleStats\(\)/);

@@ -1,4 +1,4 @@
-import { getPlatformAdminSession } from "@/lib/platformAdminSession";
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import { navSection } from "@/lib/platformAdminNav";
 import SectionHub from "../_components/SectionHub";
 import styles from "../_components/SectionHub.module.css";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Platform Admin settings: who is signed in, My Teams and account tools.
 // The /platform-admin layout has already verified the Platform Admin account.
 export default async function PlatformAdminSettingsPage() {
-  const admin = await getPlatformAdminSession();
+  const admin = await requirePlatformAdminPage();
   return (
     <SectionHub section={navSection("settings")}>
       <div className={styles.panel} style={{ marginBottom: "1rem" }}>
