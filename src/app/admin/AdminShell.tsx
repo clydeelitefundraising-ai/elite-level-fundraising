@@ -283,6 +283,16 @@ export default function AdminShell({ children, via = "shared_password" }: { chil
             </svg>
           </button>
           <h1 className="adm-header-title" style={{ margin: 0, fontSize: ".95rem", fontWeight: 700, color: "#1d1d1f", letterSpacing: "-.01em", flex: 1 }}>{title}</h1>
+          {/* Always-visible way back for a signed-in Platform Admin (the sidebar
+              link sits inside the drawer on phones). Never shown for the shared
+              password, which can't open Platform Admin; /platform-admin checks
+              the account server-side regardless. */}
+          {via === "platform_admin" && (
+            <a href="/platform-admin" className="adm-back-pa" aria-label="Back to Platform Admin">
+              <span aria-hidden="true">←</span>
+              <span className="adm-back-pa-label">Platform Admin</span>
+            </a>
+          )}
           <button
             onClick={openCC}
             className="adm-search-btn"

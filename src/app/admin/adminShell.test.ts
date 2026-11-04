@@ -82,7 +82,12 @@ test("every selector is admin-scoped (.adm-) so nothing leaks to other pages", (
 });
 
 test("desktop is untouched: outside the mobile media query, only the mobile-only elements are hidden", () => {
-  const outside = topLevelBlocks(css).filter(([prelude]) => !prelude.startsWith("@media"));
+  const topLevel = topLevelBlocks(css).filter(([prelude]) => !prelude.startsWith("@media"));
+  // The header's Back to Platform Admin control (Platform Admin accounts only)
+  // is the one deliberate addition at every width: its base, hover and focus rules.
+  const backPa = topLevel.filter(([prelude]) => prelude.trim().startsWith(".adm-back-pa"));
+  assert.deepEqual(backPa.map(([p]) => p.trim()), [".adm-back-pa", ".adm-back-pa:hover", ".adm-back-pa:focus-visible"]);
+  const outside = topLevel.filter(b => !backPa.includes(b));
   // CSS isolation (R1): the only other top-level rule is .adm-section, which
   // reproduces exactly the padding admin sections used to get from the
   // global `section { padding: 6rem 5% }` — so desktop stays visually identical.

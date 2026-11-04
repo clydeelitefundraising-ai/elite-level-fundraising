@@ -1,0 +1,217 @@
+/* People on ELF. Mobile first: totals two-up, then one panel per
+   breakdown. Same palette as the dashboard (Dashboard.module.css). */
+
+.page {
+  --p-navy: #0b1e3d;
+  --p-border: #e5e7eb;
+  --p-muted: #6b7280;
+  --p-text: #1f2937;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+  min-width: 0;
+  max-width: 900px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.back {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--p-navy);
+  text-decoration: none;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--p-navy);
+  line-height: 1.2;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: .82rem;
+  color: #4b5563;
+}
+
+.totals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .6rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  min-width: 0;
+  padding: .75rem .85rem;
+  background: #fff;
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+}
+
+.totalValue {
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--p-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.totalLabel {
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--p-text);
+}
+
+.totalNote {
+  font-size: .75rem;
+  color: var(--p-muted);
+  overflow-wrap: anywhere;
+}
+
+.panel {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  padding: .85rem .9rem;
+}
+
+@media (max-width: 599px) {
+  .panel { padding: .8rem .75rem; }
+}
+
+.panelTitle {
+  margin: 0 0 .5rem;
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--p-navy);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+  color: var(--p-text);
+}
+
+.caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.table th,
+.table td {
+  padding: .5rem .4rem;
+  border-top: 1px solid #f0f1f3;
+  text-align: right;
+  vertical-align: top;
+}
+
+.table thead th {
+  border-top: none;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--p-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.table th[scope="row"],
+.table thead th:first-child {
+  text-align: left;
+  font-weight: 600;
+  padding-left: 0;
+}
+
+.table td {
+  width: 6.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.table td:last-child {
+  padding-right: 0;
+}
+
+.help {
+  display: block;
+  margin-top: .1rem;
+  font-size: .74rem;
+  font-weight: 400;
+  color: var(--p-muted);
+}
+
+.note {
+  margin: .6rem 0 0;
+  font-size: .78rem;
+  color: #4b5563;
+}
+
+.pending {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pending > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: .5rem 0;
+  border-top: 1px solid #f0f1f3;
+  font-size: .85rem;
+}
+
+.pending > div:first-child {
+  border-top: none;
+}
+
+.pending dt {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--p-text);
+}
+
+.pending dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.method {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-size: .82rem;
+  color: var(--p-text);
+}
+
+.unavailable {
+  margin: 0;
+  font-size: .85rem;
+  color: #b45309;
+}
