@@ -8,19 +8,18 @@
 //   • a joined athlete (team_members role "athlete" pointing at a roster row)
 //     is the same person as that roster row;
 //   • a roster athlete carried into a new season (previous_season_athlete_id)
-//     is the same person in both seasons;
-//   • coach/staff rows (team_coaches) with the same normalized email are one
-//     person — coaches are created per team with a required email.
-// Nothing is merged by name, and member/parent/booster emails or phones are
-// not used: those are optional and often shared within a family. A team
-// member without an account is therefore one person per row, and an
-// unregistered athlete on two different teams is counted twice.
+//     is the same person in both seasons.
+// Nothing is merged by name, email or phone: a shared address (an athletics
+// office, a family inbox, a placeholder) would combine different people. A
+// team record without an ELF account is therefore one person per record — an
+// unlinked coach or member on two teams, or an unregistered athlete on two
+// different teams, is counted twice.
 //
 // Status (per person): "account_linked" when at least one of their team
-// records is linked to an ELF account — a coach email match alone never
-// counts as linked; "team_login_only" when they have team logins (member or
-// coach rows) but none is linked; "roster_only" for athletes who are only on
-// a roster. There is no sign-in history, so this is not "activated".
+// records is linked to an ELF account; "team_login_only" when they have team
+// logins (member or coach rows) but none is linked; "roster_only" for
+// athletes who are only on a roster. There is no sign-in history, so this is
+// not "activated".
 
 export type CampaignRow = {
   campaign_slug: string;
@@ -32,7 +31,7 @@ export type CampaignRow = {
 };
 export type AthleteRow = { id: string; campaign_slug: string; previous_season_athlete_id: string | null };
 export type MemberRow = { id: string; campaign_slug: string; role: string; account_id: string | null; athlete_id: string | null };
-export type CoachRow = { id: string; campaign_slug: string; role: string; account_id: string | null; email: string | null };
+export type CoachRow = { id: string; campaign_slug: string; role: string; account_id: string | null };
 export type StaffInvitationRow = { campaign_slug: string; role: string; accepted_at: string | null; revoked_at: string | null; expires_at: string | null };
 export type AccessRequestRow = { campaign_slug: string; status: string };
 export type CoachInviteTokenRow = { coach_id: string; used_at: string | null; expires_at: string | null };
@@ -92,11 +91,6 @@ export function isCurrentSeason(c: CampaignRow): boolean {
 
 export function isExcludedTest(c: Pick<CampaignRow, "campaign_slug" | "organization_id">, ex: Exclusions): boolean {
   return ex.campaignSlugs.includes(c.campaign_slug) || (c.organization_id !== null && ex.organizationIds.includes(c.organization_id));
-}
-
-export function normalizeEmail(email: string | null | undefined): string | null {
-  const e = (email ?? "").trim().toLowerCase();
-  return e.includes("@") ? e : null;
 }
 
 function roleOf(raw: string): Role | null {
@@ -180,8 +174,6 @@ export function computePeopleStats(input: PeopleInput): PeopleStats {
     const node = `coach:${c.id}`;
     uf.add(node);
     if (c.account_id) uf.union(node, `acct:${c.account_id}`);
-    const email = normalizeEmail(c.email);
-    if (email) uf.union(node, `cemail:${email}`);
     recs.push({ node, slug: c.campaign_slug, role: roleOf(c.role), kind: "login", linked: Boolean(c.account_id) });
   }
 

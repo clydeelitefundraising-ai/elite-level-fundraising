@@ -129,9 +129,8 @@ export default async function PeoplePage() {
       <section className={styles.panel} aria-labelledby="people-method">
         <h2 id="people-method" className={styles.panelTitle}>How people are counted</h2>
         <ul className={styles.method}>
-          <li>Each person is counted once: records linked to the same ELF account, an athlete carried into a new season, and coaches with the same email address are combined.</li>
-          <li>People are never combined by name. Unregistered people who appear on more than one team may be counted more than once.</li>
-          <li>Matching coach emails don&apos;t count as a linked account.</li>
+          <li>Each person is counted once: records linked to the same ELF account, and an athlete carried into a new season, are combined.</li>
+          <li>People are never combined by name or email address. People without a linked ELF account who appear on more than one team — including coaches — may be counted more than once.</li>
           <li>
             Internal test records are omitted: {plural(teamSeasons.excludedTest, "test team-season", "test team-seasons")}
             {exclusions.environment === "none" ? " (no exclusion list applies to this environment)" : ""}.

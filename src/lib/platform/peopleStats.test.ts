@@ -69,22 +69,57 @@ test("an athlete carried into a new season is one person; the link is ignored wh
   assert.equal(excluded.allTime.total, 1, "only the counted season remains");
 });
 
-test("coaches are merged by normalized email; an email match never marks a coach as account linked", () => {
+// Coach rows carry an email in the database; the rules never use it. The
+// helper keeps it on the fixtures to prove that.
+test("coaches with the same email but different ELF accounts stay separate people", () => {
   const s = computePeopleStats(base({
-    coaches: [coach("c1", "a-2027", "head_coach", " Coach@School.test "), coach("c2", "b-2027", "assistant_coach", "coach@school.test")],
+    coaches: [coach("c1", "a-2027", "head_coach", "athletics@school.test", "acct-1"), coach("c2", "b-2027", "booster", " Athletics@School.test ", "acct-2")],
   }));
-  assert.equal(s.allTime.total, 1);
-  assert.equal(s.allTime.multipleRoles, 1);
-  assert.equal(s.allTime.byStatus.team_login_only, 1);
-  assert.equal(s.allTime.byStatus.account_linked, 0);
+  assert.equal(s.allTime.total, 2);
+  assert.equal(s.allTime.byStatus.account_linked, 2);
+  assert.equal(s.allTime.multipleRoles, 0);
 });
 
-test("a coach linked on one team and not on another (same email) is one person with a linked account", () => {
+test("one ELF account coaching several teams is one person, whatever names or emails the rows carry", () => {
+  const s = computePeopleStats(base({
+    campaigns: [camp("a-2027"), camp("b-2027"), camp("c-2027")],
+    coaches: [
+      coach("c1", "a-2027", "head_coach", "pat@x.test", "acct-1"),
+      coach("c2", "b-2027", "head_coach", "pat.work@y.test", "acct-1"),
+      coach("c3", "c-2027", "assistant_coach", null, "acct-1"),
+    ],
+  }));
+  assert.equal(s.allTime.total, 1);
+  assert.equal(s.allTime.byRole.head_coach, 1);
+  assert.equal(s.allTime.byRole.assistant_coach, 1);
+  assert.equal(s.allTime.multipleRoles, 1);
+  assert.equal(s.allTime.byStatus.account_linked, 1);
+});
+
+test("unlinked coaches on different teams stay separate, even with the same email", () => {
+  const s = computePeopleStats(base({
+    coaches: [coach("c1", "a-2027", "head_coach", "coach@school.test"), coach("c2", "b-2027", "head_coach", "coach@school.test")],
+  }));
+  assert.equal(s.allTime.total, 2);
+  assert.equal(s.allTime.byRole.head_coach, 2);
+  assert.equal(s.allTime.byStatus.team_login_only, 2);
+});
+
+test("an email shared with a linked coach never links an unlinked coach or merges them", () => {
   const s = computePeopleStats(base({
     coaches: [coach("c1", "a-2027", "head_coach", "pat@x.test", "acct-1"), coach("c2", "b-2027", "head_coach", "pat@x.test")],
   }));
+  assert.equal(s.allTime.total, 2);
+  assert.deepEqual(s.allTime.byStatus, { account_linked: 1, team_login_only: 1, roster_only: 0 });
+});
+
+test("a coach who is also a parent on the same account is one person with two roles", () => {
+  const s = computePeopleStats(base({
+    coaches: [coach("c1", "a-2027", "head_coach", "pat@x.test", "acct-1")],
+    members: [mem("m1", "a-2027", "parent", "acct-1")],
+  }));
   assert.equal(s.allTime.total, 1);
-  assert.equal(s.allTime.byStatus.account_linked, 1);
+  assert.equal(s.allTime.multipleRoles, 1);
 });
 
 test("never merged by name, or by member/parent emails: one person per unlinked team record", () => {
@@ -247,8 +282,12 @@ const tableFetch = (fail: string[] = []) => async (url: string) => {
   return json(new URL(url).searchParams.get("offset") === "0" ? TABLE_DATA[table] ?? [] : []);
 };
 
-test("loadPeopleStats returns aggregates only — no emails or identifiers", async () => {
-  const r = await loadPeopleStats(tableFetch(), NOW);
+test("loadPeopleStats returns aggregates only and never requests names, emails or phones", async () => {
+  const urls: string[] = [];
+  const spy = tableFetch();
+  const r = await loadPeopleStats(async u => { urls.push(u); return spy(u); }, NOW);
+  for (const u of urls) assert.doesNotMatch(new URL(u).searchParams.get("select") ?? "", /email|name|phone/, u);
+  assert.ok(urls.some(u => new URL(u).pathname.endsWith("/team_coaches")));
   assert.equal(r.allTime.total, 3);
   assert.equal(r.exclusions.environment, "qa");
   assert.equal(r.pendingAvailable, true);

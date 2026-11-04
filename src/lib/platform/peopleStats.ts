@@ -1,8 +1,7 @@
 // People on ELF — server-only loader. Reads only the columns the counting
 // rules need (peopleStatsLogic.ts), in pages, and returns aggregates only.
-// Coach emails are read solely to merge the same coach across teams; they
-// never leave this module. Any read failure fails the whole computation
-// (null) rather than showing a partial, misleading total.
+// No names, emails or phone numbers are read. Any read failure fails the
+// whole computation (null) rather than showing a partial, misleading total.
 import { restHeaders, restUrl } from "./_client";
 import {
   computePeopleStats,
@@ -51,7 +50,7 @@ export async function loadPeopleStats(fetchImpl: FetchLike = fetch, now = new Da
     fetchAllRows<CampaignRow>("campaign_settings", "campaign_slug,organization_id,is_demo,archived,season_completed_at,successor_campaign_slug", "campaign_slug", fetchImpl),
     fetchAllRows<AthleteRow>("athletes", "id,campaign_slug,previous_season_athlete_id", "id", fetchImpl),
     fetchAllRows<MemberRow>("team_members", "id,campaign_slug,role,account_id,athlete_id", "id", fetchImpl),
-    fetchAllRows<CoachRow>("team_coaches", "id,campaign_slug,role,account_id,email", "id", fetchImpl),
+    fetchAllRows<CoachRow>("team_coaches", "id,campaign_slug,role,account_id", "id", fetchImpl),
   ]);
   const pending = await pendingReads;
   const [staffInvitations, parentRequests, athleteRequests, coachInviteTokens] = pending.ok ? pending.r : [[], [], [], []];
