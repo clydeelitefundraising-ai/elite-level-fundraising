@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import Link from "next/link";
 import { listAllOrganizations, listAllSeasons } from "@/lib/platform/schoolLinks";
 import { buildDryRunReport, isCompletedSeason, orderChain, seasonLabel, type SeasonRow } from "@/lib/platform/schoolLinksLogic";
@@ -35,6 +36,7 @@ function groupUnlinked(all: SeasonRow[]) {
 }
 
 export default async function SchoolLinksPage() {
+  await requirePlatformAdminPage();
   let seasons, orgs;
   try {
     [seasons, orgs] = await Promise.all([listAllSeasons(), listAllOrganizations()]);

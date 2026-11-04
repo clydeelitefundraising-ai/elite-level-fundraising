@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import Link from "next/link";
 import { getPeopleStats } from "@/lib/platform/peopleStats";
 import { ROLES, STATUSES, type PeopleCounts, type Role, type Status } from "@/lib/platform/peopleStatsLogic";
@@ -54,6 +55,7 @@ function Breakdown({ caption, rows, allTime, current }: {
 }
 
 export default async function PeoplePage() {
+  await requirePlatformAdminPage();
   const stats = await getPeopleStats();
 
   if (!stats) {

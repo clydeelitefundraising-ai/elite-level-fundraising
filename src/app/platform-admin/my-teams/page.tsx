@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import Link from "next/link";
 import { getAccountSession, getAccountTeams } from "@/lib/accountSession";
 import styles from "../_components/SectionHub.module.css";
@@ -15,6 +16,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default async function MyTeamsPage() {
+  await requirePlatformAdminPage();
   const session = await getAccountSession();
   let teams: Awaited<ReturnType<typeof getAccountTeams>> | null = null;
   try {

@@ -6,6 +6,10 @@
 // redirect() throws a special Next.js control-flow signal to halt
 // rendering — tests exercising route handlers here never hit that path
 // (actor is never "public"), so a no-op is sufficient.
-export function redirect() {
-  throw new Error("redirect() was called in a test — this stub does not implement real redirect control flow.");
+// The thrown error carries the destination (`redirectTo`) so tests can
+// assert where a gate sends a visitor.
+export function redirect(url) {
+  const err = new Error(`redirect() was called in a test (to ${url}) — this stub does not implement real redirect control flow.`);
+  err.redirectTo = url;
+  throw err;
 }

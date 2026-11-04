@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPlatformAdminSession } from "@/lib/platformAdminSession";
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import { getAdminDashboardData } from "@/lib/platform/adminDashboard";
 import { attentionToShow } from "@/lib/platform/adminDashboardView";
 import { getPeopleStats } from "@/lib/platform/peopleStats";
@@ -23,7 +23,8 @@ const QUICK_ACTIONS = [
 // number and item here comes from the existing readers in
 // src/lib/platform/adminDashboard.ts (display rules: adminDashboardView.ts).
 export default async function PlatformAdminDashboardPage() {
-  const [admin, data, people] = await Promise.all([getPlatformAdminSession(), getAdminDashboardData(), getPeopleStats()]);
+  const admin = await requirePlatformAdminPage();
+  const [data, people] = await Promise.all([getAdminDashboardData(), getPeopleStats()]);
   const { counts, activity } = data;
   const show = (n: number | null) => (n === null ? "—" : n.toLocaleString("en-US"));
   const stats: { label: string; value: string; href: string; alert: boolean; note?: string; wide?: boolean }[] = [

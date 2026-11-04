@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSchoolDetail } from "@/lib/platform/schools";
@@ -13,6 +14,7 @@ export default async function PlatformAdminSchoolDetailPage({
 }: {
   params: Promise<{ schoolId: string }>;
 }) {
+  await requirePlatformAdminPage();
   const { schoolId } = await params;
   const school = await getSchoolDetail(schoolId);
   if (!school) notFound();

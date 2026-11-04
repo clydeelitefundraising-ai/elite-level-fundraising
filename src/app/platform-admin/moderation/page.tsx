@@ -1,3 +1,4 @@
+import { requirePlatformAdminPage } from "@/lib/platformAdminPageGuard";
 import ModerationQueueView from "./ModerationQueueView";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 // 1.2), formerly /platform-admin/reports (which now redirects here). Gated already by src/app/platform-admin/layout.tsx — every route
 // under this tree requires a live platform_admins row, re-verified fresh
 // per request, never trusted from a cookie.
-export default function PlatformAdminModerationPage() {
+export default async function PlatformAdminModerationPage() {
+  await requirePlatformAdminPage();
   return <ModerationQueueView />;
 }
