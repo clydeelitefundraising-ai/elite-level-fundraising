@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPlatformAdminSession } from "@/lib/platformAdminSession";
 import { getAdminDashboardData } from "@/lib/platform/adminDashboard";
 import { attentionToShow } from "@/lib/platform/adminDashboardView";
+import { getPeopleStats } from "@/lib/platform/peopleStats";
 import styles from "./_components/Dashboard.module.css";
 
 export const dynamic = "force-dynamic";
@@ -22,10 +23,14 @@ const QUICK_ACTIONS = [
 // number and item here comes from the existing readers in
 // src/lib/platform/adminDashboard.ts (display rules: adminDashboardView.ts).
 export default async function PlatformAdminDashboardPage() {
-  const [admin, data] = await Promise.all([getPlatformAdminSession(), getAdminDashboardData()]);
+  const [admin, data, people] = await Promise.all([getPlatformAdminSession(), getAdminDashboardData(), getPeopleStats()]);
   const { counts, activity } = data;
   const show = (n: number | null) => (n === null ? "—" : n.toLocaleString("en-US"));
-  const stats = [
+  const stats: { label: string; value: string; href: string; alert: boolean; note?: string; wide?: boolean }[] = [
+    {
+      label: "People on ELF", value: show(people ? people.allTime.total : null), href: "/platform-admin/people", alert: false, wide: true,
+      note: people ? `${people.current.total.toLocaleString("en-US")} in current seasons` : undefined,
+    },
     { label: "Open reports", value: show(counts.openReports), href: "/platform-admin/moderation", alert: (counts.openReports ?? 0) > 0 },
     { label: "New inquiries", value: show(counts.newInquiries), href: "/platform-admin/fundraising-inquiries", alert: (counts.newInquiries ?? 0) > 0 },
     { label: "Schools", value: show(counts.schools), href: "/platform-admin/schools", alert: false },
@@ -43,10 +48,11 @@ export default async function PlatformAdminDashboardPage() {
 
       <ul className={styles.kpis} aria-label="At a glance">
         {stats.map(s => (
-          <li key={s.label}>
+          <li key={s.label} className={s.wide ? styles.kpiWide : undefined}>
             <Link href={s.href} prefetch={noPrefetch(s.href)} className={styles.kpi} data-alert={s.alert ? "true" : undefined}>
               <span className={styles.kpiValue}>{s.value}</span>
               <span className={styles.kpiLabel}>{s.label}</span>
+              {s.note && <span className={styles.kpiNote}>{s.note}</span>}
             </Link>
           </li>
         ))}

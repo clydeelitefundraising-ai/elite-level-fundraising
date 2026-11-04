@@ -53,6 +53,15 @@
   .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
 }
 
+/* People on ELF: its own full-width row on phones and tablets; one of five
+   equal tiles from the 900px desktop breakpoint. */
+.kpiWide { grid-column: 1 / -1; }
+
+@media (min-width: 900px) {
+  .kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .kpiWide { grid-column: auto; }
+}
+
 .kpi {
   display: flex;
   flex-direction: column;
@@ -86,6 +95,12 @@
   letter-spacing: -.01em;
   color: var(--d-navy);
   font-variant-numeric: tabular-nums;
+}
+
+.kpiNote {
+  font-size: .72rem;
+  color: var(--d-muted);
+  overflow-wrap: anywhere;
 }
 
 .kpiLabel {

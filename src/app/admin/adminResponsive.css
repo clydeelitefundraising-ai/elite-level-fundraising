@@ -5,7 +5,8 @@
  *
  * Desktop (>= 900px) is unchanged: AdminShell's inline styles still define
  * the desktop look. The only rules outside the media query below hide the
- * three mobile-only elements (menu button, drawer close button, backdrop).
+ * three mobile-only elements (menu button, drawer close button, backdrop)
+ * and style the header's Back to Platform Admin control.
  * Everything else lives inside `@media (max-width: 899.98px)` and uses
  * !important only because it has to beat AdminShell's inline styles.
  * The 900px breakpoint must match ADMIN_DESKTOP_MIN_WIDTH_PX in adminDrawer.ts.
@@ -15,6 +16,32 @@
 .adm-drawer-close,
 .adm-backdrop {
   display: none;
+}
+
+/* Header "← Platform Admin" (Platform Admin accounts only; see AdminShell).
+ * Shown at every width — on phones the sidebar link is inside the drawer. */
+.adm-back-pa {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: .3rem .8rem;
+  border-radius: 8px;
+  border: 1.5px solid #0b1e3d;
+  background: #0b1e3d;
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.adm-back-pa:hover {
+  background: #16305c;
+}
+.adm-back-pa:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 @media (max-width: 899.98px) {
@@ -117,6 +144,10 @@
   .adm-search-label,
   .adm-search-kbd {
     display: none;
+  }
+  .adm-back-pa {
+    min-height: 44px;
+    padding: 0 .7rem;
   }
 
   /* ── Content ───────────────────────────────────────────────────────── */

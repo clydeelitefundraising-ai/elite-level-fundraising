@@ -97,6 +97,7 @@ export const ADMIN_NAV: readonly AdminNavSection[] = [
     id: "analytics", label: "Reports & Analytics", href: "/platform-admin/analytics", icon: "▤",
     summary: "Business reports, analytics and exports.",
     items: [
+      { label: "People on ELF", href: "/platform-admin/people", description: "Unique athletes, coaches, parents and boosters, by role and account status." },
       { label: "Reports", href: "/admin/reports", description: "Business reports across campaigns.", legacy: true },
       { label: "Analytics", href: "/admin/analytics", description: "Per-campaign and per-athlete performance.", legacy: true },
       { label: "Exports", href: "/admin/exports", description: "CSV exports of campaigns, contacts, donations and registration.", legacy: true },
